@@ -62,7 +62,10 @@ cat > "${PLIST}" <<PLIST_EOF
     <key>EnvironmentVariables</key>
     <dict>
         <key>DATA_DIR</key><string>${DATA_DIR}</string>
-        <key>APP_BASE_URL</key><string>http://localhost:8787</string>
+        <!-- APP_BASE_URL intentionally unset. The app derives its own URL from
+             the request's Host header at runtime (lib/config/base-url.ts), so
+             the install works on localhost, behind a tunnel, or with a reverse
+             proxy — no per-host tweak to the LaunchAgent. -->
         <key>NODE_ENV</key><string>production</string>
     </dict>
     <key>RunAtLoad</key><true/>

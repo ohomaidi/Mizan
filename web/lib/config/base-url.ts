@@ -24,7 +24,12 @@ export async function resolveAppBaseUrl(): Promise<string> {
     const h = await headers();
     const host = h.get("x-forwarded-host") ?? h.get("host");
     if (host) {
-      const proto = h.get("x-forwarded-proto") ?? "https";
+      // Trust x-forwarded-proto when the request came through a proxy. Without
+      // it (Mac/Windows direct-access installs), guess from the hostname: any
+      // `localhost`/`127.x` is http, everything else gets https.
+      const proto =
+        h.get("x-forwarded-proto") ??
+        (/^(localhost|127\.)/i.test(host) ? "http" : "https");
       return `${proto}://${host}`;
     }
   } catch {

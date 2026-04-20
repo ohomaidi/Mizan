@@ -55,8 +55,11 @@ Write-Host "==> Writing service wrapper..."
 $ServiceCmd = @'
 @echo off
 setlocal
-set DATA_DIR=%ProgramData%\Posture Dashboard\data
-set APP_BASE_URL=http://localhost:8787
+set DATA_DIR=%ProgramData%\Mizan\data
+REM APP_BASE_URL intentionally unset. The app derives its own URL from the
+REM request's Host header at runtime (lib/config/base-url.ts), so a local
+REM install works on localhost, behind IIS, or behind a reverse proxy with
+REM no per-host tweak to the service wrapper.
 set NODE_ENV=production
 if not exist "%DATA_DIR%" mkdir "%DATA_DIR%"
 cd /d "%~dp0"
