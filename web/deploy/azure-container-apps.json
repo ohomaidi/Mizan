@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "5771185378591208223"
+      "templateHash": "1249427031847796812"
     }
   },
   "parameters": {
@@ -32,8 +32,9 @@
     },
     "appBaseUrl": {
       "type": "string",
+      "defaultValue": "",
       "metadata": {
-        "description": "Public base URL the dashboard will be served on — used for the OIDC redirect."
+        "description": "Public base URL the dashboard will be served on — used for the OIDC redirect. Leave empty to let the one-click deploy finish; after Azure assigns the ingress FQDN you update this env var and flip on auth enforcement. If you already have a custom domain, put it here."
       }
     },
     "syncSecret": {

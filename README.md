@@ -128,14 +128,50 @@ Steps 2–5 are all skippable — configure them from Settings anytime.
 
 ## Screenshots
 
-### Login
-<img src="docs/images/login.png" alt="Branded login page" width="700" />
+### Maturity overview — the morning glance
+Every connected entity ranked against your target, KPI tiles for the whole estate, 7d/30d/QTD/YTD deltas. One screen tells you who's dragging and who's pulling away.
 
-### Branding settings
+<img src="docs/images/maturity.png" alt="Maturity overview" width="860" />
+
+### Connected entities
+Full list, sortable by any column. Cluster chips (Police / Health / Edu / Municipality / Utilities / Transport / Other) filter in place. CSV export one click away.
+
+<img src="docs/images/entities.png" alt="Connected entities" width="860" />
+
+### Entity drill-down
+Per-entity Maturity Index with sub-score breakdown (identity, device, data, threat, compliance). Controls tab for dragging Secure Score items, Incidents tab for active Defender alerts, Connection tab for sync health.
+
+<img src="docs/images/entity-detail.png" alt="Entity detail" width="860" />
+
+### Governance — framework alignment
+UAE NESA alignment by default. Switch to KSA NCA, ISR / ISO 27001, or generic at install time. Per-clause coverage bars backed by real Secure Score control mappings.
+
+<img src="docs/images/governance.png" alt="Governance and NESA alignment" width="860" />
+
+### Data protection, identity posture, threats, devices
+Roll-up views for the cross-entity security story.
+
+<p align="center">
+  <img src="docs/images/data.png" alt="Data protection roll-up" width="420" />
+  <img src="docs/images/identity.png" alt="Identity roll-up" width="420" />
+</p>
+<p align="center">
+  <img src="docs/images/threats.png" alt="Threats roll-up" width="420" />
+  <img src="docs/images/devices.png" alt="Devices roll-up" width="420" />
+</p>
+
+### Branded sign-in + user management
+Entra ID sign-in, Admin / Analyst / Viewer roles, invite-by-email. All gated behind the in-app **Enforce sign-in** toggle so first-run installs stay open until you're ready.
+
+<p align="center">
+  <img src="docs/images/login.png" alt="Branded sign-in" width="420" />
+  <img src="docs/images/settings-users.png" alt="Users and roles" width="420" />
+</p>
+
+### White-label branding in 30 seconds
+Name (EN + AR), short form, tagline, colors, framework. Upload a logo and the ML model auto-strips the background locally.
+
 <img src="docs/images/settings-branding.png" alt="Branding settings" width="860" />
-
-### User management + RBAC
-<img src="docs/images/settings-users.png" alt="Users and roles" width="860" />
 
 ---
 

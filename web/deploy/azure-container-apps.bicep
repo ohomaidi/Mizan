@@ -26,8 +26,8 @@ param containerImage string = 'ghcr.io/ohomaidi/mizan'
 @description('Image tag. Pin to a semver (e.g. 1.0.0) for production; "latest" is fine for pilots.')
 param imageTag string = 'latest'
 
-@description('Public base URL the dashboard will be served on — used for the OIDC redirect.')
-param appBaseUrl string
+@description('Public base URL the dashboard will be served on — used for the OIDC redirect. Leave empty to let the one-click deploy finish; after Azure assigns the ingress FQDN you update this env var and flip on auth enforcement. If you already have a custom domain, put it here.')
+param appBaseUrl string = ''
 
 @description('Optional sync shared secret. Set this if you wire an Azure Function / Logic App to POST /api/sync daily.')
 @secure()
