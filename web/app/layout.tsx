@@ -18,6 +18,12 @@ const arabic = Noto_Kufi_Arabic({
   weight: ["400", "500", "600", "700"],
 });
 
+// Force dynamic at the root so the DB-backed branding (via getBranding) is
+// re-read on every request. Without this, Next statically prerenders pages
+// like /login at build time and ships whatever branding was in the DB back
+// then — which leaks old customer names into fresh installs.
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(): Promise<Metadata> {
   const b = getBranding();
   return {
