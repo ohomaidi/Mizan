@@ -14,8 +14,14 @@ function opt(key: string, fallback: string): string {
  * See `lib/config/azure-config.ts`.
  */
 export const config = {
-  /** Public base URL of the deployed app (used to build redirect URIs). */
-  appBaseUrl: opt("APP_BASE_URL", "http://127.0.0.1:8787"),
+  /**
+   * Public base URL of the deployed app, when the operator has explicitly set
+   * it via APP_BASE_URL. If empty, callers that run inside a request context
+   * should use `resolveAppBaseUrl()` from `lib/config/base-url.ts` — it reads
+   * the forwarded host header so one-click ACA deployments on the assigned
+   * `*.azurecontainerapps.io` hostname work with no post-deploy config step.
+   */
+  appBaseUrl: opt("APP_BASE_URL", ""),
 
   /** Azure AD app registration — DB-backed with env fallback. Safe to call from server-only code. */
   get azure(): {

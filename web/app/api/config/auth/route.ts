@@ -9,7 +9,7 @@ import {
 } from "@/lib/config/auth-config";
 import { apiRequireRole } from "@/lib/auth/rbac";
 import { invalidateAuthClient } from "@/lib/auth/msal-user";
-import { config } from "@/lib/config";
+import { resolveUserAuthRedirectUri } from "@/lib/config/base-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ const Schema = z
     { message: "at least one field required" },
   );
 
-function maskForClient() {
+async function maskForClient() {
   const cfg = getAuthConfig();
   return {
     clientId: cfg.clientId,
@@ -43,14 +43,14 @@ function maskForClient() {
     defaultRole: cfg.defaultRole,
     enforce: cfg.enforce,
     updatedAt: cfg.updatedAt ?? null,
-    redirectUri: `${config.appBaseUrl.replace(/\/+$/, "")}/api/auth/user-callback`,
+    redirectUri: await resolveUserAuthRedirectUri(),
   };
 }
 
 export async function GET() {
   const gate = await apiRequireRole("admin");
   if (!gate.ok) return gate.response;
-  return NextResponse.json({ config: maskForClient() });
+  return NextResponse.json({ config: await maskForClient() });
 }
 
 export async function PUT(req: NextRequest) {
@@ -84,5 +84,5 @@ export async function PUT(req: NextRequest) {
     setAuthConfig(patch);
   }
   invalidateAuthClient();
-  return NextResponse.json({ config: maskForClient() });
+  return NextResponse.json({ config: await maskForClient() });
 }

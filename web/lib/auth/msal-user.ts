@@ -1,7 +1,7 @@
 import "server-only";
 import { ConfidentialClientApplication } from "@azure/msal-node";
-import { config } from "@/lib/config";
 import { getAuthConfig, type Role } from "@/lib/config/auth-config";
+import { resolveUserAuthRedirectUri } from "@/lib/config/base-url";
 
 /**
  * User-auth MSAL client. Separate from the Graph-signals MSAL client in
@@ -36,15 +36,15 @@ export function invalidateAuthClient(): void {
   _signature = "";
 }
 
-export function redirectUri(): string {
-  return `${config.appBaseUrl.replace(/\/+$/, "")}/api/auth/user-callback`;
+export async function redirectUri(): Promise<string> {
+  return resolveUserAuthRedirectUri();
 }
 
 export async function getLoginUrl(state: string): Promise<string> {
   const client = getClient();
   return client.getAuthCodeUrl({
     scopes: SCOPES,
-    redirectUri: redirectUri(),
+    redirectUri: await redirectUri(),
     state,
     prompt: "select_account",
   });
@@ -63,7 +63,7 @@ export async function exchangeCodeForToken(code: string): Promise<LoginTokenResu
   const client = getClient();
   const result = await client.acquireTokenByCode({
     scopes: SCOPES,
-    redirectUri: redirectUri(),
+    redirectUri: await redirectUri(),
     code,
   });
   if (!result?.idTokenClaims) {

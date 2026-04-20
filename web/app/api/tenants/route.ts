@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
     }
-    const consentUrl = buildConsentUrl(existing.tenant_id, existing.consent_state);
+    const consentUrl = await buildConsentUrl(existing.tenant_id, existing.consent_state);
     return NextResponse.json(
       {
         tenant: existing,
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     consentState,
   );
 
-  const consentUrl = buildConsentUrl(tenant.tenant_id, consentState);
+  const consentUrl = await buildConsentUrl(tenant.tenant_id, consentState);
 
   return NextResponse.json(
     { tenant, consentUrl, azureConfigured: config.isAzureConfigured },

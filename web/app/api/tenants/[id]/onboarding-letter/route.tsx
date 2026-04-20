@@ -5,6 +5,7 @@ import { config } from "@/lib/config";
 import { OnboardingLetter } from "@/lib/pdf/OnboardingLetter";
 import { getPdfTemplate } from "@/lib/config/pdf-template";
 import { buildConsentUrl } from "@/lib/config/consent-url";
+import { resolveAppBaseUrl } from "@/lib/config/base-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +23,9 @@ export async function GET(
   const url = new URL(req.url);
   const lang = url.searchParams.get("lang") === "ar" ? "ar" : "en";
 
-  const consentUrl = buildConsentUrl(tenant.tenant_id, tenant.consent_state);
+  const consentUrl = await buildConsentUrl(tenant.tenant_id, tenant.consent_state);
   const template = getPdfTemplate();
+  const dashboardUrl = await resolveAppBaseUrl();
 
   const doc = (
     <OnboardingLetter
@@ -41,7 +43,7 @@ export async function GET(
       council={{ issueDate: new Date().toISOString().slice(0, 10) }}
       consentUrl={consentUrl}
       appId={config.azure.clientId}
-      dashboardUrl={config.appBaseUrl}
+      dashboardUrl={dashboardUrl}
       template={template}
     />
   );

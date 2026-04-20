@@ -15,7 +15,7 @@ export async function GET(
   if (!tenant) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  const consentUrl = buildConsentUrl(tenant.tenant_id, tenant.consent_state);
+  const consentUrl = await buildConsentUrl(tenant.tenant_id, tenant.consent_state);
   return NextResponse.json({
     consentUrl,
     consentStatus: tenant.consent_status,
