@@ -9,9 +9,11 @@ out/
 next-env.d.ts
 .turbo/
 
-# Runtime data — customer secrets live here, never commit
-web/data/
-data/
+# Runtime data — customer secrets live here, never commit.
+# Anchor to the project roots we actually use so nothing like lib/data/
+# gets swept along with them.
+/web/data/
+/data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
