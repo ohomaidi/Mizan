@@ -1,0 +1,30 @@
+# Local / self-hosted reference deployment for Posture & Maturity Dashboard.
+#
+# For Azure use deploy/azure-container-apps.bicep instead.
+# For Mac/Windows double-click installers see deploy/mac-build.sh and
+# deploy/windows-build.ps1.
+
+services:
+  dashboard:
+    build: .
+    image: posture-dashboard:latest
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      # Public URL the dashboard is reachable at. Used as the OIDC redirect host.
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8787}
+      # Optional shared secret for hitting /api/sync from a scheduler.
+      SCSC_SYNC_SECRET: ${SCSC_SYNC_SECRET:-}
+      DATA_DIR: /data
+    volumes:
+      - posture_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/api/auth/me"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  posture_data:

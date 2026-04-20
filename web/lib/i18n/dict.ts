@@ -1,0 +1,1888 @@
+// Translation dictionary.
+//
+// Rule for this project: **product names stay in English**, always.
+//   - Top-level nav labels (Maturity overview, Entities, Identity, Threats, ...)
+//   - Feature/product names (Secure Score, Defender, Purview, Entra ID, Intune, ...)
+//   - Entity proper names (Sharjah Police, SEWA, ...) — come from data layer as-is.
+//
+// What IS translated: page headings, descriptions, column headers, button labels,
+// KPI labels, status words, empty-state copy.
+
+export const LOCALES = ["en", "ar"] as const;
+export type Locale = (typeof LOCALES)[number];
+
+export const DICT = {
+  en: {
+    "topbar.demo": "Demo env",
+    "topbar.language": "Language",
+    "topbar.notifications": "Notifications",
+    "theme.switchToLight": "Switch to light mode",
+    "theme.switchToDark": "Switch to dark mode",
+    "demo.badge": "Demo data",
+
+    "maturity.eyebrow": "{orgShort} overview",
+    "maturity.title": "Maturity overview",
+    "maturity.subtitle":
+      "Live posture across all {count} connected your connected entities, computed continuously from Microsoft Graph signals.",
+
+    "chart.clusters.targetLabel": "TARGET {target}",
+    "chart.entities.title": "Maturity by entity",
+    "chart.entities.subtitle":
+      "One bar per consented entity vs {orgShort} target {target}. Click a bar to drill in.",
+    "chart.sort.name": "Name",
+    "chart.sort.maturityHigh": "Maturity · high first",
+    "chart.sort.maturityLow": "Maturity · low first",
+
+    "time.range.ariaLabel": "Time range",
+    "time.range.7d": "7D",
+    "time.range.30d": "30D",
+    "time.range.qtd": "QTD",
+    "time.range.ytd": "YTD",
+    "time.range.caption.7d": "vs 7 days ago",
+    "time.range.caption.30d": "vs 30 days ago",
+    "time.range.caption.qtd": "quarter to date",
+    "time.range.caption.ytd": "year to date",
+    "time.range.caption.noHistory": "Not enough history yet.",
+
+    "page.identity.eyebrow": "Identity & Access Observatory",
+    "page.identity.title": "Identity",
+    "page.identity.subtitle":
+      "Risky users, conditional access drift, PIM sprawl, legacy auth, and MFA posture across all connected entities.",
+
+    "page.threats.eyebrow": "Threat & Incident Operations",
+    "page.threats.title": "Threats",
+    "page.threats.subtitle":
+      "Unified incidents and alerts across all 100+ entities, Advanced Hunting KQL packs, custom detections sync, and threat intelligence overlays.",
+
+    "page.data.eyebrow": "Data Protection Posture · Purview",
+    "page.data.title": "Data protection",
+    "page.data.subtitle":
+      "Sensitivity label coverage, DLP alert density, insider risk, communication compliance, retention labels, and external sharing posture.",
+
+    "page.devices.eyebrow": "Device & Endpoint Hygiene · Intune",
+    "page.devices.title": "Devices",
+    "page.devices.subtitle":
+      "Compliance by OS and entity, BitLocker / Secure Boot / TPM attestation, MAM coverage, and non-compliant device drill-down.",
+
+    "page.governance.eyebrow": "Governance & Standards",
+    "page.governance.title": "Governance",
+    "page.governance.subtitle":
+      "{orgShort} baseline benchmarks, UAE NESA framework alignment, and unified audit search across every consented entity.",
+
+    "page.settings.eyebrow": "{orgShort} Operations",
+    "page.settings.title": "Settings",
+    "page.settings.subtitle":
+      "Entity onboarding, per-tenant connection health, audit log, and global configuration.",
+
+    "settings.newEntity.title": "Onboard a new entity",
+    "settings.newEntity.subtitle":
+      "Both English and Arabic names are required. The Arabic name is used in the RTL locale; the English name is used everywhere else.",
+
+    "wizard.step": "Step {n} of {total}",
+    "wizard.step1.title": "Identify the entity",
+    "wizard.step1.subtitle": "Names, cluster, and CISO contact.",
+    "wizard.step2.title": "Tenant and domain",
+    "wizard.step2.subtitle":
+      "Enter the primary verified domain. We resolve the Entra Tenant ID for you via OIDC discovery.",
+    "wizard.step2.resolve": "Resolve from domain",
+    "wizard.step2.resolving": "Resolving…",
+    "wizard.step2.resolved": "Resolved: {tenantId}",
+    "wizard.step2.resolveFailed": "Could not resolve a Tenant ID from that domain.",
+    "wizard.step2.manualTenant": "Or paste Tenant ID directly",
+    "wizard.step2.license": "E5 licensing confirmed for every seat (or exceptions documented)",
+    "wizard.step3.title": "Generate consent artifacts",
+    "wizard.step3.subtitle":
+      "We'll create the tenant record, mint a unique admin-consent URL, and prepare the bilingual onboarding PDF. Nothing is sent — you review the preview below before forwarding to the entity's Global Admin.",
+    "wizard.step3.generate": "Generate",
+    "wizard.step3.done": "Generated. Consent URL + PDFs ready below.",
+    "wizard.step4.title": "Await admin consent",
+    "wizard.step4.subtitle":
+      "Forward the onboarding letter to the entity's Global Administrator. This page live-polls consent status every 5 seconds. You can close the window — consent continues to be captured by the redirect handler.",
+    "wizard.step4.polling": "Polling consent status…",
+    "wizard.step4.status.pending": "Awaiting consent",
+    "wizard.step4.status.consented": "Consent received",
+    "wizard.step4.status.revoked": "Consent revoked",
+    "wizard.step4.status.failed": "Consent flow failed",
+    "wizard.step5.title": "First sync + verify",
+    "wizard.step5.subtitle":
+      "Trigger an initial Graph pull to prove the pipeline. Once Secure Score returns a value, the entity moves into the live dashboard.",
+    "wizard.step5.run": "Run first sync",
+    "wizard.step5.running": "Syncing…",
+    "wizard.step5.ok": "First sync succeeded. Entity now appears on the Maturity overview.",
+    "wizard.step5.failed": "Sync failed: {message}",
+    "wizard.nav.back": "Back",
+    "wizard.nav.next": "Next",
+    "wizard.nav.finish": "Finish",
+    "wizard.nav.cancel": "Cancel",
+    "wizard.toggle.useForm": "Use quick form",
+    "wizard.toggle.useWizard": "Use guided wizard",
+    "settings.field.nameEn": "Name (English)",
+    "settings.field.nameAr": "Name (Arabic)",
+    "settings.field.cluster": "Cluster",
+    "settings.field.tenantId": "Tenant ID",
+    "settings.field.domain": "Primary domain",
+    "settings.field.ciso": "CISO name",
+    "settings.field.cisoEmail": "CISO email",
+    "settings.field.required": "required",
+    "settings.submit.add": "Generate onboarding letter",
+    "settings.submit.preview":
+      "In production this generates a PDF onboarding letter and a per-tenant consent URL for the CISO.",
+    "settings.existing.title": "Onboarded entities",
+    "settings.existing.subtitle":
+      "The {count} entities currently registered. Both names are kept and shown based on the active locale.",
+    "settings.list.clusterHeader": "Cluster",
+    "settings.list.status": "Status",
+
+    "state.loading": "Loading…",
+    "state.error": "Something went wrong.",
+    "state.retry": "Retry",
+    "state.empty.title": "No entities connected yet",
+    "state.empty.body":
+      "Onboard your first entity from the Settings tab. After admin consent, the dashboard populates automatically from Microsoft Graph.",
+    "state.empty.cta": "Go to Settings",
+    "state.notConfigured.title": "Azure app registration not configured",
+    "state.notConfigured.body":
+      "Set AZURE_CLIENT_ID and AZURE_CLIENT_SECRET in .env.local (see docs/08-phase2-setup.md) and restart the server.",
+
+    "consent.status.pending": "Pending consent",
+    "consent.status.consented": "Consented",
+    "consent.status.revoked": "Revoked",
+    "consent.status.failed": "Consent failed",
+
+    "sync.last": "Last synced {when}",
+    "sync.never": "Never synced",
+    "sync.now": "Sync now",
+    "sync.inProgress": "Syncing…",
+    "sync.failed": "Sync failed",
+    "sync.all": "Sync all entities",
+    "sync.all.title": "Sync all entities now",
+    "sync.all.body":
+      "This runs a full posture refresh against every consented entity tenant. Each tenant performs five Microsoft Graph calls (Secure Score, Conditional Access, risky users, devices, incidents) serialized to respect per-tenant throttling.",
+    "sync.all.warning":
+      "This may take several minutes. Please keep this tab open until it completes — closing the tab does not cancel the sync.",
+    "sync.all.estimate": "Estimated time: about {duration}.",
+    "sync.all.tenantsReal": "{n} real tenant(s) × ~{perTenant}s each.",
+    "sync.all.tenantsDemo": "{n} demo tenant(s) — instant, no Graph calls.",
+    "sync.all.running": "Syncing {n} entities — please wait",
+    "sync.all.running.body":
+      "Do not close this tab. The page will refresh automatically when the sync completes.",
+    "sync.all.done": "Sync complete",
+    "sync.all.doneBody": "{ok} of {total} tenants succeeded.",
+    "sync.all.cancel": "Cancel",
+    "sync.all.start": "Start sync",
+    "sync.all.close": "Close",
+    "time.seconds": "{n} second(s)",
+    "time.minutes": "{n} minute(s)",
+    "time.minutesSeconds": "{m}m {s}s",
+
+    "settings.consent.linkReady":
+      "Send the admin-consent link below to the entity's Global Administrator. Once consented, the first sync runs automatically.",
+    "settings.consent.openLink": "Open consent link",
+    "settings.consent.copy": "Copy link",
+    "settings.consent.copied": "Copied",
+    "settings.consent.awaiting":
+      "Awaiting admin consent from the entity. The dashboard will light up after they click the link.",
+    "settings.consent.notConfigured":
+      "Entra app registration is not configured yet; we saved the entity but cannot generate a consent link until AZURE_CLIENT_ID is set.",
+    "settings.consent.failed":
+      "The admin-consent flow reported an error. Check the entity's Conditional Access policies and retry.",
+    "settings.consent.ok": "Consent received. Initial sync in progress — refresh in a few seconds.",
+    "settings.pdf.download": "Download letter",
+    "settings.pdf.en": "English",
+    "settings.pdf.ar": "Arabic",
+
+    "settings.tab.entities": "Entities",
+    "settings.tab.branding": "Branding",
+    "settings.tab.maturity": "Maturity Index",
+    "settings.tab.pdf": "Onboarding PDF",
+    "settings.tab.discovery": "Discovery PDF",
+    "settings.tab.audit": "Audit log",
+    "settings.tab.azure": "App Registration",
+    "settings.tab.nesa": "NESA mapping",
+    "settings.tab.docs": "Documentation",
+
+    "branding.title": "Branding",
+    "branding.subtitle":
+      "Organization name, colors, and framework. Applies to the dashboard, PDFs, and onboarding letters.",
+    "branding.field.nameEn": "Organization name (EN)",
+    "branding.field.nameAr": "Organization name (AR)",
+    "branding.field.shortEn": "Short form (EN)",
+    "branding.field.shortAr": "Short form (AR)",
+    "branding.field.taglineEn": "Tagline (EN)",
+    "branding.field.taglineAr": "Tagline (AR)",
+    "branding.field.accentColor": "Primary accent color",
+    "branding.field.accentColorStrong": "Strong accent color",
+    "branding.field.framework": "Maturity framework",
+    "branding.framework.generic": "Generic (no framework)",
+    "branding.framework.nesa": "UAE NESA",
+    "branding.framework.nca": "KSA NCA",
+    "branding.framework.isr": "ISR / ISO 27001",
+    "branding.field.logo": "Organization logo",
+    "branding.logo.helper":
+      "PNG, JPEG, or WebP. Background is auto-removed by a local ML model unless you check the box below. Recommended: square, at least 256×256.",
+    "branding.logo.keepBackground": "Keep the uploaded image's original background",
+    "branding.logo.upload": "Upload logo",
+    "branding.logo.remove": "Remove",
+    "branding.logo.saved": "Logo uploaded",
+    "branding.logo.removed": "Logo removed",
+    "branding.logo.deleteConfirm":
+      "Remove the current logo? The dashboard will fall back to a text monogram until a new logo is uploaded.",
+
+    "login.title": "Sign in",
+    "login.subtitle": "Posture Dashboard",
+    "login.body":
+      "Sign in with your organization's Microsoft account. Only users registered in the dashboard can access posture and maturity data.",
+    "login.signIn": "Continue with Microsoft",
+    "login.footer":
+      "Protected access · identity provided by Microsoft Entra",
+    "login.error.forbidden": "Your account does not have access to this dashboard.",
+    "login.error.state_mismatch":
+      "Sign-in was interrupted. Please try again.",
+    "login.error.token_exchange":
+      "Microsoft rejected the authentication. Check the app registration settings.",
+    "login.error.missing_params": "The sign-in URL was malformed.",
+
+    "settings.tab.auth": "Authentication",
+    "authCfg.title": "User authentication",
+    "authCfg.subtitle":
+      "Sign-in for operators and analysts. Uses a second Entra app registration (separate from the one that reads entity posture). Leave off to keep the dashboard open for demos.",
+    "authCfg.field.clientId": "Auth app client ID",
+    "authCfg.field.clientSecret": "Auth app client secret",
+    "authCfg.field.clientSecretPlaceholder":
+      "Enter a new secret, or leave blank to keep the existing one",
+    "authCfg.field.tenantId": "Operator Entra tenant ID",
+    "authCfg.field.sessionTimeout": "Session timeout (minutes)",
+    "authCfg.field.defaultRole": "Default role for new users",
+    "authCfg.field.enforce": "Enforce sign-in for every request",
+    "authCfg.enforce.helper":
+      "When off, the dashboard stays open — useful during first-run configuration. Turn on once you have confirmed sign-in works for at least one user.",
+    "authCfg.role.admin": "Admin",
+    "authCfg.role.analyst": "Analyst",
+    "authCfg.role.viewer": "Viewer",
+    "authCfg.redirectUri": "Redirect URI (copy to your Entra app)",
+    "authCfg.save": "Save authentication settings",
+    "authCfg.saved": "Saved. Sign out and back in to pick up the new settings.",
+    "authCfg.clear": "Clear",
+    "authCfg.clearConfirm":
+      "Clear authentication settings? Active sessions remain until they expire.",
+    "authCfg.secretSet": "Secret stored",
+    "authCfg.secretUnset": "Not set",
+    "authCfg.signOut": "Sign out",
+    "authCfg.testSignIn": "Test sign-in (new tab)",
+
+    "users.title": "Dashboard users",
+    "users.subtitle":
+      "Everyone who can sign in. Invite by email to pre-assign a role, or promote a user after they sign in for the first time.",
+    "users.empty": "No users yet. Invite the first admin or sign in once yourself to bootstrap.",
+    "users.deleteConfirm":
+      "Delete this user? Their sessions are terminated immediately.",
+    "users.status.active": "Active",
+    "users.status.disabled": "Disabled",
+    "users.status.pending": "Pending first sign-in",
+    "users.col.user": "User",
+    "users.col.role": "Role",
+    "users.col.status": "Status",
+    "users.col.lastLogin": "Last sign-in",
+    "users.action.enable": "Enable",
+    "users.action.disable": "Disable",
+    "users.action.delete": "Delete",
+    "users.invite.title": "Invite a new user",
+    "users.invite.displayName": "Display name (optional)",
+    "users.invite.submit": "Invite",
+    "users.invite.helper":
+      "Creates a pending record. The user's role lands on their first Microsoft sign-in — they don't see an email from us.",
+
+    "setup.title": "First-run setup",
+    "setup.back": "Back",
+    "setup.next": "Next",
+    "setup.skipHint":
+      "You can skip this step and configure it later from Settings.",
+    "setup.s1.title": "1. Your organization",
+    "setup.s1.subtitle":
+      "This is the name that appears everywhere — dashboard chrome, PDFs, letters, the sign-in page.",
+    "setup.s2.title": "2. Logo",
+    "setup.s2.subtitle":
+      "Upload a PNG/JPEG/WebP. The background is auto-removed locally — no cloud service is involved.",
+    "setup.s2.skip": "Optional — you can skip and add one later from Settings.",
+    "setup.s3.title": "3. Graph signals app",
+    "setup.s3.subtitle":
+      "The multi-tenant Entra app that reads posture from each entity tenant. Each entity's Global Admin consents to it in their own tenant.",
+    "setup.s3.b1":
+      "Entra admin center → App registrations → New registration → multi-tenant",
+    "setup.s3.b2":
+      "Add read-only Graph permissions (SecurityEvents.Read.All, Device.Read.All, Directory.Read.All, User.Read.All, Policy.Read.All — application permissions).",
+    "setup.s3.b3":
+      "Create a client secret and paste the client ID + secret below.",
+    "setup.s4.title": "4. User sign-in app",
+    "setup.s4.subtitle":
+      "A second — separate — Entra app, single-tenant, for your staff to sign in to this dashboard. Keep the Graph-signals app separate so the two secrets rotate independently.",
+    "setup.s4.b1":
+      "Entra admin center → App registrations → New registration → single-tenant",
+    "setup.s4.b2":
+      "Under Authentication → Web platform, add this redirect URI:",
+    "setup.s4.b3":
+      "Create a client secret. Optionally define App roles (Posture.Admin / Analyst / Viewer) and assign users; otherwise the default role below applies.",
+    "setup.s5.title": "5. Bootstrap admin",
+    "setup.s5.subtitle":
+      "Sign in now — the first account to complete sign-in becomes admin automatically.",
+    "setup.s5.bootstrapBody":
+      "The button below opens Microsoft sign-in in this tab. Come back and click Finish.",
+    "setup.s5.openBody":
+      "You skipped the user-auth step — the dashboard stays open (no sign-in required). You can configure authentication anytime from Settings → Authentication.",
+    "setup.s5.signIn": "Sign in and become admin",
+    "setup.s5.afterSignIn":
+      "After sign-in you'll land back here. Click Finish to open the dashboard.",
+    "setup.s5.finish": "Finish setup — open the dashboard",
+    "branding.save": "Save",
+    "branding.reset": "Reset to defaults",
+    "branding.resetConfirm":
+      "Reset branding to generic defaults? Your name, colors, and framework will be overwritten.",
+    "branding.saved": "Branding saved — reloading",
+
+    "docs.title": "Customer handoff documentation",
+    "docs.subtitle":
+      "PDF documentation bundled with the platform. Each document ships as a separate English and Arabic file (monolingual — no mixed-script PDFs). Click to open in a new tab; right-click → save as to archive.",
+    "docs.open.en": "Open EN",
+    "docs.open.ar": "Open AR",
+    "docs.doc.install.title": "Installation & Deployment Guide",
+    "docs.doc.install.body":
+      "Zero-to-live runbook for {orgShort} IT + Microsoft delivery teams. Covers prerequisites, Entra app registration, environment config, Docker + Azure deployment, first-tenant onboarding, operational tasks, and troubleshooting.",
+    "docs.doc.operator.title": "Operator's Manual",
+    "docs.doc.operator.body":
+      "Day-to-day dashboard use for {orgShort} staff. Page-by-page tour, how to read the Maturity Index, common tasks (onboard entity, adjust weights, investigate red entities, export reports).",
+    "docs.doc.security.title": "Security & Privacy Statement",
+    "docs.doc.security.body":
+      "Formal statement of what the platform reads and does not read, storage and residency posture, access control, audit and retention, revocation and exit, framework alignment. For {orgShort} leadership, entity CISOs, and legal review.",
+    "docs.doc.arch.title": "Architecture & Data Flow Overview",
+    "docs.doc.arch.body":
+      "Systems view for Microsoft delivery engineers and {orgShort} IT architects. System topology, multi-tenant auth model, sync orchestrator + worker pool, data model, throttling envelope, failure modes, scoping decisions.",
+    "docs.doc.handoff.title": "Handoff Checklist",
+    "docs.doc.handoff.body":
+      "Acceptance artifact. Lists shipped deliverables, functional acceptance criteria, pending operator actions, deferred scope, documentation index, and the sign-off block.",
+
+    "azureCfg.walkthrough.title": "How to register the app in Entra",
+    "azureCfg.walkthrough.subtitle":
+      "Step-by-step: create a multi-tenant Entra application in the {orgShort} tenant, grant Graph read permissions, create a client secret, and paste the values below.",
+    "azureCfg.walkthrough.toggle.show": "Show step-by-step walkthrough",
+    "azureCfg.walkthrough.toggle.hide": "Hide walkthrough",
+    "azureCfg.walkthrough.redirectUri":
+      "Redirect URI to paste into Entra (platform: Web)",
+
+    "azureCfg.title": "Entra app registration",
+    "azureCfg.subtitle":
+      "Credentials for the {orgShort}'s multi-tenant Entra app that reads Graph signals from every consented entity. Stored in the dashboard database; takes effect immediately on save (MSAL cache is invalidated). Env vars in .env.local still work as a fallback for fresh installs.",
+    "azureCfg.field.clientId": "Application (client) ID",
+    "azureCfg.field.clientSecret": "Client secret",
+    "azureCfg.field.authorityHost": "Authority host",
+    "azureCfg.field.consentRedirectUri": "Consent redirect URI (override)",
+    "azureCfg.field.consentRedirectUri.hint":
+      "Leave blank to auto-derive from APP_BASE_URL. Set explicitly if your deployment uses a different public hostname than APP_BASE_URL.",
+    "azureCfg.secret.hasValue": "A secret is stored. Type a new value to replace it.",
+    "azureCfg.secret.placeholderReplace": "••••••••  (hidden — type to replace)",
+    "azureCfg.secret.placeholderNew": "Paste the client secret value",
+    "azureCfg.secret.never": "No secret stored yet.",
+    "azureCfg.source.db": "from database",
+    "azureCfg.source.env": "from environment variable (fallback)",
+    "azureCfg.source.none": "not set",
+    "azureCfg.source.label": "Source:",
+    "azureCfg.save": "Save",
+    "azureCfg.saved": "Saved. MSAL cache invalidated — next sync uses the new credentials.",
+    "azureCfg.clear": "Clear stored credentials",
+    "azureCfg.cleared": "Stored credentials cleared. Falls back to env vars if present.",
+    "azureCfg.status.ready": "Ready — Graph token acquisition should work.",
+    "azureCfg.status.missing":
+      "Not configured. Real-tenant syncs will return 412 until you set both Client ID and Client Secret.",
+    "azureCfg.updatedAt": "Last updated {when}",
+
+    "audit.title": "Graph audit-of-access log",
+    "audit.subtitle":
+      "Every Graph endpoint the {orgShort} has called against every entity's tenant, with last success, last error, 24h call count, and throttled count. Telemetry comes from the endpoint_health table written on every sync.",
+    "audit.empty":
+      "No Graph calls recorded yet. The log populates after the first real sync runs.",
+    "audit.search":
+      "Search entity, endpoint, or error…",
+    "audit.filter.all": "All",
+    "audit.filter.ok": "Healthy",
+    "audit.filter.errors": "With errors",
+    "audit.filter.throttled": "Throttled",
+    "audit.col.entity": "Entity",
+    "audit.col.endpoint": "Endpoint",
+    "audit.col.lastSuccess": "Last success",
+    "audit.col.lastError": "Last error",
+    "audit.col.calls": "Calls (24h)",
+    "audit.col.throttled": "Throttled",
+    "audit.refresh": "Refresh",
+    "audit.showing": "Showing {shown} of {total} records.",
+
+    "discovery.banner.title": "Start here — send the Discovery Letter first",
+    "discovery.banner.body":
+      "Before you can register an entity below, they need to tell you their Tenant ID, primary domain, Global Admin, CISO, and licensing status. Download the bilingual Discovery Letter and email it to every entity — it walks them through exactly what to gather and where to find it. Once they reply with the info, come back to this form.",
+    "discovery.banner.download": "Download Discovery Letter",
+    "discovery.banner.preview": "Preview",
+
+    "discoveryCfg.title": "Discovery letter template",
+    "discoveryCfg.subtitle":
+      "The pre-onboarding letter. Sent to every entity before they appear in the dashboard. Walks their technical team through exactly what to collect (Tenant ID, primary domain, licensing, Global Admin, CISO) and where in Microsoft 365 to find each item.",
+    "discoveryCfg.reset": "Reset to defaults",
+    "discoveryCfg.save": "Save template",
+    "discoveryCfg.saved": "Template saved. Re-download to get the new copy.",
+    "discoveryCfg.preview": "Preview PDF",
+    "discoveryCfg.section.brand": "{orgShort} identity + header",
+    "discoveryCfg.section.title": "Document title + subtitle",
+    "discoveryCfg.section.contact": "Reply-to contact",
+    "discoveryCfg.section.overview": "Why you're reaching out",
+    "discoveryCfg.section.steps": "Checklist steps",
+    "discoveryCfg.section.sendBack": "How to send back",
+    "discoveryCfg.section.next": "What happens next",
+    "discoveryCfg.section.footer": "Footer",
+    "discoveryCfg.field.overviewEn": "Overview (English)",
+    "discoveryCfg.field.overviewAr": "Overview (Arabic)",
+    "discoveryCfg.field.sendBackEn": "Send-back instructions (English)",
+    "discoveryCfg.field.sendBackAr": "Send-back instructions (Arabic)",
+    "discoveryCfg.field.nextEn": "Next-step narrative (English)",
+    "discoveryCfg.field.nextAr": "Next-step narrative (Arabic)",
+    "discoveryCfg.field.phone": "Contact phone (optional)",
+    "discoveryCfg.field.stepTitleEn": "Step title (English)",
+    "discoveryCfg.field.stepTitleAr": "Step title (Arabic)",
+    "discoveryCfg.field.stepWhatEn": "What to send (English)",
+    "discoveryCfg.field.stepWhatAr": "What to send (Arabic)",
+    "discoveryCfg.field.stepWhereEn": "Where to find it (English)",
+    "discoveryCfg.field.stepWhereAr": "Where to find it (Arabic)",
+    "discoveryCfg.stepHeading": "Step {n}",
+
+    "faq.q.flow.title": "What's the onboarding flow, end-to-end?",
+    "faq.q.flow.body":
+      "Two stages.\n\nStage 1 — Discovery. {orgShort} downloads the Discovery Letter from Settings and emails it to every entity's CISO. The letter (bilingual) walks the entity's technical team through collecting five items: Entra Tenant ID, primary verified domain, E5 licensing confirmation, a Global Administrator who will click the consent link, and a designated CISO contact. Entity replies with these details.\n\nStage 2 — Onboarding. {orgShort} enters the details in Settings and clicks Generate onboarding letter. The dashboard creates a pending tenant record, generates a unique admin-consent URL, and produces a personalized PDF with the consent URL embedded. {orgShort} sends that PDF to the entity's Global Administrator, who clicks the consent URL, signs in with their tenant's Global Admin account, and approves the read-only Graph permissions. Entra redirects back to the {orgShort} dashboard, which flips the tenant to consented and kicks off an initial sync. Within ten minutes, the entity appears in the Maturity overview with real Secure Score, Conditional Access, risky users, device compliance, and incident data.",
+
+    "maturityCfg.title": "Maturity Index configuration",
+    "maturityCfg.subtitle":
+      "Weights drive the Maturity Index formula for every entity. They normalize to 100% on save — you don't need to balance them exactly.",
+    "maturityCfg.target": "{orgShort} target",
+    "maturityCfg.targetHelp":
+      "Entities below the target appear in the 'Below target' count on the Maturity overview.",
+    "maturityCfg.reset": "Reset to defaults",
+    "maturityCfg.save": "Save configuration",
+    "maturityCfg.saved": "Saved · applies to the next page load and next sync.",
+    "maturityCfg.weightsTotal": "Weights total",
+    "maturityCfg.mustBe100": "must equal 100% ({diff} off)",
+    "maturityCfg.normalize": "Normalize to 100%",
+    "maturityCfg.saveBlocked":
+      "Weights must sum to 100% before saving. Use Normalize or adjust sliders.",
+    "maturityCfg.defaults": "Defaults: {values}",
+    "maturityCfg.w.secureScore": "Secure Score",
+    "maturityCfg.w.identity": "Identity posture",
+    "maturityCfg.w.device": "Device posture",
+    "maturityCfg.w.data": "Data protection",
+    "maturityCfg.w.threat": "Threat response",
+    "maturityCfg.w.compliance": "Framework alignment",
+
+    "pdfCfg.title": "Onboarding PDF template",
+    "pdfCfg.subtitle":
+      "Edit the entity-onboarding letter content. Changes apply to every PDF downloaded afterwards. Both languages are edited together — the PDF stays bilingual.",
+    "pdfCfg.reset": "Reset to defaults",
+    "pdfCfg.save": "Save template",
+    "pdfCfg.saved": "Template saved. Re-download any PDF to get the new copy.",
+    "pdfCfg.preview": "Preview PDF",
+    "pdfCfg.section.brand": "{orgShort} identity + header",
+    "pdfCfg.section.title": "Document title + subtitle",
+    "pdfCfg.section.contact": "{orgShort} contact",
+    "pdfCfg.section.sections": "Body sections",
+    "pdfCfg.section.signoff": "Sign-off roles",
+    "pdfCfg.section.footer": "Footer",
+    "pdfCfg.field.councilEn": "{orgShort} name (English)",
+    "pdfCfg.field.councilAr": "{orgShort} name (Arabic)",
+    "pdfCfg.field.taglineEn": "Tagline (English)",
+    "pdfCfg.field.taglineAr": "Tagline (Arabic)",
+    "pdfCfg.field.titleEn": "Title (English)",
+    "pdfCfg.field.titleAr": "Title (Arabic)",
+    "pdfCfg.field.subtitleEn": "Subtitle (English)",
+    "pdfCfg.field.subtitleAr": "Subtitle (Arabic)",
+    "pdfCfg.field.contactName": "Contact name",
+    "pdfCfg.field.contactEmail": "Contact email",
+    "pdfCfg.field.secTitleEn": "Section title (English)",
+    "pdfCfg.field.secTitleAr": "Section title (Arabic)",
+    "pdfCfg.field.secBodyEn": "Body (English)",
+    "pdfCfg.field.secBodyAr": "Body (Arabic)",
+    "pdfCfg.field.secNoteEn": "Note (English)",
+    "pdfCfg.field.secNoteAr": "Note (Arabic)",
+    "pdfCfg.field.bulletEn": "Bullet (English)",
+    "pdfCfg.field.bulletAr": "Bullet (Arabic)",
+    "pdfCfg.field.footerEn": "Footer text (English)",
+    "pdfCfg.field.footerAr": "Footer text (Arabic)",
+    "pdfCfg.section.heading": "Section {n}",
+    "pdfCfg.sig.role": "Role {n}",
+    "pdfCfg.sig.en": "Role title (English)",
+    "pdfCfg.sig.ar": "Role title (Arabic)",
+
+    "dataProt.eyebrow": "Data Protection · Purview",
+    "dataProt.title": "Data protection — {orgShort} roll-up",
+    "dataProt.subtitle":
+      "Purview roll-up across consented entities. Live Purview signals (DLP alerts, Insider Risk, sensitivity labels, retention) wire in Phase 3. What shows here today is synthesized from Secure Score + Conditional Access as a Phase-2 approximation.",
+    "dataProt.labelCoverage": "Label adoption",
+    "dataProt.dlpAlerts": "DLP alerts (last 24h)",
+    "dataProt.irmAlerts": "Insider Risk alerts",
+    "dataProt.srr": "Subject Rights Requests",
+    "dataProt.phase3.title": "Phase 3 surfaces — not yet wired",
+    "dataProt.phase3.body":
+      "Sensitivity label adoption analytics (via audit log query), DLP / IRM / Communication Compliance alerts from alerts_v2, retention labels, Subject Rights Requests, and Teams + SharePoint external sharing posture land in Phase 3 when Purview signals are added to the sync pipeline.",
+
+    "gov.eyebrow": "Governance & Standards",
+    "gov.title": "Governance — UAE NESA alignment",
+    "gov.subtitle":
+      "{orgShort}-wide alignment to the UAE NESA framework, computed from Secure Score control mappings and {orgShort} baseline enforcement.",
+    "gov.framework.nesa": "NESA alignment",
+    "gov.baseline.title": "{orgShort} baseline",
+    "gov.baseline.body":
+      "Percentage of entities scoring above the {orgShort} target across all sub-scores. Drives the standards-tier ranking.",
+    "gov.baseline.aligned": "Entities aligned",
+    "gov.scope.title": "Scope note",
+    "gov.scope.body":
+      "This dashboard is read-only observability. Framework alignment is surfaced for measurement; policy authoring and deployment are handled in the entities' own tenants, outside the {orgShort} platform.",
+    "gov.clauses.title": "NESA clause coverage",
+    "gov.clauses.subtitle":
+      "Per-clause average coverage across consented entities. Each clause is backed by Secure Score controls — editable in Settings → NESA mapping.",
+    "gov.clauses.col.clause": "Clause",
+    "gov.clauses.col.weight": "Weight",
+    "gov.clauses.col.coverage": "Coverage",
+
+    "dataProt.labels.title": "Labels",
+    "dataProt.labels.subtitle":
+      "Sensitivity + retention label averages across consented entities.",
+    "dataProt.labels.sensitivityActive": "Active sensitivity labels (avg)",
+    "dataProt.labels.retentionAvg": "Retention labels (avg)",
+    "dataProt.labels.recordLabels": "Record labels (sum)",
+    "dataProt.sharing.title": "External sharing posture",
+    "dataProt.sharing.subtitle":
+      "SharePoint tenant-level sharing capability across consented entities. More restrictive is better for government data.",
+    "dataProt.commComp.title": "Comm Compliance",
+    "dataProt.byEntity.title": "By entity",
+    "dataProt.byEntity.subtitle":
+      "Alert counts in parentheses show active alerts; overdue SRRs in red.",
+    "dataProt.col.dlp": "DLP (active)",
+    "dataProt.col.irm": "IRM",
+    "dataProt.col.commComp": "Comm C.",
+    "dataProt.col.srrs": "SRRs (overdue)",
+    "dataProt.col.sharing": "Sharing",
+
+    "nesaCfg.title": "UAE NESA clause mapping",
+    "nesaCfg.subtitle":
+      "{orgShort}-editable mapping from UAE NESA clauses to Microsoft Secure Score controls. Compliance sub-score is computed as the weighted average of per-clause coverage. Weights auto-normalize on save.",
+    "nesaCfg.reset": "Reset to defaults",
+    "nesaCfg.save": "Save",
+    "nesaCfg.saved": "Saved. Applies to the next maturity compute cycle.",
+    "nesaCfg.weight": "Weight",
+    "nesaCfg.controls": "Secure Score controls (comma-separated)",
+    "nesaCfg.totalWeight": "Total weight: {n}",
+    "nesaCfg.addClause": "Add clause",
+    "nesaCfg.removeClause": "Remove",
+
+    "threats.ti.title": "Threat Intelligence",
+    "threats.ti.subtitle": "Recent articles from Microsoft Defender TI linked to the {orgShort} feed.",
+    "threats.ti.empty": "No threat intel articles available yet.",
+    "threats.attackSim.title": "Attack Simulation — phish click-rate",
+    "threats.attackSim.subtitle":
+      "Ranked per entity. Lower is better. Pulled from /security/attackSimulation/simulations.",
+    "threats.hunting.title": "Advanced Hunting packs",
+    "threats.hunting.subtitle":
+      "{orgShort}-authored KQL run against each entity per sync cycle. Click an entity to drill into per-pack results.",
+    "threats.hunting.noResults": "No rows.",
+    "threats.hunting.failed": "Query failed",
+
+    "identity.pim.title": "Privileged role sprawl",
+    "identity.pim.subtitle":
+      "Standing (always-on) vs eligible (just-in-time) admin assignments across consented entities. Lower standing = better.",
+    "identity.pim.col.entity": "Entity",
+    "identity.pim.col.standing": "Standing",
+    "identity.pim.col.eligible": "Eligible",
+    "identity.pim.col.privileged": "Privileged standing",
+    "identity.dfi.title": "Defender for Identity sensor health",
+    "identity.dfi.subtitle": "Unhealthy sensor counts by entity. Zero is the goal.",
+
+    "tabs.entity.controls": "Controls",
+    "tabs.entity.incidents": "Incidents",
+    "tabs.entity.identity": "Identity",
+
+    "maturity.howCalculated": "How is this calculated?",
+
+    "faq.eyebrow": "Reference",
+    "faq.title": "How the dashboard works",
+    "faq.subtitle":
+      "Answers for {orgShort} leadership, entity CISOs, and Microsoft delivery — how the Maturity Index is computed, where the data comes from, and what the limits are.",
+
+    "faq.q.whatIsDashboard.title": "What is this dashboard?",
+    "faq.q.whatIsDashboard.body":
+      "The {orgName}'s federated visibility layer across 100+ your connected entities. Each entity operates its own Microsoft 365 tenant; the {orgShort} reads read-only posture signals from every tenant via Microsoft Graph, computes a per-entity Maturity Index, and ranks against a {orgShort}-defined target. No day-to-day operations run here — entity SOCs keep full autonomy.",
+
+    "faq.q.whatIsIndex.title": "What is the Maturity Index?",
+    "faq.q.whatIsIndex.body":
+      "A single 0–100 score summarizing an entity's security posture. Computed daily (or on-demand via Sync Now) from five signal families: Microsoft Secure Score, Conditional Access policies, risky users, Intune device compliance, and security incidents. {orgShort}'s target is 75 — entities scoring below 75 appear in the 'Below target' count and are prioritized for remediation.",
+
+    "faq.q.howCalculated.title": "How is it calculated?",
+    "faq.q.howCalculated.intro":
+      "Weighted average of six sub-scores, each normalized to 0–100. The weights were set during the briefing and can be adjusted in Governance (Phase 3).",
+    "faq.q.howCalculated.colSub": "Sub-score",
+    "faq.q.howCalculated.colWeight": "Weight",
+    "faq.q.howCalculated.colSource": "Signal",
+    "faq.q.howCalculated.row.ss.name": "Microsoft Secure Score",
+    "faq.q.howCalculated.row.ss.src": "/security/secureScores (percent of max)",
+    "faq.q.howCalculated.row.identity.name": "Identity posture",
+    "faq.q.howCalculated.row.identity.src":
+      "Conditional Access coverage (50%) + MFA-requiring policies (35%) + legacy auth blocked (15%), penalized by active risky-user ratio",
+    "faq.q.howCalculated.row.device.name": "Device posture",
+    "faq.q.howCalculated.row.device.src": "Intune device compliance percentage",
+    "faq.q.howCalculated.row.data.name": "Data protection",
+    "faq.q.howCalculated.row.data.src":
+      "Phase 2: synthesized from Secure Score. Phase 3: Purview label adoption + DLP alert rate",
+    "faq.q.howCalculated.row.threat.name": "Threat response",
+    "faq.q.howCalculated.row.threat.src": "Resolved incidents / total incidents (from /security/incidents)",
+    "faq.q.howCalculated.row.compliance.name": "Framework alignment (NESA)",
+    "faq.q.howCalculated.row.compliance.src":
+      "Synthesized from Secure Score controls mapped to UAE NESA clauses.",
+    "faq.q.howCalculated.formula.title": "Formula",
+    "faq.q.howCalculated.formula.body":
+      "Index = 0.25·SecureScore + 0.20·Identity + 0.15·Device + 0.15·Data + 0.15·Threat + 0.10·Framework",
+
+    "faq.q.target.title": "Why is the target 75?",
+    "faq.q.target.body":
+      "The {orgShort} set 75 as the benchmark during the executive briefing (slide 6). It reflects 'baseline government-grade posture' — above industry average (around 60 for public sector M365 tenants) but achievable for entities that have completed the standard Microsoft Secure Score hardening playbook. The target is editable in Settings → Maturity Index.",
+
+    "faq.q.signals.title": "What signals feed the index?",
+    "faq.q.signals.body":
+      "Five signal families pulled per tenant on each sync cycle:",
+    "faq.q.signals.ss": "Microsoft Secure Score — tenant score and per-control status.",
+    "faq.q.signals.ca": "Conditional Access policies — how many are enabled, enforce MFA, block legacy auth.",
+    "faq.q.signals.ru": "Risky users — Identity Protection classifications + historical state.",
+    "faq.q.signals.dev": "Managed devices — Intune compliance state per device (compliant / non-compliant / grace / error).",
+    "faq.q.signals.inc": "Security incidents — active and resolved from Defender XDR.",
+
+    "faq.q.cadence.title": "How often does the data refresh?",
+    "faq.q.cadence.body":
+      "Demo tenants: snapshots are fixed at seed time. Real tenants: on-demand via the Sync now button on each entity, plus a scheduled full sync driven by an external timer (recommend 15 min for alerts/incidents, hourly for posture, daily for Secure Score). Every sync writes a timestamped snapshot to the database so historical deltas can be computed.",
+
+    "faq.q.belowTarget.title": "What does 'Below target' mean?",
+    "faq.q.belowTarget.body":
+      "The count of consented entities whose current Maturity Index is under the {orgShort} target (75 by default). Entities still pending consent are not included — they appear as 'Pending consent' until they're onboarded.",
+
+    "faq.q.data.title": "Where is the data stored?",
+    "faq.q.data.body":
+      "All signals persist in a local SQLite database on the app's data volume (configurable via the DATA_DIR environment variable). Each signal fetch writes a full snapshot; retention policy is set by the {orgShort}. No entity data leaves the {orgShort}'s hosting environment.",
+
+    "faq.q.limits.title": "Current limitations (Phase 2)",
+    "faq.q.limits.body":
+      "Being transparent about what's not yet live:",
+    "faq.q.limits.a":
+      "The {orgShort} platform is read-only by scope. It observes posture across 100+ entity tenants and ranks it against the {orgShort} target; policy authoring and enforcement remain with each entity's own IT team.",
+    "faq.q.limits.b":
+      "Historical deltas (Δ 7d / 30d / QTD / YTD) require multiple snapshots per tenant and will light up once the sync has been running for a week or more.",
+    "faq.q.limits.c":
+      "Microsoft Compliance Manager does not expose scores via Graph. NESA alignment is synthesized from Secure Score control mappings rather than lifted from Microsoft.",
+    "faq.q.limits.d":
+      "Purview policy CRUD (DLP, Insider Risk, Communication Compliance) is only available via Security & Compliance PowerShell and is intentionally out of scope for this read-only platform.",
+
+    "faq.q.demo.title": "Why do some entities show a 'Demo' badge?",
+    "faq.q.demo.body":
+      "Demo-flagged entities carry pre-baked signals and are never synced against real Graph endpoints. They're there so the dashboard shows populated data before real tenants are onboarded. Production installs ship with seeding disabled by default (set SCSC_SEED_DEMO=true to enable). The {orgShort} can wipe all demo entities at any time with `npm run purge-demo` — real tenants are untouched.",
+
+    "faq.q.glossary.title": "Glossary",
+    "faq.q.glossary.tenant": "Tenant — one entity's Microsoft 365 organization, identified by an Entra GUID.",
+    "faq.q.glossary.cluster": "Cluster — {orgShort} grouping: Police / Health / Education / Municipality / Utilities / Transport / Other.",
+    "faq.q.glossary.consent": "Admin consent — the entity's Global Administrator approves the {orgShort}'s Entra app in their tenant; required before any Graph call works.",
+    "faq.q.glossary.secureScore": "Secure Score — Microsoft's built-in tenant-level security posture metric, 0 to a dynamic max.",
+
+    "kpi.maturityIndex": "Maturity index",
+    "kpi.entities": "Entities",
+    "kpi.belowTarget": "Below target",
+    "kpi.controlsPassing": "Controls passing",
+    "kpi.deltaNew": "new",
+    "kpi.target": "{orgShort} target",
+
+    "chart.clusters.title": "Maturity by entity cluster",
+    "chart.clusters.subtitle": "Index, 0–100 · vs. {orgShort} target of {target}",
+    "chart.legend.current": "Current",
+    "chart.legend.target": "Target",
+
+    "maturity.dragging.title": "Controls dragging the index down",
+    "maturity.dragging.subtitle": "{orgShort}-wide, ranked by total missed Secure Score points",
+    "maturity.dragging.entitiesAffected": "{n} entities affected",
+    "maturity.dragging.empty":
+      "No dragging controls — every Secure Score control is implemented {orgShort}-wide.",
+
+    "maturity.movers.title": "Biggest movers — last 7 days",
+    "maturity.movers.subtitle": "Entities with the largest Maturity Index change",
+    "maturity.movers.empty":
+      "Not enough history yet to compute 7-day movement. Check back after a week of syncs.",
+
+    "entities.eyebrow": "Entities",
+    "entities.title": "Connected entities",
+    "entities.subtitle":
+      "{shown} of {total} entities shown{filterSuffix}. Ranked by Maturity Index.",
+    "entities.filterSuffix": " · filtered to {cluster}",
+    "entities.exportCsv": "Export CSV",
+    "entities.search": "Search entities, domain, CISO…",
+    "entities.belowTargetLabel": "Below target:",
+    "entities.noMatches": "No entities match your search.",
+    "entities.pending.copyLink": "Copy consent link",
+    "entities.pending.copied": "Copied",
+    "entities.pending.cancel": "Cancel onboarding",
+    "entities.pending.cancelConfirm":
+      "Remove this entity and its pending consent link? You can re-onboard anytime.",
+    "entities.pending.linkUnavailable":
+      "No consent link stored — re-run the onboarding wizard.",
+
+    "cols.entity": "Entity",
+    "cols.cluster": "Cluster",
+    "cols.maturity": "Maturity",
+    "cols.delta7d": "Δ 7d",
+    "cols.target": "Target",
+    "cols.controls": "Controls",
+    "cols.incidents": "Incidents",
+    "cols.riskyUsers": "Risky users",
+    "cols.deviceCompl": "Device compl.",
+    "cols.labels": "Labels",
+    "cols.connection": "Connection",
+    "cols.lastSync": "Last sync",
+    "cols.all": "All",
+
+    "health.green": "Healthy",
+    "health.amber": "Degraded",
+    "health.red": "Offline",
+
+    "time.justNow": "just now",
+    "time.minutesAgo": "{n}m ago",
+    "time.hoursAgo": "{n}h ago",
+    "time.daysAgo": "{n}d ago",
+
+    "entity.backToAll": "All entities",
+    "entity.tenant": "Tenant",
+    "entity.domain": "Domain",
+    "entity.ciso": "CISO",
+    "entity.contact": "Contact",
+    "entity.lastSync": "Last sync {when}",
+    "entity.openDefender": "Defender portal",
+    "entity.exportCard": "Export card",
+    "entity.scheduleReview": "Schedule review",
+    "entity.suspend": "Suspend",
+    "entity.resume": "Resume",
+    "entity.suspended.banner":
+      "Sync is suspended for this entity. Background syncs skip it until you resume.",
+    "entity.review.banner": "Review scheduled for {date}.",
+
+    "entity.suspend.dialog.title": "Suspend posture sync?",
+    "entity.suspend.dialog.body":
+      "Sync will stop for this entity until you resume it. Existing snapshots are preserved. Consent is NOT revoked — the {orgShort} app registration remains authorized in the entity's tenant.",
+    "entity.suspend.dialog.confirm": "Suspend",
+    "entity.suspend.dialog.cancel": "Cancel",
+    "entity.resume.dialog.title": "Resume posture sync?",
+    "entity.resume.dialog.body":
+      "The next scheduled sync (3 am daily) will pick up this entity again. You can also trigger Sync now immediately after.",
+    "entity.resume.dialog.confirm": "Resume",
+
+    "entity.review.dialog.title": "Schedule a posture review",
+    "entity.review.dialog.body":
+      "Set a target date to review this entity's posture with the {orgShort} team. Informational only — no automated action runs on this date.",
+    "entity.review.dialog.dateLabel": "Review date",
+    "entity.review.dialog.noteLabel": "Note (optional)",
+    "entity.review.dialog.save": "Save",
+    "entity.review.dialog.clear": "Clear",
+    "entity.review.dialog.cancel": "Cancel",
+
+    "entity.maturityTitle": "Maturity index",
+    "entity.maturitySubtitle": "Vs. {orgShort} target {target}",
+    "entity.targetMarker": "Target {target}",
+    "entity.stats.incidents": "Incidents",
+    "entity.stats.riskyUsers": "Risky users",
+    "entity.stats.devicesCompliant": "Devices compl.",
+
+    "subscores.title": "Sub-score breakdown",
+    "subscores.subtitle": "Weighted inputs into the Maturity Index",
+    "subscores.identity": "Identity",
+    "subscores.device": "Device",
+    "subscores.data": "Data",
+    "subscores.threatResponse": "Threat response",
+    "subscores.compliance": "Compliance (NESA)",
+
+    "recent.title": "Recent changes",
+    "recent.subtitle": "Signals that moved the index in the last 7 days",
+
+    "benchmark.title": "Benchmark",
+    "benchmark.subtitle": "Position within {cluster} cluster and council-wide",
+    "benchmark.within": "Within {cluster}",
+    "benchmark.councilWide": "{orgShort}-wide",
+    "benchmark.of": "of {total}",
+    "benchmark.percentile": "{n}th percentile",
+    "benchmark.footer":
+      "Cluster average {cluster}. {orgShort} average {council}. Target {target}.",
+
+    "subtabs.more.title": "Other sub-tabs",
+    "subtabs.more.subtitle":
+      "Data · Governance — Purview signals + NESA alignment per the roadmap.",
+    "subtabs.more.body":
+      "Data and Governance sub-tabs populate once Purview read signals (DLP alerts, Insider Risk, Subject Rights Requests, label adoption) and UAE NESA control mapping are wired into the sync.",
+
+    "tab.overview": "Overview",
+    "tab.controls": "Controls",
+    "tab.incidents": "Incidents",
+    "tab.identity": "Identity",
+    "tab.data": "Data",
+    "tab.devices": "Devices",
+    "tab.governance": "Governance",
+    "tab.connection": "Connection",
+
+    "tab.controls.title": "Secure Score controls",
+    "tab.controls.subtitle": "Per-control implementation status from Microsoft Secure Score.",
+    "tab.controls.col.name": "Control",
+    "tab.controls.col.category": "Category",
+    "tab.controls.col.score": "Score",
+    "tab.controls.col.status": "Status",
+    "tab.controls.implemented": "Implemented",
+    "tab.controls.notImplemented": "Not implemented",
+    "tab.controls.partial": "Partial",
+    "tab.controls.unknown": "Unknown",
+    "tab.controls.userImpact": "User impact",
+    "tab.controls.implCost": "Impl. cost",
+
+    "tab.incidents.title": "Security incidents",
+    "tab.incidents.subtitle": "Unified from Microsoft Defender XDR.",
+    "tab.incidents.col.name": "Incident",
+    "tab.incidents.col.severity": "Severity",
+    "tab.incidents.col.status": "Status",
+    "tab.incidents.col.alerts": "Alerts",
+    "tab.incidents.col.created": "Created",
+    "tab.incidents.col.updated": "Updated",
+    "tab.incidents.summary": "{total} total · {active} active · {resolved} resolved",
+
+    "tab.identity.title": "Risky users",
+    "tab.identity.subtitle": "From Microsoft Entra Identity Protection.",
+    "tab.identity.col.user": "User",
+    "tab.identity.col.level": "Risk level",
+    "tab.identity.col.state": "Risk state",
+    "tab.identity.col.updated": "Last updated",
+    "tab.identity.summary": "{atRisk} at risk · {total} tracked",
+
+    "tab.devices.title": "Managed devices",
+    "tab.devices.subtitle": "Intune device inventory and compliance state.",
+    "tab.devices.col.name": "Device",
+    "tab.devices.col.os": "OS",
+    "tab.devices.col.user": "Primary user",
+    "tab.devices.col.state": "Compliance",
+    "tab.devices.col.encrypted": "Encrypted",
+    "tab.devices.col.lastSync": "Last sync",
+    "tab.devices.summary": "{total} devices · {compliancePct}% compliant",
+
+    "tab.connection.title": "Per-endpoint health",
+    "tab.connection.subtitle": "Last successful call, errors, throttling across the 24h window.",
+    "tab.connection.col.endpoint": "Endpoint",
+    "tab.connection.col.lastSuccess": "Last success",
+    "tab.connection.col.lastError": "Last error",
+    "tab.connection.col.callCount": "Calls (24h)",
+    "tab.connection.col.throttled": "Throttled (24h)",
+
+    "severity.high": "High",
+    "severity.medium": "Medium",
+    "severity.low": "Low",
+    "severity.informational": "Informational",
+
+    "status.active": "Active",
+    "status.inProgress": "In progress",
+    "status.resolved": "Resolved",
+    "status.redirected": "Redirected",
+
+    "risk.high": "High",
+    "risk.medium": "Medium",
+    "risk.low": "Low",
+    "risk.none": "None",
+    "risk.hidden": "Hidden",
+    "riskState.atRisk": "At risk",
+    "riskState.confirmedCompromised": "Compromised",
+    "riskState.remediated": "Remediated",
+    "riskState.dismissed": "Dismissed",
+    "riskState.confirmedSafe": "Confirmed safe",
+    "riskState.none": "None",
+
+    "compliance.compliant": "Compliant",
+    "compliance.noncompliant": "Non-compliant",
+    "compliance.inGracePeriod": "Grace period",
+    "compliance.conflict": "Conflict",
+    "compliance.error": "Error",
+    "compliance.unknown": "Unknown",
+
+    "rollup.identity.title": "Identity posture — {orgShort} roll-up",
+    "rollup.identity.subtitle":
+      "Aggregate risky users and Conditional Access coverage across all consented entities.",
+    "rollup.threats.title": "Threats — {orgShort} roll-up",
+    "rollup.threats.subtitle":
+      "Aggregate incidents across all consented entities, by severity and entity.",
+    "rollup.devices.title": "Devices — {orgShort} roll-up",
+    "rollup.devices.subtitle":
+      "Aggregate Intune device compliance across all consented entities.",
+    "rollup.totalUsers": "Total risky users (tracked)",
+    "rollup.atRiskUsers": "Currently at risk",
+    "rollup.caPoliciesMfa": "CA policies with MFA",
+    "rollup.activeIncidents": "Active incidents",
+    "rollup.totalDevices": "Total managed devices",
+    "rollup.compliantDevices": "Compliant",
+    "rollup.byEntity": "By entity",
+
+    "placeholder.phase2.title": "Wiring live signals — Phase 2",
+    "placeholder.phase2.body":
+      "The views for this surface are specified and scaffolded. They will populate once the per-tenant Graph pipeline is online for the first 10 pilot entities.",
+
+    "nav.eyebrow": "Navigate",
+    "nav.maturity": "Maturity overview",
+    "nav.entities": "Entities",
+    "nav.identity": "Identity",
+    "nav.threats": "Threats",
+    "nav.data": "Data protection",
+    "nav.devices": "Devices",
+    "nav.governance": "Governance",
+    "nav.settings": "Settings",
+    "nav.faq": "FAQ",
+    "sidebar.dataSources": "Data sources",
+    "sidebar.dataSources.suffix": "· Graph APIs",
+    "ds.secureScore.detail": "tenant & control-level",
+    "ds.defender.detail": "Endpoint / Identity / O365",
+    "ds.purview.detail": "DLP, labels, insider risk",
+    "ds.entra.detail": "identity posture, CA, PIM",
+    "ds.intune.detail": "device compliance, MAM",
+    "ds.compliance.detail": "UAE NESA",
+  },
+
+  ar: {
+    "topbar.demo": "بيئة عرض",
+    "topbar.language": "اللغة",
+    "topbar.notifications": "الإشعارات",
+    "theme.switchToLight": "التبديل إلى الوضع الفاتح",
+    "theme.switchToDark": "التبديل إلى الوضع الداكن",
+    "demo.badge": "بيانات تجريبية",
+
+    "maturity.eyebrow": "نظرة {orgShort}",
+    "maturity.title": "نظرة عامة على النضج",
+    "maturity.subtitle":
+      "الوضع الأمني المباشر لجميع الجهات المتصلة وعددها {count}، محسوب باستمرار من إشارات Microsoft Graph.",
+
+    "chart.clusters.targetLabel": "الهدف {target}",
+
+    "page.identity.eyebrow": "مرصد الهوية والوصول",
+    "page.identity.title": "الهوية",
+    "page.identity.subtitle":
+      "المستخدمون ذوو المخاطر، انحراف سياسات الوصول المشروط، تضخم PIM، المصادقة القديمة، ووضع التحقق متعدد العوامل عبر جميع الجهات المتصلة.",
+
+    "page.threats.eyebrow": "عمليات التهديدات والحوادث",
+    "page.threats.title": "التهديدات",
+    "page.threats.subtitle":
+      "حوادث وتنبيهات موحدة عبر أكثر من ١٠٠ جهة، حزم استعلامات KQL للبحث المتقدم، مزامنة الاكتشافات المخصصة، وطبقات استخبارات التهديدات.",
+
+    "page.data.eyebrow": "وضع حماية البيانات · Purview",
+    "page.data.title": "حماية البيانات",
+    "page.data.subtitle":
+      "تغطية تصنيف الحساسية، كثافة تنبيهات DLP، مخاطر الداخل، الامتثال في الاتصالات، تصنيفات الاحتفاظ، ووضع المشاركة الخارجية.",
+
+    "page.devices.eyebrow": "نظافة الأجهزة والنقاط الطرفية · Intune",
+    "page.devices.title": "الأجهزة",
+    "page.devices.subtitle":
+      "الامتثال حسب نظام التشغيل والجهة، شهادة BitLocker / Secure Boot / TPM، تغطية MAM، والتعمق في الأجهزة غير الممتثلة.",
+
+    "page.governance.eyebrow": "الحوكمة والمعايير",
+    "page.governance.title": "الحوكمة",
+    "page.governance.subtitle":
+      "معايير {orgShort} المرجعية، المواءمة مع إطار NESA الإماراتي، والبحث الموحد في السجلات عبر كل جهة موافِقة.",
+
+    "page.settings.eyebrow": "عمليات {orgShort}",
+    "page.settings.title": "الإعدادات",
+    "page.settings.subtitle":
+      "تسجيل الجهات، صحة الاتصال لكل مستأجر، سجل التدقيق، والإعدادات العامة.",
+
+    "settings.newEntity.title": "تسجيل جهة جديدة",
+    "settings.newEntity.subtitle":
+      "يجب إدخال الاسم بالعربية والإنجليزية. يُعرض الاسم العربي في الواجهة العربية، ويُعرض الاسم الإنجليزي في الإنجليزية.",
+
+    "wizard.step": "الخطوة {n} من {total}",
+    "wizard.step1.title": "تعريف الجهة",
+    "wizard.step1.subtitle": "الأسماء والقطاع وجهة اتصال مسؤول أمن المعلومات.",
+    "wizard.step2.title": "المستأجر والنطاق",
+    "wizard.step2.subtitle":
+      "أدخل النطاق الرئيسي المُحقَّق. سنستخرج لك معرّف المستأجر في Entra آليًا عبر اكتشاف OIDC.",
+    "wizard.step2.resolve": "استخراج من النطاق",
+    "wizard.step2.resolving": "جارٍ الاستخراج…",
+    "wizard.step2.resolved": "تم الاستخراج: {tenantId}",
+    "wizard.step2.resolveFailed": "تعذّر استخراج معرّف المستأجر من هذا النطاق.",
+    "wizard.step2.manualTenant": "أو الصق معرّف المستأجر مباشرة",
+    "wizard.step2.license": "تم تأكيد ترخيص E5 لكل المستخدمين (أو توثيق الاستثناءات)",
+    "wizard.step3.title": "إنشاء أدوات الموافقة",
+    "wizard.step3.subtitle":
+      "سننشئ سجل المستأجر، ونصنع رابط موافقة مخصصًا، ونُجهّز ملف PDF ثنائي اللغة. لا يُرسل شيء — راجع المعاينة أدناه قبل إعادة التوجيه إلى المسؤول العام للجهة.",
+    "wizard.step3.generate": "إنشاء",
+    "wizard.step3.done": "تم الإنشاء. رابط الموافقة وملفات PDF جاهزة أدناه.",
+    "wizard.step4.title": "انتظار الموافقة",
+    "wizard.step4.subtitle":
+      "أعد توجيه خطاب الإعداد إلى المسؤول العام لمستأجر الجهة. تتم مراجعة حالة الموافقة كل ٥ ثوانٍ. يمكنك إغلاق النافذة — سيبقى التقاط الموافقة عبر معالج إعادة التوجيه.",
+    "wizard.step4.polling": "جارٍ متابعة حالة الموافقة…",
+    "wizard.step4.status.pending": "بانتظار الموافقة",
+    "wizard.step4.status.consented": "تم استلام الموافقة",
+    "wizard.step4.status.revoked": "تم سحب الموافقة",
+    "wizard.step4.status.failed": "فشل مسار الموافقة",
+    "wizard.step5.title": "المزامنة الأولى والتحقق",
+    "wizard.step5.subtitle":
+      "شغّل سحبًا أوليًا من Graph لإثبات جاهزية خط الأنابيب. بمجرد رجوع قيمة Secure Score، تظهر الجهة في اللوحة الحيّة.",
+    "wizard.step5.run": "تشغيل المزامنة الأولى",
+    "wizard.step5.running": "جارٍ المزامنة…",
+    "wizard.step5.ok": "نجحت المزامنة الأولى. الجهة تظهر الآن في لوحة النضج.",
+    "wizard.step5.failed": "فشلت المزامنة: {message}",
+    "wizard.nav.back": "رجوع",
+    "wizard.nav.next": "التالي",
+    "wizard.nav.finish": "إنهاء",
+    "wizard.nav.cancel": "إلغاء",
+    "wizard.toggle.useForm": "استخدم النموذج السريع",
+    "wizard.toggle.useWizard": "استخدم المعالج الموجَّه",
+    "settings.field.nameEn": "الاسم (بالإنجليزية)",
+    "settings.field.nameAr": "الاسم (بالعربية)",
+    "settings.field.cluster": "القطاع",
+    "settings.field.tenantId": "معرّف المستأجر",
+    "settings.field.domain": "النطاق الرئيسي",
+    "settings.field.ciso": "اسم مسؤول أمن المعلومات",
+    "settings.field.cisoEmail": "بريد مسؤول أمن المعلومات",
+    "settings.field.required": "حقل مطلوب",
+    "settings.submit.add": "إنشاء رسالة التسجيل",
+    "settings.submit.preview":
+      "في الإنتاج يتم توليد رسالة تسجيل بصيغة PDF ورابط موافقة إداري خاص بمسؤول أمن الجهة.",
+    "settings.existing.title": "الجهات المسجّلة",
+    "settings.existing.subtitle":
+      "عدد الجهات المسجّلة حالياً {count}. يُحفظ الاسمان ويُعرض أحدهما بحسب اللغة الحالية.",
+    "settings.list.clusterHeader": "القطاع",
+    "settings.list.status": "الحالة",
+
+    "state.loading": "جارٍ التحميل…",
+    "state.error": "حدث خطأ ما.",
+    "state.retry": "إعادة المحاولة",
+    "state.empty.title": "لا توجد جهات متصلة بعد",
+    "state.empty.body":
+      "سجّل أول جهة من تبويب الإعدادات. بعد موافقة المسؤول، تُعبّأ اللوحة تلقائياً من Microsoft Graph.",
+    "state.empty.cta": "الذهاب إلى الإعدادات",
+    "state.notConfigured.title": "لم يُعدّ تسجيل تطبيق Azure",
+    "state.notConfigured.body":
+      "اضبط AZURE_CLIENT_ID و AZURE_CLIENT_SECRET في ملف .env.local (راجع docs/08-phase2-setup.md) ثم أعد تشغيل الخادم.",
+
+    "consent.status.pending": "بانتظار الموافقة",
+    "consent.status.consented": "تمت الموافقة",
+    "consent.status.revoked": "أُلغيت الموافقة",
+    "consent.status.failed": "فشلت الموافقة",
+
+    "sync.last": "آخر مزامنة {when}",
+    "sync.never": "لم تتم المزامنة بعد",
+    "sync.now": "مزامنة الآن",
+    "sync.inProgress": "جارٍ المزامنة…",
+    "sync.failed": "فشلت المزامنة",
+    "sync.all": "مزامنة كل الجهات",
+    "sync.all.title": "مزامنة كل الجهات الآن",
+    "sync.all.body":
+      "يُشغّل هذا تحديثاً شاملاً للوضع الأمني عبر جميع مستأجري الجهات الموافقة. تُجري كل جهة خمس استدعاءات لـ Microsoft Graph (Secure Score، الوصول المشروط، المستخدمون ذوو المخاطر، الأجهزة، الحوادث) بالتسلسل احتراماً لحدود الاستدعاء لكل مستأجر.",
+    "sync.all.warning":
+      "قد يستغرق هذا عدة دقائق. احرص على إبقاء هذه الصفحة مفتوحة حتى اكتمال العملية — إغلاقها لا يُلغي المزامنة.",
+    "sync.all.estimate": "الوقت المتوقع: حوالي {duration}.",
+    "sync.all.tenantsReal": "{n} مستأجر حقيقي × ~{perTenant} ثانية.",
+    "sync.all.tenantsDemo": "{n} مستأجر تجريبي — فوري، بدون استدعاءات Graph.",
+    "sync.all.running": "تتم مزامنة {n} جهة — الرجاء الانتظار",
+    "sync.all.running.body":
+      "لا تُغلق هذه الصفحة. ستُحدَّث تلقائياً عند اكتمال المزامنة.",
+    "sync.all.done": "اكتملت المزامنة",
+    "sync.all.doneBody": "نجحت {ok} من أصل {total} جهات.",
+    "sync.all.cancel": "إلغاء",
+    "sync.all.start": "بدء المزامنة",
+    "sync.all.close": "إغلاق",
+    "time.seconds": "{n} ثانية",
+    "time.minutes": "{n} دقيقة",
+    "time.minutesSeconds": "{m}د {s}ث",
+
+    "settings.consent.linkReady":
+      "أرسل رابط الموافقة أدناه إلى المسؤول العام للجهة. بعد الموافقة، تبدأ المزامنة الأولى تلقائياً.",
+    "settings.consent.openLink": "فتح رابط الموافقة",
+    "settings.consent.copy": "نسخ الرابط",
+    "settings.consent.copied": "تم النسخ",
+    "settings.consent.awaiting":
+      "بانتظار موافقة المسؤول من الجهة. ستظهر البيانات بعد الضغط على الرابط.",
+    "settings.consent.notConfigured":
+      "لم يُعدّ تسجيل تطبيق Entra بعد؛ تم حفظ الجهة، لكن لا يمكن توليد رابط الموافقة حتى يُضبط AZURE_CLIENT_ID.",
+    "settings.consent.failed":
+      "أبلغ تدفق الموافقة عن خطأ. راجع سياسات الوصول المشروط للجهة ثم أعد المحاولة.",
+    "settings.consent.ok": "تم استلام الموافقة. المزامنة الأولى جارية — حدّث الصفحة بعد لحظات.",
+    "settings.pdf.download": "تنزيل الرسالة",
+    "settings.pdf.en": "بالإنجليزية",
+    "settings.pdf.ar": "بالعربية",
+
+    "settings.tab.entities": "الجهات",
+    "settings.tab.branding": "الهوية",
+    "settings.tab.maturity": "مؤشر النضج",
+    "settings.tab.pdf": "ملف PDF للتسجيل",
+    "settings.tab.discovery": "ملف PDF للاكتشاف",
+    "settings.tab.audit": "سجل التدقيق",
+    "settings.tab.azure": "تسجيل التطبيق",
+    "settings.tab.nesa": "مواءمة NESA",
+    "settings.tab.docs": "التوثيق",
+
+    "branding.title": "الهوية",
+    "branding.subtitle":
+      "اسم الجهة والألوان وإطار العمل. يُطبَّق على لوحة التحكم وملفات PDF ورسائل التسجيل.",
+    "branding.field.nameEn": "اسم الجهة (إنجليزي)",
+    "branding.field.nameAr": "اسم الجهة (عربي)",
+    "branding.field.shortEn": "الاختصار (إنجليزي)",
+    "branding.field.shortAr": "الاختصار (عربي)",
+    "branding.field.taglineEn": "الشعار (إنجليزي)",
+    "branding.field.taglineAr": "الشعار (عربي)",
+    "branding.field.accentColor": "اللون الأساسي",
+    "branding.field.accentColorStrong": "اللون الأساسي القوي",
+    "branding.field.framework": "إطار النضج",
+    "branding.framework.generic": "عام (بدون إطار)",
+    "branding.framework.nesa": "NESA الإمارات",
+    "branding.framework.nca": "NCA السعودية",
+    "branding.framework.isr": "ISR / ISO 27001",
+    "branding.field.logo": "شعار الجهة",
+    "branding.logo.helper":
+      "PNG أو JPEG أو WebP. تُزال الخلفية تلقائيًا عبر نموذج ML محلي ما لم تُفعّل الخيار أدناه. يُفضَّل: مربع، ٢٥٦×٢٥٦ أو أكثر.",
+    "branding.logo.keepBackground": "الإبقاء على خلفية الصورة الأصلية",
+    "branding.logo.upload": "رفع الشعار",
+    "branding.logo.remove": "إزالة",
+    "branding.logo.saved": "تم رفع الشعار",
+    "branding.logo.removed": "تمت إزالة الشعار",
+    "branding.logo.deleteConfirm":
+      "إزالة الشعار الحالي؟ ستعتمد اللوحة على الاختصار النصي حتى رفع شعار جديد.",
+
+    "login.title": "تسجيل الدخول",
+    "login.subtitle": "لوحة الوضع الأمني",
+    "login.body":
+      "سجّل الدخول بحساب Microsoft الخاص بالجهة. يقتصر الوصول إلى بيانات الوضع والنضج على المستخدمين المسجلين في اللوحة.",
+    "login.signIn": "المتابعة عبر Microsoft",
+    "login.footer": "وصول مقيَّد · الهوية عبر Microsoft Entra",
+    "login.error.forbidden": "ليس لحسابك صلاحية الوصول إلى هذه اللوحة.",
+    "login.error.state_mismatch":
+      "تم قطع عملية تسجيل الدخول. يرجى المحاولة مرة أخرى.",
+    "login.error.token_exchange":
+      "رفضت Microsoft المصادقة. تحقق من إعدادات تسجيل التطبيق.",
+    "login.error.missing_params": "عنوان تسجيل الدخول غير مكتمل.",
+
+    "settings.tab.auth": "المصادقة",
+    "authCfg.title": "مصادقة المستخدمين",
+    "authCfg.subtitle":
+      "تسجيل الدخول للمشغّلين والمحللين. يستخدم تسجيل تطبيق Entra ثانيًا (مستقل عن تطبيق قراءة وضع الجهات). اتركه معطّلًا للإبقاء على الوصول مفتوحًا للعروض.",
+    "authCfg.field.clientId": "معرّف تطبيق المصادقة",
+    "authCfg.field.clientSecret": "سر تطبيق المصادقة",
+    "authCfg.field.clientSecretPlaceholder":
+      "أدخل سرًا جديدًا، أو اتركه فارغًا للإبقاء على الموجود",
+    "authCfg.field.tenantId": "معرّف مستأجر Entra المشغِّل",
+    "authCfg.field.sessionTimeout": "مدة الجلسة (بالدقائق)",
+    "authCfg.field.defaultRole": "الدور الافتراضي للمستخدمين الجدد",
+    "authCfg.field.enforce": "فرض تسجيل الدخول لكل طلب",
+    "authCfg.enforce.helper":
+      "عند التعطيل، تبقى اللوحة مفتوحة — مفيد أثناء الإعداد الأولي. فعّله بعد التأكد من نجاح تسجيل الدخول لمستخدم واحد على الأقل.",
+    "authCfg.role.admin": "مشرف",
+    "authCfg.role.analyst": "محلل",
+    "authCfg.role.viewer": "مشاهد",
+    "authCfg.redirectUri": "Redirect URI (انسخه إلى تطبيق Entra)",
+    "authCfg.save": "حفظ إعدادات المصادقة",
+    "authCfg.saved":
+      "تم الحفظ. يرجى تسجيل الخروج وإعادة الدخول لاعتماد الإعدادات.",
+    "authCfg.clear": "مسح",
+    "authCfg.clearConfirm":
+      "مسح إعدادات المصادقة؟ تظل الجلسات النشطة حتى انتهاء صلاحيتها.",
+    "authCfg.secretSet": "السر محفوظ",
+    "authCfg.secretUnset": "غير محدد",
+    "authCfg.signOut": "تسجيل الخروج",
+    "authCfg.testSignIn": "تجربة تسجيل الدخول (نافذة جديدة)",
+
+    "users.title": "مستخدمو اللوحة",
+    "users.subtitle":
+      "كل من يمكنه تسجيل الدخول. ادعُ عبر البريد لتحديد الدور مسبقًا، أو عدّل دور المستخدم بعد أول تسجيل دخول.",
+    "users.empty":
+      "لا يوجد مستخدمون بعد. ادعُ أول مشرف أو سجّل الدخول مرة واحدة بنفسك لبدء النظام.",
+    "users.deleteConfirm":
+      "حذف هذا المستخدم؟ ستُنهى جلساته فورًا.",
+    "users.status.active": "نشط",
+    "users.status.disabled": "معطَّل",
+    "users.status.pending": "بانتظار أول تسجيل دخول",
+    "users.col.user": "المستخدم",
+    "users.col.role": "الدور",
+    "users.col.status": "الحالة",
+    "users.col.lastLogin": "آخر دخول",
+    "users.action.enable": "تفعيل",
+    "users.action.disable": "تعطيل",
+    "users.action.delete": "حذف",
+    "users.invite.title": "دعوة مستخدم جديد",
+    "users.invite.displayName": "الاسم الظاهر (اختياري)",
+    "users.invite.submit": "دعوة",
+    "users.invite.helper":
+      "يُنشئ سجلًا معلَّقًا. يُطبَّق الدور على المستخدم عند أول تسجيل دخول عبر Microsoft — لا نُرسل إليه بريدًا.",
+
+    "setup.title": "الإعداد الأولي",
+    "setup.back": "السابق",
+    "setup.next": "التالي",
+    "setup.skipHint":
+      "يمكنك تخطي هذه الخطوة وإعدادها لاحقًا من الإعدادات.",
+    "setup.s1.title": "١. اسم الجهة",
+    "setup.s1.subtitle":
+      "هذا الاسم يظهر في كل مكان — واجهة اللوحة، ملفات PDF، الرسائل، صفحة تسجيل الدخول.",
+    "setup.s2.title": "٢. الشعار",
+    "setup.s2.subtitle":
+      "ارفع PNG/JPEG/WebP. تُزال الخلفية محليًا عبر نموذج ML — بدون أي خدمة سحابية.",
+    "setup.s2.skip":
+      "اختياري — يمكنك التخطي وإضافة الشعار لاحقًا من الإعدادات.",
+    "setup.s3.title": "٣. تطبيق إشارات Graph",
+    "setup.s3.subtitle":
+      "تطبيق Entra متعدد المستأجرين لقراءة الوضع الأمني من كل جهة. يوافق المسؤول العام لكل جهة على هذا التطبيق داخل مستأجره.",
+    "setup.s3.b1":
+      "مركز إدارة Entra → App registrations → New registration → متعدد المستأجرين",
+    "setup.s3.b2":
+      "أضف أذونات Graph للقراءة فقط (SecurityEvents.Read.All، Device.Read.All، Directory.Read.All، User.Read.All، Policy.Read.All — أذونات تطبيق).",
+    "setup.s3.b3":
+      "أنشئ سر عميل والصق معرّف العميل والسر أدناه.",
+    "setup.s4.title": "٤. تطبيق تسجيل دخول المستخدمين",
+    "setup.s4.subtitle":
+      "تطبيق Entra ثانٍ — مستقل — أحادي المستأجر لدخول موظفيك إلى اللوحة. نحتفظ به منفصلًا عن تطبيق Graph لندوير الأسرار باستقلالية.",
+    "setup.s4.b1":
+      "مركز إدارة Entra → App registrations → New registration → أحادي المستأجر",
+    "setup.s4.b2":
+      "تحت Authentication → Web platform، أضِف عنوان إعادة التوجيه:",
+    "setup.s4.b3":
+      "أنشئ سر عميل. اختياريًا عرّف App roles (Posture.Admin/Analyst/Viewer) وعيّن المستخدمين؛ وإلا يُطبَّق الدور الافتراضي أدناه.",
+    "setup.s5.title": "٥. إنشاء مشرف النظام",
+    "setup.s5.subtitle":
+      "سجّل الدخول الآن — أول حساب يكمل الدخول يصبح مشرفًا تلقائيًا.",
+    "setup.s5.bootstrapBody":
+      "يفتح الزر أدناه تسجيل الدخول في Microsoft في هذه النافذة. عُد واضغط إنهاء.",
+    "setup.s5.openBody":
+      "لقد تخطيت خطوة تسجيل الدخول — ستبقى اللوحة مفتوحة (لا حاجة لتسجيل الدخول). يمكنك إعداد المصادقة في أي وقت من الإعدادات ← المصادقة.",
+    "setup.s5.signIn": "تسجيل الدخول كمشرف",
+    "setup.s5.afterSignIn":
+      "بعد تسجيل الدخول ستعود إلى هنا. اضغط إنهاء لفتح اللوحة.",
+    "setup.s5.finish": "إنهاء الإعداد — فتح اللوحة",
+    "branding.save": "حفظ",
+    "branding.reset": "استعادة الافتراضي",
+    "branding.resetConfirm":
+      "استعادة الهوية إلى الإعدادات الافتراضية؟ سيتم الكتابة فوق الاسم والألوان والإطار.",
+    "branding.saved": "تم حفظ الهوية — جارٍ إعادة التحميل",
+
+    "docs.title": "توثيق تسليم العميل",
+    "docs.subtitle":
+      "وثائق PDF مرفقة بالمنصة. يُسلَّم كل مستند كملف منفصل بالإنجليزية وآخر بالعربية (أحادي اللغة — بدون ملفات PDF مختلطة النص). اضغط لفتحه في تبويب جديد؛ كليك يمين ← حفظ باسم للأرشفة.",
+    "docs.open.en": "فتح EN",
+    "docs.open.ar": "فتح AR",
+    "docs.doc.install.title": "دليل التثبيت والنشر",
+    "docs.doc.install.body":
+      "دليل من الصفر إلى التشغيل لتقنية المعلومات في {orgShort} وفرق تسليم Microsoft. يغطي المتطلبات، تسجيل تطبيق Entra، إعداد البيئة، نشر Docker و Azure، تسجيل أول جهة، المهام التشغيلية، واستكشاف الأخطاء.",
+    "docs.doc.operator.title": "دليل المستخدم التشغيلي",
+    "docs.doc.operator.body":
+      "الاستخدام اليومي للوحة لموظفي {orgShort}. جولة صفحة تلو الأخرى، كيفية قراءة مؤشر النضج، المهام الشائعة (تسجيل جهة، تعديل الأوزان، التحقيق في الجهات الحمراء، تصدير التقارير).",
+    "docs.doc.security.title": "بيان الأمن والخصوصية",
+    "docs.doc.security.body":
+      "بيان رسمي لما تقرأه المنصة وما لا تقرأه، وضع التخزين والسيادة، ضبط الوصول، التدقيق والاحتفاظ، الإلغاء والخروج، المواءمة مع الأطر. موجَّه لقيادة {orgShort}، مسؤولي أمن المعلومات، والمراجعة القانونية.",
+    "docs.doc.arch.title": "البنية وتدفق البيانات — نظرة عامة",
+    "docs.doc.arch.body":
+      "نظرة على مستوى الأنظمة لمهندسي تسليم Microsoft ومعماريي تقنية المعلومات في {orgShort}. بنية النظام، نموذج المصادقة متعدد المستأجرين، منسق المزامنة ومجموعة العمال، نموذج البيانات، إطار التقييد، أوضاع الفشل، قرارات النطاق.",
+    "docs.doc.handoff.title": "قائمة تسليم المنتج",
+    "docs.doc.handoff.body":
+      "وثيقة قبول. تُعدِّد ما تم تسليمه، معايير القبول الوظيفي، الإجراءات المعلَّقة من المشغّل، النطاق المؤجَّل، فهرس التوثيق، وخانة التوقيع.",
+
+    "azureCfg.walkthrough.title": "كيفية تسجيل التطبيق في Entra",
+    "azureCfg.walkthrough.subtitle":
+      "خطوة بخطوة: أنشئ تطبيق Entra متعدد المستأجرين في مستأجر {orgShort}، امنح أذونات قراءة Graph، أنشئ سر عميل، والصق القيم أدناه.",
+    "azureCfg.walkthrough.toggle.show": "إظهار الخطوات",
+    "azureCfg.walkthrough.toggle.hide": "إخفاء الخطوات",
+    "azureCfg.walkthrough.redirectUri":
+      "رابط إعادة التوجيه المطلوب لصقه في Entra (المنصة: Web)",
+
+    "azureCfg.title": "تسجيل تطبيق Entra",
+    "azureCfg.subtitle":
+      "بيانات اعتماد تطبيق Entra متعدد المستأجرين الخاص ب{orgShort} والذي يقرأ إشارات Graph من كل جهة موافِقة. مخزَّنة في قاعدة بيانات اللوحة؛ وتأخذ مفعولها فور الحفظ (تُفرَّغ ذاكرة MSAL المؤقتة). تبقى متغيرات البيئة في .env.local بديلًا احتياطيًا لعمليات التثبيت الجديدة.",
+    "azureCfg.field.clientId": "معرّف التطبيق (client ID)",
+    "azureCfg.field.clientSecret": "سر العميل",
+    "azureCfg.field.authorityHost": "مضيف الجهة المُصدِرة",
+    "azureCfg.field.consentRedirectUri": "رابط إعادة توجيه الموافقة (تجاوز)",
+    "azureCfg.field.consentRedirectUri.hint":
+      "اتركه فارغًا لاشتقاقه تلقائيًا من APP_BASE_URL. اضبطه صراحةً إذا كان نشر الإنتاج يستخدم اسم مضيف عامًا مختلفًا.",
+    "azureCfg.secret.hasValue": "يوجد سر مخزَّن. اكتب قيمة جديدة لاستبداله.",
+    "azureCfg.secret.placeholderReplace": "••••••••  (مخفي — اكتب للاستبدال)",
+    "azureCfg.secret.placeholderNew": "الصق قيمة سر العميل",
+    "azureCfg.secret.never": "لا يوجد سر مخزَّن بعد.",
+    "azureCfg.source.db": "من قاعدة البيانات",
+    "azureCfg.source.env": "من متغير البيئة (احتياطي)",
+    "azureCfg.source.none": "غير مضبوط",
+    "azureCfg.source.label": "المصدر:",
+    "azureCfg.save": "حفظ",
+    "azureCfg.saved": "تم الحفظ. تم تفريغ ذاكرة MSAL — ستستخدم المزامنة التالية البيانات الجديدة.",
+    "azureCfg.clear": "مسح بيانات الاعتماد المخزَّنة",
+    "azureCfg.cleared": "تم المسح. تعود للبيئة إن وُجدت.",
+    "azureCfg.status.ready": "جاهز — يجب أن يعمل طلب رموز Graph.",
+    "azureCfg.status.missing":
+      "غير مضبوط. ستُرجع المزامنات الحقيقية خطأ ٤١٢ حتى تضبط معرّف العميل وسر العميل.",
+    "azureCfg.updatedAt": "آخر تحديث {when}",
+
+    "audit.title": "سجل الوصول عبر Microsoft Graph",
+    "audit.subtitle":
+      "كل نقطة نهاية في Graph استدعاها {orgShort} مقابل مستأجر كل جهة، مع آخر نجاح وآخر خطأ وعدد الاستدعاءات خلال ٢٤ ساعة وعدد الاستدعاءات المقيدة. تُكتب هذه البيانات في جدول endpoint_health مع كل مزامنة.",
+    "audit.empty":
+      "لا توجد استدعاءات Graph مسجلة بعد. يبدأ السجل بالامتلاء بعد أول مزامنة حقيقية.",
+    "audit.search": "بحث عن جهة أو نقطة نهاية أو خطأ…",
+    "audit.filter.all": "الكل",
+    "audit.filter.ok": "سليم",
+    "audit.filter.errors": "بها أخطاء",
+    "audit.filter.throttled": "مقيدة",
+    "audit.col.entity": "الجهة",
+    "audit.col.endpoint": "نقطة النهاية",
+    "audit.col.lastSuccess": "آخر نجاح",
+    "audit.col.lastError": "آخر خطأ",
+    "audit.col.calls": "الاستدعاءات (٢٤ س)",
+    "audit.col.throttled": "مقيدة",
+    "audit.refresh": "تحديث",
+    "audit.showing": "عرض {shown} من أصل {total} سجلًا.",
+
+    "discovery.banner.title": "ابدأ هنا — أرسل رسالة الاكتشاف أولاً",
+    "discovery.banner.body":
+      "قبل تسجيل جهة في النموذج أدناه، تحتاج الجهة أن تُرسل لكم معرّف المستأجر، النطاق الرئيسي، المسؤول العام، مسؤول أمن المعلومات، وتأكيد الترخيص. حمّل رسالة الاكتشاف ثنائية اللغة وأرسلها إلى كل جهة — تُوضّح لهم بدقة ما يجب جمعه وأين يجدونه. بعد ردّهم بالمعلومات، عد إلى هذا النموذج.",
+    "discovery.banner.download": "تنزيل رسالة الاكتشاف",
+    "discovery.banner.preview": "معاينة",
+
+    "discoveryCfg.title": "قالب رسالة الاكتشاف",
+    "discoveryCfg.subtitle":
+      "رسالة ما قبل التسجيل. تُرسَل إلى كل جهة قبل ظهورها في اللوحة. تُرشِد فريقهم التقني بدقة إلى ما يجب جمعه (معرّف المستأجر، النطاق الرئيسي، الترخيص، المسؤول العام، مسؤول أمن المعلومات) وأين يجد كل عنصر في Microsoft 365.",
+    "discoveryCfg.reset": "استعادة الافتراضي",
+    "discoveryCfg.save": "حفظ القالب",
+    "discoveryCfg.saved": "تم حفظ القالب. أعد تنزيل النسخة الجديدة.",
+    "discoveryCfg.preview": "معاينة PDF",
+    "discoveryCfg.section.brand": "هوية {orgShort} والترويسة",
+    "discoveryCfg.section.title": "عنوان الوثيقة والعنوان الفرعي",
+    "discoveryCfg.section.contact": "جهة الاتصال للرد",
+    "discoveryCfg.section.overview": "سبب التواصل",
+    "discoveryCfg.section.steps": "خطوات القائمة",
+    "discoveryCfg.section.sendBack": "كيفية إرسال الرد",
+    "discoveryCfg.section.next": "الخطوات التالية",
+    "discoveryCfg.section.footer": "التذييل",
+    "discoveryCfg.field.overviewEn": "نظرة عامة (بالإنجليزية)",
+    "discoveryCfg.field.overviewAr": "نظرة عامة (بالعربية)",
+    "discoveryCfg.field.sendBackEn": "تعليمات الإرسال (بالإنجليزية)",
+    "discoveryCfg.field.sendBackAr": "تعليمات الإرسال (بالعربية)",
+    "discoveryCfg.field.nextEn": "وصف الخطوة التالية (بالإنجليزية)",
+    "discoveryCfg.field.nextAr": "وصف الخطوة التالية (بالعربية)",
+    "discoveryCfg.field.phone": "رقم الهاتف (اختياري)",
+    "discoveryCfg.field.stepTitleEn": "عنوان الخطوة (بالإنجليزية)",
+    "discoveryCfg.field.stepTitleAr": "عنوان الخطوة (بالعربية)",
+    "discoveryCfg.field.stepWhatEn": "ما المطلوب (بالإنجليزية)",
+    "discoveryCfg.field.stepWhatAr": "ما المطلوب (بالعربية)",
+    "discoveryCfg.field.stepWhereEn": "مكان العثور (بالإنجليزية)",
+    "discoveryCfg.field.stepWhereAr": "مكان العثور (بالعربية)",
+    "discoveryCfg.stepHeading": "الخطوة {n}",
+
+    "faq.q.flow.title": "ما تدفق التسجيل من البداية للنهاية؟",
+    "faq.q.flow.body":
+      "مرحلتان.\n\nالمرحلة الأولى — الاكتشاف. يحمّل {orgShort} رسالة الاكتشاف من الإعدادات ويرسلها إلى مسؤول أمن المعلومات في كل جهة. الرسالة (ثنائية اللغة) تُرشِد فريق الجهة التقني لجمع خمسة عناصر: معرّف مستأجر Entra، النطاق الرئيسي المتحقَّق، تأكيد ترخيص E5، مسؤول عام سيضغط رابط الموافقة، وجهة اتصال معيَّنة لمسؤول أمن المعلومات. ترد الجهة بهذه التفاصيل.\n\nالمرحلة الثانية — التسجيل. يُدخل {orgShort} التفاصيل في الإعدادات ويضغط 'إنشاء رسالة التسجيل'. تنشئ اللوحة سجل مستأجر بانتظار الموافقة، تولّد رابط موافقة مسؤول فريد، وتنتج ملف PDF مخصصاً يحتوي على رابط الموافقة. يرسل {orgShort} هذا الملف إلى المسؤول العام للجهة، الذي يضغط الرابط ويسجّل الدخول بحساب المسؤول العام الخاص بمستأجره ويُوافق على أذونات Graph للقراءة فقط. يُعيد Entra التوجيه إلى لوحة {orgShort}، التي تُحوّل المستأجر إلى 'تمت الموافقة' وتُشغّل أول مزامنة. خلال عشر دقائق، تظهر الجهة في نظرة النضج العامة ببيانات حقيقية من Secure Score، الوصول المشروط، المستخدمين ذوي المخاطر، امتثال الأجهزة، والحوادث.",
+
+    "maturityCfg.title": "إعدادات مؤشر النضج",
+    "maturityCfg.subtitle":
+      "تحدد الأوزان معادلة احتساب مؤشر النضج لكل جهة. تُطبَّع تلقائياً إلى ١٠٠٪ عند الحفظ — لا يلزم موازنتها بدقة.",
+    "maturityCfg.target": "هدف {orgShort}",
+    "maturityCfg.targetHelp":
+      "الجهات تحت الهدف تظهر في عدّاد 'دون الهدف' على صفحة نظرة عامة على النضج.",
+    "maturityCfg.reset": "استعادة القيم الافتراضية",
+    "maturityCfg.save": "حفظ الإعدادات",
+    "maturityCfg.saved": "تم الحفظ · يُطبَّق عند تحديث الصفحة وعند المزامنة التالية.",
+    "maturityCfg.weightsTotal": "مجموع الأوزان",
+    "maturityCfg.mustBe100": "يجب أن يساوي ١٠٠٪ (الفرق {diff})",
+    "maturityCfg.normalize": "تطبيع إلى ١٠٠٪",
+    "maturityCfg.saveBlocked":
+      "يجب أن تكون مجموع الأوزان ١٠٠٪ قبل الحفظ. استخدم زر التطبيع أو عدّل الأشرطة.",
+    "maturityCfg.defaults": "القيم الافتراضية: {values}",
+    "maturityCfg.w.secureScore": "Secure Score",
+    "maturityCfg.w.identity": "وضع الهوية",
+    "maturityCfg.w.device": "وضع الأجهزة",
+    "maturityCfg.w.data": "حماية البيانات",
+    "maturityCfg.w.threat": "الاستجابة للتهديدات",
+    "maturityCfg.w.compliance": "المواءمة مع الأطر",
+
+    "pdfCfg.title": "قالب PDF للتسجيل",
+    "pdfCfg.subtitle":
+      "حرّر محتوى رسالة تسجيل الجهات. تنطبق التغييرات على كل PDF يتم تنزيله بعد ذلك. يُحرَّر كلا اللغتين معاً — يظل الملف ثنائي اللغة.",
+    "pdfCfg.reset": "استعادة الافتراضي",
+    "pdfCfg.save": "حفظ القالب",
+    "pdfCfg.saved": "تم حفظ القالب. أعد تنزيل أي PDF لرؤية النسخة الجديدة.",
+    "pdfCfg.preview": "معاينة PDF",
+    "pdfCfg.section.brand": "هوية {orgShort} والترويسة",
+    "pdfCfg.section.title": "عنوان الوثيقة والعنوان الفرعي",
+    "pdfCfg.section.contact": "جهة اتصال {orgShort}",
+    "pdfCfg.section.sections": "الأقسام الرئيسية",
+    "pdfCfg.section.signoff": "أدوار التوقيع",
+    "pdfCfg.section.footer": "التذييل",
+    "pdfCfg.field.councilEn": "اسم {orgShort} (بالإنجليزية)",
+    "pdfCfg.field.councilAr": "اسم {orgShort} (بالعربية)",
+    "pdfCfg.field.taglineEn": "الشعار التعريفي (بالإنجليزية)",
+    "pdfCfg.field.taglineAr": "الشعار التعريفي (بالعربية)",
+    "pdfCfg.field.titleEn": "العنوان (بالإنجليزية)",
+    "pdfCfg.field.titleAr": "العنوان (بالعربية)",
+    "pdfCfg.field.subtitleEn": "العنوان الفرعي (بالإنجليزية)",
+    "pdfCfg.field.subtitleAr": "العنوان الفرعي (بالعربية)",
+    "pdfCfg.field.contactName": "اسم جهة الاتصال",
+    "pdfCfg.field.contactEmail": "بريد جهة الاتصال",
+    "pdfCfg.field.secTitleEn": "عنوان القسم (بالإنجليزية)",
+    "pdfCfg.field.secTitleAr": "عنوان القسم (بالعربية)",
+    "pdfCfg.field.secBodyEn": "النص (بالإنجليزية)",
+    "pdfCfg.field.secBodyAr": "النص (بالعربية)",
+    "pdfCfg.field.secNoteEn": "ملاحظة (بالإنجليزية)",
+    "pdfCfg.field.secNoteAr": "ملاحظة (بالعربية)",
+    "pdfCfg.field.bulletEn": "نقطة (بالإنجليزية)",
+    "pdfCfg.field.bulletAr": "نقطة (بالعربية)",
+    "pdfCfg.field.footerEn": "نص التذييل (بالإنجليزية)",
+    "pdfCfg.field.footerAr": "نص التذييل (بالعربية)",
+    "pdfCfg.section.heading": "القسم {n}",
+    "pdfCfg.sig.role": "الدور {n}",
+    "pdfCfg.sig.en": "عنوان الدور (بالإنجليزية)",
+    "pdfCfg.sig.ar": "عنوان الدور (بالعربية)",
+
+    "dataProt.eyebrow": "حماية البيانات · Purview",
+    "dataProt.title": "حماية البيانات — تجميع {orgShort}",
+    "dataProt.subtitle":
+      "تجميع Purview عبر الجهات الموافقة. إشارات Purview الحية (تنبيهات DLP، مخاطر الداخل، تصنيفات الحساسية، الاحتفاظ) ستُربط في المرحلة الثالثة. ما يُعرض اليوم مستخلص من Secure Score والوصول المشروط كتقريب للمرحلة الثانية.",
+    "dataProt.labelCoverage": "تبنّي التصنيفات",
+    "dataProt.dlpAlerts": "تنبيهات DLP (آخر ٢٤س)",
+    "dataProt.irmAlerts": "تنبيهات مخاطر الداخل",
+    "dataProt.srr": "طلبات حقوق الأفراد",
+    "dataProt.phase3.title": "عناصر المرحلة الثالثة — لم تُربط بعد",
+    "dataProt.phase3.body":
+      "تحليلات تبنّي تصنيف الحساسية (عبر استعلام سجل التدقيق)، تنبيهات DLP / IRM / Communication Compliance من alerts_v2، تصنيفات الاحتفاظ، طلبات حقوق الأفراد، ووضع المشاركة الخارجية في Teams و SharePoint — كلها تصل في المرحلة الثالثة عند إضافة إشارات Purview إلى خط المزامنة.",
+
+    "gov.eyebrow": "الحوكمة والمعايير",
+    "gov.title": "الحوكمة — المواءمة مع NESA الإماراتي",
+    "gov.subtitle":
+      "مواءمة {orgShort} مع إطار NESA الإماراتي، محسوبة من ارتباط ضوابط Secure Score وتطبيق خط الأساس للمجلس.",
+    "gov.framework.nesa": "مواءمة NESA",
+    "gov.baseline.title": "خط أساس {orgShort}",
+    "gov.baseline.body":
+      "نسبة الجهات المتفوّقة على هدف {orgShort} في جميع المؤشرات الفرعية. تقود ترتيب طبقة المعايير.",
+    "gov.baseline.aligned": "الجهات الممتثلة",
+    "gov.scope.title": "ملاحظة النطاق",
+    "gov.scope.body":
+      "هذه اللوحة قراءة فقط للملاحظة والمراقبة. تُعرض المواءمة مع الأطر للقياس؛ بينما يبقى تأليف السياسات وتطبيقها ضمن مستأجر كل جهة، خارج نطاق منصة {orgShort}.",
+    "gov.clauses.title": "تغطية بنود NESA",
+    "gov.clauses.subtitle":
+      "متوسط التغطية لكل بند عبر الجهات الموافِقة. كل بند مدعوم بضوابط Secure Score — قابلة للتعديل في الإعدادات ← مواءمة NESA.",
+    "gov.clauses.col.clause": "البند",
+    "gov.clauses.col.weight": "الوزن",
+    "gov.clauses.col.coverage": "التغطية",
+
+    "dataProt.labels.title": "التصنيفات",
+    "dataProt.labels.subtitle":
+      "متوسطات تصنيفات الحساسية والاحتفاظ عبر الجهات الموافِقة.",
+    "dataProt.labels.sensitivityActive": "تصنيفات حساسية نشطة (متوسط)",
+    "dataProt.labels.retentionAvg": "تصنيفات احتفاظ (متوسط)",
+    "dataProt.labels.recordLabels": "تصنيفات سجلات (المجموع)",
+    "dataProt.sharing.title": "وضع المشاركة الخارجية",
+    "dataProt.sharing.subtitle":
+      "قدرة SharePoint على المشاركة على مستوى المستأجر. الأكثر تقييدًا أفضل لبيانات الحكومة.",
+    "dataProt.commComp.title": "الامتثال في الاتصالات",
+    "dataProt.byEntity.title": "حسب الجهة",
+    "dataProt.byEntity.subtitle":
+      "أعداد التنبيهات بين قوسين تُظهر التنبيهات النشطة؛ طلبات حقوق الأفراد المتأخرة بالأحمر.",
+    "dataProt.col.dlp": "DLP (نشطة)",
+    "dataProt.col.irm": "IRM",
+    "dataProt.col.commComp": "امتثال",
+    "dataProt.col.srrs": "طلبات (متأخرة)",
+    "dataProt.col.sharing": "المشاركة",
+
+    "nesaCfg.title": "مواءمة بنود NESA الإماراتي",
+    "nesaCfg.subtitle":
+      "مواءمة قابلة للتحرير من {orgShort} بين بنود NESA الإماراتي وضوابط Microsoft Secure Score. يُحسب المؤشر الفرعي للامتثال كمتوسط موزون لتغطية البنود. يتم تطبيع الأوزان تلقائيًا عند الحفظ.",
+    "nesaCfg.reset": "إعادة إلى الافتراضي",
+    "nesaCfg.save": "حفظ",
+    "nesaCfg.saved": "تم الحفظ. يُطبَّق في دورة حساب النضج التالية.",
+    "nesaCfg.weight": "الوزن",
+    "nesaCfg.controls": "ضوابط Secure Score (مفصولة بفاصلة)",
+    "nesaCfg.totalWeight": "مجموع الأوزان: {n}",
+    "nesaCfg.addClause": "إضافة بند",
+    "nesaCfg.removeClause": "حذف",
+
+    "threats.ti.title": "استخبارات التهديدات",
+    "threats.ti.subtitle": "مقالات حديثة من Microsoft Defender TI مرتبطة بتغذية {orgShort}.",
+    "threats.ti.empty": "لا توجد مقالات استخبارات تهديدات بعد.",
+    "threats.attackSim.title": "محاكاة الهجمات — معدل الضغط على التصيد",
+    "threats.attackSim.subtitle":
+      "مرتبة لكل جهة. الأقل أفضل. مسحوبة من /security/attackSimulation/simulations.",
+    "threats.hunting.title": "حزم الاستعلام المتقدم",
+    "threats.hunting.subtitle":
+      "استعلامات KQL من تأليف {orgShort} تُنفَّذ على كل جهة في كل دورة مزامنة. انقر على جهة للاطلاع على نتائج كل حزمة.",
+    "threats.hunting.noResults": "لا توجد صفوف.",
+    "threats.hunting.failed": "فشل الاستعلام",
+
+    "identity.pim.title": "تضخم الأدوار المميّزة",
+    "identity.pim.subtitle":
+      "التعيينات الدائمة مقابل المؤهَّلة (حسب الحاجة) عبر الجهات الموافِقة. الدائم الأقل = أفضل.",
+    "identity.pim.col.entity": "الجهة",
+    "identity.pim.col.standing": "دائم",
+    "identity.pim.col.eligible": "مؤهَّل",
+    "identity.pim.col.privileged": "دائم مميّز",
+    "identity.dfi.title": "صحة مستشعرات Defender for Identity",
+    "identity.dfi.subtitle": "عدد المستشعرات غير السليمة لكل جهة. الهدف صفر.",
+
+    "tabs.entity.controls": "الضوابط",
+    "tabs.entity.incidents": "الحوادث",
+    "tabs.entity.identity": "الهوية",
+
+    "maturity.howCalculated": "كيف يُحتسب؟",
+
+    "faq.eyebrow": "مرجع",
+    "faq.title": "كيف تعمل اللوحة",
+    "faq.subtitle":
+      "إجابات لقيادة {orgShort} ومسؤولي أمن الجهات وفريق Microsoft — كيفية احتساب مؤشر النضج، ومصادر البيانات، والقيود الحالية.",
+
+    "faq.q.whatIsDashboard.title": "ما هذه اللوحة؟",
+    "faq.q.whatIsDashboard.body":
+      "طبقة الرؤية الفيدرالية لـ{orgName} عبر كل الجهات المتصلة. تشغّل كل جهة مستأجر Microsoft 365 الخاص بها؛ تقرأ {orgShort} إشارات الوضع الأمني للقراءة فقط من كل مستأجر عبر Microsoft Graph، وتحتسب مؤشر النضج لكل جهة، وترتّب مقارنةً بهدف تحدده {orgShort}. لا تُدار أي عمليات يومية هنا — تحتفظ مراكز عمليات الأمن في الجهات بكامل استقلاليتها.",
+
+    "faq.q.whatIsIndex.title": "ما مؤشر النضج؟",
+    "faq.q.whatIsIndex.body":
+      "درجة من ٠ إلى ١٠٠ تلخّص الوضع الأمني لجهة واحدة. تُحتسب يومياً (أو عند الطلب عبر زر المزامنة) من خمس مجموعات إشارات: Microsoft Secure Score، سياسات الوصول المشروط، المستخدمون ذوو المخاطر، امتثال أجهزة Intune، والحوادث الأمنية. هدف {orgShort} هو ٧٥ — تظهر الجهات تحت ٧٥ في عداد 'دون الهدف' وتحظى بأولوية المعالجة.",
+
+    "faq.q.howCalculated.title": "كيف يُحتسب؟",
+    "faq.q.howCalculated.intro":
+      "متوسط مرجّح لستة مؤشرات فرعية، كل منها معياري من ٠ إلى ١٠٠. ضُبطت الأوزان خلال جلسة العرض ويمكن تعديلها في تبويب الحوكمة (المرحلة الثالثة).",
+    "faq.q.howCalculated.colSub": "المؤشر الفرعي",
+    "faq.q.howCalculated.colWeight": "الوزن",
+    "faq.q.howCalculated.colSource": "الإشارة",
+    "faq.q.howCalculated.row.ss.name": "Microsoft Secure Score",
+    "faq.q.howCalculated.row.ss.src": "/security/secureScores (النسبة من الحد الأقصى)",
+    "faq.q.howCalculated.row.identity.name": "وضع الهوية",
+    "faq.q.howCalculated.row.identity.src":
+      "تغطية الوصول المشروط (٥٠٪) + السياسات التي تفرض MFA (٣٥٪) + حظر المصادقة القديمة (١٥٪)، مع خصم نسبة المستخدمين ذوي المخاطر النشطة",
+    "faq.q.howCalculated.row.device.name": "وضع الأجهزة",
+    "faq.q.howCalculated.row.device.src": "نسبة امتثال أجهزة Intune",
+    "faq.q.howCalculated.row.data.name": "حماية البيانات",
+    "faq.q.howCalculated.row.data.src":
+      "المرحلة الثانية: مستخلصة من Secure Score. المرحلة الثالثة: تبنّي تصنيفات Purview + معدل تنبيهات DLP",
+    "faq.q.howCalculated.row.threat.name": "الاستجابة للتهديدات",
+    "faq.q.howCalculated.row.threat.src": "الحوادث المُغلقة / إجمالي الحوادث (من /security/incidents)",
+    "faq.q.howCalculated.row.compliance.name": "المواءمة مع الأطر",
+    "faq.q.howCalculated.row.compliance.src":
+      "مستخلصة من ضوابط Secure Score المرتبطة ببنود إطار NESA الإماراتي.",
+    "faq.q.howCalculated.formula.title": "المعادلة",
+    "faq.q.howCalculated.formula.body":
+      "المؤشر = ٠٫٢٥·SecureScore + ٠٫٢٠·Identity + ٠٫١٥·Device + ٠٫١٥·Data + ٠٫١٥·Threat + ٠٫١٠·Framework",
+
+    "faq.q.target.title": "لماذا الهدف ٧٥؟",
+    "faq.q.target.body":
+      "اعتمد {orgShort} ٧٥ معياراً خلال جلسة العرض التنفيذية (الشريحة ٦). يعكس 'الوضع الأمني الحكومي الأساسي' — أعلى من متوسط القطاع (حوالي ٦٠ لمستأجري M365 في القطاع العام) لكنه قابل للتحقيق للجهات التي أنجزت خطة Microsoft Secure Score الأساسية. يمكن تعديل الهدف من قبل قيادة معايير {orgShort} في المرحلة الثالثة.",
+
+    "faq.q.signals.title": "ما الإشارات التي تغذّي المؤشر؟",
+    "faq.q.signals.body":
+      "خمس مجموعات إشارات تُسحب لكل مستأجر في كل دورة مزامنة:",
+    "faq.q.signals.ss": "Microsoft Secure Score — درجة المستأجر وحالة كل ضابط تحكّم.",
+    "faq.q.signals.ca": "سياسات الوصول المشروط — كم منها مُفعّل، يفرض MFA، يحظر المصادقة القديمة.",
+    "faq.q.signals.ru": "المستخدمون ذوو المخاطر — تصنيفات Identity Protection + الحالة التاريخية.",
+    "faq.q.signals.dev": "الأجهزة المُدارة — حالة امتثال كل جهاز في Intune (ممتثل / غير ممتثل / فترة سماح / خطأ).",
+    "faq.q.signals.inc": "الحوادث الأمنية — النشطة والمُغلقة من Defender XDR.",
+
+    "faq.q.cadence.title": "كم مرة يتم تحديث البيانات؟",
+    "faq.q.cadence.body":
+      "الجهات التجريبية: اللقطات ثابتة عند البذر. الجهات الحقيقية: عند الطلب عبر زر 'مزامنة الآن' على كل جهة، بالإضافة إلى مزامنة شاملة مجدولة من مُوقّت خارجي (يُنصح ١٥ دقيقة للتنبيهات، ساعياً للوضع الأمني، يومياً لـ Secure Score). كل مزامنة تكتب لقطة بتاريخ محدّد في قاعدة البيانات ليتسنى احتساب الفروق التاريخية.",
+
+    "faq.q.belowTarget.title": "ماذا يعني 'دون الهدف'؟",
+    "faq.q.belowTarget.body":
+      "عدد الجهات الموافقة التي مؤشر نضجها الحالي أقل من هدف {orgShort} (٧٥ افتراضياً). الجهات التي لم تمنح الموافقة بعد لا تُحتسب — تظهر كـ 'بانتظار الموافقة' حتى يتم تسجيلها.",
+
+    "faq.q.data.title": "أين تُخزّن البيانات؟",
+    "faq.q.data.body":
+      "تستقر جميع الإشارات في قاعدة بيانات SQLite محلية على وحدة تخزين التطبيق (قابلة للضبط عبر متغير DATA_DIR). كل عملية جلب إشارة تكتب لقطة كاملة؛ سياسة الاحتفاظ يحددها {orgShort}. لا تغادر بيانات الجهات بيئة استضافة {orgShort}.",
+
+    "faq.q.limits.title": "القيود الحالية (المرحلة الثانية)",
+    "faq.q.limits.body":
+      "شفافية بما هو ليس مُفعّلاً بعد:",
+    "faq.q.limits.a":
+      "منصة {orgShort} قراءة فقط بحكم النطاق. تُلاحظ الوضع الأمني عبر أكثر من ١٠٠ مستأجر جهة وترتّبه مقابل هدف {orgShort}؛ بينما يبقى تأليف السياسات وتطبيقها لدى فرق تقنية المعلومات في كل جهة.",
+    "faq.q.limits.b":
+      "الفروق التاريخية (Δ ٧ أيام / ٣٠ / ربع سنوي / سنوي) تتطلب عدة لقطات لكل جهة وستظهر بعد أسبوع من تشغيل المزامنة.",
+    "faq.q.limits.c":
+      "Microsoft Compliance Manager لا يكشف درجات عبر Graph. المواءمة مع الأطر مُستخلصة وليست مأخوذة مباشرة من Microsoft.",
+    "faq.q.limits.d":
+      "إدارة سياسات Purview (DLP، مخاطر الداخل، الامتثال في الاتصالات) متاحة فقط عبر Security & Compliance PowerShell، وهي خارج نطاق هذه المنصة المخصصة للقراءة فقط.",
+
+    "faq.q.demo.title": "لماذا تحمل بعض الجهات شارة 'تجريبي'؟",
+    "faq.q.demo.body":
+      "الجهات الموسومة كتجريبية تحمل إشارات مُعدّة مسبقاً ولا تُزامن أبداً مع نقاط Graph الحقيقية. وجودها لعرض لوحة مأهولة قبل تسجيل جهات حقيقية. عمليات التثبيت الإنتاجية تُشحن بتعطيل البذر افتراضياً (اضبط SCSC_SEED_DEMO=true لتفعيله). يمكن للمجلس مسح كل الجهات التجريبية في أي وقت عبر الأمر `npm run purge-demo` — الجهات الحقيقية لا تُمس.",
+
+    "faq.q.glossary.title": "مسرد المصطلحات",
+    "faq.q.glossary.tenant": "مستأجر — مؤسسة Microsoft 365 لجهة واحدة، يُعرّف بـ GUID في Entra.",
+    "faq.q.glossary.cluster": "قطاع — تجميع {orgShort}: الشرطة / الصحة / التعليم / البلدية / الخدمات / النقل / أخرى.",
+    "faq.q.glossary.consent": "موافقة المسؤول — يوافق المسؤول العام للجهة على تطبيق Entra الخاص ب{orgShort} في مستأجرها؛ مطلوبة قبل أن تعمل أي استدعاءات Graph.",
+    "faq.q.glossary.secureScore": "Secure Score — مقياس الوضع الأمني المضمّن من Microsoft على مستوى المستأجر، من ٠ إلى حد أقصى ديناميكي.",
+
+    "kpi.maturityIndex": "مؤشر النضج",
+    "kpi.entities": "الجهات",
+    "kpi.belowTarget": "دون الهدف",
+    "kpi.controlsPassing": "الضوابط المطابقة",
+    "kpi.deltaNew": "جديد",
+    "kpi.target": "هدف {orgShort}",
+
+    "chart.clusters.title": "النضج حسب قطاع الجهات",
+    "chart.clusters.subtitle": "المؤشر من ٠ إلى ١٠٠ · مقارنة بهدف {orgShort} البالغ {target}",
+    "chart.entities.title": "النضج حسب الجهة",
+    "chart.entities.subtitle":
+      "عمود واحد لكل جهة موافِقة مقارنة بهدف {orgShort} {target}. اضغط على العمود للتعمق.",
+    "chart.sort.name": "الاسم",
+    "chart.sort.maturityHigh": "النضج · من الأعلى",
+    "chart.sort.maturityLow": "النضج · من الأدنى",
+
+    "time.range.ariaLabel": "النطاق الزمني",
+    "time.range.7d": "٧ أيام",
+    "time.range.30d": "٣٠ يوم",
+    "time.range.qtd": "منذ الربع",
+    "time.range.ytd": "منذ السنة",
+    "time.range.caption.7d": "مقابل قبل ٧ أيام",
+    "time.range.caption.30d": "مقابل قبل ٣٠ يومًا",
+    "time.range.caption.qtd": "منذ بداية الربع",
+    "time.range.caption.ytd": "منذ بداية السنة",
+    "time.range.caption.noHistory": "لا يوجد تاريخ كافٍ بعد.",
+    "chart.legend.current": "الحالي",
+    "chart.legend.target": "الهدف",
+
+    "maturity.dragging.title": "الضوابط التي تخفض المؤشر",
+    "maturity.dragging.subtitle":
+      "على مستوى {orgShort}، مرتَّبة حسب مجموع نقاط Secure Score المفقودة",
+    "maturity.dragging.entitiesAffected": "{n} جهة متأثرة",
+    "maturity.dragging.empty":
+      "لا توجد ضوابط خافضة — كل ضوابط Secure Score مُطبَّقة على مستوى {orgShort}.",
+
+    "maturity.movers.title": "أكبر التحولات — آخر ٧ أيام",
+    "maturity.movers.subtitle": "الجهات صاحبة أكبر تغير في مؤشر النضج",
+    "maturity.movers.empty":
+      "لا يوجد تاريخ كافٍ بعد لحساب التغيير خلال ٧ أيام. تحقق بعد أسبوع من المزامنات.",
+
+    "entities.eyebrow": "الجهات",
+    "entities.title": "الجهات المتصلة",
+    "entities.subtitle":
+      "عرض {shown} من أصل {total} جهة{filterSuffix}. مرتبة حسب مؤشر النضج.",
+    "entities.filterSuffix": " · مصفاة على {cluster}",
+    "entities.exportCsv": "تصدير CSV",
+    "entities.search": "بحث عن جهة أو نطاق أو مسؤول أمن…",
+    "entities.belowTargetLabel": "دون الهدف:",
+    "entities.noMatches": "لا توجد جهات تطابق بحثك.",
+    "entities.pending.copyLink": "نسخ رابط الموافقة",
+    "entities.pending.copied": "تم النسخ",
+    "entities.pending.cancel": "إلغاء التهيئة",
+    "entities.pending.cancelConfirm":
+      "إزالة هذه الجهة ورابط الموافقة المعلّق؟ يمكنك إعادة التهيئة في أي وقت.",
+    "entities.pending.linkUnavailable":
+      "لا يوجد رابط موافقة مخزّن — أعد تشغيل معالج التهيئة.",
+
+    "cols.entity": "الجهة",
+    "cols.cluster": "القطاع",
+    "cols.maturity": "النضج",
+    "cols.delta7d": "Δ ٧ أيام",
+    "cols.target": "الهدف",
+    "cols.controls": "الضوابط",
+    "cols.incidents": "الحوادث",
+    "cols.riskyUsers": "المستخدمون ذوو المخاطر",
+    "cols.deviceCompl": "امتثال الأجهزة",
+    "cols.labels": "التصنيفات",
+    "cols.connection": "الاتصال",
+    "cols.lastSync": "آخر مزامنة",
+    "cols.all": "الكل",
+
+    "health.green": "سليم",
+    "health.amber": "متدهور",
+    "health.red": "غير متصل",
+
+    "time.justNow": "الآن",
+    "time.minutesAgo": "قبل {n} دقيقة",
+    "time.hoursAgo": "قبل {n} ساعة",
+    "time.daysAgo": "قبل {n} يوم",
+
+    "entity.backToAll": "جميع الجهات",
+    "entity.tenant": "المستأجر",
+    "entity.domain": "النطاق",
+    "entity.ciso": "مسؤول أمن المعلومات",
+    "entity.contact": "جهة الاتصال",
+    "entity.lastSync": "آخر مزامنة {when}",
+    "entity.openDefender": "بوابة Defender",
+    "entity.exportCard": "تصدير البطاقة",
+    "entity.scheduleReview": "جدولة مراجعة",
+    "entity.suspend": "إيقاف مؤقت",
+    "entity.resume": "استئناف",
+    "entity.suspended.banner":
+      "المزامنة موقوفة مؤقتًا لهذه الجهة. ستتخطاها المزامنات الدورية حتى تستأنفها.",
+    "entity.review.banner": "مراجعة مجدولة في {date}.",
+
+    "entity.suspend.dialog.title": "إيقاف مزامنة الوضع الأمني؟",
+    "entity.suspend.dialog.body":
+      "ستتوقف المزامنة لهذه الجهة حتى تقوم باستئنافها. تبقى اللقطات السابقة محفوظة. لا تُلغى الموافقة — يبقى تسجيل تطبيق {orgShort} مرخصًا في مستأجر الجهة.",
+    "entity.suspend.dialog.confirm": "إيقاف",
+    "entity.suspend.dialog.cancel": "إلغاء",
+    "entity.resume.dialog.title": "استئناف مزامنة الوضع الأمني؟",
+    "entity.resume.dialog.body":
+      "ستلتقط المزامنة المجدولة التالية (الساعة الثالثة صباحًا) هذه الجهة من جديد. يمكنك أيضًا تشغيل «مزامنة الآن» فور ذلك.",
+    "entity.resume.dialog.confirm": "استئناف",
+
+    "entity.review.dialog.title": "جدولة مراجعة للوضع الأمني",
+    "entity.review.dialog.body":
+      "حدّد تاريخًا لمراجعة الوضع الأمني لهذه الجهة مع فريق {orgShort}. للإعلام فقط — لا يتم تنفيذ أي إجراء آلي في هذا التاريخ.",
+    "entity.review.dialog.dateLabel": "تاريخ المراجعة",
+    "entity.review.dialog.noteLabel": "ملاحظة (اختياري)",
+    "entity.review.dialog.save": "حفظ",
+    "entity.review.dialog.clear": "مسح",
+    "entity.review.dialog.cancel": "إلغاء",
+
+    "entity.maturityTitle": "مؤشر النضج",
+    "entity.maturitySubtitle": "مقارنة بهدف {orgShort} {target}",
+    "entity.targetMarker": "الهدف {target}",
+    "entity.stats.incidents": "الحوادث",
+    "entity.stats.riskyUsers": "ذوو المخاطر",
+    "entity.stats.devicesCompliant": "امتثال الأجهزة",
+
+    "subscores.title": "تفصيل المؤشرات الفرعية",
+    "subscores.subtitle": "المدخلات المرجحة في مؤشر النضج",
+    "subscores.identity": "الهوية",
+    "subscores.device": "الأجهزة",
+    "subscores.data": "البيانات",
+    "subscores.threatResponse": "الاستجابة للتهديدات",
+    "subscores.compliance": "الامتثال (NESA)",
+
+    "recent.title": "التغييرات الأخيرة",
+    "recent.subtitle": "الإشارات التي حركت المؤشر خلال الأيام السبعة الأخيرة",
+
+    "benchmark.title": "المعيار المقارن",
+    "benchmark.subtitle": "الموقع داخل قطاع {cluster} وعلى مستوى {orgShort}",
+    "benchmark.within": "داخل {cluster}",
+    "benchmark.councilWide": "على مستوى {orgShort}",
+    "benchmark.of": "من أصل {total}",
+    "benchmark.percentile": "المئين {n}",
+    "benchmark.footer":
+      "متوسط القطاع {cluster}. متوسط {orgShort} {council}. الهدف {target}.",
+
+    "subtabs.more.title": "علامات تبويب أخرى",
+    "subtabs.more.subtitle":
+      "Data · Governance — ستأتي في المرحلة الثالثة مع إشارات Purview.",
+    "subtabs.more.body":
+      "تبويبات Data و Governance تمتلئ بعد توصيل إشارات Purview المقروءة (تنبيهات DLP، مخاطر الداخل، طلبات حقوق الأفراد، تبنّي التصنيفات) والمواءمة مع إطار NESA الإماراتي.",
+
+    "tab.overview": "نظرة عامة",
+    "tab.controls": "الضوابط",
+    "tab.incidents": "الحوادث",
+    "tab.identity": "الهوية",
+    "tab.data": "البيانات",
+    "tab.devices": "الأجهزة",
+    "tab.governance": "الحوكمة",
+    "tab.connection": "الاتصال",
+
+    "tab.controls.title": "ضوابط Secure Score",
+    "tab.controls.subtitle": "حالة تطبيق كل ضابط من Microsoft Secure Score.",
+    "tab.controls.col.name": "الضابط",
+    "tab.controls.col.category": "الفئة",
+    "tab.controls.col.score": "النقاط",
+    "tab.controls.col.status": "الحالة",
+    "tab.controls.implemented": "مُطبَّق",
+    "tab.controls.notImplemented": "غير مُطبَّق",
+    "tab.controls.partial": "جزئي",
+    "tab.controls.unknown": "غير معروف",
+    "tab.controls.userImpact": "الأثر على المستخدم",
+    "tab.controls.implCost": "تكلفة التطبيق",
+
+    "tab.incidents.title": "الحوادث الأمنية",
+    "tab.incidents.subtitle": "موحّدة من Microsoft Defender XDR.",
+    "tab.incidents.col.name": "الحادثة",
+    "tab.incidents.col.severity": "الخطورة",
+    "tab.incidents.col.status": "الحالة",
+    "tab.incidents.col.alerts": "التنبيهات",
+    "tab.incidents.col.created": "الإنشاء",
+    "tab.incidents.col.updated": "آخر تحديث",
+    "tab.incidents.summary": "{total} إجمالي · {active} نشطة · {resolved} مُغلقة",
+
+    "tab.identity.title": "المستخدمون ذوو المخاطر",
+    "tab.identity.subtitle": "من Microsoft Entra Identity Protection.",
+    "tab.identity.col.user": "المستخدم",
+    "tab.identity.col.level": "مستوى الخطر",
+    "tab.identity.col.state": "حالة الخطر",
+    "tab.identity.col.updated": "آخر تحديث",
+    "tab.identity.summary": "{atRisk} في خطر · {total} متابعون",
+
+    "tab.devices.title": "الأجهزة المُدارة",
+    "tab.devices.subtitle": "مخزون أجهزة Intune وحالة الامتثال.",
+    "tab.devices.col.name": "الجهاز",
+    "tab.devices.col.os": "نظام التشغيل",
+    "tab.devices.col.user": "المستخدم",
+    "tab.devices.col.state": "الامتثال",
+    "tab.devices.col.encrypted": "مُشفَّر",
+    "tab.devices.col.lastSync": "آخر مزامنة",
+    "tab.devices.summary": "{total} جهاز · {compliancePct}% ممتثل",
+
+    "tab.connection.title": "صحة كل نقطة نهاية",
+    "tab.connection.subtitle": "آخر استدعاء ناجح، الأخطاء، الحدّ من الاستدعاءات خلال ٢٤ ساعة.",
+    "tab.connection.col.endpoint": "نقطة النهاية",
+    "tab.connection.col.lastSuccess": "آخر نجاح",
+    "tab.connection.col.lastError": "آخر خطأ",
+    "tab.connection.col.callCount": "الاستدعاءات (٢٤س)",
+    "tab.connection.col.throttled": "محدودة (٢٤س)",
+
+    "severity.high": "عالية",
+    "severity.medium": "متوسطة",
+    "severity.low": "منخفضة",
+    "severity.informational": "إعلامية",
+
+    "status.active": "نشطة",
+    "status.inProgress": "قيد المعالجة",
+    "status.resolved": "مُغلقة",
+    "status.redirected": "مُحوَّلة",
+
+    "risk.high": "عالٍ",
+    "risk.medium": "متوسط",
+    "risk.low": "منخفض",
+    "risk.none": "لا يوجد",
+    "risk.hidden": "مخفي",
+    "riskState.atRisk": "في خطر",
+    "riskState.confirmedCompromised": "مُخترق",
+    "riskState.remediated": "مُعالَج",
+    "riskState.dismissed": "مُرفوض",
+    "riskState.confirmedSafe": "آمن مؤكد",
+    "riskState.none": "لا يوجد",
+
+    "compliance.compliant": "ممتثل",
+    "compliance.noncompliant": "غير ممتثل",
+    "compliance.inGracePeriod": "فترة سماح",
+    "compliance.conflict": "تعارض",
+    "compliance.error": "خطأ",
+    "compliance.unknown": "غير معروف",
+
+    "rollup.identity.title": "وضع الهوية — تجميع {orgShort}",
+    "rollup.identity.subtitle":
+      "تجميع المستخدمين ذوي المخاطر وتغطية الوصول المشروط عبر كل الجهات الموافقة.",
+    "rollup.threats.title": "التهديدات — تجميع {orgShort}",
+    "rollup.threats.subtitle":
+      "تجميع الحوادث عبر كل الجهات الموافقة، حسب الخطورة والجهة.",
+    "rollup.devices.title": "الأجهزة — تجميع {orgShort}",
+    "rollup.devices.subtitle":
+      "تجميع امتثال أجهزة Intune عبر كل الجهات الموافقة.",
+    "rollup.totalUsers": "إجمالي المستخدمين ذوي المخاطر",
+    "rollup.atRiskUsers": "في خطر حالياً",
+    "rollup.caPoliciesMfa": "سياسات MFA",
+    "rollup.activeIncidents": "الحوادث النشطة",
+    "rollup.totalDevices": "إجمالي الأجهزة المُدارة",
+    "rollup.compliantDevices": "ممتثلة",
+    "rollup.byEntity": "حسب الجهة",
+
+    "placeholder.phase2.title": "ربط الإشارات الحية — المرحلة الثانية",
+    "placeholder.phase2.body":
+      "هذه الواجهات محددة ومُهيكلة. ستظهر البيانات عند تفعيل أنبوب Graph لكل مستأجر بدءاً بالجهات العشر الأولى في التجربة الرائدة.",
+
+    "nav.eyebrow": "التنقل",
+    "nav.maturity": "نظرة عامة على النضج",
+    "nav.entities": "الجهات",
+    "nav.identity": "الهوية",
+    "nav.threats": "التهديدات",
+    "nav.data": "حماية البيانات",
+    "nav.devices": "الأجهزة",
+    "nav.governance": "الحوكمة",
+    "nav.settings": "الإعدادات",
+    "nav.faq": "الأسئلة الشائعة",
+    "sidebar.dataSources": "مصادر البيانات",
+    "sidebar.dataSources.suffix": "· Graph APIs",
+    "ds.secureScore.detail": "على مستوى المستأجر والضوابط",
+    "ds.defender.detail": "Endpoint / Identity / O365",
+    "ds.purview.detail": "منع تسرب البيانات، التصنيفات، مخاطر الداخل",
+    "ds.entra.detail": "وضع الهوية، CA، PIM",
+    "ds.intune.detail": "امتثال الأجهزة، MAM",
+    "ds.compliance.detail": "UAE NESA",
+  },
+} as const;
+
+export type DictKey = keyof (typeof DICT)["en"];
