@@ -194,7 +194,10 @@ resource peFileDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024
 }
 
 // -------------------- ACA Managed Environment (VNet-integrated) --------------------
-resource acaEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
+// Preview API version required: `nfsAzureFile` storage type + `NfsAzureFile`
+// volume type landed in 2024-08-02-preview and aren't in the 2024-03-01 GA API.
+// Using the same version for env + storages + app so they stay in sync.
+resource acaEnv 'Microsoft.App/managedEnvironments@2024-10-02-preview' = {
   name: '${namePrefix}-env-${uniq}'
   location: location
   properties: {
@@ -219,7 +222,7 @@ resource acaEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
 }
 
 // -------------------- ACA env mounts the NFS share --------------------
-resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
+resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-10-02-preview' = {
   parent: acaEnv
   name: 'mizandata'
   properties: {
@@ -237,7 +240,7 @@ resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
 }
 
 // -------------------- Container App --------------------
-resource app 'Microsoft.App/containerApps@2024-03-01' = {
+resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
   name: '${namePrefix}-app-${uniq}'
   location: location
   properties: {

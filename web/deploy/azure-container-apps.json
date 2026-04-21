@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "10429903086914823896"
+      "templateHash": "13431003510732786386"
     }
   },
   "parameters": {
@@ -246,7 +246,7 @@
     },
     {
       "type": "Microsoft.App/managedEnvironments",
-      "apiVersion": "2024-03-01",
+      "apiVersion": "2024-10-02-preview",
       "name": "[format('{0}-env-{1}', variables('namePrefix'), variables('uniq'))]",
       "location": "[parameters('location')]",
       "properties": {
@@ -275,7 +275,7 @@
     },
     {
       "type": "Microsoft.App/managedEnvironments/storages",
-      "apiVersion": "2024-03-01",
+      "apiVersion": "2024-10-02-preview",
       "name": "[format('{0}/{1}', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')), 'mizandata')]",
       "properties": {
         "nfsAzureFile": {
@@ -294,7 +294,7 @@
     },
     {
       "type": "Microsoft.App/containerApps",
-      "apiVersion": "2024-03-01",
+      "apiVersion": "2024-10-02-preview",
       "name": "[format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))]",
       "location": "[parameters('location')]",
       "properties": {
@@ -367,7 +367,7 @@
   "outputs": {
     "dashboardUrl": {
       "type": "string",
-      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-03-01').configuration.ingress.fqdn)]"
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview').configuration.ingress.fqdn)]"
     },
     "resourceGroup": {
       "type": "string",
