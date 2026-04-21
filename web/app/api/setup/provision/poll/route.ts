@@ -8,11 +8,14 @@ import {
 } from "@/lib/auth/provision-store";
 import {
   extractTenantFromToken,
+  extractUserFromToken,
   provisionGraphSignalsApp,
   provisionUserAuthApp,
 } from "@/lib/auth/graph-app-provisioner";
 import { resolveAppBaseUrl } from "@/lib/config/base-url";
 import { getBranding } from "@/lib/config/branding";
+import { countAdmins, upsertUser } from "@/lib/db/users";
+import { openSession, writeSessionCookie } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -115,6 +118,33 @@ export async function POST(req: NextRequest) {
       provisionResult = { clientId: p.clientId, displayName: p.displayName };
     }
 
+    // Carry the operator's Microsoft identity straight into a Mizan session.
+    // They just signed in with a device code — there's no need to make them
+    // do a second OIDC round-trip on Step 5 (which needs the freshly-created
+    // app to have admin consent, match its redirect URI exactly, accept the
+    // authority, clear any MFA policy...). Here we already have a proven
+    // oid/tid/email/name from a real Microsoft authentication — skip straight
+    // to openSession and let Step 5 become a click-Finish screen.
+    let autoLoggedIn = false;
+    if (countAdmins() === 0) {
+      const ident = extractUserFromToken(result.accessToken);
+      if (ident) {
+        const user = upsertUser({
+          entra_oid: ident.oid,
+          tenant_id: ident.tenantId,
+          email: ident.email,
+          display_name: ident.displayName,
+          role: "admin",
+        });
+        const ip =
+          req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+        const ua = req.headers.get("user-agent") ?? null;
+        const session = await openSession(user.id, ip, ua);
+        await writeSessionCookie(session.id, session.expires_at);
+        autoLoggedIn = true;
+      }
+    }
+
     updateFlow(flow.id, {
       result: {
         kind: "success",
@@ -126,6 +156,7 @@ export async function POST(req: NextRequest) {
       status: "success",
       clientId: provisionResult.clientId,
       displayName: provisionResult.displayName,
+      autoLoggedIn,
     });
   } catch (err) {
     const message = (err as Error).message;

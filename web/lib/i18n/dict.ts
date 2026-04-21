@@ -333,6 +333,9 @@ export const DICT = {
     "setup.s5.afterSignIn":
       "After sign-in you'll land back here. Click Finish to open the dashboard.",
     "setup.s5.finish": "Finish setup — open the dashboard",
+    "setup.s5.alreadyTitle": "Signed in — you're the bootstrap admin",
+    "setup.s5.alreadyBody":
+      "When you approved the device code on an earlier step, we used that same Microsoft sign-in to create your admin session. No second round-trip required. Click Finish to open the dashboard.",
     "setup.s5.consentTitle": "Grant admin consent in Entra (manual step)",
     "setup.s5.consentBody":
       "Mizan created both app registrations for you and stored credentials, but Microsoft requires admin consent to be granted from the Entra portal. For each app you just created: Entra portal → App registrations → this app → API permissions → Grant admin consent for your tenant. Until consent is granted, sign-in below will fail with AADSTS65001.",
@@ -1274,6 +1277,9 @@ export const DICT = {
     "setup.s5.afterSignIn":
       "بعد تسجيل الدخول ستعود إلى هنا. اضغط إنهاء لفتح اللوحة.",
     "setup.s5.finish": "إنهاء الإعداد — فتح اللوحة",
+    "setup.s5.alreadyTitle": "تم تسجيل الدخول — أنت مشرف النظام المُهيَّأ",
+    "setup.s5.alreadyBody":
+      "عند تأكيد رمز الجهاز في خطوة سابقة، استخدمنا ذلك التسجيل نفسه لإنشاء جلسة المشرف. لا حاجة لجولة ثانية مع Microsoft. اضغط إنهاء لفتح اللوحة.",
     "setup.s5.consentTitle": "منح موافقة المسؤول في Entra (خطوة يدوية)",
     "setup.s5.consentBody":
       "أنشأ Mizan تسجيلَي التطبيق نيابةً عنك وحفظ بيانات الاعتماد، لكن Microsoft تشترط منح موافقة المسؤول من بوابة Entra. لكل تطبيق للتو أُنشئ: بوابة Entra ← App registrations ← هذا التطبيق ← API permissions ← Grant admin consent لمستأجرك. بدون هذه الموافقة سيفشل تسجيل الدخول أدناه برمز AADSTS65001.",

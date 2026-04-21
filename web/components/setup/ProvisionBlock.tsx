@@ -25,7 +25,7 @@ type Started = {
 
 type Poll =
   | { status: "pending"; interval?: number }
-  | { status: "success"; clientId: string; displayName: string }
+  | { status: "success"; clientId: string; displayName: string; autoLoggedIn?: boolean }
   | { status: "error"; message: string };
 
 export function ProvisionBlock({
@@ -35,7 +35,7 @@ export function ProvisionBlock({
 }: {
   kind: Kind;
   tenant: string;
-  onSuccess: (clientId: string) => void;
+  onSuccess: (clientId: string, opts: { autoLoggedIn: boolean }) => void;
 }) {
   const { t } = useI18n();
   const [state, setState] = useState<
@@ -86,7 +86,7 @@ export function ProvisionBlock({
             clientId: body.clientId,
             displayName: body.displayName,
           });
-          onSuccess(body.clientId);
+          onSuccess(body.clientId, { autoLoggedIn: body.autoLoggedIn === true });
           return;
         }
         stopPolling();

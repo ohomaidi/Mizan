@@ -239,16 +239,54 @@ export async function provisionUserAuthApp(
  * `tid` claim to know which tenant the new apps should go into.
  */
 export function extractTenantFromToken(accessToken: string): string | null {
-  const parts = accessToken.split(".");
+  const claims = decodeJwtClaims(accessToken);
+  return (typeof claims?.tid === "string" && claims.tid) || null;
+}
+
+export type TokenIdentity = {
+  oid: string;
+  tenantId: string;
+  email: string;
+  displayName: string;
+};
+
+/**
+ * Decode the minimal identity claims Mizan needs to seed its own user row
+ * out of the bootstrap access token. The operator has already signed into
+ * Microsoft via the device-code flow to provision the apps — we carry that
+ * identity straight into a Mizan session instead of making them do a second
+ * OIDC round-trip that can fail on redirect URIs, missing consent, MFA etc.
+ */
+export function extractUserFromToken(accessToken: string): TokenIdentity | null {
+  const claims = decodeJwtClaims(accessToken);
+  if (!claims) return null;
+  const oid = typeof claims.oid === "string" ? claims.oid : undefined;
+  const tid = typeof claims.tid === "string" ? claims.tid : undefined;
+  if (!oid || !tid) return null;
+  const email =
+    (typeof claims.preferred_username === "string" && claims.preferred_username) ||
+    (typeof claims.upn === "string" && claims.upn) ||
+    (typeof claims.email === "string" && claims.email) ||
+    (typeof claims.unique_name === "string" && claims.unique_name) ||
+    "";
+  const displayName =
+    (typeof claims.name === "string" && claims.name) ||
+    (typeof claims.given_name === "string" && claims.given_name) ||
+    email ||
+    "Administrator";
+  return { oid, tenantId: tid, email, displayName };
+}
+
+function decodeJwtClaims(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
-    // base64url → base64 → JSON
     const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-    const claims = JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as {
-      tid?: string;
-    };
-    return claims.tid ?? null;
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8")) as Record<
+      string,
+      unknown
+    >;
   } catch {
     return null;
   }

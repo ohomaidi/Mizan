@@ -53,11 +53,37 @@ export default function SetupPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Set true the moment any device-code flow signs a user in as bootstrap admin.
+  // We also re-check via /api/auth/me on mount so returning to the wizard from
+  // a reload still shows the right Step 5 state.
+  const [autoLoggedIn, setAutoLoggedIn] = useState(false);
+  const [adminIdentity, setAdminIdentity] = useState<{
+    displayName: string;
+    email: string;
+  } | null>(null);
+
   // Load the redirect URI so the operator can paste it into the Entra app.
   useEffect(() => {
     api
       .getAuthConfig()
       .then((r) => setAuthRedirectUri(r.config.redirectUri))
+      .catch(() => {});
+  }, []);
+
+  // Detect the case where the poll route already opened a session for us on
+  // a prior device-code success (e.g. user refreshed the page mid-wizard).
+  useEffect(() => {
+    api
+      .whoami()
+      .then((r) => {
+        if (r.authenticated && r.user) {
+          setAutoLoggedIn(true);
+          setAdminIdentity({
+            displayName: r.user.displayName || r.user.email || "Administrator",
+            email: r.user.email || "",
+          });
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -233,6 +259,10 @@ export default function SetupPage() {
               setClientId={setGraphClientId}
               clientSecret={graphClientSecret}
               setClientSecret={setGraphClientSecret}
+              onAutoLoggedIn={(who) => {
+                setAutoLoggedIn(true);
+                setAdminIdentity(who);
+              }}
             />
           ) : null}
           {step === 4 ? (
@@ -254,6 +284,10 @@ export default function SetupPage() {
                 }
               }}
               copied={copied}
+              onAutoLoggedIn={(who) => {
+                setAutoLoggedIn(true);
+                setAdminIdentity(who);
+              }}
             />
           ) : null}
           {step === 5 ? (
@@ -262,6 +296,8 @@ export default function SetupPage() {
               onFinish={onFinish}
               saving={saving}
               authConfigured={authClientId.trim().length > 0}
+              autoLoggedIn={autoLoggedIn}
+              adminIdentity={adminIdentity}
               autoProvisioned={
                 graphClientSecret === "__auto_provisioned__" ||
                 authClientSecret === "__auto_provisioned__"
@@ -468,6 +504,7 @@ function Step3(props: {
   setClientId: (v: string) => void;
   clientSecret: string;
   setClientSecret: (v: string) => void;
+  onAutoLoggedIn: (who: { displayName: string; email: string }) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -476,12 +513,30 @@ function Step3(props: {
       <ProvisionBlock
         kind="graph"
         tenant="common"
-        onSuccess={(clientId) => {
+        onSuccess={(clientId, { autoLoggedIn }) => {
           props.setClientId(clientId);
           // Secret is persisted server-side during provisioning. Set a
           // sentinel client-side so onNext() doesn't overwrite the stored
           // secret with a blank field.
           props.setClientSecret("__auto_provisioned__");
+          if (autoLoggedIn) {
+            // Re-query whoami so Step 5 shows the real display name instead
+            // of a placeholder — avoids claim-decode edge cases on the UI.
+            fetch("/api/auth/me", { cache: "no-store" })
+              .then((r) => r.json())
+              .then((me) => {
+                if (me?.authenticated && me?.user) {
+                  props.onAutoLoggedIn({
+                    displayName:
+                      me.user.displayName ||
+                      me.user.email ||
+                      "Administrator",
+                    email: me.user.email || "",
+                  });
+                }
+              })
+              .catch(() => {});
+          }
         }}
       />
       <details className="rounded-md border border-border bg-surface-2 p-4">
@@ -529,6 +584,7 @@ function Step4(props: {
   redirectUri: string;
   onCopy: () => void;
   copied: boolean;
+  onAutoLoggedIn: (who: { displayName: string; email: string }) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -537,13 +593,29 @@ function Step4(props: {
       <ProvisionBlock
         kind="user"
         tenant="common"
-        onSuccess={(clientId) => {
+        onSuccess={(clientId, { autoLoggedIn }) => {
           props.setClientId(clientId);
           props.setClientSecret("__auto_provisioned__");
           // tenantId is written server-side from the user's token `tid` claim.
           // Flag it with the same sentinel so next() knows not to clobber the
           // real GUID with whatever is (or isn't) in the form.
           props.setTenantId("__auto_provisioned__");
+          if (autoLoggedIn) {
+            fetch("/api/auth/me", { cache: "no-store" })
+              .then((r) => r.json())
+              .then((me) => {
+                if (me?.authenticated && me?.user) {
+                  props.onAutoLoggedIn({
+                    displayName:
+                      me.user.displayName ||
+                      me.user.email ||
+                      "Administrator",
+                    email: me.user.email || "",
+                  });
+                }
+              })
+              .catch(() => {});
+          }
         }}
       />
       <details className="rounded-md border border-border bg-surface-2 p-4">
@@ -614,15 +686,71 @@ function Step5({
   onFinish,
   saving,
   authConfigured,
+  autoLoggedIn,
+  adminIdentity,
   autoProvisioned,
 }: {
   onSignIn: () => void;
   onFinish: () => void;
   saving: boolean;
   authConfigured: boolean;
+  autoLoggedIn: boolean;
+  adminIdentity: { displayName: string; email: string } | null;
   autoProvisioned: boolean;
 }) {
   const { t } = useI18n();
+
+  // Happy path — the device-code flow on Step 3/4 already opened an admin
+  // session for us. No Microsoft round-trip needed; just click Finish.
+  if (autoLoggedIn) {
+    const name = adminIdentity?.displayName ?? "Administrator";
+    const email = adminIdentity?.email ?? "";
+    return (
+      <div className="flex flex-col gap-4">
+        <StepHeader
+          title={t("setup.s5.title")}
+          subtitle={t("setup.s5.subtitle")}
+        />
+        <div className="rounded-md border border-pos/40 bg-pos/10 p-4 flex items-start gap-3">
+          <Check size={18} className="text-pos shrink-0 mt-0.5" />
+          <div className="flex-1 text-[13px] text-ink-1">
+            <div className="font-semibold text-pos">
+              {t("setup.s5.alreadyTitle")}
+            </div>
+            <div className="text-[12.5px] text-ink-2 mt-1">
+              {name}
+              {email ? (
+                <>
+                  <span className="mx-1.5 text-ink-3">·</span>
+                  <span className="tabular keep-ltr text-ink-3">{email}</span>
+                </>
+              ) : null}
+            </div>
+            <div className="text-[11.5px] text-ink-3 mt-2">
+              {t("setup.s5.alreadyBody")}
+            </div>
+          </div>
+        </div>
+        <div>
+          <button
+            onClick={onFinish}
+            disabled={saving}
+            className="inline-flex items-center gap-2 h-10 px-4 rounded-md bg-council-strong text-white text-[13px] font-semibold disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Check size={14} />
+            )}
+            {t("setup.s5.finish")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback — operator went through the manual-credentials escape hatch and
+  // hasn't signed in yet. Keep the old OIDC-round-trip button available.
   return (
     <div className="flex flex-col gap-4">
       <StepHeader title={t("setup.s5.title")} subtitle={t("setup.s5.subtitle")} />
