@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "1249427031847796812"
+      "templateHash": "10429903086914823896"
     }
   },
   "parameters": {
@@ -13,52 +13,63 @@
       "type": "string",
       "defaultValue": "[resourceGroup().location]",
       "metadata": {
-        "description": "Region. Defaults to the resource group region; override to pin a specific one (e.g. uaenorth)."
+        "description": "Region for all resources. Defaults to the RG region."
       }
     },
     "containerImage": {
       "type": "string",
       "defaultValue": "ghcr.io/ohomaidi/mizan",
       "metadata": {
-        "description": "Container image (registry/repo), without the tag. Defaults to the public Mizan image on ghcr.io."
+        "description": "Container image (registry/repo), no tag."
       }
     },
     "imageTag": {
       "type": "string",
       "defaultValue": "latest",
       "metadata": {
-        "description": "Image tag. Pin to a semver (e.g. 1.0.0) for production; \"latest\" is fine for pilots."
+        "description": "Image tag. Use a semver (e.g. 1.0.2) for production, latest for pilots."
       }
     },
     "appBaseUrl": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
-        "description": "Public base URL the dashboard will be served on — used for the OIDC redirect. Leave empty to let the one-click deploy finish; after Azure assigns the ingress FQDN you update this env var and flip on auth enforcement. If you already have a custom domain, put it here."
+        "description": "Public base URL for the dashboard. Leave empty and the app self-discovers its URL from the incoming request."
       }
     },
     "syncSecret": {
       "type": "securestring",
-      "defaultValue": "",
-      "metadata": {
-        "description": "Optional sync shared secret. Set this if you wire an Azure Function / Logic App to POST /api/sync daily."
-      }
+      "defaultValue": ""
     },
     "cpuCores": {
       "type": "string",
-      "defaultValue": "1.0",
-      "metadata": {
-        "description": "Container compute: cores and memory. ACA minimums are 0.25/0.5Gi."
-      }
+      "defaultValue": "1.0"
     },
     "memoryGi": {
       "type": "string",
       "defaultValue": "2Gi"
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.0.0/16",
+      "metadata": {
+        "description": "VNet CIDR. /23 minimum for the ACA subnet; /24 here leaves /24 for the PE subnet."
+      }
+    },
+    "acaSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.0.0/23"
+    },
+    "peSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.2.0/28"
     }
   },
   "variables": {
     "namePrefix": "mizan",
-    "uniq": "[uniqueString(resourceGroup().id)]"
+    "uniq": "[uniqueString(resourceGroup().id)]",
+    "storageName": "[format('{0}{1}', variables('namePrefix'), variables('uniq'))]",
+    "shareName": "mizan-data"
   },
   "resources": [
     {
@@ -74,37 +85,163 @@
       }
     },
     {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "aca",
+            "properties": {
+              "addressPrefix": "[parameters('acaSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "aca-delegation",
+                  "properties": {
+                    "serviceName": "Microsoft.App/environments"
+                  }
+                }
+              ],
+              "serviceEndpoints": [
+                {
+                  "service": "Microsoft.Storage",
+                  "locations": [
+                    "[parameters('location')]"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "pe",
+            "properties": {
+              "addressPrefix": "[parameters('peSubnetPrefix')]",
+              "privateEndpointNetworkPolicies": "Disabled"
+            }
+          }
+        ]
+      }
+    },
+    {
       "type": "Microsoft.Storage/storageAccounts",
       "apiVersion": "2024-01-01",
-      "name": "[format('{0}{1}', variables('namePrefix'), variables('uniq'))]",
+      "name": "[variables('storageName')]",
       "location": "[parameters('location')]",
+      "kind": "FileStorage",
       "sku": {
-        "name": "Standard_LRS"
+        "name": "Premium_LRS"
       },
-      "kind": "StorageV2",
       "properties": {
+        "allowSharedKeyAccess": false,
         "allowBlobPublicAccess": false,
         "minimumTlsVersion": "TLS1_2",
-        "supportsHttpsTrafficOnly": true
+        "supportsHttpsTrafficOnly": true,
+        "publicNetworkAccess": "Disabled",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny"
+        },
+        "largeFileSharesState": "Enabled"
       }
     },
     {
       "type": "Microsoft.Storage/storageAccounts/fileServices",
       "apiVersion": "2024-01-01",
-      "name": "[format('{0}/{1}', format('{0}{1}', variables('namePrefix'), variables('uniq')), 'default')]",
+      "name": "[format('{0}/{1}', variables('storageName'), 'default')]",
+      "properties": {
+        "protocolSettings": {
+          "smb": {}
+        }
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}', variables('namePrefix'), variables('uniq')))]"
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
       ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
       "apiVersion": "2024-01-01",
-      "name": "[format('{0}/{1}/{2}', format('{0}{1}', variables('namePrefix'), variables('uniq')), 'default', 'mizan-data')]",
+      "name": "[format('{0}/{1}/{2}', variables('storageName'), 'default', variables('shareName'))]",
       "properties": {
-        "shareQuota": 50
+        "shareQuota": 100,
+        "enabledProtocols": "NFS",
+        "rootSquash": "NoRootSquash"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/fileServices', format('{0}{1}', variables('namePrefix'), variables('uniq')), 'default')]"
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices', variables('storageName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "privatelink.file.core.windows.net",
+      "location": "global",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', 'privatelink.file.core.windows.net', 'vnet-link')]",
+      "location": "global",
+      "properties": {
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq')))]"
+        },
+        "registrationEnabled": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.file.core.windows.net')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}-pe-file-{1}', variables('namePrefix'), variables('uniq'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[format('{0}/subnets/pe', resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq'))))]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "file-connection",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+              "groupIds": [
+                "file"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', format('{0}-pe-file-{1}', variables('namePrefix'), variables('uniq')), 'default')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "privatelink-file-core-windows-net",
+            "properties": {
+              "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.file.core.windows.net')]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.file.core.windows.net')]",
+        "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-file-{1}', variables('namePrefix'), variables('uniq')))]"
       ]
     },
     {
@@ -119,10 +256,21 @@
             "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-law-{1}', variables('namePrefix'), variables('uniq'))), '2023-09-01').customerId]",
             "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-law-{1}', variables('namePrefix'), variables('uniq'))), '2023-09-01').primarySharedKey]"
           }
-        }
+        },
+        "vnetConfiguration": {
+          "infrastructureSubnetId": "[format('{0}/subnets/aca', resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq'))))]",
+          "internal": false
+        },
+        "workloadProfiles": [
+          {
+            "name": "Consumption",
+            "workloadProfileType": "Consumption"
+          }
+        ]
       },
       "dependsOn": [
-        "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-law-{1}', variables('namePrefix'), variables('uniq')))]"
+        "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-law-{1}', variables('namePrefix'), variables('uniq')))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq')))]"
       ]
     },
     {
@@ -130,17 +278,18 @@
       "apiVersion": "2024-03-01",
       "name": "[format('{0}/{1}', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')), 'mizandata')]",
       "properties": {
-        "azureFile": {
-          "accountName": "[format('{0}{1}', variables('namePrefix'), variables('uniq'))]",
-          "accountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}', variables('namePrefix'), variables('uniq'))), '2024-01-01').keys[0].value]",
-          "shareName": "mizan-data",
-          "accessMode": "ReadWrite"
+        "nfsAzureFile": {
+          "server": "[format('{0}.file.core.windows.net', variables('storageName'))]",
+          "accessMode": "ReadWrite",
+          "shareName": "[format('/{0}/{1}', variables('storageName'), variables('shareName'))]"
         }
       },
       "dependsOn": [
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
-        "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', format('{0}{1}', variables('namePrefix'), variables('uniq')), 'default', 'mizan-data')]",
-        "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}', variables('namePrefix'), variables('uniq')))]"
+        "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', 'privatelink.file.core.windows.net', 'vnet-link')]",
+        "[resourceId('Microsoft.Network/privateEndpoints/privateDnsZoneGroups', format('{0}-pe-file-{1}', variables('namePrefix'), variables('uniq')), 'default')]",
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('storageName'), 'default', variables('shareName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageName'))]"
       ]
     },
     {
@@ -149,7 +298,8 @@
       "name": "[format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))]",
       "location": "[parameters('location')]",
       "properties": {
-        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
+        "environmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
+        "workloadProfileName": "Consumption",
         "configuration": {
           "ingress": {
             "external": true,
@@ -187,8 +337,10 @@
                     "path": "/api/auth/me",
                     "port": 8787
                   },
-                  "initialDelaySeconds": 20,
-                  "periodSeconds": 30
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 30,
+                  "timeoutSeconds": 5,
+                  "failureThreshold": 5
                 }
               ]
             }
@@ -200,7 +352,7 @@
           "volumes": [
             {
               "name": "data",
-              "storageType": "AzureFile",
+              "storageType": "NfsAzureFile",
               "storageName": "mizandata"
             }
           ]
@@ -216,6 +368,10 @@
     "dashboardUrl": {
       "type": "string",
       "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-03-01').configuration.ingress.fqdn)]"
+    },
+    "resourceGroup": {
+      "type": "string",
+      "value": "[resourceGroup().name]"
     }
   }
 }

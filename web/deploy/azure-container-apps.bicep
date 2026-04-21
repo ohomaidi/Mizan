@@ -1,45 +1,50 @@
-// Azure Container Apps deployment for the Mizan — Posture & Maturity Dashboard.
+// Mizan — Azure Container Apps one-click deployment.
 //
-// This template is resource-group-scoped so the "Deploy to Azure" portal
-// button works out of the box (no subscription-level permissions needed).
+// Uses NFS 4.1 for Azure Files so the deploy works under tight governance
+// (MCA-managed subscriptions, any tenant with `StorageAccount_DisableLocalAuth_Modify`
+// or similar Azure Policy). NFS is auth'd by network rules + a private endpoint,
+// so shared-key access stays disabled and nothing gets silently reverted by policy.
 //
-// What this provisions:
-//   - Log Analytics workspace (required by the ACA environment)
-//   - Storage account + Azure Files share for persistent DATA_DIR
-//   - ACA managed environment
-//   - Container App running the published ghcr.io image, mounted on the share
-//
-// CLI usage:
-//   az group create -n mizan-rg -l uaenorth
-//   az deployment group create \
-//       -g mizan-rg \
-//       --template-file azure-container-apps.bicep \
-//       --parameters containerImage=ghcr.io/ohomaidi/mizan imageTag=latest \
-//                    appBaseUrl=https://posture.<customer>.example.com
+// Resources provisioned:
+//   - Log Analytics workspace (ACA env requirement)
+//   - Virtual network with two subnets (ACA-delegated + private-endpoint)
+//   - Premium FileStorage account (allowSharedKeyAccess=false; NFS enabled)
+//   - NFS file share (100GB, Premium minimum)
+//   - Private DNS zone privatelink.file.core.windows.net + VNet link
+//   - Private endpoint to the storage account's file subresource
+//   - VNet-integrated ACA managed environment
+//   - Managed environment NFS storage mount
+//   - Container App pulling the public Mizan image and mounting /data
 
-@description('Region. Defaults to the resource group region; override to pin a specific one (e.g. uaenorth).')
+@description('Region for all resources. Defaults to the RG region.')
 param location string = resourceGroup().location
 
-@description('Container image (registry/repo), without the tag. Defaults to the public Mizan image on ghcr.io.')
+@description('Container image (registry/repo), no tag.')
 param containerImage string = 'ghcr.io/ohomaidi/mizan'
 
-@description('Image tag. Pin to a semver (e.g. 1.0.0) for production; "latest" is fine for pilots.')
+@description('Image tag. Use a semver (e.g. 1.0.2) for production, latest for pilots.')
 param imageTag string = 'latest'
 
-@description('Public base URL the dashboard will be served on — used for the OIDC redirect. Leave empty to let the one-click deploy finish; after Azure assigns the ingress FQDN you update this env var and flip on auth enforcement. If you already have a custom domain, put it here.')
+@description('Public base URL for the dashboard. Leave empty and the app self-discovers its URL from the incoming request.')
 param appBaseUrl string = ''
 
-@description('Optional sync shared secret. Set this if you wire an Azure Function / Logic App to POST /api/sync daily.')
 @secure()
 param syncSecret string = ''
 
-@description('Container compute: cores and memory. ACA minimums are 0.25/0.5Gi.')
 param cpuCores string = '1.0'
 param memoryGi string = '2Gi'
 
+@description('VNet CIDR. /23 minimum for the ACA subnet; /24 here leaves /24 for the PE subnet.')
+param vnetAddressPrefix string = '10.60.0.0/16'
+param acaSubnetPrefix string = '10.60.0.0/23'
+param peSubnetPrefix string = '10.60.2.0/28'
+
 var namePrefix = 'mizan'
 var uniq = uniqueString(resourceGroup().id)
+var storageName = '${namePrefix}${uniq}'
+var shareName = 'mizan-data'
 
+// -------------------- Log Analytics --------------------
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${namePrefix}-law-${uniq}'
   location: location
@@ -51,33 +56,144 @@ resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   }
 }
 
-resource storage 'Microsoft.Storage/storageAccounts@2024-01-01' = {
-  name: '${namePrefix}${uniq}'
+// -------------------- VNet + subnets --------------------
+resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
+  name: '${namePrefix}-vnet-${uniq}'
   location: location
-  sku: {
-    name: 'Standard_LRS'
-  }
-  kind: 'StorageV2'
   properties: {
+    addressSpace: {
+      addressPrefixes: [vnetAddressPrefix]
+    }
+    subnets: [
+      {
+        name: 'aca'
+        properties: {
+          addressPrefix: acaSubnetPrefix
+          delegations: [
+            {
+              name: 'aca-delegation'
+              properties: {
+                serviceName: 'Microsoft.App/environments'
+              }
+            }
+          ]
+          serviceEndpoints: [
+            {
+              service: 'Microsoft.Storage'
+              locations: [location]
+            }
+          ]
+        }
+      }
+      {
+        name: 'pe'
+        properties: {
+          addressPrefix: peSubnetPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+        }
+      }
+    ]
+  }
+}
+
+// -------------------- Storage: Premium FileStorage with NFS --------------------
+resource storage 'Microsoft.Storage/storageAccounts@2024-01-01' = {
+  name: storageName
+  location: location
+  kind: 'FileStorage'
+  sku: {
+    name: 'Premium_LRS'
+  }
+  properties: {
+    // Explicitly disabled — satisfies the governance policy.
+    allowSharedKeyAccess: false
     allowBlobPublicAccess: false
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
+    // Lock down to VNet + PE only.
+    publicNetworkAccess: 'Disabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Deny'
+    }
+    largeFileSharesState: 'Enabled'
   }
 }
 
 resource fileService 'Microsoft.Storage/storageAccounts/fileServices@2024-01-01' = {
   parent: storage
   name: 'default'
+  properties: {
+    protocolSettings: {
+      smb: {}
+    }
+  }
 }
 
 resource share 'Microsoft.Storage/storageAccounts/fileServices/shares@2024-01-01' = {
   parent: fileService
-  name: 'mizan-data'
+  name: shareName
   properties: {
-    shareQuota: 50
+    shareQuota: 100
+    enabledProtocols: 'NFS'
+    rootSquash: 'NoRootSquash'
   }
 }
 
+// -------------------- Private DNS + Private Endpoint --------------------
+resource pdnsFile 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: 'privatelink.file.core.windows.net'
+  location: 'global'
+  properties: {}
+}
+
+resource pdnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: pdnsFile
+  name: 'vnet-link'
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: vnet.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource peFile 'Microsoft.Network/privateEndpoints@2024-01-01' = {
+  name: '${namePrefix}-pe-file-${uniq}'
+  location: location
+  properties: {
+    subnet: {
+      id: '${vnet.id}/subnets/pe'
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'file-connection'
+        properties: {
+          privateLinkServiceId: storage.id
+          groupIds: ['file']
+        }
+      }
+    ]
+  }
+}
+
+resource peFileDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
+  parent: peFile
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'privatelink-file-core-windows-net'
+        properties: {
+          privateDnsZoneId: pdnsFile.id
+        }
+      }
+    ]
+  }
+}
+
+// -------------------- ACA Managed Environment (VNet-integrated) --------------------
 resource acaEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: '${namePrefix}-env-${uniq}'
   location: location
@@ -89,27 +205,44 @@ resource acaEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
         sharedKey: law.listKeys().primarySharedKey
       }
     }
+    vnetConfiguration: {
+      infrastructureSubnetId: '${vnet.id}/subnets/aca'
+      internal: false
+    }
+    workloadProfiles: [
+      {
+        name: 'Consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
   }
 }
 
+// -------------------- ACA env mounts the NFS share --------------------
 resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-03-01' = {
   parent: acaEnv
   name: 'mizandata'
   properties: {
-    azureFile: {
-      accountName: storage.name
-      accountKey: storage.listKeys().keys[0].value
-      shareName: share.name
+    nfsAzureFile: {
+      server: '${storage.name}.file.core.windows.net'
       accessMode: 'ReadWrite'
+      shareName: '/${storage.name}/${shareName}'
     }
   }
+  dependsOn: [
+    share
+    peFileDns
+    pdnsLink
+  ]
 }
 
+// -------------------- Container App --------------------
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: '${namePrefix}-app-${uniq}'
   location: location
   properties: {
-    managedEnvironmentId: acaEnv.id
+    environmentId: acaEnv.id
+    workloadProfileName: 'Consumption'
     configuration: {
       ingress: {
         external: true
@@ -177,8 +310,10 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
                 path: '/api/auth/me'
                 port: 8787
               }
-              initialDelaySeconds: 20
+              initialDelaySeconds: 30
               periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 5
             }
           ]
         }
@@ -190,7 +325,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
       volumes: [
         {
           name: 'data'
-          storageType: 'AzureFile'
+          storageType: 'NfsAzureFile'
           storageName: envStorage.name
         }
       ]
@@ -199,3 +334,4 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 output dashboardUrl string = 'https://${app.properties.configuration.ingress.fqdn}'
+output resourceGroup string = resourceGroup().name

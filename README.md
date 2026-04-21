@@ -9,10 +9,6 @@
     <img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure" />
   </a>
   &nbsp;
-  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fohomaidi%2FMizan%2Fmain%2Fweb%2Fdeploy%2Fazure-container-apps-nfs.json">
-    <img src="https://img.shields.io/badge/Deploy%20to%20Azure-%28NFS%20%2F%20locked--down%20tenants%29-0078d4?logo=microsoftazure&logoColor=white" alt="Deploy to Azure — NFS variant" />
-  </a>
-  &nbsp;
   <a href="#macos">
     <img src="https://img.shields.io/badge/macOS-.pkg-silver?logo=apple" alt="macOS" />
   </a>
@@ -46,14 +42,7 @@ Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 
 
 ### <a name="azure"></a>🚀 Azure (recommended)
 
-Two templates — pick the one that matches your tenant:
-
-| Your subscription | Click | Storage | Monthly |
-|---|---|---|---|
-| Standard Azure sub, no lockdown | **Deploy to Azure** (teal button above) | SMB/CIFS Azure Files — uses shared-key auth | ~$25–40 |
-| MCA-governed, corp policy, or anything that denies `allowSharedKeyAccess` on storage accounts | **Deploy to Azure (NFS / locked-down tenants)** (blue button above) | NFS 4.1 Azure Files — no shared key, VNet + private endpoint | ~$35–55 |
-
-Not sure which? Try the simple one first. If your first deploy gets stuck with the container in `Waiting / PodInitializing` and Log Analytics shows `MountVolume.SetUp failed ... mount error(13): Permission denied`, that's the shared-key policy biting — use the NFS variant instead. See the [Troubleshooting](#troubleshooting) section below for the full diagnostic path.
+Click the button above. Azure portal opens with the template pre-loaded — fill in two fields and click Create. Works on any subscription (including MCA-managed and policy-locked tenants) because the template uses NFS-mounted Azure Files, which doesn't rely on shared-key auth.
 
 Or via CLI:
 
@@ -70,12 +59,14 @@ After the deployment completes (~3 min), click **Go to resource**. You'll land o
 Alternate path to the same URL: Resource group → Container App (`mizan-app-<random>`) → **Application URL** in the top-right.
 
 **What gets provisioned:**
-- Azure Container Apps managed environment + Container App (pulls the public image from ghcr.io — no registry setup on your side)
+- Virtual network with two subnets (ACA-delegated + private-endpoint)
+- Premium FileStorage account (NFS-enabled, public network access disabled, shared-key disabled)
+- Private DNS zone `privatelink.file.core.windows.net` + private endpoint for SMB-free mounts
 - Log Analytics workspace for app logs
-- Storage account + Azure Files share for persistent SQLite + uploaded logos
+- VNet-integrated Container Apps managed environment (Consumption profile) + Container App — pulls the public image from ghcr.io, no registry setup on your side
 - HTTPS ingress with auto-managed TLS
 
-Cost: ~$25–40/month for a single-customer install (~200 entities).
+Cost: ~$35–55/month for a single-customer install (Premium FileStorage minimum ~100GB is the main uplift).
 
 ### Changing the dashboard URL after the first deploy
 
@@ -106,33 +97,31 @@ Azure portal → Container App → **Revisions and replicas**. You want `Healthy
 
 If you see `Unhealthy` + 0/1 replicas with a container stuck in `Waiting / PodInitializing`, read on.
 
-#### 2. Mount error(13) — the shared-key policy block
+#### 2. NFS mount failure (rare — Premium FileStorage SKU unavailable)
 
 ```sh
 az login
 az containerapp logs show -n <mizan-app-name> -g <your-rg> --type system --tail 30
 ```
 
-Look for:
-```
-MountVolume.SetUp failed for volume "data" ... mount error(13): Permission denied
-```
-
-This means your subscription's Azure Policy blocks shared-key access on storage accounts (common in MCA-managed subs). Verify:
+If you see `MountVolume.SetUp failed` with NFS-specific errors, the most common cause is Premium_LRS FileStorage not being available in the chosen region. Check:
 ```sh
-az storage account show -n <mizan-storage-name> -g <your-rg> --query allowSharedKeyAccess -o tsv
+az rest --method GET \
+  --url "https://management.azure.com/subscriptions/<sub>/providers/Microsoft.Storage/skus?api-version=2023-01-01" \
+  --query "value[?kind=='FileStorage' && tier=='Premium']" -o table
 ```
-If that returns `false` and you can't flip it to `true` (update command silently no-ops), your tenant has `StorageAccount_DisableLocalAuth_Modify` policy enforced.
+If Premium isn't available in your region, redeploy in a nearby region that supports it (every major Azure region does, including `uaenorth`, `westeurope`, `eastus`, `northeurope`).
 
-**Fix:** delete the four Mizan resources and redeploy using the **NFS variant** button at the top of this README. NFS 4.1 doesn't use shared-key auth at all.
-
-Cleanup commands (run before redeploying):
+Cleanup commands if you need to redeploy:
 ```sh
 RG=<your-rg>
-az containerapp delete        -n <mizan-app-name>     -g $RG --yes
-az containerapp env delete    -n <mizan-env-name>     -g $RG --yes
-az storage account delete     -n <mizan-storage-name> -g $RG --yes
+az containerapp delete          -n <mizan-app-name>     -g $RG --yes
+az containerapp env delete      -n <mizan-env-name>     -g $RG --yes
+az network private-endpoint delete -n <mizan-pe-file-name> -g $RG
+az network vnet delete          -n <mizan-vnet-name>    -g $RG
+az storage account delete       -n <mizan-storage-name> -g $RG --yes
 az monitor log-analytics workspace delete -n <mizan-law-name> -g $RG --force true --yes
+az network private-dns zone delete -n privatelink.file.core.windows.net -g $RG --yes
 ```
 
 #### 3. Image pull failure

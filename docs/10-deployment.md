@@ -27,80 +27,75 @@ Health check: `HEALTHCHECK` curls `/api/auth/me` — cheap, always returns 200, 
 
 ## Azure Container Apps (one-click)
 
-The recommended production deployment. Two templates are shipped — pick based on your tenant's governance posture:
+The canonical production deployment: `deploy/azure-container-apps.bicep`.
 
-### Variant A — default (`deploy/azure-container-apps.bicep`)
+Uses **NFS 4.1 Azure Files** for persistence. NFS is auth'd by network rules + a private endpoint, so `allowSharedKeyAccess` can stay `false` and governance policies like MCA's `StorageAccount_DisableLocalAuth_Modify` (which silently flip shared-key off) don't bite. This is the one template that works everywhere.
 
-Uses **SMB/CIFS Azure Files** with shared-key authentication. Simplest, cheapest, works on any subscription that allows `allowSharedKeyAccess: true` on storage accounts.
+### What the template provisions
 
-Provisions:
-- Log Analytics workspace
-- Storage account (Standard GPv2) + Azure Files share (50 GB), mounted at `/data`
-- Managed Environment + Container App with HTTPS ingress
-- Liveness probe on `/api/auth/me`
-- Min 1 replica / max 2
-
-Cost: ~$25–40/month for a single install (~200 entities).
-
-### Variant B — NFS (`deploy/azure-container-apps-nfs.bicep`)
-
-Use this when the tenant's Azure Policy blocks shared-key auth (common in **MCA-managed** subscriptions — look for the `StorageAccount_DisableLocalAuth_Modify` modify-effect policy). NFS 4.1 doesn't use shared keys at all.
-
-Provisions everything Variant A does, plus:
-- Virtual network with two subnets (ACA-delegated `/23` + private-endpoint `/28`)
-- **Premium FileStorage account** (`allowSharedKeyAccess: false`; NFS-enabled)
-- NFS file share (100 GB — Premium minimum)
+- Log Analytics workspace (ACA environment requirement)
+- Virtual network `10.60.0.0/16` with two subnets
+  - `aca` /23 — delegated to `Microsoft.App/environments`, service endpoint for `Microsoft.Storage`
+  - `pe` /28 — hosts the private endpoint
+- **Premium FileStorage account** (`allowSharedKeyAccess: false`, `publicNetworkAccess: Disabled`)
+- NFS 4.1 file share `mizan-data` (100 GB — Premium minimum)
 - Private DNS zone `privatelink.file.core.windows.net` + VNet link
-- Private endpoint to the storage account's file subresource
+- Private endpoint to the storage account's `file` subresource
 - VNet-integrated ACA managed environment (Consumption profile)
+- Container App pulling `ghcr.io/ohomaidi/mizan:latest`, mounting the NFS share at `/data`
+- HTTPS ingress with auto-managed TLS
+- Liveness probe: `/api/auth/me`, initialDelay 30s, timeout 5s, threshold 5
 
-Cost: ~$35–55/month (Premium file share is the main uplift).
+Cost: ~$35–55/month for a single-customer install (Premium FileStorage minimum 100 GB is ~$15/mo, private endpoint ~$7/mo, rest is LAW + Container App consumption).
 
 ### Deploying
 
+**Via the portal (recommended):** the "Deploy to Azure" button in the repo README.
+
+**Via CLI:**
 ```sh
 az login
-# Variant A:
+az group create -n mizan-rg -l uaenorth
 az deployment group create \
-    -g <rg> \
+    -g mizan-rg \
     --template-file deploy/azure-container-apps.bicep
-# Variant B:
-az deployment group create \
-    -g <rg> \
-    --template-file deploy/azure-container-apps-nfs.bicep
 ```
 
-Either variant's output includes `dashboardUrl`. First visit triggers `/setup`.
+Output includes `dashboardUrl`. First visit triggers `/setup`.
 
-### Which storage account SKUs are legal in your tenant?
+### Region availability check (before deploying)
 
+The template requires Premium_LRS FileStorage in the target region. Check:
 ```sh
 az rest --method GET \
   --url "https://management.azure.com/subscriptions/<sub>/providers/Microsoft.Storage/skus?api-version=2023-01-01" \
-  --query "value[?kind=='FileStorage'].{name:name,tier:tier}" -o table
+  --query "value[?kind=='FileStorage' && tier=='Premium']" -o table
 ```
 
-You need `Premium_LRS` (kind `FileStorage`) available in your region for Variant B. It's supported in UAE North and all major Azure regions.
+Supported in every major region including `uaenorth`, `uaecentral`, `westeurope`, `eastus`, `northeurope`.
 
-### Migrating from Variant A → Variant B
+### Cleanup (for redeploy)
 
-You cannot switch in-place — ACA environments have immutable VNet configuration. Redeploy:
+ACA env's VNet config is immutable, so "trying again" means tearing down and recreating:
 
-1. Delete the Mizan resources from Variant A:
-   ```sh
-   RG=<your-rg>
-   az containerapp delete -n <mizan-app-name> -g $RG --yes
-   az containerapp env delete -n <mizan-env-name> -g $RG --yes
-   az storage account delete -n <mizan-storage-name> -g $RG --yes
-   az monitor log-analytics workspace delete -n <mizan-law-name> -g $RG --force true --yes
-   ```
-2. Click the **Deploy to Azure (NFS / locked-down tenants)** button in the repo README, or run the CLI version with the NFS template.
+```sh
+RG=<your-rg>
+az containerapp delete          -n <mizan-app-name>     -g $RG --yes
+az containerapp env delete      -n <mizan-env-name>     -g $RG --yes
+az network private-endpoint delete -n <mizan-pe-file-name> -g $RG
+az network vnet delete          -n <mizan-vnet-name>    -g $RG
+az storage account delete       -n <mizan-storage-name> -g $RG --yes
+az monitor log-analytics workspace delete -n <mizan-law-name> -g $RG --force true --yes
+az network private-dns zone delete -n privatelink.file.core.windows.net -g $RG --yes
+```
+
+Resource names follow `mizan-*-<hash>` where the hash is deterministic per-RG (`uniqueString(resourceGroup().id)`). Get the actual names with `az resource list -g $RG --query "[?starts_with(name,'mizan')].name" -o tsv`.
 
 ### Post-deploy
 
-**Certificate migration:** the default secret-based MSAL auth is fine for pilot; for production you'd rotate to a certificate in Azure Key Vault with a short-lived cert-based MSAL config. Tracked in backlog.
+**Certificate migration:** the default secret-based MSAL auth is fine for pilot. Production: rotate to a certificate in Azure Key Vault with a short-lived cert-based MSAL config. Tracked in backlog.
 
-**Daily sync:** wire an Azure Function / Logic App to POST `/api/sync` at 03:00 UAE. Include the `SCSC_SYNC_SECRET` as an `X-Sync-Secret` header.
+**Daily sync:** wire an Azure Function / Logic App to POST `/api/sync` at 03:00 UAE. Include `SCSC_SYNC_SECRET` as an `X-Sync-Secret` header.
 
 ## macOS installer
 
