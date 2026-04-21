@@ -333,6 +333,9 @@ export const DICT = {
     "setup.s5.afterSignIn":
       "After sign-in you'll land back here. Click Finish to open the dashboard.",
     "setup.s5.finish": "Finish setup — open the dashboard",
+    "setup.s5.consentTitle": "Grant admin consent in Entra (manual step)",
+    "setup.s5.consentBody":
+      "Mizan created both app registrations for you and stored credentials, but Microsoft requires admin consent to be granted from the Entra portal. For each app you just created: Entra portal → App registrations → this app → API permissions → Grant admin consent for your tenant. Until consent is granted, sign-in below will fail with AADSTS65001.",
 
     "setup.prov.autoTitle": "Create automatically (recommended)",
     "setup.prov.autoBody":
@@ -347,7 +350,7 @@ export const DICT = {
     "setup.prov.cancel": "Cancel",
     "setup.prov.success": "App created + credentials stored",
     "setup.prov.successHint":
-      "You can click Next — the dashboard is already configured.",
+      "You can click Next — credentials are already stored. One manual step remains: open Entra portal → App registrations → this app → API permissions → Grant admin consent for your tenant. Microsoft requires this step to be done in the portal.",
     "setup.prov.failed": "Provisioning failed",
     "setup.prov.retry": "Try again",
     "setup.prov.manualToggle": "Or enter existing credentials manually",
@@ -1271,6 +1274,9 @@ export const DICT = {
     "setup.s5.afterSignIn":
       "بعد تسجيل الدخول ستعود إلى هنا. اضغط إنهاء لفتح اللوحة.",
     "setup.s5.finish": "إنهاء الإعداد — فتح اللوحة",
+    "setup.s5.consentTitle": "منح موافقة المسؤول في Entra (خطوة يدوية)",
+    "setup.s5.consentBody":
+      "أنشأ Mizan تسجيلَي التطبيق نيابةً عنك وحفظ بيانات الاعتماد، لكن Microsoft تشترط منح موافقة المسؤول من بوابة Entra. لكل تطبيق للتو أُنشئ: بوابة Entra ← App registrations ← هذا التطبيق ← API permissions ← Grant admin consent لمستأجرك. بدون هذه الموافقة سيفشل تسجيل الدخول أدناه برمز AADSTS65001.",
 
     "setup.prov.autoTitle": "الإنشاء التلقائي (موصى به)",
     "setup.prov.autoBody":
@@ -1285,7 +1291,8 @@ export const DICT = {
       "ينتهي الرمز خلال {minutes} دقيقة تقريبًا. لا تُغلق هذه النافذة.",
     "setup.prov.cancel": "إلغاء",
     "setup.prov.success": "تم إنشاء التطبيق وحفظ بيانات الاعتماد",
-    "setup.prov.successHint": "يمكنك الضغط على التالي — اللوحة مُعدَّة الآن.",
+    "setup.prov.successHint":
+      "يمكنك الضغط على التالي — تم حفظ بيانات الاعتماد. تبقّى إجراء يدوي واحد: افتح بوابة Entra ← تسجيلات التطبيقات ← هذا التطبيق ← أذونات API ← منح موافقة المسؤول لمستأجرك. تشترط Microsoft تنفيذ هذه الخطوة من البوابة.",
     "setup.prov.failed": "فشل الإنشاء",
     "setup.prov.retry": "حاول مرة أخرى",
     "setup.prov.manualToggle": "أو أدخل بيانات اعتماد موجودة يدويًا",

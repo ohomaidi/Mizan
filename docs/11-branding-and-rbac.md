@@ -104,8 +104,21 @@ Fresh installs — any dashboard request hits `getSetupState().completed === fal
 
 1. Organization name + short form + framework
 2. Logo upload (optional)
-3. Graph-signals app registration (optional)
-4. User-auth app registration (optional)
+3. **Graph-signals app** — *Create for me* (device-code auto-provision) or paste manual credentials
+4. **User-auth app** — *Create for me* (device-code auto-provision) or paste manual credentials
 5. Bootstrap sign-in — one click triggers the OIDC round-trip; on return, the first user becomes admin
 
 Marking setup complete (`app_config.setup.completed = true`) is idempotent — the demo seed stamps it so the Mac Mini never sees the wizard.
+
+### Admin consent after auto-provisioning
+
+The *Create for me* buttons spin up both app registrations through the device-code flow (`lib/auth/graph-app-provisioner.ts`) — 18 Graph application permissions wired on the signals app, OIDC delegated scopes wired on the user-auth app, 2-year client secrets generated, all credentials persisted to `app_config`. MSAL caches are invalidated so the new creds are live immediately.
+
+**Manual step the wizard cannot perform:** Microsoft does not expose an API to grant admin consent programmatically. Right after the wizard finishes, the operator must:
+
+1. Entra portal → **App registrations** → find each newly-created app.
+2. **API permissions → Grant admin consent for &lt;tenant&gt;** on *both* apps.
+3. *(Optional, user-auth app only)* — assign users / a group in *Enterprise applications* if the tenant enforces App assignment.
+4. *(Optional, user-auth app only)* — add App roles (`Posture.Admin`, `Posture.Analyst`, `Posture.Viewer`) if using Entra-managed role separation.
+
+Until consent is granted, sign-in fails with `AADSTS65001` and per-entity consent URLs won't authorize. This is covered in the wizard's Step 5 success banner and in `docs/08-phase2-setup.md §0`.

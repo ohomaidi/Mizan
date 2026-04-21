@@ -139,11 +139,21 @@ All three installers drop the operator on the first-run `/setup` wizard when the
 
 1. Captures organization name (EN + AR) + short form + framework
 2. Uploads logo (optional — local U-2-Netp bg removal)
-3. Collects Graph-signals app credentials (optional — can be done later)
-4. Collects user-auth app credentials (optional — dashboard stays open until configured)
+3. **Graph-signals app** — click *Create for me* to auto-provision (device-code flow against Microsoft's public CLI client) OR paste credentials from a manually-created app
+4. **User-auth app** — same *Create for me* auto-provisioning option, OR manual credentials
 5. Prompts bootstrap sign-in → first user becomes admin
 
 Marking setup complete sets `app_config.setup.completed = true`. Re-running the wizard requires direct DB surgery (`DELETE FROM app_config WHERE key='setup'`).
+
+### ⚠ Grant admin consent after auto-provisioning
+
+Auto-provisioning creates both apps and stores the client IDs + secrets, but **Microsoft requires admin consent to be granted manually through the Entra portal** — there is no Graph API for it. Immediately after the wizard finishes:
+
+1. **Entra portal → App registrations** → find each newly-created app.
+2. For each app: **API permissions → Grant admin consent for &lt;tenant&gt;** → confirm.
+3. Verify every row in API permissions shows Status *"Granted for &lt;tenant&gt;"* (green).
+
+Until consent is granted, user sign-in fails with `AADSTS65001` and entity onboarding consent URLs won't render correctly. See `docs/08-phase2-setup.md §0` for the full checklist.
 
 ## Upgrade paths
 

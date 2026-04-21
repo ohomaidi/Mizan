@@ -1,6 +1,8 @@
 # Phase 2 Setup — Entra app registrations + environment
 
-The dashboard needs **two** separate Entra app registrations. Freshly packaged installs are walked through both by the first-run wizard at `/setup`; this doc is the runbook for operators doing it by hand (e.g. recovering a broken config, or rotating secrets).
+The dashboard needs **two** separate Entra app registrations. Freshly packaged installs are walked through both by the first-run wizard at `/setup` — the wizard can **auto-create both apps** for you via the "Create for me" buttons (recommended path). This doc covers both auto-provisioning and the manual Azure-portal path for operators rotating secrets or recovering a broken config.
+
+> **Admin consent is always manual.** Whether the apps are auto-provisioned or created by hand, Microsoft requires an Entra admin to click **"Grant admin consent for &lt;tenant&gt;"** in the portal — Graph does not expose an API to automate this step. See [§0. Auto-provisioning](#0-auto-provisioning-recommended) for the consent checklist immediately after the wizard finishes.
 
 Audience: someone with Entra ID *Application Administrator* (or higher) in the operator's provider tenant, plus shell access to the app host.
 
@@ -12,6 +14,46 @@ Audience: someone with Entra ID *Application Administrator* (or higher) in the o
 Why two: keeping the secrets separate means the user-auth secret can rotate frequently without touching the long-lived Graph secret that's baked into every entity's consent. It also stops cross-tenant sign-in leaks — an entity admin consented to the Graph app should never be able to sign in to your dashboard.
 
 Outcome when complete: clicking **Generate onboarding letter** in Settings produces a real admin-consent URL, Council staff can sign in at `/login`, and the Users tab in Settings shows everyone who has signed in plus anyone invited by email.
+
+---
+
+## 0. Auto-provisioning (recommended)
+
+Freshly packaged installs land on `/setup` — a 5-step wizard. On **Step 3 (App Registration)** and **Step 4 (User Sign-in)** you'll see a **"Create for me"** block above the manual-entry form.
+
+### What clicking "Create for me" actually does
+
+1. Kicks off Microsoft's **device code flow** against the public `Microsoft Graph Command Line Tools` client ID — no bootstrap app registration required on your side.
+2. Displays a short user code + `https://microsoft.com/devicelogin` link. You sign in **once** with an account that has *Application Administrator* (or higher) rights in your tenant.
+3. With the short-lived delegated token the wizard received, the dashboard calls `POST https://graph.microsoft.com/v1.0/applications` twice:
+   - **Graph-signals app** (multi-tenant, `AzureADMultipleOrgs`) — 18 read-only Microsoft Graph application permissions pre-wired, redirect URI `<APP_BASE_URL>/api/auth/consent-callback`, 2-year client secret.
+   - **User-auth app** (single-tenant, `AzureADMyOrg`) — OIDC delegated scopes (`User.Read`, `openid`, `profile`, `email`), redirect URI `<APP_BASE_URL>/api/auth/user-callback`, 2-year client secret.
+4. Both client IDs + secrets are written into `app_config` (`azure.app` and `auth.user`) automatically — no copy-paste. MSAL caches are invalidated; next Graph call uses the new credentials immediately.
+
+The device-code token is used once and discarded — no refresh tokens, no keys of yours on our side.
+
+### What you still have to do manually
+
+Admin consent. Microsoft does not allow consent to be granted through Graph; it must go through the Entra admin portal.
+
+**Immediately after the wizard finishes:**
+
+1. **Entra portal → App registrations** → find the newly-created apps (named using the product + dashboard URL — easy to spot).
+2. For **each** of the two apps:
+   - Open the app → **API permissions**.
+   - Click **Grant admin consent for &lt;tenant&gt;**.
+   - Confirm. The Status column should flip to green *"Granted for &lt;tenant&gt;"*.
+3. For the **User-auth app** only: enterprise tenants with an App assignment requirement should assign users (or a sign-in group) to the app — *Enterprise applications → Posture Dashboard — User Auth → Users and groups*.
+4. *(Optional)* Add App roles on the User-auth app if you want Entra-managed Admin/Analyst/Viewer separation — see [§2](#2-register-the-user-sign-in-single-tenant-app) App roles block.
+
+Once consent is granted, sign-in + Graph calls work end-to-end. Until consent is granted: `/api/auth/user-callback` fails with `AADSTS65001`, and per-entity onboarding consent URLs fail the same way.
+
+### When to use manual path instead
+
+Skip auto-provisioning (and use §1/§2 below) if:
+- You are not an Entra admin and have to hand the two app registrations off to IT.
+- Your tenant has conditional access policies that block the device-code flow's unmanaged-session sign-in.
+- You're rotating a secret or repairing a half-broken deployment — re-running auto-provisioning creates *new* apps rather than patching existing ones.
 
 ---
 

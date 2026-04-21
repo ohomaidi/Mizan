@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowLeft,
+  AlertTriangle,
   Check,
   Copy,
   ExternalLink,
@@ -251,6 +252,10 @@ export default function SetupPage() {
               onFinish={onFinish}
               saving={saving}
               authConfigured={authClientId.trim().length > 0}
+              autoProvisioned={
+                graphClientSecret === "__auto_provisioned__" ||
+                authClientSecret === "__auto_provisioned__"
+              }
             />
           ) : null}
 
@@ -597,16 +602,29 @@ function Step5({
   onFinish,
   saving,
   authConfigured,
+  autoProvisioned,
 }: {
   onSignIn: () => void;
   onFinish: () => void;
   saving: boolean;
   authConfigured: boolean;
+  autoProvisioned: boolean;
 }) {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-4">
       <StepHeader title={t("setup.s5.title")} subtitle={t("setup.s5.subtitle")} />
+      {autoProvisioned ? (
+        <div className="rounded-md border border-warn/40 bg-warn/10 p-4 flex items-start gap-3">
+          <AlertTriangle size={18} className="text-warn shrink-0 mt-0.5" />
+          <div className="flex-1 text-[12.5px] text-ink-1 leading-relaxed">
+            <div className="font-semibold text-ink-1 mb-1">
+              {t("setup.s5.consentTitle")}
+            </div>
+            <div className="text-ink-2">{t("setup.s5.consentBody")}</div>
+          </div>
+        </div>
+      ) : null}
       {authConfigured ? (
         <div className="flex flex-col gap-3">
           <p className="text-[13px] text-ink-2">{t("setup.s5.bootstrapBody")}</p>

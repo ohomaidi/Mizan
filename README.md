@@ -211,8 +211,8 @@ Every install drops the operator on a 5-step setup wizard at `/setup`:
 |---|---|
 | 1 | Organization name (EN + AR), short form, framework (NESA / NCA / ISR / Generic) |
 | 2 | Logo upload — background auto-removed locally via a bundled U-2-Netp ONNX model (no cloud, no Python) |
-| 3 | Graph-signals Entra app (multi-tenant, for reading posture) |
-| 4 | User sign-in Entra app (single-tenant, for staff sign-in) |
+| 3 | Graph-signals Entra app (multi-tenant, for reading posture) — **"Create for me" auto-provisions the app + secret via Microsoft device-code flow; no Azure portal clicks needed** |
+| 4 | User sign-in Entra app (single-tenant, for staff sign-in) — same auto-provision flow |
 | 5 | Bootstrap admin — the first account to complete sign-in is promoted to admin automatically |
 
 Steps 2–5 are all skippable — configure them from Settings anytime.
@@ -220,6 +220,27 @@ Steps 2–5 are all skippable — configure them from Settings anytime.
 <p align="center">
   <img src="docs/images/setup-wizard.png" alt="First-run setup wizard" width="700" />
 </p>
+
+### ⚠ Grant admin consent after auto-provisioning
+
+The wizard creates the two Entra apps for you, but Microsoft requires a **human admin** to approve the permissions those apps request. Do this once per Entra tenant, right after the wizard finishes:
+
+1. **User-auth app** — needed so your staff sign-in works smoothly without a consent prompt on every user's first login.
+   - Entra admin center → **App registrations** → open the app named `Mizan — User Auth` (or whatever short form you set)
+   - Left menu → **API permissions**
+   - Click **Grant admin consent for \<your tenant\>**
+   - The User.Read / openid / profile / email scopes flip to *Granted*
+
+2. **Graph-signals app** — needed **per connected entity**, not in your operator tenant. For each entity you onboard:
+   - Mizan generates an Onboarding Letter PDF that contains a per-entity admin-consent URL
+   - Send it to the entity's Global Admin — one click in their tenant grants consent for the 18 read-only Graph app permissions
+   - Consent in your operator tenant is only needed if you want to read posture from your *own* tenant as a test
+
+3. **(Optional) Custom roles** — if you want to pre-assign staff as Admin / Analyst / Viewer instead of the default-role-on-first-login behavior:
+   - App registrations → User-auth app → **App roles** → define `Posture.Admin`, `Posture.Analyst`, `Posture.Viewer`
+   - Enterprise applications → User-auth app → **Users and groups** → assign users to roles
+
+Mizan's bootstrap-admin flow covers the first login regardless: the first successful Microsoft sign-in after enforce is turned on becomes admin automatically. The steps above are about cleaner permission UX, not a prerequisite.
 
 ---
 
