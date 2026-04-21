@@ -51,6 +51,16 @@ export function isAuthEnforced(): boolean {
   return cfg.enforce && cfg.clientId.length > 0 && cfg.clientSecret.length > 0;
 }
 
+/**
+ * True when sign-in is technically possible — credentials are present. The
+ * wizard's bootstrap flow needs this to be true with `enforce=false` so the
+ * first admin can sign in before enforcement locks the dashboard down.
+ */
+export function isAuthConfigured(): boolean {
+  const cfg = getAuthConfig();
+  return cfg.clientId.length > 0 && cfg.clientSecret.length > 0;
+}
+
 export function setAuthConfig(patch: Partial<UserAuthConfig>): UserAuthConfig {
   const existing = getAuthConfig();
   const next: UserAuthConfig = {

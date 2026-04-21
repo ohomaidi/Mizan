@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { getLoginUrl } from "@/lib/auth/msal-user";
-import { isAuthEnforced } from "@/lib/config/auth-config";
+import { isAuthConfigured } from "@/lib/config/auth-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
  * login redirect lands wherever the user was trying to reach.
  */
 export async function GET(req: NextRequest) {
-  if (!isAuthEnforced()) {
+  // Gate on credentials, not enforcement. The wizard's bootstrap flow runs
+  // with enforce=false so that a failed sign-in can't lock the install out.
+  if (!isAuthConfigured()) {
     return NextResponse.json({ error: "auth_not_configured" }, { status: 503 });
   }
   const state = crypto.randomBytes(16).toString("base64url");
