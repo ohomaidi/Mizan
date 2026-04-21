@@ -274,31 +274,47 @@ Name (EN + AR), short form, tagline, colors, framework. Upload a logo and the ML
 
 ## Architecture at a glance
 
+Azure Container Apps (the one-click deploy):
+
 ```
-┌────────────────────────────────────────────────────────────┐
-│  Mizan host (ACA container / Mac LaunchAgent / Windows svc) │
-│  ┌────────────────┐   ┌────────────────┐                    │
-│  │   Next.js      │──▶│  SQLite        │  ← DATA_DIR mount  │
-│  │   app router   │   │  (signals,     │                    │
-│  └───────┬────────┘   │   users,       │                    │
-│          │            │   config)      │                    │
-│          ▼            └────────────────┘                    │
-│    sync orchestrator                                        │
-│    + 5-worker pool                                          │
-└──────────┬─────────────────────────────────────────────────┘
-           │ Microsoft Graph (read-only, daily)
-           ▼
-     ┌─────────────────────────────────────────┐
-     │  Each connected entity's M365 tenant    │
-     │  (consented the multi-tenant Graph app) │
-     └─────────────────────────────────────────┘
+                         ┌─────────────────────────────────────────────────┐
+                         │  VNet  10.60.0.0/16                             │
+                         │  ┌───────────────────┐  ┌───────────────────┐   │
+                         │  │ subnet "aca" /23  │  │ subnet "pe" /28   │   │
+    public HTTPS ──────► │  │ VNet-integrated   │  │ Private endpoint  │   │
+    (managed TLS)        │  │ ACA environment   │  │ → Azure Files     │   │
+                         │  │ ┌───────────────┐ │  └─────────┬─────────┘   │
+                         │  │ │ Container App │ │            │             │
+                         │  │ │  Next.js      │ │            │  NFS 4.1    │
+                         │  │ │  app router   │ │            │  (no keys)  │
+                         │  │ │      +        │◄┼────────────┘             │
+                         │  │ │  sync         │ │                          │
+                         │  │ │  orchestrator │ │      ┌──────────────────┐│
+                         │  │ │  + 5 workers  │ │      │ Premium          ││
+                         │  │ │      +        │ │      │ FileStorage      ││
+                         │  │ │  SQLite on    │─┼──►  │ allowSharedKey=F ││
+                         │  │ │  /data        │ │      │ publicNet=Off    ││
+                         │  │ └───────┬───────┘ │      │ share "mizan-    ││
+                         │  └─────────┼─────────┘      │   data" (100GB)  ││
+                         │            │                └──────────────────┘│
+                         └────────────┼──────────────────────────────────┬─┘
+                                      │ Microsoft Graph (read-only, daily)
+                                      ▼
+                        ┌─────────────────────────────────────────┐
+                        │  Each connected entity's M365 tenant    │
+                        │  (consented the multi-tenant Graph app) │
+                        └─────────────────────────────────────────┘
 ```
 
-- **Daily sync**: one `POST /api/sync` per day pulls all 18 signals from every consented entity with a 5-worker concurrency pool.
-- **Snapshots**: every signal-fetch writes a timestamped row into `signal_snapshots` so week-over-week deltas + 90-day trend lines are cheap.
-- **No write path**: ever. All Graph permissions are `.Read` scopes.
+- **VNet-integrated ACA env** — the managed environment is attached to the `aca` subnet; the container reaches storage via a private endpoint in the `pe` subnet, so storage never has a public exposure.
+- **NFS for persistence** — `Premium_LRS` FileStorage mounted at `/data`. SQLite (signals, users, config) + the uploaded logo live here. Survives container restarts and revision swaps.
+- **Why NFS and not SMB** — many Azure tenants enforce `StorageAccount_DisableLocalAuth_Modify` policy that silently disables shared-key auth. SMB needs shared-key; NFS uses network-level auth via the private endpoint, so the deploy works under any governance posture.
+- **Daily sync** — one `POST /api/sync` per day pulls all 18 Graph signals from every consented entity with a 5-worker pool.
+- **No write path ever** — all Graph permissions are `.Read` scopes.
 
-See [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) for the full breakdown.
+**On the Mac/Windows installers**: same Next.js app + SQLite, but `DATA_DIR` points at `~/Library/Application Support/mizan/` or `%ProgramData%\Mizan\data\` respectively. No VNet, no NFS — local filesystem directly.
+
+See [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) for the full breakdown including the multi-tenant Graph auth model, throttling envelope, failure modes, and production hardening checklist.
 
 ---
 
