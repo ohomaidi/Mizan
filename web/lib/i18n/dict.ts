@@ -333,6 +333,24 @@ export const DICT = {
     "setup.s5.afterSignIn":
       "After sign-in you'll land back here. Click Finish to open the dashboard.",
     "setup.s5.finish": "Finish setup — open the dashboard",
+
+    "setup.prov.autoTitle": "Create automatically (recommended)",
+    "setup.prov.autoBody":
+      "One click — Mizan asks Microsoft for a short-lived code, you sign in once as a tenant admin, and we create the app registration + client secret and wire everything up. No Azure portal clicks needed.",
+    "setup.prov.start": "Create for me",
+    "setup.prov.waiting": "Waiting for your Microsoft sign-in…",
+    "setup.prov.step1a": "Open this URL on any device:",
+    "setup.prov.step2a": "Enter this code when prompted:",
+    "setup.prov.step3a":
+      "Sign in as an Entra admin of your operator tenant and approve the permissions. Mizan finishes the rest automatically — come back to this tab.",
+    "setup.prov.expires": "Code expires in about {minutes} minutes. Don't close this tab.",
+    "setup.prov.cancel": "Cancel",
+    "setup.prov.success": "App created + credentials stored",
+    "setup.prov.successHint":
+      "You can click Next — the dashboard is already configured.",
+    "setup.prov.failed": "Provisioning failed",
+    "setup.prov.retry": "Try again",
+    "setup.prov.manualToggle": "Or enter existing credentials manually",
     "branding.save": "Save",
     "branding.reset": "Reset to defaults",
     "branding.resetConfirm":
@@ -1253,6 +1271,24 @@ export const DICT = {
     "setup.s5.afterSignIn":
       "بعد تسجيل الدخول ستعود إلى هنا. اضغط إنهاء لفتح اللوحة.",
     "setup.s5.finish": "إنهاء الإعداد — فتح اللوحة",
+
+    "setup.prov.autoTitle": "الإنشاء التلقائي (موصى به)",
+    "setup.prov.autoBody":
+      "نقرة واحدة — يطلب Mizan من Microsoft رمزًا قصير الأمد، وتسجّل الدخول مرة واحدة كمسؤول في المستأجر، ونقوم بإنشاء تسجيل التطبيق وسرّ العميل وتوصيل كل شيء. لا حاجة لفتح بوابة Azure.",
+    "setup.prov.start": "أنشئ لي التطبيق",
+    "setup.prov.waiting": "بانتظار تسجيل دخولك عبر Microsoft…",
+    "setup.prov.step1a": "افتح هذا الرابط على أي جهاز:",
+    "setup.prov.step2a": "أدخل هذا الرمز عند الطلب:",
+    "setup.prov.step3a":
+      "سجّل الدخول بحساب مسؤول Entra في مستأجر الجهة المشغِّلة ومنح الأذونات. سيكمل Mizan الباقي تلقائيًا — عُد إلى هذه النافذة.",
+    "setup.prov.expires":
+      "ينتهي الرمز خلال {minutes} دقيقة تقريبًا. لا تُغلق هذه النافذة.",
+    "setup.prov.cancel": "إلغاء",
+    "setup.prov.success": "تم إنشاء التطبيق وحفظ بيانات الاعتماد",
+    "setup.prov.successHint": "يمكنك الضغط على التالي — اللوحة مُعدَّة الآن.",
+    "setup.prov.failed": "فشل الإنشاء",
+    "setup.prov.retry": "حاول مرة أخرى",
+    "setup.prov.manualToggle": "أو أدخل بيانات اعتماد موجودة يدويًا",
     "branding.save": "حفظ",
     "branding.reset": "استعادة الافتراضي",
     "branding.resetConfirm":

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { api } from "@/lib/api/client";
+import { ProvisionBlock } from "@/components/setup/ProvisionBlock";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -85,20 +86,36 @@ export default function SetupPage() {
         });
       }
       if (step === 3 && graphClientId.trim().length > 0) {
-        await api.saveAzureConfig({
+        // The "auto-provisioned" path already persisted the secret server-side
+        // during the device-code flow. If the user went through that path,
+        // the client-side secret field holds a sentinel we skip over so we
+        // don't overwrite the real stored secret with the sentinel.
+        const patch: Parameters<typeof api.saveAzureConfig>[0] = {
           clientId: graphClientId.trim(),
-          clientSecret: graphClientSecret.trim(),
-        });
+        };
+        if (
+          graphClientSecret.trim().length > 0 &&
+          graphClientSecret.trim() !== "__auto_provisioned__"
+        ) {
+          patch.clientSecret = graphClientSecret.trim();
+        }
+        await api.saveAzureConfig(patch);
       }
       if (step === 4 && authClientId.trim().length > 0) {
-        await api.saveAuthConfig({
+        const patch: Parameters<typeof api.saveAuthConfig>[0] = {
           clientId: authClientId.trim(),
-          clientSecret: authClientSecret.trim(),
           tenantId: authTenantId.trim() || "common",
           // Leave enforce off at this stage — first login bootstraps the admin,
           // then the operator can turn enforce on from Settings → Authentication.
           enforce: false,
-        });
+        };
+        if (
+          authClientSecret.trim().length > 0 &&
+          authClientSecret.trim() !== "__auto_provisioned__"
+        ) {
+          patch.clientSecret = authClientSecret.trim();
+        }
+        await api.saveAuthConfig(patch);
       }
       if (step < TOTAL) setStep((s) => (s + 1) as Step);
     } catch (err) {
@@ -441,31 +458,47 @@ function Step3(props: {
   return (
     <div className="flex flex-col gap-4">
       <StepHeader title={t("setup.s3.title")} subtitle={t("setup.s3.subtitle")} />
-      <ul className="text-[12.5px] text-ink-2 list-disc ms-5 space-y-1">
-        <li>{t("setup.s3.b1")}</li>
-        <li>{t("setup.s3.b2")}</li>
-        <li>{t("setup.s3.b3")}</li>
-      </ul>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label={t("authCfg.field.clientId")}>
-          <input
-            value={props.clientId}
-            onChange={(e) => props.setClientId(e.target.value.trim())}
-            dir="ltr"
-            placeholder="00000000-0000-0000-0000-000000000000"
-            className={`${inputClass} tabular`}
-          />
-        </Field>
-        <Field label={t("authCfg.field.clientSecret")}>
-          <input
-            value={props.clientSecret}
-            onChange={(e) => props.setClientSecret(e.target.value)}
-            type="password"
-            dir="ltr"
-            className={inputClass}
-          />
-        </Field>
-      </div>
+      <ProvisionBlock
+        kind="graph"
+        tenant="common"
+        onSuccess={(clientId) => {
+          props.setClientId(clientId);
+          // Secret is persisted server-side during provisioning. Set a
+          // sentinel client-side so onNext() doesn't overwrite the stored
+          // secret with a blank field.
+          props.setClientSecret("__auto_provisioned__");
+        }}
+      />
+      <details className="rounded-md border border-border bg-surface-2 p-4">
+        <summary className="text-[12.5px] text-ink-2 cursor-pointer">
+          {t("setup.prov.manualToggle")}
+        </summary>
+        <ul className="text-[12.5px] text-ink-2 list-disc ms-5 space-y-1 mt-3">
+          <li>{t("setup.s3.b1")}</li>
+          <li>{t("setup.s3.b2")}</li>
+          <li>{t("setup.s3.b3")}</li>
+        </ul>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+          <Field label={t("authCfg.field.clientId")}>
+            <input
+              value={props.clientId}
+              onChange={(e) => props.setClientId(e.target.value.trim())}
+              dir="ltr"
+              placeholder="00000000-0000-0000-0000-000000000000"
+              className={`${inputClass} tabular`}
+            />
+          </Field>
+          <Field label={t("authCfg.field.clientSecret")}>
+            <input
+              value={props.clientSecret}
+              onChange={(e) => props.setClientSecret(e.target.value)}
+              type="password"
+              dir="ltr"
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </details>
       <div className="text-[11.5px] text-ink-3">{t("setup.skipHint")}</div>
     </div>
   );
@@ -486,57 +519,74 @@ function Step4(props: {
   return (
     <div className="flex flex-col gap-4">
       <StepHeader title={t("setup.s4.title")} subtitle={t("setup.s4.subtitle")} />
-      <ul className="text-[12.5px] text-ink-2 list-disc ms-5 space-y-1">
-        <li>{t("setup.s4.b1")}</li>
-        <li>{t("setup.s4.b2")}</li>
-        <li>{t("setup.s4.b3")}</li>
-      </ul>
-      <Field label={t("authCfg.redirectUri")}>
-        <div className="flex items-center gap-2">
-          <input
-            readOnly
-            value={props.redirectUri}
-            dir="ltr"
-            className={`${inputClass} tabular bg-surface-1`}
-          />
-          <button
-            type="button"
-            onClick={props.onCopy}
-            className="inline-flex items-center gap-1 h-9 px-2 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[12px] shrink-0"
-          >
-            {props.copied ? <Check size={13} /> : <Copy size={13} />}
-          </button>
+      <ProvisionBlock
+        kind="user"
+        tenant="common"
+        onSuccess={(clientId) => {
+          props.setClientId(clientId);
+          props.setClientSecret("__auto_provisioned__");
+          // tenantId is written server-side from the user's token `tid` claim;
+          // keep the field in sync for the manual-entry escape hatch.
+        }}
+      />
+      <details className="rounded-md border border-border bg-surface-2 p-4">
+        <summary className="text-[12.5px] text-ink-2 cursor-pointer">
+          {t("setup.prov.manualToggle")}
+        </summary>
+        <ul className="text-[12.5px] text-ink-2 list-disc ms-5 space-y-1 mt-3">
+          <li>{t("setup.s4.b1")}</li>
+          <li>{t("setup.s4.b2")}</li>
+          <li>{t("setup.s4.b3")}</li>
+        </ul>
+        <div className="mt-3">
+          <Field label={t("authCfg.redirectUri")}>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={props.redirectUri}
+                dir="ltr"
+                className={`${inputClass} tabular bg-surface-1`}
+              />
+              <button
+                type="button"
+                onClick={props.onCopy}
+                className="inline-flex items-center gap-1 h-9 px-2 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[12px] shrink-0"
+              >
+                {props.copied ? <Check size={13} /> : <Copy size={13} />}
+              </button>
+            </div>
+          </Field>
         </div>
-      </Field>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label={t("authCfg.field.clientId")}>
-          <input
-            value={props.clientId}
-            onChange={(e) => props.setClientId(e.target.value.trim())}
-            dir="ltr"
-            placeholder="00000000-0000-0000-0000-000000000000"
-            className={`${inputClass} tabular`}
-          />
-        </Field>
-        <Field label={t("authCfg.field.tenantId")}>
-          <input
-            value={props.tenantId}
-            onChange={(e) => props.setTenantId(e.target.value.trim())}
-            dir="ltr"
-            placeholder="common"
-            className={`${inputClass} tabular`}
-          />
-        </Field>
-        <Field label={t("authCfg.field.clientSecret")}>
-          <input
-            value={props.clientSecret}
-            onChange={(e) => props.setClientSecret(e.target.value)}
-            type="password"
-            dir="ltr"
-            className={inputClass}
-          />
-        </Field>
-      </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+          <Field label={t("authCfg.field.clientId")}>
+            <input
+              value={props.clientId}
+              onChange={(e) => props.setClientId(e.target.value.trim())}
+              dir="ltr"
+              placeholder="00000000-0000-0000-0000-000000000000"
+              className={`${inputClass} tabular`}
+            />
+          </Field>
+          <Field label={t("authCfg.field.tenantId")}>
+            <input
+              value={props.tenantId}
+              onChange={(e) => props.setTenantId(e.target.value.trim())}
+              dir="ltr"
+              placeholder="common"
+              className={`${inputClass} tabular`}
+            />
+          </Field>
+          <Field label={t("authCfg.field.clientSecret")}>
+            <input
+              value={props.clientSecret}
+              onChange={(e) => props.setClientSecret(e.target.value)}
+              type="password"
+              dir="ltr"
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </details>
       <div className="text-[11.5px] text-ink-3">{t("setup.skipHint")}</div>
     </div>
   );
