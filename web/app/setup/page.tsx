@@ -105,11 +105,21 @@ export default function SetupPage() {
       if (step === 4 && authClientId.trim().length > 0) {
         const patch: Parameters<typeof api.saveAuthConfig>[0] = {
           clientId: authClientId.trim(),
-          tenantId: authTenantId.trim() || "common",
           // Leave enforce off at this stage — first login bootstraps the admin,
           // then the operator can turn enforce on from Settings → Authentication.
           enforce: false,
         };
+        // Auto-provision path stores the real tenant GUID server-side during
+        // the device flow. Only send tenantId from the form if the user is
+        // filling it in manually — otherwise we'd clobber the real GUID with
+        // "common" and break sign-in (AADSTS50194: single-tenant app rejects
+        // the /common authority).
+        if (
+          authTenantId.trim().length > 0 &&
+          authTenantId.trim() !== "__auto_provisioned__"
+        ) {
+          patch.tenantId = authTenantId.trim();
+        }
         if (
           authClientSecret.trim().length > 0 &&
           authClientSecret.trim() !== "__auto_provisioned__"
@@ -530,8 +540,10 @@ function Step4(props: {
         onSuccess={(clientId) => {
           props.setClientId(clientId);
           props.setClientSecret("__auto_provisioned__");
-          // tenantId is written server-side from the user's token `tid` claim;
-          // keep the field in sync for the manual-entry escape hatch.
+          // tenantId is written server-side from the user's token `tid` claim.
+          // Flag it with the same sentinel so next() knows not to clobber the
+          // real GUID with whatever is (or isn't) in the form.
+          props.setTenantId("__auto_provisioned__");
         }}
       />
       <details className="rounded-md border border-border bg-surface-2 p-4">
