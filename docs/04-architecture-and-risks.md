@@ -1,8 +1,8 @@
 # Architecture, Multi-Tenant Patterns, and Risk Register
 
-**Scope:** how the Council dashboard actually reaches 100+ Sharjah entity tenants, the throttling envelope it must live inside, and the risks to name in the board deck.
+**Scope:** how Mizan reaches connected entity tenants, the throttling envelope it must live inside, and the risks to name in the board deck.
 
-> **Scope decision (2026-04-19) — read-only, NESA-only.** The project closes in read-only posture. §4 PowerShell automation tier is **deferred** (entities retain policy authorship). Write-scoped permissions, Policy Deployment Service, and multi-framework mapping (NCA / ISR) are out of scope for this engagement.
+> **Scope reversal (2026-04-20) — productization pivot.** The project is being white-labeled. Multi-framework mapping (NESA / NCA / ISR / Generic) is back in scope; NESA-only is out. MSAL user-auth + RBAC are back in scope. Two Azure deployment variants ship: shared-key SMB (simple, locked-down tenants block it) and NFS (more resources, works under MCA policy). See §7 below.
 
 ---
 
@@ -202,3 +202,75 @@ Track these with the Council before Phase 1 kickoff. See also the open-questions
 - **Target maturity threshold** — Council-tunable at runtime via Settings → Maturity Index (default 75).
 - ~~Policy deployment authority~~ **Resolved 2026-04-19: no push. Read-only scope.**
 - **Credential bootstrap owner** — Council central team or per-entity CISO?
+
+---
+
+## 7. Deployment topology (Azure Container Apps)
+
+Two flavors of ACA deployment ship. Same container image (`ghcr.io/ohomaidi/mizan`), same app code, different persistence + networking around it.
+
+### 7.1 Variant A — shared-key SMB (default; simplest)
+
+```
+                   ┌─────────────────────────────────┐
+                   │  Azure Container Apps (public)  │
+public HTTPS ───►  │  mizan-app-<uniq>               │
+                   │   ingress (auto TLS)            │
+                   │   liveness: /api/auth/me        │
+                   │   CSI mount /data via SMB/CIFS  │
+                   └────────────┬────────────────────┘
+                                │  shared-key auth
+                                ▼
+                   ┌─────────────────────────────────┐
+                   │  Storage account (Standard_LRS) │
+                   │  allowSharedKeyAccess: true     │
+                   │  file share "mizan-data" (50GB) │
+                   └─────────────────────────────────┘
+```
+
+Falls over when `StorageAccount_DisableLocalAuth_Modify` policy silently flips `allowSharedKeyAccess` to `false` on update. Mount returns `mount error(13): Permission denied`.
+
+### 7.2 Variant B — NFS + private endpoint (policy-compliant)
+
+```
+                   ┌───────────────────────────────────────────────────────┐
+                   │  VNet  10.60.0.0/16                                   │
+                   │  ┌──────────────────────┐  ┌──────────────────────┐   │
+                   │  │ subnet "aca"  /23    │  │ subnet "pe"   /28    │   │
+                   │  │ delegated to         │  │ Private endpoint to  │   │
+                   │  │ Microsoft.App/       │  │ Premium File Storage │   │
+                   │  │ environments         │  │ (file sub-resource)  │   │
+                   │  └──────────┬───────────┘  └──────────┬───────────┘   │
+                   │             │                         │               │
+                   │   VNet-integrated ACA env             │               │
+                   │             │                         │               │
+                   │        Container App  ◄───────NFS 4.1─┘               │
+                   │             │      mount /data  (no shared key)       │
+                   └─────────────┼───────────────────────────────────────┬─┘
+     public HTTPS ──────────────►│ ingress (external: true)              │
+                   ┌─────────────┼──────────────────────────────────────┐│
+                   │  Premium FileStorage account                        ││
+                   │  allowSharedKeyAccess: false                        ││
+                   │  publicNetworkAccess: Disabled                      ││
+                   │  NFS-enabled file share "mizan-data" (100GB min)    ││
+                   └─────────────────────────────────────────────────────┴┘
+
+      privatelink.file.core.windows.net  ─── VNet-linked DNS zone
+```
+
+Why this works under tight policy: NFS 4.1 auth is network-level (private endpoint + VNet ACL) instead of account-key. `allowSharedKeyAccess: false` is actually the *required* state for NFS — the Bicep sets it explicitly.
+
+Cost delta: Premium_LRS FileStorage minimum ~100GB ⇒ ~$15/mo. Private endpoint ~$7/mo. Total uplift ~$10–15/mo over Variant A.
+
+### 7.3 Why an in-place migration isn't possible
+
+ACA Managed Environments have **immutable `vnetConfiguration`** — Azure forbids adding VNet integration to an existing environment, even with `--yes`. Switching from Variant A → B requires deleting the env, its Container App, and the existing storage account + share, then running the NFS Bicep. Cleanup commands in [`10-deployment.md`](10-deployment.md#migrating-from-variant-a--variant-b).
+
+### 7.4 Hardening checklist for production
+
+- [ ] Swap `allowPublicNetworkAccess` on the Premium storage account from the default (Variant A) to `Disabled` (already the case in Variant B).
+- [ ] Bind a custom domain to the Container App and issue a managed cert.
+- [ ] Update both Entra app registrations' redirect URIs to the custom domain.
+- [ ] Enable diagnostic settings on the Container App → Log Analytics for 30-day audit retention.
+- [ ] Add a daily sync trigger: Azure Function or Logic App hitting `/api/sync` with the shared `X-Sync-Secret` header.
+- [ ] Rotate the user-auth client secret on a 90-day cycle; plan for cert-based MSAL + Key Vault at year one.

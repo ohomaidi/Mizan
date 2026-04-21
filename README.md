@@ -9,6 +9,10 @@
     <img src="https://aka.ms/deploytoazurebutton" alt="Deploy to Azure" />
   </a>
   &nbsp;
+  <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fohomaidi%2FMizan%2Fmain%2Fweb%2Fdeploy%2Fazure-container-apps-nfs.json">
+    <img src="https://img.shields.io/badge/Deploy%20to%20Azure-%28NFS%20%2F%20locked--down%20tenants%29-0078d4?logo=microsoftazure&logoColor=white" alt="Deploy to Azure — NFS variant" />
+  </a>
+  &nbsp;
   <a href="#macos">
     <img src="https://img.shields.io/badge/macOS-.pkg-silver?logo=apple" alt="macOS" />
   </a>
@@ -42,7 +46,14 @@ Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 
 
 ### <a name="azure"></a>🚀 Azure (recommended)
 
-Click the button above. Azure portal opens with the template pre-loaded — fill in two fields and click Create.
+Two templates — pick the one that matches your tenant:
+
+| Your subscription | Click | Storage | Monthly |
+|---|---|---|---|
+| Standard Azure sub, no lockdown | **Deploy to Azure** (teal button above) | SMB/CIFS Azure Files — uses shared-key auth | ~$25–40 |
+| MCA-governed, corp policy, or anything that denies `allowSharedKeyAccess` on storage accounts | **Deploy to Azure (NFS / locked-down tenants)** (blue button above) | NFS 4.1 Azure Files — no shared key, VNet + private endpoint | ~$35–55 |
+
+Not sure which? Try the simple one first. If your first deploy gets stuck with the container in `Waiting / PodInitializing` and Log Analytics shows `MountVolume.SetUp failed ... mount error(13): Permission denied`, that's the shared-key policy biting — use the NFS variant instead. See the [Troubleshooting](#troubleshooting) section below for the full diagnostic path.
 
 Or via CLI:
 
@@ -84,6 +95,82 @@ Zero ACA config change needed. Mizan's runtime resolver picks up the incoming `H
 Container App → **Containers** → **Environment variables** → add `APP_BASE_URL=https://posture.yourcompany.gov.ae` → **Save**. Triggers a rolling revision (~30s) and pins the URL regardless of incoming headers.
 
 **Whichever option you use** — after the URL changes, you **must** also update the redirect URI on your **User Auth** Entra app (Entra portal → App registrations → your user-auth app → **Authentication** → update the Web redirect URI to `https://<new-url>/api/auth/user-callback`). Entra does exact-match, so a mismatch breaks sign-in with `AADSTS50011: redirect URI mismatch`.
+
+### <a name="troubleshooting"></a>Troubleshooting Azure deployments
+
+The deployment completed but the URL returns nothing / times out? Walk through these in order.
+
+#### 1. Is the container actually running?
+
+Azure portal → Container App → **Revisions and replicas**. You want `Healthy` + 1/1 replicas.
+
+If you see `Unhealthy` + 0/1 replicas with a container stuck in `Waiting / PodInitializing`, read on.
+
+#### 2. Mount error(13) — the shared-key policy block
+
+```sh
+az login
+az containerapp logs show -n <mizan-app-name> -g <your-rg> --type system --tail 30
+```
+
+Look for:
+```
+MountVolume.SetUp failed for volume "data" ... mount error(13): Permission denied
+```
+
+This means your subscription's Azure Policy blocks shared-key access on storage accounts (common in MCA-managed subs). Verify:
+```sh
+az storage account show -n <mizan-storage-name> -g <your-rg> --query allowSharedKeyAccess -o tsv
+```
+If that returns `false` and you can't flip it to `true` (update command silently no-ops), your tenant has `StorageAccount_DisableLocalAuth_Modify` policy enforced.
+
+**Fix:** delete the four Mizan resources and redeploy using the **NFS variant** button at the top of this README. NFS 4.1 doesn't use shared-key auth at all.
+
+Cleanup commands (run before redeploying):
+```sh
+RG=<your-rg>
+az containerapp delete        -n <mizan-app-name>     -g $RG --yes
+az containerapp env delete    -n <mizan-env-name>     -g $RG --yes
+az storage account delete     -n <mizan-storage-name> -g $RG --yes
+az monitor log-analytics workspace delete -n <mizan-law-name> -g $RG --force true --yes
+```
+
+#### 3. Image pull failure
+
+Log stream shows `Failed to pull image` or `ErrImagePull`. Verify the public image is reachable:
+```sh
+curl -fsS "https://ghcr.io/token?scope=repository:ohomaidi/mizan:pull&service=ghcr.io" >/dev/null && echo "token OK"
+```
+If the image somehow regressed to private on GHCR, flip it back to public at **github.com/users/ohomaidi/packages/container/mizan/settings** → Danger Zone.
+
+#### 4. Liveness probe timeouts
+
+Logs show `Readiness probe failed` or `Liveness probe failed` repeatedly. The NFS variant already bumps the probe generosity (initialDelaySeconds=30, timeoutSeconds=5, failureThreshold=5). If the legacy variant is hitting probe timeouts, update:
+```sh
+az containerapp update -n <mizan-app-name> -g <your-rg> \
+    --set-env-vars NODE_ENV=production
+# probes are set via the Bicep, easier to redeploy than patch them live
+```
+
+#### 5. "Kubernetes error happened. Closing the connection." when opening Log stream
+
+That's ACA's way of saying no replica is running — the container failed before stdout could open. Use the system logs (`az containerapp logs show ... --type system`) or the **Revisions and replicas** page. Don't try to stream app logs until at least one replica is healthy.
+
+#### 6. `AADSTS50011: redirect URI mismatch` on sign-in
+
+The URL Mizan is running at doesn't match the redirect URI you registered on the Entra user-auth app. Update the Entra app's Web redirect URI to `https://<your-actual-url>/api/auth/user-callback`. See [Changing the dashboard URL](#changing-the-dashboard-url-after-the-first-deploy) above.
+
+#### 7. `AADSTS50076: multi-factor authentication required` when running `az` commands
+
+Your tenant enforces MFA on management operations. The CLI surfaces the specific `az login` command to run in the error message — paste it verbatim, complete MFA in the browser, retry.
+
+#### 8. Deployment gets stuck "InProgress" for >15 min
+
+Most likely a prerequisite resource hit a policy block. Run:
+```sh
+az deployment group show -n <deployment-name> -g <your-rg> --query "properties.error"
+```
+The error usually points at the resource type and policy reason.
 
 ---
 

@@ -27,31 +27,76 @@ Health check: `HEALTHCHECK` curls `/api/auth/me` — cheap, always returns 200, 
 
 ## Azure Container Apps (one-click)
 
-The recommended production deployment. `deploy/azure-container-apps.bicep` + `deploy/aca-workload.bicep` together provision:
+The recommended production deployment. Two templates are shipped — pick based on your tenant's governance posture:
 
-- Log Analytics workspace (ACA environment requirement)
-- Storage account + Azure Files share (posture-data, 50 GB) → mounted at `/data`
+### Variant A — default (`deploy/azure-container-apps.bicep`)
+
+Uses **SMB/CIFS Azure Files** with shared-key authentication. Simplest, cheapest, works on any subscription that allows `allowSharedKeyAccess: true` on storage accounts.
+
+Provisions:
+- Log Analytics workspace
+- Storage account (Standard GPv2) + Azure Files share (50 GB), mounted at `/data`
 - Managed Environment + Container App with HTTPS ingress
 - Liveness probe on `/api/auth/me`
-- Min 1 replica / max 2 (not a scale-bound workload)
+- Min 1 replica / max 2
 
-Deploy:
+Cost: ~$25–40/month for a single install (~200 entities).
+
+### Variant B — NFS (`deploy/azure-container-apps-nfs.bicep`)
+
+Use this when the tenant's Azure Policy blocks shared-key auth (common in **MCA-managed** subscriptions — look for the `StorageAccount_DisableLocalAuth_Modify` modify-effect policy). NFS 4.1 doesn't use shared keys at all.
+
+Provisions everything Variant A does, plus:
+- Virtual network with two subnets (ACA-delegated `/23` + private-endpoint `/28`)
+- **Premium FileStorage account** (`allowSharedKeyAccess: false`; NFS-enabled)
+- NFS file share (100 GB — Premium minimum)
+- Private DNS zone `privatelink.file.core.windows.net` + VNet link
+- Private endpoint to the storage account's file subresource
+- VNet-integrated ACA managed environment (Consumption profile)
+
+Cost: ~$35–55/month (Premium file share is the main uplift).
+
+### Deploying
 
 ```sh
 az login
-az account set --subscription <sub-id>
-az deployment sub create \
-    --name posture-dash \
-    --location uaenorth \
-    --template-file deploy/azure-container-apps.bicep \
-    --parameters \
-        resourceGroupName=posture-dash-rg \
-        containerImage=ghcr.io/<org>/posture-dashboard \
-        imageTag=1.0.0 \
-        appBaseUrl=https://posture.<customer>.gov.ae
+# Variant A:
+az deployment group create \
+    -g <rg> \
+    --template-file deploy/azure-container-apps.bicep
+# Variant B:
+az deployment group create \
+    -g <rg> \
+    --template-file deploy/azure-container-apps-nfs.bicep
 ```
 
-Output: the `dashboardUrl`. First visit triggers `/setup`.
+Either variant's output includes `dashboardUrl`. First visit triggers `/setup`.
+
+### Which storage account SKUs are legal in your tenant?
+
+```sh
+az rest --method GET \
+  --url "https://management.azure.com/subscriptions/<sub>/providers/Microsoft.Storage/skus?api-version=2023-01-01" \
+  --query "value[?kind=='FileStorage'].{name:name,tier:tier}" -o table
+```
+
+You need `Premium_LRS` (kind `FileStorage`) available in your region for Variant B. It's supported in UAE North and all major Azure regions.
+
+### Migrating from Variant A → Variant B
+
+You cannot switch in-place — ACA environments have immutable VNet configuration. Redeploy:
+
+1. Delete the Mizan resources from Variant A:
+   ```sh
+   RG=<your-rg>
+   az containerapp delete -n <mizan-app-name> -g $RG --yes
+   az containerapp env delete -n <mizan-env-name> -g $RG --yes
+   az storage account delete -n <mizan-storage-name> -g $RG --yes
+   az monitor log-analytics workspace delete -n <mizan-law-name> -g $RG --force true --yes
+   ```
+2. Click the **Deploy to Azure (NFS / locked-down tenants)** button in the repo README, or run the CLI version with the NFS template.
+
+### Post-deploy
 
 **Certificate migration:** the default secret-based MSAL auth is fine for pilot; for production you'd rotate to a certificate in Azure Key Vault with a short-lived cert-based MSAL config. Tracked in backlog.
 
