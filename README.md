@@ -149,7 +149,15 @@ That's ACA's way of saying no replica is running — the container failed before
 
 The URL Mizan is running at doesn't match the redirect URI you registered on the Entra user-auth app. Update the Entra app's Web redirect URI to `https://<your-actual-url>/api/auth/user-callback`. See [Changing the dashboard URL](#changing-the-dashboard-url-after-the-first-deploy) above.
 
-#### 7. `AADSTS50076: multi-factor authentication required` when running `az` commands
+#### 7. `AADSTS65001: admin has not consented` on sign-in (or user gets a consent prompt that errors out)
+
+You skipped the admin-consent step after auto-provisioning. Open Entra admin center → **App registrations** → your user-auth app → **API permissions** → **Grant admin consent for \<tenant\>** → confirm every permission shows Status *"Granted for \<tenant\>"* in green. Retry sign-in.
+
+#### 8. `AADSTS50194: Application is not configured as a multi-tenant application` on sign-in
+
+The stored tenantId on the user-auth app is `common` but the app itself is single-tenant (`AzureADMyOrg`). Fixed in v1.0.5 — make sure you're running `ghcr.io/ohomaidi/mizan:latest` or `:1.0.5` and re-run the wizard's Step 4. If you previously ran an older build that saved `tenantId: common`, `az containerapp update --image ghcr.io/ohomaidi/mizan:latest` to pull the fix, then open **Settings → Authentication** and re-enter the correct tenant GUID (Entra portal → Overview → Tenant ID).
+
+#### 9. `AADSTS50076: multi-factor authentication required` when running `az` commands
 
 Your tenant enforces MFA on management operations. The CLI surfaces the specific `az login` command to run in the error message — paste it verbatim, complete MFA in the browser, retry.
 
@@ -221,26 +229,28 @@ Steps 2–5 are all skippable — configure them from Settings anytime.
   <img src="docs/images/setup-wizard.png" alt="First-run setup wizard" width="700" />
 </p>
 
-### ⚠ Grant admin consent after auto-provisioning
+### ⚠ Grant admin consent after auto-provisioning — required before Step 5
 
-The wizard creates the two Entra apps for you, but Microsoft requires a **human admin** to approve the permissions those apps request. Do this once per Entra tenant, right after the wizard finishes:
+The wizard creates both Entra apps for you and stores the credentials, but **Microsoft requires a human admin to approve the permissions in the Entra portal**. There is no Graph API that can do this for you. **Do this before clicking *Sign in and become admin* on Step 5**, otherwise the sign-in round-trip fails with `AADSTS65001: admin has not consented` and drops you out of the wizard.
 
-1. **User-auth app** — needed so your staff sign-in works smoothly without a consent prompt on every user's first login.
-   - Entra admin center → **App registrations** → open the app named `Mizan — User Auth` (or whatever short form you set)
+**Step-by-step, right after Step 4 of the wizard finishes:**
+
+1. **User-auth app** — required for staff sign-in.
+   - Entra admin center → **App registrations** → open the app named `<your short form> — User Auth` (e.g. `Mizan — User Auth`)
    - Left menu → **API permissions**
-   - Click **Grant admin consent for \<your tenant\>**
-   - The User.Read / openid / profile / email scopes flip to *Granted*
+   - Click **Grant admin consent for \<your tenant\>** → confirm
+   - Every row (User.Read / openid / profile / email) flips to Status *"Granted for &lt;tenant&gt;"* in green
 
-2. **Graph-signals app** — needed **per connected entity**, not in your operator tenant. For each entity you onboard:
-   - Mizan generates an Onboarding Letter PDF that contains a per-entity admin-consent URL
-   - Send it to the entity's Global Admin — one click in their tenant grants consent for the 18 read-only Graph app permissions
+2. **Graph-signals app** — required **per connected entity**, not in your operator tenant.
+   - For each entity you onboard later, Mizan generates an Onboarding Letter PDF with a per-entity admin-consent URL
+   - Send it to the entity's Global Admin — one click in their tenant grants consent for the 18 read-only Graph permissions
    - Consent in your operator tenant is only needed if you want to read posture from your *own* tenant as a test
 
-3. **(Optional) Custom roles** — if you want to pre-assign staff as Admin / Analyst / Viewer instead of the default-role-on-first-login behavior:
+3. **(Optional) Custom roles** — if you want Admin / Analyst / Viewer separation driven by Entra rather than Mizan's internal RBAC:
    - App registrations → User-auth app → **App roles** → define `Posture.Admin`, `Posture.Analyst`, `Posture.Viewer`
    - Enterprise applications → User-auth app → **Users and groups** → assign users to roles
 
-Mizan's bootstrap-admin flow covers the first login regardless: the first successful Microsoft sign-in after enforce is turned on becomes admin automatically. The steps above are about cleaner permission UX, not a prerequisite.
+Mizan's bootstrap-admin flow still applies: the first successful Microsoft sign-in becomes admin automatically. The consent step above isn't about who's admin — it's about Microsoft letting the sign-in happen at all.
 
 ---
 
