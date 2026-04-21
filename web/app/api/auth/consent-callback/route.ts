@@ -27,17 +27,18 @@ export async function GET(req: NextRequest) {
   const tenantGuid = url.searchParams.get("tenant");
 
   if (!state) {
-    return redirect("/consent-error?reason=missing_state");
+    return redirect(req, "/consent-error?reason=missing_state");
   }
 
   const tenant = getTenantByState(state);
   if (!tenant) {
-    return redirect(`/consent-error?reason=unknown_state`);
+    return redirect(req, `/consent-error?reason=unknown_state`);
   }
 
   if (error) {
     markConsentFailed(tenant.id, `${error}: ${errorDescription ?? ""}`.trim());
     return redirect(
+      req,
       `/consent-error?reason=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription ?? "")}`,
     );
   }
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
       tenant.id,
       `tenant mismatch: expected ${tenant.tenant_id} got ${tenantGuid}`,
     );
-    return redirect(`/consent-error?reason=tenant_mismatch`);
+    return redirect(req, `/consent-error?reason=tenant_mismatch`);
   }
 
   markConsented(tenant.id);
@@ -58,11 +59,17 @@ export async function GET(req: NextRequest) {
     // errors are already persisted into signal_snapshots + markSyncResult
   });
 
-  return redirect(`/consent-success`);
+  return redirect(req, `/consent-success`);
 }
 
-function redirect(path: string): NextResponse {
-  return NextResponse.redirect(
-    new URL(path, process.env.APP_BASE_URL ?? "http://127.0.0.1:8787"),
-  );
+/**
+ * Build the redirect URL off the incoming request rather than env vars.
+ * APP_BASE_URL is optional in the Bicep template — the fallback used to be
+ * `?? "http://127.0.0.1:8787"` but `??` doesn't trigger on an empty string,
+ * so on a default Azure deploy `new URL(path, "")` threw and the route 500'd
+ * at exactly the worst moment — the entity admin just clicked Consent.
+ * Using req.url as the base works regardless of env var wiring.
+ */
+function redirect(req: NextRequest, path: string): NextResponse {
+  return NextResponse.redirect(new URL(path, req.url));
 }
