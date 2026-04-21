@@ -109,7 +109,11 @@ resource storage 'Microsoft.Storage/storageAccounts@2024-01-01' = {
     allowSharedKeyAccess: false
     allowBlobPublicAccess: false
     minimumTlsVersion: 'TLS1_2'
-    supportsHttpsTrafficOnly: true
+    // NFS 4.1 isn't HTTPS-based; "Secure transfer required" blocks it at the
+    // server with `mount.nfs: access denied by server`. Must be false for NFS.
+    // Only SMB/REST traffic is affected by this flag — not relevant since
+    // publicNetworkAccess is already Disabled and we mount only over NFS.
+    supportsHttpsTrafficOnly: false
     // Lock down to VNet + PE only.
     publicNetworkAccess: 'Disabled'
     networkAcls: {
