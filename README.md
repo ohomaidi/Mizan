@@ -54,7 +54,9 @@ az deployment group create \
     --parameters appBaseUrl=https://posture.example.com
 ```
 
-After the deployment completes (~3 min), Azure prints the `dashboardUrl`. Visit it — the first-run setup wizard takes over from there.
+After the deployment completes (~3 min), click **Go to resource**. You'll land on the **Deployment overview** page — find the `dashboardUrl` in the **Outputs** section (left sidebar). Paste it in a new browser tab. First load takes ~30s (container cold-start), then the `/setup` wizard fires.
+
+Alternate path to the same URL: Resource group → Container App (`mizan-app-<random>`) → **Application URL** in the top-right.
 
 **What gets provisioned:**
 - Azure Container Apps managed environment + Container App (pulls the public image from ghcr.io — no registry setup on your side)
@@ -63,6 +65,25 @@ After the deployment completes (~3 min), Azure prints the `dashboardUrl`. Visit 
 - HTTPS ingress with auto-managed TLS
 
 Cost: ~$25–40/month for a single-customer install (~200 entities).
+
+### Changing the dashboard URL after the first deploy
+
+The ACA-assigned URL (`https://mizan-app-xxx.region.azurecontainerapps.io`) works out of the box. Three ways to swap it for something nicer later:
+
+**Option 1 — Bind a custom domain to the Container App (recommended)**
+1. Buy/own the DNS for `posture.yourcompany.gov.ae`
+2. Azure portal → your Container App → **Custom domains** → **Add custom domain**
+3. Pick **Managed certificate** (Azure auto-issues + renews the cert)
+4. Add the CNAME Azure shows you to your DNS provider; wait ~2 min for validation
+5. Done. Both the new domain and the original `.azurecontainerapps.io` URL keep working
+
+**Option 2 — Put a Cloudflare tunnel / Azure Front Door in front**
+Zero ACA config change needed. Mizan's runtime resolver picks up the incoming `Host` / `X-Forwarded-Host` header automatically.
+
+**Option 3 — Explicit override**
+Container App → **Containers** → **Environment variables** → add `APP_BASE_URL=https://posture.yourcompany.gov.ae` → **Save**. Triggers a rolling revision (~30s) and pins the URL regardless of incoming headers.
+
+**Whichever option you use** — after the URL changes, you **must** also update the redirect URI on your **User Auth** Entra app (Entra portal → App registrations → your user-auth app → **Authentication** → update the Web redirect URI to `https://<new-url>/api/auth/user-callback`). Entra does exact-match, so a mismatch breaks sign-in with `AADSTS50011: redirect URI mismatch`.
 
 ---
 
