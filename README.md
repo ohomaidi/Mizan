@@ -38,6 +38,44 @@ Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 
 
 ---
 
+## Access you need
+
+Before clicking Deploy, confirm you have **both** of the following. Without them the deploy won't finish, or the post-deploy setup wizard won't be able to create the Entra apps.
+
+### Azure subscription — to provision the infrastructure
+
+Either:
+- **Contributor** on the subscription (or the target resource group), OR
+- A custom role with create/write rights on: `Microsoft.App/managedEnvironments`, `Microsoft.App/containerApps`, `Microsoft.Network/virtualNetworks`, `Microsoft.Network/privateEndpoints`, `Microsoft.Network/privateDnsZones`, `Microsoft.Storage/storageAccounts`, `Microsoft.OperationalInsights/workspaces`.
+
+The template also creates role assignments between the Container App, the VNet, and the Storage account — that requires Contributor-equivalent permission at the resource-group scope. **Reader** is not enough.
+
+Quick check:
+```sh
+az role assignment list --assignee $(az ad signed-in-user show --query id -o tsv) \
+  --scope /subscriptions/<sub-id> --query "[].roleDefinitionName" -o tsv
+```
+
+### Microsoft Entra tenant — to create the two app registrations
+
+The first-run wizard's **Create for me** buttons do this via device-code flow. Whoever approves the device code on their browser needs one of:
+- **Application Administrator** (minimum — can create app registrations + client secrets), OR
+- **Cloud Application Administrator**, OR
+- **Global Administrator**.
+
+To **grant admin consent** to each newly-created app afterwards (one button click in Entra portal), one of:
+- **Privileged Role Administrator**, OR
+- **Cloud Application Administrator**, OR
+- **Global Administrator**.
+
+In practice most operators use Global Admin for the whole setup to avoid juggling roles.
+
+### Per-entity onboarding (later, not during first-run)
+
+When you onboard each entity onto Mizan, that entity's **Global Administrator** (not yours) must click the consent URL Mizan generates for them. This is a one-time click per entity, done in the entity's own tenant.
+
+---
+
 ## Deploy
 
 ### <a name="azure"></a>🚀 Azure (recommended)
