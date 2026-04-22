@@ -22,6 +22,8 @@
   <img src="docs/images/dashboard-overview.png" alt="Dashboard overview" width="860" />
 </p>
 
+> **Personal work product, not a Microsoft offering.** Mizan is not Microsoft IP, is provided on a best-effort basis, and is not supported or endorsed by Microsoft. Use at your own risk. See the [full disclaimer](#disclaimer-and-notice-of-non-affiliation) below.
+
 ---
 
 ## What it does
@@ -396,6 +398,51 @@ See [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) for t
 - [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) — multi-tenant auth, sync orchestrator, throttling, failure modes
 - [docs/09-runtime-configuration.md](docs/09-runtime-configuration.md) — every editable config surface in Settings
 - [CHANGELOG.md](CHANGELOG.md) — build log
+
+---
+
+## Disclaimer and Notice of Non-Affiliation
+
+### Important Notice — Personal Work Product
+
+This Security Dashboard and any accompanying materials, documentation, code, visuals, or outputs (collectively, the "Artifact") have been developed independently and as a personal initiative by the author. The Artifact is **not a Microsoft product, service, solution, feature, or offering**, and does **not constitute Microsoft Intellectual Property**.
+
+### No Microsoft Endorsement or Affiliation
+
+The Artifact is **not endorsed, sponsored, reviewed, supported, maintained, or certified by Microsoft**. No representation should be made or inferred that this work reflects Microsoft's official roadmap, recommendations, or positions.
+
+### No Support or Service Commitments
+
+Microsoft provides **no technical support, service level agreements (SLAs), updates, fixes, warranties, or guarantees — express or implied — for the Artifact**. Any use of the Artifact is outside of Microsoft's support channels, and Microsoft bears no responsibility for its operation, usage, or outcomes.
+
+### Best-Effort and Informational Use Only
+
+The Artifact is shared for informational and illustrative purposes only, on a best-effort basis. While reasonable care may have been taken during its creation, no guarantee is provided regarding accuracy, reliability, completeness, performance, fitness for a particular purpose, or ongoing availability.
+
+### No Warranties
+
+To the fullest extent permitted by applicable law, the Artifact is provided **"as is"** and **"as available,"** without warranties of any kind, whether express, implied, statutory, or otherwise, including but not limited to warranties of merchantability, fitness for a particular purpose, non-infringement, or accuracy.
+
+### Limitation of Liability
+
+Under no circumstances shall the author or Microsoft be liable for any direct, indirect, incidental, consequential, special, exemplary, or punitive damages, including but not limited to loss of data, loss of business, loss of revenue, operational impact, or security incidents, arising from or related to the use of, reliance on, or inability to use the Artifact, even if advised of the possibility of such damages.
+
+### User Responsibility
+
+Recipients and users are solely responsible for:
+
+- Evaluating the Artifact before use,
+- Validating any outputs or insights,
+- Ensuring compliance with their internal policies, legal, regulatory, security, and privacy requirements, and
+- Making independent decisions based on their own judgment.
+
+### No Transfer of Rights
+
+Nothing in this disclaimer grants any license or rights to Microsoft trademarks, logos, branding, or intellectual property. Any use of Microsoft names or references is descriptive only and does not imply endorsement.
+
+### Views Are Personal
+
+Any views, approaches, or designs reflected in the Artifact are solely those of the author and do not necessarily represent the views of Microsoft or any of its affiliates.
 
 ---
 
