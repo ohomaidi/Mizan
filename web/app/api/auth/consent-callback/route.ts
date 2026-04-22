@@ -5,6 +5,7 @@ import {
   markConsented,
 } from "@/lib/db/tenants";
 import { syncTenant } from "@/lib/sync/orchestrator";
+import { resolveAppBaseUrl } from "@/lib/config/base-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
  * that render OUTSIDE the (dashboard) route group.
  */
 export async function GET(req: NextRequest) {
+  const base = await resolveAppBaseUrl();
   const url = new URL(req.url);
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
@@ -27,19 +29,21 @@ export async function GET(req: NextRequest) {
   const tenantGuid = url.searchParams.get("tenant");
 
   if (!state) {
-    return redirect(req, "/consent-error?reason=missing_state");
+    return NextResponse.redirect(new URL("/consent-error?reason=missing_state", base));
   }
 
   const tenant = getTenantByState(state);
   if (!tenant) {
-    return redirect(req, `/consent-error?reason=unknown_state`);
+    return NextResponse.redirect(new URL(`/consent-error?reason=unknown_state`, base));
   }
 
   if (error) {
     markConsentFailed(tenant.id, `${error}: ${errorDescription ?? ""}`.trim());
-    return redirect(
-      req,
-      `/consent-error?reason=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription ?? "")}`,
+    return NextResponse.redirect(
+      new URL(
+        `/consent-error?reason=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription ?? "")}`,
+        base,
+      ),
     );
   }
 
@@ -49,7 +53,7 @@ export async function GET(req: NextRequest) {
       tenant.id,
       `tenant mismatch: expected ${tenant.tenant_id} got ${tenantGuid}`,
     );
-    return redirect(req, `/consent-error?reason=tenant_mismatch`);
+    return NextResponse.redirect(new URL(`/consent-error?reason=tenant_mismatch`, base));
   }
 
   markConsented(tenant.id);
@@ -59,17 +63,5 @@ export async function GET(req: NextRequest) {
     // errors are already persisted into signal_snapshots + markSyncResult
   });
 
-  return redirect(req, `/consent-success`);
-}
-
-/**
- * Build the redirect URL off the incoming request rather than env vars.
- * APP_BASE_URL is optional in the Bicep template — the fallback used to be
- * `?? "http://127.0.0.1:8787"` but `??` doesn't trigger on an empty string,
- * so on a default Azure deploy `new URL(path, "")` threw and the route 500'd
- * at exactly the worst moment — the entity admin just clicked Consent.
- * Using req.url as the base works regardless of env var wiring.
- */
-function redirect(req: NextRequest, path: string): NextResponse {
-  return NextResponse.redirect(new URL(path, req.url));
+  return NextResponse.redirect(new URL(`/consent-success`, base));
 }

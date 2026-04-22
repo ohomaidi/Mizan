@@ -9,6 +9,7 @@ import {
   upsertUser,
 } from "@/lib/db/users";
 import { openSession, writeSessionCookie } from "@/lib/auth/session";
+import { resolveAppBaseUrl } from "@/lib/config/base-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,8 +22,18 @@ export const dynamic = "force-dynamic";
  * Bootstrap: if no admin exists yet, the very first user to log in is
  * promoted to admin regardless of their Entra app-roles. This unblocks fresh
  * installs where the operator hasn't finished role assignments.
+ *
+ * Base-URL discipline: we construct every outbound redirect off the public
+ * base URL resolved by `resolveAppBaseUrl()` — NOT `req.nextUrl`. Behind a
+ * reverse proxy (Azure Container Apps ingress, Cloudflare tunnel, nginx)
+ * `req.nextUrl` can reflect the internal bind address (`0.0.0.0:8787`) rather
+ * than the public hostname, which would land the user on an unreachable URL
+ * after sign-in. The resolver honors `APP_BASE_URL` env first, then
+ * `x-forwarded-host`, then the `Host` header — always producing the public
+ * origin the browser actually used.
  */
 export async function GET(req: NextRequest) {
+  const base = await resolveAppBaseUrl();
   const url = req.nextUrl;
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
@@ -39,15 +50,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/login?error=${encodeURIComponent(error)}&reason=${encodeURIComponent(errorDesc ?? "")}`,
-        url,
+        base,
       ),
     );
   }
   if (!code || !state) {
-    return NextResponse.redirect(new URL("/login?error=missing_params", url));
+    return NextResponse.redirect(new URL("/login?error=missing_params", base));
   }
   if (!expectedState || state !== expectedState) {
-    return NextResponse.redirect(new URL("/login?error=state_mismatch", url));
+    return NextResponse.redirect(new URL("/login?error=state_mismatch", base));
   }
 
   let claims: Awaited<ReturnType<typeof exchangeCodeForToken>>;
@@ -57,7 +68,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/login?error=token_exchange&reason=${encodeURIComponent((err as Error).message)}`,
-        url,
+        base,
       ),
     );
   }
@@ -110,5 +121,11 @@ export async function GET(req: NextRequest) {
   const session = await openSession(user.id, ip, ua);
   await writeSessionCookie(session.id, session.expires_at);
 
-  return NextResponse.redirect(new URL(nextPath, url));
+  // `nextPath` comes from a cookie we set on /user-login — defensively clamp
+  // it to a same-origin relative path so an attacker can't stash an
+  // open-redirect target in the cookie.
+  const safeNext = nextPath.startsWith("/") && !nextPath.startsWith("//")
+    ? nextPath
+    : "/";
+  return NextResponse.redirect(new URL(safeNext, base));
 }
