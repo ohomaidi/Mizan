@@ -28,7 +28,7 @@
 
 ## What it does
 
-Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 tenant via Microsoft Graph, computes a per-entity **Maturity Index** (0–100), and ranks every entity against a target score you define. It's the one pane of glass for a holding company, ministry, or council that oversees dozens to hundreds of sub-organizations — each running their own tenant.
+Mizan pulls **19 read-only security signals** from every entity's Microsoft 365 tenant via Microsoft Graph, computes a per-entity **Maturity Index** (0–100), and ranks every entity against a target score you define. It's the one pane of glass for a holding company, ministry, or council that oversees dozens to hundreds of sub-organizations — each running their own tenant.
 
 - **Federated visibility** across every consented Microsoft 365 tenant
 - **19 Graph signals** — Secure Score, Conditional Access, Identity Protection, Intune compliance, Defender incidents, **Defender Vulnerability Management (CVE posture per device + cross-tenant CVE correlation)**, Purview DLP/IRM/Comm Compliance, Subject Rights Requests, retention/sensitivity labels, SharePoint tenant settings, PIM sprawl, Defender for Identity sensor health, Attack Simulation, Threat Intelligence, label adoption
@@ -263,6 +263,61 @@ Double-clicking the `.msi`:
 - Registers "Mizan" Windows Service (starts on boot)
 - Creates `%ProgramData%\Mizan\data\` for SQLite + uploaded logos
 - Adds a Desktop shortcut → http://localhost:8787
+
+---
+
+## Upgrading an existing install
+
+New releases are published to `ghcr.io/ohomaidi/mizan` with both a `:latest` tag and an explicit semver tag (`:1.1.2`, `:1.2.0`, etc.). The in-app **Settings → About → Check for updates** panel polls GitHub Releases and tells you when a new version is available; applying the update is a one-command roll.
+
+### Azure Container Apps
+
+From any shell with `az` installed and `az login` completed:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ohomaidi/Mizan/main/web/deploy/update-azure.sh \
+    | bash -s -- --tag 1.1.2
+```
+
+The script auto-discovers the Container App in the current subscription, derives `APP_BASE_URL` from the ingress FQDN, and applies the update idempotently. Zero flags needed in the common case. Pass `--rg <group> --app <name>` to override auto-discovery if you have multiple Mizan installs in one subscription.
+
+Manual equivalent:
+
+```sh
+az containerapp update \
+  --name <your-mizan-app-name> \
+  --resource-group <your-rg> \
+  --image ghcr.io/ohomaidi/mizan:1.1.2 \
+  --set-env-vars APP_BASE_URL=https://<your-fqdn>
+```
+
+A new revision rolls in ~30–60 s; your `/data` Azure Files mount carries the SQLite database + uploaded logo untouched — no data migration step.
+
+### macOS / Windows on-prem installers
+
+Re-run the builder script from the latest `main`, then re-install the produced `.pkg` / `.msi`. The installer places files over the existing install and preserves `~/Library/Application Support/mizan/` (macOS) / `%ProgramData%\Mizan\data\` (Windows) so the SQLite DB and logo survive.
+
+```sh
+# macOS
+git pull && bash web/deploy/mac-build.sh
+sudo installer -pkg web/deploy/dist/mizan-1.1.2.pkg -target /
+```
+
+```powershell
+# Windows
+git pull; powershell -File web\deploy\windows-build.ps1
+msiexec /i web\deploy\dist\mizan-1.1.2.msi /quiet
+```
+
+### Upgrading from v1.0.x to v1.1 — one breaking change
+
+The `enforce` sign-in toggle is gone. Sign-in is always required in v1.1. If you had `enforce=false` on your v1.0.x deployment (the default — most installs), three things happen after the update:
+
+1. Any cached session you had keeps working until it expires.
+2. Anonymous requests to dashboard pages (`/entities`, `/settings`, etc.) now redirect to `/login`.
+3. Until the first admin in your `users` table signs in successfully, the bootstrap escape hatch keeps the dashboard open — so nobody is locked out during the transition.
+
+If your ACA deployment has `APP_BASE_URL` unset in env (the old default), set it during the upgrade — the update script does this automatically. Without it you may hit the post-signin `0.0.0.0:8787` redirect bug documented in troubleshooting §6a.
 
 ---
 
