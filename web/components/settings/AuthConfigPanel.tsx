@@ -14,16 +14,23 @@ type Form = {
   tenantId: string;
   sessionTimeoutMinutes: number;
   defaultRole: Role;
-  enforce: boolean;
 };
+
+// Sliding-window presets (minutes). Must match the API-side whitelist in
+// lib/config/auth-config.ts. Keep in sync if either changes.
+const SESSION_PRESETS = [
+  { value: 60 * 8, labelKey: "authCfg.session.8h" as const },
+  { value: 60 * 24, labelKey: "authCfg.session.1d" as const },
+  { value: 60 * 24 * 7, labelKey: "authCfg.session.7d" as const },
+  { value: 60 * 24 * 30, labelKey: "authCfg.session.30d" as const },
+];
 
 const EMPTY: Form = {
   clientId: "",
   clientSecret: "",
   tenantId: "",
-  sessionTimeoutMinutes: 480,
+  sessionTimeoutMinutes: 60 * 24 * 7,
   defaultRole: "viewer",
-  enforce: false,
 };
 
 const GUID_OR_COMMON =
@@ -49,7 +56,6 @@ export function AuthConfigPanel() {
         tenantId: r.config.tenantId,
         sessionTimeoutMinutes: r.config.sessionTimeoutMinutes,
         defaultRole: r.config.defaultRole,
-        enforce: r.config.enforce,
       });
       setSecretSet(r.config.clientSecretSet);
       setRedirectUri(r.config.redirectUri);
@@ -71,8 +77,7 @@ export function AuthConfigPanel() {
         form.clientId,
       )) &&
     (form.tenantId === "" || GUID_OR_COMMON.test(form.tenantId)) &&
-    form.sessionTimeoutMinutes >= 15 &&
-    form.sessionTimeoutMinutes <= 1440;
+    form.sessionTimeoutMinutes >= 15;
 
   const onSave = async () => {
     if (!valid) return;
@@ -83,7 +88,6 @@ export function AuthConfigPanel() {
         tenantId: form.tenantId,
         sessionTimeoutMinutes: form.sessionTimeoutMinutes,
         defaultRole: form.defaultRole,
-        enforce: form.enforce,
       };
       if (form.clientSecret.length > 0) patch.clientSecret = form.clientSecret;
       await api.saveAuthConfig(patch);
@@ -167,16 +171,22 @@ export function AuthConfigPanel() {
             </div>
           </Field>
           <Field label={t("authCfg.field.sessionTimeout")}>
-            <input
-              type="number"
-              min={15}
-              max={1440}
+            <select
               value={form.sessionTimeoutMinutes}
               onChange={(e) =>
-                set("sessionTimeoutMinutes", Number(e.target.value) || 0)
+                set("sessionTimeoutMinutes", Number(e.target.value))
               }
-              className={`${inputClass} tabular`}
-            />
+              className={inputClass}
+            >
+              {SESSION_PRESETS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {t(p.labelKey)}
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] text-ink-3 mt-1">
+              {t("authCfg.session.helper")}
+            </div>
           </Field>
           <Field label={t("authCfg.field.defaultRole")}>
             <select
@@ -206,20 +216,6 @@ export function AuthConfigPanel() {
               </button>
             </div>
           </Field>
-          <label className="sm:col-span-2 flex items-start gap-2 mt-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.enforce}
-              onChange={(e) => set("enforce", e.target.checked)}
-              className="h-4 w-4 accent-council-strong mt-0.5"
-            />
-            <span className="text-[13px] text-ink-1 leading-relaxed">
-              <div className="font-semibold">{t("authCfg.field.enforce")}</div>
-              <div className="text-[11.5px] text-ink-3">
-                {t("authCfg.enforce.helper")}
-              </div>
-            </span>
-          </label>
           <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-2 border-t border-border">
             {secretSet && form.clientId.length > 0 ? (
               <a

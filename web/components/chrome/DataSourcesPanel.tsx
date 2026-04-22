@@ -1,17 +1,56 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 
-const SOURCES = [
-  { name: "Secure Score", detailKey: "ds.secureScore.detail" as const, status: "green" },
-  { name: "Defender", detailKey: "ds.defender.detail" as const, status: "green" },
-  { name: "Purview", detailKey: "ds.purview.detail" as const, status: "amber" },
-  { name: "Entra ID", detailKey: "ds.entra.detail" as const, status: "green" },
-  { name: "Intune", detailKey: "ds.intune.detail" as const, status: "green" },
-  { name: "Compliance Mgr.", detailKey: "ds.compliance.detail" as const, status: "amber" },
-] as const;
+type SourceKey =
+  | "secureScore"
+  | "defender"
+  | "purview"
+  | "entra"
+  | "intune"
+  | "compliance";
 
-const DOT: Record<string, string> = {
+type Health = "green" | "amber" | "red";
+
+type HealthResponse = {
+  lookbackHours: number;
+  consentedTenants: number;
+  sources: Record<SourceKey, { status: Health; coverage: number }>;
+};
+
+/**
+ * The sidebar's data-sources panel.
+ *
+ * Previously each row had a hardcoded green/amber status. That lied to
+ * operators — Purview and Compliance Manager showed "Degraded" even
+ * when all 12 demo tenants were delivering full Purview signals. Now
+ * we fetch live coverage from /api/signals/data-source-health and
+ * render a real indicator per row.
+ *
+ * Rows are defined here (not server-side) so the sidebar can render
+ * immediately with a loading-state amber dot before the fetch resolves.
+ */
+const ROWS: Array<{
+  key: SourceKey;
+  name: string;
+  detailKey:
+    | "ds.secureScore.detail"
+    | "ds.defender.detail"
+    | "ds.purview.detail"
+    | "ds.entra.detail"
+    | "ds.intune.detail"
+    | "ds.compliance.detail";
+}> = [
+  { key: "secureScore", name: "Secure Score", detailKey: "ds.secureScore.detail" },
+  { key: "defender", name: "Defender", detailKey: "ds.defender.detail" },
+  { key: "purview", name: "Purview", detailKey: "ds.purview.detail" },
+  { key: "entra", name: "Entra ID", detailKey: "ds.entra.detail" },
+  { key: "intune", name: "Intune", detailKey: "ds.intune.detail" },
+  { key: "compliance", name: "Compliance Mgr.", detailKey: "ds.compliance.detail" },
+];
+
+const DOT: Record<Health, string> = {
   green: "bg-pos",
   amber: "bg-warn",
   red: "bg-neg",
@@ -19,6 +58,23 @@ const DOT: Record<string, string> = {
 
 export function DataSourcesPanel() {
   const { t } = useI18n();
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/signals/data-source-health", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        if (!cancelled && body) setHealth(body as HealthResponse);
+      })
+      .catch(() => {
+        /* swallow — panel stays at amber, which is the right hedge. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="border-t border-border p-3 pb-4">
       <div className="eyebrow px-2 pt-1 pb-2 flex items-center gap-2">
@@ -28,18 +84,28 @@ export function DataSourcesPanel() {
         </span>
       </div>
       <ul className="flex flex-col gap-1.5 px-1">
-        {SOURCES.map((s) => (
-          <li key={s.name} className="flex items-start gap-2 px-1.5 py-1">
-            <span
-              className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${DOT[s.status]}`}
-              aria-hidden
-            />
-            <div className="min-w-0">
-              <div className="text-[12.5px] text-ink-1 leading-tight">{s.name}</div>
-              <div className="text-[11px] text-ink-3 leading-snug">{t(s.detailKey)}</div>
-            </div>
-          </li>
-        ))}
+        {ROWS.map((s) => {
+          // Default while the fetch is in flight: amber (honest "unknown").
+          const status: Health = health?.sources[s.key]?.status ?? "amber";
+          const coverage = health?.sources[s.key]?.coverage;
+          return (
+            <li key={s.key} className="flex items-start gap-2 px-1.5 py-1">
+              <span
+                className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${DOT[status]}`}
+                aria-hidden
+                title={
+                  coverage != null
+                    ? `${coverage}% of consented entities in the last ${health?.lookbackHours ?? 48}h`
+                    : undefined
+                }
+              />
+              <div className="min-w-0">
+                <div className="text-[12.5px] text-ink-1 leading-tight">{s.name}</div>
+                <div className="text-[11px] text-ink-3 leading-snug">{t(s.detailKey)}</div>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

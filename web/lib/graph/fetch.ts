@@ -80,6 +80,10 @@ export async function graphFetch<T>(opts: FetchOptions): Promise<T> {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           Accept: "application/json",
+          // Some Graph endpoints (notably /roleManagement/directory/*) throw
+          // CultureNotFoundException when they try to resolve the caller's
+          // culture from the runtime environment — pinning to en-US avoids it.
+          "Accept-Language": "en-US",
         },
         body: opts.body ? JSON.stringify(opts.body) : undefined,
         cache: "no-store",

@@ -19,9 +19,10 @@ export default async function DashboardLayout({
   // Fresh installs (non-demo) get bounced to /setup until the first-run
   // wizard is done. The demo seed marks setup completed automatically.
   if (!getSetupState().completed) redirect("/setup");
-  // Gate every /(dashboard)/* page: if auth enforcement is on and there's no
-  // valid session, redirect to /login. When auth is unconfigured (demo / fresh
-  // install) this resolves immediately to `ok` with a null user.
+  // Gate every /(dashboard)/* page. In demo mode (MIZAN_DEMO_MODE=true) and
+  // during the bootstrap window (no real admin yet) this resolves immediately
+  // to `ok` with a null user so showcase deployments + fresh installs aren't
+  // locked out. Otherwise an unauthenticated request is bounced to /login.
   const result = await requireUser("viewer");
   if (result.kind === "redirect") redirect(result.to);
   return (

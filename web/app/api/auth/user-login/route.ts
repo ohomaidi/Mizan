@@ -14,8 +14,9 @@ export const dynamic = "force-dynamic";
  * login redirect lands wherever the user was trying to reach.
  */
 export async function GET(req: NextRequest) {
-  // Gate on credentials, not enforcement. The wizard's bootstrap flow runs
-  // with enforce=false so that a failed sign-in can't lock the install out.
+  // Gate on credentials. If the operator hasn't finished the Entra app setup
+  // yet, there's nowhere to redirect them — bail early instead of building a
+  // malformed authorize URL.
   if (!isAuthConfigured()) {
     return NextResponse.json({ error: "auth_not_configured" }, { status: 503 });
   }

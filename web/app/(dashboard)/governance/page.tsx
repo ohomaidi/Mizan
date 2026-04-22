@@ -127,7 +127,7 @@ export default function GovernancePage() {
                       className="py-2 flex items-center justify-between gap-3"
                     >
                       <Link
-                        href={`/entities/${e.id}`}
+                        href={`/entities/${e.id}?tab=governance&from=governance`}
                         className="text-ink-1 hover:text-council-strong truncate"
                       >
                         {locale === "ar" ? e.nameAr : e.nameEn}

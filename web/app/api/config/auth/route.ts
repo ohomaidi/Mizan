@@ -5,6 +5,7 @@ import {
   getAuthConfig,
   setAuthConfig,
   ROLES,
+  MAX_SESSION_MINUTES,
   type Role,
 } from "@/lib/config/auth-config";
 import { apiRequireRole } from "@/lib/auth/rbac";
@@ -21,9 +22,13 @@ const Schema = z
     clientId: z.string().trim().optional(),
     clientSecret: z.string().trim().optional(),
     tenantId: z.string().trim().regex(GUID_OR_COMMON).optional(),
-    sessionTimeoutMinutes: z.number().int().min(15).max(24 * 60).optional(),
+    sessionTimeoutMinutes: z
+      .number()
+      .int()
+      .min(15)
+      .max(MAX_SESSION_MINUTES)
+      .optional(),
     defaultRole: z.enum(ROLES as [Role, ...Role[]]).optional(),
-    enforce: z.boolean().optional(),
     clear: z.boolean().optional(),
   })
   .refine(
@@ -41,7 +46,6 @@ async function maskForClient() {
     tenantId: cfg.tenantId,
     sessionTimeoutMinutes: cfg.sessionTimeoutMinutes,
     defaultRole: cfg.defaultRole,
-    enforce: cfg.enforce,
     updatedAt: cfg.updatedAt ?? null,
     redirectUri: await resolveUserAuthRedirectUri(),
   };
@@ -80,7 +84,6 @@ export async function PUT(req: NextRequest) {
     if (parsed.data.sessionTimeoutMinutes !== undefined)
       patch.sessionTimeoutMinutes = parsed.data.sessionTimeoutMinutes;
     if (parsed.data.defaultRole !== undefined) patch.defaultRole = parsed.data.defaultRole;
-    if (parsed.data.enforce !== undefined) patch.enforce = parsed.data.enforce;
     setAuthConfig(patch);
   }
   invalidateAuthClient();

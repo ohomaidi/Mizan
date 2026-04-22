@@ -19,7 +19,8 @@ export type SignalType =
   | "attackSimulations"
   | "threatIntelligence"
   | "advancedHunting"
-  | "labelAdoption";
+  | "labelAdoption"
+  | "vulnerabilities";
 
 export type SignalSnapshot<P = unknown> = {
   id: number;
@@ -98,6 +99,7 @@ const ALL_SIGNAL_TYPES: SignalType[] = [
   "threatIntelligence",
   "advancedHunting",
   "labelAdoption",
+  "vulnerabilities",
 ];
 
 export function getLatestSnapshotsForTenant(

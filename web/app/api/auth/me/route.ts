@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/session";
-import { getAuthConfig, isAuthEnforced } from "@/lib/config/auth-config";
+import { getAuthConfig, isDemoMode } from "@/lib/config/auth-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,29 +8,28 @@ export const dynamic = "force-dynamic";
 /**
  * Returns who the current request is authenticated as, plus two booleans the
  * UI uses to decide what CTA to show:
- *   - `configured`: Entra app creds are stored (Sign-in should work) but the
- *                   admin may still be keeping the dashboard open by leaving
- *                   enforcement off. UserMenu surfaces a "Sign in" button.
- *   - `enforced`:   unauthenticated requests are being bounced to /login. UI
- *                   switches from "SA demo avatar" to the real user menu.
+ *   - `configured`: Entra app creds are stored — Sign-in button can work.
+ *   - `demoMode`:   deployment is running with MIZAN_DEMO_MODE=true. UI shows
+ *                   a "Demo mode" pill instead of the user menu, and the
+ *                   dashboard is open to everyone regardless of auth state.
  */
 export async function GET() {
   const cfg = getAuthConfig();
   const configured = cfg.clientId.length > 0 && cfg.clientSecret.length > 0;
-  const enforced = isAuthEnforced();
+  const demoMode = isDemoMode();
   const current = await currentUser();
   if (!current) {
     return NextResponse.json({
       authenticated: false,
       configured,
-      enforced,
+      demoMode,
       user: null,
     });
   }
   return NextResponse.json({
     authenticated: true,
     configured,
-    enforced,
+    demoMode,
     user: {
       id: current.user.id,
       email: current.user.email,

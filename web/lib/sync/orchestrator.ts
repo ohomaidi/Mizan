@@ -7,6 +7,11 @@ import {
 } from "@/lib/db/tenants";
 import { pruneOldSnapshots, writeSnapshot } from "@/lib/db/signals";
 import {
+  pruneOldMaturitySnapshots,
+  writeMaturitySnapshot,
+} from "@/lib/db/maturity-snapshots";
+import { computeForTenant } from "@/lib/compute/maturity";
+import {
   fetchAdvancedHunting,
   fetchAttackSimulations,
   fetchCommComplianceAlerts,
@@ -25,6 +30,7 @@ import {
   fetchSharepointSettings,
   fetchSubjectRightsRequests,
   fetchThreatIntelligence,
+  fetchVulnerabilities,
 } from "@/lib/graph/signals";
 import { GraphError } from "@/lib/graph/fetch";
 import { invalidateTenantToken } from "@/lib/graph/msal";
@@ -65,8 +71,24 @@ export type SyncResult = {
   durationMs: number;
 };
 
+/**
+ * The five "primary" signals. These feed the Maturity Index directly and are
+ * the bar we hold the per-entity connection health to: if any one of them
+ * returns real data, the Council's link to this tenant is working. The
+ * remaining 13 signals are license-gated or Phase 3 surfaces (Purview, AIP,
+ * DfI, KQL packs) — their failures are common in tenants without those
+ * licenses and must not tar the whole entity as "Offline".
+ */
+const PRIMARY_SIGNALS = new Set<string>([
+  "secureScore",
+  "conditionalAccess",
+  "riskyUsers",
+  "devices",
+  "incidents",
+]);
+
 const SIGNAL_ORDER = [
-  // Defender / Entra / Intune — original Phase 2 set.
+  // Defender / Entra / Intune — original Phase 2 set (primary).
   { type: "secureScore", run: fetchSecureScore },
   { type: "conditionalAccess", run: fetchConditionalAccess },
   { type: "riskyUsers", run: fetchRiskyUsers },
@@ -87,6 +109,8 @@ const SIGNAL_ORDER = [
   { type: "threatIntelligence", run: fetchThreatIntelligence },
   // Advanced Hunting runs last so per-tenant throttle doesn't starve simpler calls.
   { type: "advancedHunting", run: fetchAdvancedHunting },
+  // Defender Vulnerability Management — pairs of KQL queries against TVM tables.
+  { type: "vulnerabilities", run: fetchVulnerabilities },
   // Label adoption telemetry (async job — submits or polls depending on state).
   { type: "labelAdoption", run: fetchLabelAdoption },
 ] as const;
@@ -131,7 +155,24 @@ export async function syncTenant(tenant: TenantRow): Promise<SyncResult> {
   const errors: SyncResult["errors"] = [];
 
   if (tenant.is_demo === 1) {
-    // Demo tenants carry pre-baked snapshots. Skip without touching anything.
+    // Demo tenants carry pre-baked snapshots — we don't hit Graph for them.
+    // We bump `last_sync_at` so the staleness guard in connectionFor()
+    // stays green, AND we touch the `fetched_at` of every successful
+    // signal snapshot for this tenant so data-source-health coverage
+    // reports also stay within lookback. Without the second bump, the
+    // six sidebar source-dots flip to amber a couple of days after seed
+    // even though the demo is fresh and operational.
+    markSyncResult(tenant.id, true);
+    try {
+      const db = (await import("@/lib/db/client")).getDb();
+      db
+        .prepare(
+          "UPDATE signal_snapshots SET fetched_at = datetime('now') WHERE tenant_id = ? AND ok = 1",
+        )
+        .run(tenant.id);
+    } catch {
+      // non-fatal — this is cosmetic demo polish, not a correctness path
+    }
     return {
       tenantId: tenant.id,
       ok: true,
@@ -173,12 +214,53 @@ export async function syncTenant(tenant: TenantRow): Promise<SyncResult> {
     }
   }
 
-  const ok = errors.length === 0;
+  // The *strict* success flag (every single signal passed). Kept for the
+  // error-message payload so operators can still see per-signal failures.
+  const allOk = errors.length === 0;
+
+  // The *connection-health* flag. The Council cares whether the pipe to this
+  // entity is open — not whether every license-gated Purview endpoint
+  // returned data. An entity is healthy if at least one of the five primary
+  // signals came back OR if fewer than all primaries failed (meaning Graph is
+  // reachable and the MSAL cert still works). Only a full primary-signal
+  // wipeout degrades the entity to "Offline".
+  const primaryErrorCount = errors.filter((e) =>
+    PRIMARY_SIGNALS.has(e.signal),
+  ).length;
+  const connectionOk = primaryErrorCount < PRIMARY_SIGNALS.size;
+
   markSyncResult(
     tenant.id,
-    ok,
-    ok ? undefined : errors.map((e) => `${e.signal}: ${e.message}`).join(" | "),
+    connectionOk,
+    allOk
+      ? undefined
+      : errors.map((e) => `${e.signal}: ${e.message}`).join(" | "),
   );
+  // Bind `ok` for the revocation detection block below — revocation is still
+  // defined as "all 18 signals failed with an auth/consent error".
+  const ok = allOk;
+
+  // Persist a maturity snapshot after any sync that landed at least some real
+  // signal data — even a partial sync is a valid data point for the trend
+  // ("connection was flaky but what we measured was X"). Wrapped in its own
+  // try/catch so a compute glitch never takes the sync orchestrator down.
+  try {
+    const breakdown = computeForTenant(tenant.id);
+    if (breakdown.hasData) {
+      writeMaturitySnapshot({
+        tenant_id: tenant.id,
+        overall: breakdown.index,
+        secureScore: breakdown.subScores.secureScore,
+        identity: breakdown.subScores.identity,
+        device: breakdown.subScores.device,
+        data: breakdown.subScores.data,
+        threat: breakdown.subScores.threat,
+        compliance: breakdown.subScores.compliance,
+      });
+    }
+  } catch {
+    // non-fatal — trend just misses this tick
+  }
 
   // Revocation auto-detection. If EVERY signal failed with a revocation-class error,
   // the Council's app registration has been removed from this entity's tenant.
@@ -243,6 +325,12 @@ export async function syncAllTenants(): Promise<SyncResult[]> {
     if (removed > 0) {
       console.log(
         `[sync] pruned ${removed} snapshot row(s) older than ${config.retentionDays}d`,
+      );
+    }
+    const removedMaturity = pruneOldMaturitySnapshots(config.retentionDays);
+    if (removedMaturity > 0) {
+      console.log(
+        `[sync] pruned ${removedMaturity} maturity snapshot row(s) older than ${config.retentionDays}d`,
       );
     }
   } catch (err) {

@@ -200,6 +200,25 @@ export const DICT = {
     "settings.tab.azure": "App Registration",
     "settings.tab.nesa": "NESA mapping",
     "settings.tab.docs": "Documentation",
+    "settings.tab.about": "About & updates",
+
+    "settings.about.title": "About Mizan",
+    "settings.about.subtitle":
+      "Check which version is running and whether a newer release is available on GitHub.",
+    "settings.about.current": "Installed version",
+    "settings.about.latest": "Latest available",
+    "settings.about.published": "Released",
+    "settings.about.upToDate": "You're on the latest release.",
+    "settings.about.updateAvailable":
+      "Update available — v{version}. Pick one command below to upgrade.",
+    "settings.about.azureCmd": "Azure Container Apps",
+    "settings.about.dockerCmd": "Docker / self-hosted",
+    "settings.about.openReleaseNotes": "Open release notes on GitHub",
+    "settings.about.lastChecked": "Last checked",
+    "settings.about.checkNow": "Check now",
+    "settings.about.releaseNotes": "Release notes",
+    "settings.about.checkFailedTitle":
+      "Couldn't reach GitHub to check for updates",
 
     "branding.title": "Branding",
     "branding.subtitle":
@@ -245,17 +264,20 @@ export const DICT = {
     "settings.tab.auth": "Authentication",
     "authCfg.title": "User authentication",
     "authCfg.subtitle":
-      "Sign-in for operators and analysts. Uses a second Entra app registration (separate from the one that reads entity posture). Leave off to keep the dashboard open for demos.",
+      "Sign-in for operators and analysts. Uses a second Entra app registration (separate from the one that reads entity posture). Sign-in is always required — first-run sign-in is handled automatically by the setup wizard.",
     "authCfg.field.clientId": "Auth app client ID",
     "authCfg.field.clientSecret": "Auth app client secret",
     "authCfg.field.clientSecretPlaceholder":
       "Enter a new secret, or leave blank to keep the existing one",
     "authCfg.field.tenantId": "Operator Entra tenant ID",
-    "authCfg.field.sessionTimeout": "Session timeout (minutes)",
+    "authCfg.field.sessionTimeout": "Session lifetime",
     "authCfg.field.defaultRole": "Default role for new users",
-    "authCfg.field.enforce": "Enforce sign-in for every request",
-    "authCfg.enforce.helper":
-      "When off, the dashboard stays open — useful during first-run configuration. Turn on once you have confirmed sign-in works for at least one user.",
+    "authCfg.session.8h": "8 hours",
+    "authCfg.session.1d": "24 hours",
+    "authCfg.session.7d": "7 days (recommended)",
+    "authCfg.session.30d": "30 days (maximum)",
+    "authCfg.session.helper":
+      "Sliding window — any activity inside the window pushes expiry forward, capped at 30 days. After the window lapses, users sign back in via Microsoft SSO (usually instant, no password prompt).",
     "authCfg.role.admin": "Admin",
     "authCfg.role.analyst": "Analyst",
     "authCfg.role.viewer": "Viewer",
@@ -602,10 +624,23 @@ export const DICT = {
 
     "threats.ti.title": "Threat Intelligence",
     "threats.ti.subtitle": "Recent articles from Microsoft Defender TI linked to the {orgShort} feed.",
+    "threats.ti.subtitle30d":
+      "Recent Microsoft Defender Threat Intelligence articles — last 30 days. Tap any item for the full brief.",
+    "threats.ti.count": "{count} articles",
     "threats.ti.empty": "No threat intel articles available yet.",
+    "threats.ti.modal.published": "Published",
+    "threats.ti.modal.noSummary":
+      "Microsoft didn't include a summary on this article. Open in Defender for the full write-up.",
+    "threats.ti.modal.openInDefender": "Open full article in Defender",
+    "threats.ti.modal.portalHint":
+      "Defender Threat Analytics has the full analyst write-up, IoCs, affected products, and recommended actions.",
     "threats.attackSim.title": "Attack Simulation — phish click-rate",
     "threats.attackSim.subtitle":
       "Ranked per entity. Lower is better. Pulled from /security/attackSimulation/simulations.",
+    "threats.window.label": "Window",
+    "threats.window.30d": "30 days",
+    "threats.window.60d": "60 days",
+    "threats.window.90d": "90 days",
     "threats.hunting.title": "Advanced Hunting packs",
     "threats.hunting.subtitle":
       "{orgShort}-authored KQL run against each entity per sync cycle. Click an entity to drill into per-pack results.",
@@ -777,6 +812,13 @@ export const DICT = {
     "time.daysAgo": "{n}d ago",
 
     "entity.backToAll": "All entities",
+    "entity.backToIdentity": "Back to Identity",
+    "entity.backToDevices": "Back to Devices",
+    "entity.backToThreats": "Back to Threats",
+    "entity.backToVulnerabilities": "Back to Vulnerabilities",
+    "entity.backToData": "Back to Data protection",
+    "entity.backToGovernance": "Back to Governance",
+    "entity.backToMaturity": "Back to Maturity overview",
     "entity.tenant": "Tenant",
     "entity.domain": "Domain",
     "entity.ciso": "CISO",
@@ -817,6 +859,13 @@ export const DICT = {
     "entity.stats.riskyUsers": "Risky users",
     "entity.stats.devicesCompliant": "Devices compl.",
 
+    "entity.overview.topVulns.title": "Top vulnerabilities",
+    "entity.overview.topVulns.subtitle":
+      "Highest-severity CVEs reported by Defender for this entity's endpoints.",
+    "entity.overview.topVulns.viewAll": "View all CVEs",
+    "entity.overview.topVulns.clean":
+      "No CVEs currently reported — fleet is clean.",
+
     "subscores.title": "Sub-score breakdown",
     "subscores.subtitle": "Weighted inputs into the Maturity Index",
     "subscores.identity": "Identity",
@@ -824,6 +873,35 @@ export const DICT = {
     "subscores.data": "Data",
     "subscores.threatResponse": "Threat response",
     "subscores.compliance": "Compliance (NESA)",
+
+    "maturity.sub.secureScore": "Secure Score",
+    "maturity.sub.identity": "Identity",
+    "maturity.sub.device": "Device",
+    "maturity.sub.data": "Data",
+    "maturity.sub.threat": "Threat response",
+    "maturity.sub.compliance": "Compliance",
+
+    "trend.title": "Maturity trend",
+    "trend.subtitle":
+      "How this entity's Maturity Index and sub-scores moved over time. Toggle any sub-score to overlay it on the chart.",
+    "trend.range.7d": "7 days",
+    "trend.range.30d": "30 days",
+    "trend.range.90d": "90 days",
+    "trend.range.all": "All",
+    "trend.overSpan.7d": "over 7 days",
+    "trend.overSpan.30d": "over 30 days",
+    "trend.overSpan.90d": "over 90 days",
+    "trend.overSpan.all": "over all time",
+    "trend.granularity.daily": "Daily",
+    "trend.granularity.weekly": "Weekly",
+    "trend.granularity.monthly": "Monthly",
+    "trend.overlay": "Overlay",
+    "trend.series.overall": "Maturity Index",
+    "trend.points": "{count} data points",
+    "trend.latest": "Latest",
+    "trend.empty.title": "No trend data yet",
+    "trend.empty.body":
+      "Trend points are captured after each sync. Run a sync now, or use the admin Backfill Historical Data action to reconstruct the last 90 days from existing signals.",
 
     "recent.title": "Recent changes",
     "recent.subtitle": "Signals that moved the index in the last 7 days",
@@ -843,6 +921,49 @@ export const DICT = {
     "subtabs.more.body":
       "Data and Governance sub-tabs populate once Purview read signals (DLP alerts, Insider Risk, Subject Rights Requests, label adoption) and UAE NESA control mapping are wired into the sync.",
 
+    "tab.data.title": "Data protection",
+    "tab.data.subtitle":
+      "DLP, Insider Risk, Communication Compliance, Subject Rights Requests, retention + sensitivity labels, external sharing posture.",
+    "tab.data.emptyNoSync":
+      "No Purview data yet — this entity hasn't completed its first sync.",
+    "tab.data.empty.body":
+      "All Purview surfaces report zero. Either this entity has no Purview policies configured yet, or it's missing the license. The data sources are connected; they just have nothing to report.",
+    "tab.data.kpi.dlp": "DLP alerts",
+    "tab.data.kpi.irm": "Insider Risk",
+    "tab.data.kpi.commComp": "Comm Compliance",
+    "tab.data.kpi.srrs": "Subject Rights",
+    "tab.data.labels.title": "Labels",
+    "tab.data.labels.subtitle":
+      "Retention + sensitivity label inventory pulled from Purview.",
+    "tab.data.labels.retention": "Retention labels",
+    "tab.data.labels.retentionRecord": "— of which records",
+    "tab.data.labels.sensitivity": "Sensitivity labels",
+    "tab.data.labels.sensitivityActive": "— active",
+    "tab.data.sharing.title": "External sharing posture",
+    "tab.data.sharing.subtitle":
+      "SharePoint + OneDrive tenant-level sharing caps.",
+    "tab.data.sharing.sharepoint": "SharePoint sharing",
+    "tab.data.sharing.guestCount": "Allowed sync domains",
+    "tab.data.sharing.syncButtonHidden": "OneDrive sync button hidden",
+    "tab.data.sharing.missing": "SharePoint settings not yet collected.",
+
+    "tab.gov.title": "Governance alignment",
+    "tab.gov.subtitle":
+      "Framework coverage for this entity, derived from Secure Score control groupings. Category pass-rates map to the identity / data / device / apps axes most standards (NESA, NCA, ISR) cluster around.",
+    "tab.gov.emptyNoSync":
+      "No Secure Score data yet — this entity hasn't completed its first sync.",
+    "tab.gov.kpi.controls": "Controls measured",
+    "tab.gov.kpi.controlsCaption": "across all framework categories",
+    "tab.gov.kpi.passing": "Passing",
+    "tab.gov.kpi.passingCaption":
+      "{passed} controls fully implemented",
+    "tab.gov.kpi.complianceSub": "Compliance sub-score",
+    "tab.gov.kpi.complianceSubCaption":
+      "from the Maturity Index (NESA weighting)",
+    "tab.gov.categories.title": "Coverage by category",
+    "tab.gov.categories.subtitle":
+      "Green = passing · Amber = partial · Red = not implemented.",
+
     "tab.overview": "Overview",
     "tab.controls": "Controls",
     "tab.incidents": "Incidents",
@@ -850,6 +971,8 @@ export const DICT = {
     "tab.data": "Data",
     "tab.devices": "Devices",
     "tab.governance": "Governance",
+    "tab.vulnerabilities": "Vulnerabilities",
+    "tab.attackSimulation": "Attack Simulation",
     "tab.connection": "Connection",
 
     "tab.controls.title": "Secure Score controls",
@@ -864,6 +987,10 @@ export const DICT = {
     "tab.controls.unknown": "Unknown",
     "tab.controls.userImpact": "User impact",
     "tab.controls.implCost": "Impl. cost",
+    "tab.controls.filter.label": "Category",
+    "tab.controls.filter.uncategorized": "Uncategorized",
+    "tab.controls.filter.empty":
+      "No controls match this category.",
 
     "tab.incidents.title": "Security incidents",
     "tab.incidents.subtitle": "Unified from Microsoft Defender XDR.",
@@ -874,6 +1001,31 @@ export const DICT = {
     "tab.incidents.col.created": "Created",
     "tab.incidents.col.updated": "Updated",
     "tab.incidents.summary": "{total} total · {active} active · {resolved} resolved",
+    "tab.incidents.drill.created": "Created",
+    "tab.incidents.drill.updated": "Last updated",
+    "tab.incidents.drill.classification": "Classification",
+    "tab.incidents.drill.determination": "Determination",
+    "tab.incidents.drill.assignedTo": "Assigned to",
+    "tab.incidents.drill.unclassified": "Not yet classified",
+    "tab.incidents.drill.unassigned": "Unassigned",
+    "tab.incidents.drill.tags": "Tags",
+    "tab.incidents.drill.openInDefender": "Open in Defender XDR",
+    "tab.incidents.drill.defenderHint":
+      "Deep-link opens Microsoft Defender XDR portal in a new tab with the full incident timeline, related alerts, and analyst actions.",
+
+    "incidentClassification.truePositive": "True positive",
+    "incidentClassification.falsePositive": "False positive",
+    "incidentClassification.informationalExpectedActivity": "Informational / expected",
+    "incidentClassification.unknown": "Unknown",
+
+    "incidentDetermination.apt": "APT / targeted attack",
+    "incidentDetermination.malware": "Malware",
+    "incidentDetermination.phishing": "Phishing",
+    "incidentDetermination.unwantedSoftware": "Unwanted software",
+    "incidentDetermination.compromisedAccount": "Compromised account",
+    "incidentDetermination.maliciousUserActivity": "Malicious user activity",
+    "incidentDetermination.insufficientInformation": "Insufficient information",
+    "incidentDetermination.other": "Other",
 
     "tab.identity.title": "Risky users",
     "tab.identity.subtitle": "From Microsoft Entra Identity Protection.",
@@ -882,6 +1034,79 @@ export const DICT = {
     "tab.identity.col.state": "Risk state",
     "tab.identity.col.updated": "Last updated",
     "tab.identity.summary": "{atRisk} at risk · {total} tracked",
+    "tab.identity.empty": "No risky users reported for this entity.",
+    "tab.identity.helpBtn": "What's Level vs State?",
+    "tab.identity.help.levelTitle": "Risk Level",
+    "tab.identity.help.levelBody":
+      "Severity of the latest Identity Protection signal: None · Low · Medium · High. Microsoft's confidence that something suspicious is happening.",
+    "tab.identity.help.stateTitle": "Risk State",
+    "tab.identity.help.stateBody":
+      "Lifecycle status: At risk · Confirmed compromised · Remediated · Dismissed · Confirmed safe. Level is the signal; State is what's been done about it.",
+    "tab.identity.help.clickHint":
+      "Click “At risk” on any user to see the exact detections (event type, location, IP) driving the alert.",
+    "tab.identity.clickToExplain": "Click to see why",
+    "tab.identity.why": "why?",
+    "tab.identity.why.title": "Why is {user} at risk?",
+    "tab.identity.why.subtitle":
+      "Microsoft Entra Identity Protection detections that triggered this user's risk state. Every row is a separate signal from the last 7 days.",
+    "tab.identity.why.noDetections":
+      "No detection records returned by Graph for this user. The risk state is still active but the underlying evidence may have aged out of the /riskDetections endpoint.",
+    "tab.identity.why.event": "Detection",
+    "tab.identity.why.severity": "Severity",
+    "tab.identity.why.location": "Location",
+    "tab.identity.why.ip": "IP",
+    "tab.identity.why.detected": "Detected",
+
+    "riskEvent.unfamiliarFeatures": "Unfamiliar sign-in properties",
+    "riskEvent.atypicalTravel": "Atypical travel",
+    "riskEvent.maliciousIPAddress": "Malicious IP address",
+    "riskEvent.leakedCredentials": "Leaked credentials",
+    "riskEvent.passwordSpray": "Password spray",
+    "riskEvent.anonymousIPAddress": "Anonymous / Tor IP",
+    "riskEvent.impossibleTravel": "Impossible travel",
+    "riskEvent.suspiciousInboxManipulation": "Suspicious inbox manipulation",
+    "tab.identity.view.label": "Show",
+    "tab.identity.view.risky": "Risky users",
+    "tab.identity.view.privileged": "Privileged roles",
+    "tab.identity.view.sensors": "Sensor health",
+    "tab.identity.filter.level": "Level",
+    "tab.identity.filter.state": "State",
+    "tab.identity.filter.empty": "No users match the active filters.",
+
+    "tab.identity.pim.title": "Privileged role sprawl",
+    "tab.identity.pim.subtitle":
+      "Active + eligible PIM role assignments in this tenant. Privileged roles are the ones an attacker wants most.",
+    "tab.identity.pim.summary":
+      "{active} standing · {eligible} eligible · {privileged} privileged",
+    "tab.identity.pim.activeKpi": "Active (standing)",
+    "tab.identity.pim.eligibleKpi": "Eligible (PIM)",
+    "tab.identity.pim.privilegedKpi": "Privileged",
+    "tab.identity.pim.col.role": "Role",
+    "tab.identity.pim.col.active": "Active",
+    "tab.identity.pim.col.eligible": "Eligible",
+    "tab.identity.pim.col.total": "Total",
+    "tab.identity.pim.empty": "No role assignments reported.",
+
+    "tab.identity.dfi.title": "Defender for Identity — sensor health",
+    "tab.identity.dfi.subtitle":
+      "Every Defender for Identity sensor the tenant runs, plus its most recent health telemetry.",
+    "tab.identity.dfi.summary":
+      "{total} sensors · {healthy} healthy · {unhealthy} unhealthy",
+    "tab.identity.dfi.totalKpi": "Sensors",
+    "tab.identity.dfi.healthyKpi": "Healthy",
+    "tab.identity.dfi.unhealthyKpi": "Unhealthy",
+    "tab.identity.dfi.notLicensed":
+      "No Defender for Identity sensors reported. This tenant either has no DfI deployment or isn't licensed.",
+    "tab.identity.dfi.allHealthy":
+      "All sensors healthy — no active issues.",
+    "tab.identity.dfi.col.sensor": "Sensor / issue",
+    "tab.identity.dfi.col.severity": "Severity",
+    "tab.identity.dfi.col.status": "Status",
+    "tab.identity.dfi.col.category": "Category",
+    "tab.identity.dfi.col.created": "Opened",
+    "tab.identity.dfi.filter.severity": "Severity",
+    "tab.identity.dfi.filter.status": "Status",
+    "tab.identity.dfi.filter.empty": "No sensor issues match the active filters.",
 
     "tab.devices.title": "Managed devices",
     "tab.devices.subtitle": "Intune device inventory and compliance state.",
@@ -890,7 +1115,12 @@ export const DICT = {
     "tab.devices.col.user": "Primary user",
     "tab.devices.col.state": "Compliance",
     "tab.devices.col.encrypted": "Encrypted",
+    "tab.devices.col.cves": "CVEs",
+    "tab.devices.col.cvesHint": "Click to expand CVE detail",
     "tab.devices.col.lastSync": "Last sync",
+    "tab.devices.drilldown.title": "{count} CVEs on this device",
+    "tab.devices.drilldown.empty":
+      "No CVE data indexed for this device. Defender TVM hasn't reported on it yet.",
     "tab.devices.summary": "{total} devices · {compliancePct}% compliant",
 
     "tab.connection.title": "Per-endpoint health",
@@ -900,6 +1130,128 @@ export const DICT = {
     "tab.connection.col.lastError": "Last error",
     "tab.connection.col.callCount": "Calls (24h)",
     "tab.connection.col.throttled": "Throttled (24h)",
+
+    "vuln.eyebrow": "Vulnerability management",
+    "vuln.title": "Vulnerabilities across the federation",
+    "vuln.subtitle":
+      "CVE-level endpoint vulnerabilities pulled from Microsoft Defender Vulnerability Management across every consented entity. Cross-tenant correlation surfaces CVEs affecting multiple entities — what no single CISO can see alone.",
+    "vuln.empty.body":
+      "No vulnerability data reported yet. Entities need Defender for Endpoint P2 or the Defender Vulnerability Management add-on for TVM telemetry to flow into Graph.",
+    "vuln.kpi.totalCves": "Unique CVEs",
+    "vuln.kpi.critical": "Critical",
+    "vuln.kpi.high": "High",
+    "vuln.kpi.exploitable": "Publicly exploitable",
+    "vuln.kpi.affectedDevices": "Affected devices",
+    "vuln.kpi.exposedDevices": "Exposed devices",
+    "vuln.kpi.remediatedDevices": "Remediated devices",
+    "vuln.severityFilter": "Severity",
+    "vuln.sev.critical": "Critical",
+    "vuln.sev.high": "High",
+    "vuln.sev.medium": "Medium",
+    "vuln.sev.low": "Low",
+    "vuln.exploit.yes": "Exploit",
+    "vuln.byEntity.title": "By entity",
+    "vuln.byEntity.subtitle":
+      "Each row is one entity's posture. Click the name to drill into device + CVE detail.",
+    "vuln.cols.total": "Total",
+    "vuln.cols.critical": "Critical",
+    "vuln.cols.high": "High",
+    "vuln.cols.exploitable": "Exploitable",
+    "vuln.cols.devices": "Devices",
+    "vuln.cols.exposedDevices": "Exposed devices",
+    "vuln.cols.remediatedDevices": "Remediated",
+    "vuln.cols.cve": "CVE",
+    "vuln.cols.severity": "Severity",
+    "vuln.cols.cvss": "CVSS",
+    "vuln.cols.exploit": "Exploit",
+    "vuln.cols.published": "Published",
+    "vuln.correlated.title": "Cross-tenant correlation",
+    "vuln.correlated.subtitle":
+      "CVEs present in 2 or more consented entities — a federated view nobody at an individual entity can produce. Prioritize patching here first.",
+    "vuln.correlated.summary": "{count} shared",
+    "vuln.correlated.empty": "No CVE currently appears in more than one entity.",
+    "vuln.correlated.entityCount": "Entities",
+    "vuln.correlated.affectedEntities": "Present in",
+    "vuln.topCves.title": "Top CVEs across the fleet",
+    "vuln.topCves.subtitle":
+      "Ranked by severity, CVSS, then total affected devices across all tenants.",
+    "vuln.topCves.empty": "No CVEs reported at this severity.",
+    "vuln.topCves.totalDevices": "Devices",
+
+    "vuln.drill.loading": "Loading affected devices…",
+    "vuln.drill.error": "Failed to load drill-down: {error}",
+    "vuln.drill.empty": "No devices reported for this CVE.",
+    "vuln.drill.entityHeader":
+      "{name} — {exposed} exposed · {remediated} remediated",
+    "vuln.drill.col.device": "Device",
+    "vuln.drill.col.os": "OS",
+    "vuln.drill.col.totalCves": "Total CVEs",
+    "vuln.drill.col.critical": "Critical",
+    "vuln.drill.col.high": "High",
+    "vuln.drill.col.maxCvss": "Max CVSS",
+    "vuln.drill.entitiesHint":
+      "Click a row in the Entities or Exposed devices columns to expand.",
+
+    "tab.vulnerabilities.title": "Vulnerabilities",
+    "tab.vulnerabilities.subtitle":
+      "Per-device and per-CVE posture for this entity, pulled from Defender Vulnerability Management.",
+    "tab.vulnerabilities.notLicensedTitle":
+      "Defender Vulnerability Management not available",
+    "tab.vulnerabilities.notLicensedBody":
+      "This entity's tenant returned an error querying the TVM tables — usually because they don't have Defender for Endpoint P2 or the Defender Vulnerability Management add-on. No action is required from the Council; the sync is healthy.",
+    "tab.vulnerabilities.kpi.cves": "Unique CVEs",
+    "tab.vulnerabilities.kpi.critical": "Critical",
+    "tab.vulnerabilities.kpi.high": "High",
+    "tab.vulnerabilities.kpi.exploitable": "Exploitable",
+    "tab.vulnerabilities.kpi.devices": "Devices",
+    "tab.vulnerabilities.filter.severity": "Severity",
+    "tab.vulnerabilities.filter.exploitOnly": "Exploitable only",
+    "tab.vulnerabilities.filter.empty": "No items match the active filters.",
+    "tab.vulnerabilities.byDevice.title": "Affected devices",
+    "tab.vulnerabilities.byDevice.subtitle":
+      "Top 50 devices by critical + high CVE count.",
+    "tab.vulnerabilities.byDevice.subtitleAll":
+      "All {count} devices with at least one CVE — click the CVE count to see which ones.",
+    "tab.vulnerabilities.byDevice.device": "Device",
+    "tab.vulnerabilities.byDevice.os": "OS",
+    "tab.vulnerabilities.byDevice.cves": "CVEs",
+    "tab.vulnerabilities.byDevice.maxCvss": "Max CVSS",
+    "tab.vulnerabilities.topCves.title": "Top CVEs on this entity",
+    "tab.vulnerabilities.topCves.titleAll": "All CVEs on this entity",
+    "tab.vulnerabilities.topCves.subtitle":
+      "Ranked by affected device count × CVSS.",
+    "tab.vulnerabilities.topCves.subtitleAll":
+      "All {count} CVEs on this entity — click the exposed-device count to see which hosts.",
+    "tab.vulnerabilities.topCves.clickHint":
+      "Show devices affected by this CVE",
+    "tab.vulnerabilities.topCves.affectedDevicesLabel":
+      "{count} devices affected",
+    "tab.vulnerabilities.topCves.noDevices":
+      "No devices found for this CVE (likely aged out of the top-50 device window).",
+    "tab.vulnerabilities.remediationNotTracked":
+      "Remediation count requires a historical snapshot diff — not yet available for this tenant.",
+
+    "tab.attackSim.title": "Attack Simulation Training",
+    "tab.attackSim.subtitle":
+      "Phishing and social-engineering simulations run by this entity's security team. Low click-rate = users spotted the simulated phish.",
+    "tab.attackSim.notLicensedTitle":
+      "Attack Simulation Training not configured",
+    "tab.attackSim.notLicensedBody":
+      "This entity either hasn't run any simulations yet, or doesn't have the Defender for Office 365 Plan 2 add-on that unlocks the simulation workload.",
+    "tab.attackSim.kpi.simulations": "Simulations run",
+    "tab.attackSim.kpi.attempts": "Users targeted",
+    "tab.attackSim.kpi.clicks": "Clicked",
+    "tab.attackSim.kpi.clickRate": "Click rate",
+    "tab.attackSim.kpi.reported": "Reported",
+    "tab.attackSim.list.title": "Simulations timeline",
+    "tab.attackSim.list.subtitle":
+      "Each row is one simulation run. Click-rate is color-coded: green <10% · amber 10–20% · red 20%+.",
+    "tab.attackSim.filter.status": "Status",
+    "tab.attackSim.filter.empty": "No simulations match the active filters.",
+    "tab.attackSim.col.name": "Simulation",
+    "tab.attackSim.col.status": "Status",
+    "tab.attackSim.col.clickRate": "Click rate",
+    "tab.attackSim.col.launched": "Launched",
 
     "severity.high": "High",
     "severity.medium": "Medium",
@@ -956,6 +1308,7 @@ export const DICT = {
     "nav.entities": "Entities",
     "nav.identity": "Identity",
     "nav.threats": "Threats",
+    "nav.vulnerabilities": "Vulnerabilities",
     "nav.data": "Data protection",
     "nav.devices": "Devices",
     "nav.governance": "Governance",
@@ -1142,6 +1495,24 @@ export const DICT = {
     "settings.tab.azure": "تسجيل التطبيق",
     "settings.tab.nesa": "مواءمة NESA",
     "settings.tab.docs": "التوثيق",
+    "settings.tab.about": "حول والتحديثات",
+
+    "settings.about.title": "حول Mizan",
+    "settings.about.subtitle":
+      "تحقق من الإصدار المُثبَّت وما إذا كان هناك إصدار أحدث متاح على GitHub.",
+    "settings.about.current": "الإصدار المُثبَّت",
+    "settings.about.latest": "أحدث إصدار متاح",
+    "settings.about.published": "تم إصداره",
+    "settings.about.upToDate": "أنت تستخدم أحدث إصدار.",
+    "settings.about.updateAvailable":
+      "تحديث متاح — v{version}. اختر أحد الأوامر أدناه للترقية.",
+    "settings.about.azureCmd": "Azure Container Apps",
+    "settings.about.dockerCmd": "Docker / استضافة ذاتية",
+    "settings.about.openReleaseNotes": "فتح ملاحظات الإصدار على GitHub",
+    "settings.about.lastChecked": "آخر فحص",
+    "settings.about.checkNow": "افحص الآن",
+    "settings.about.releaseNotes": "ملاحظات الإصدار",
+    "settings.about.checkFailedTitle": "تعذّر الاتصال بـ GitHub للتحقق من التحديثات",
 
     "branding.title": "الهوية",
     "branding.subtitle":
@@ -1186,17 +1557,20 @@ export const DICT = {
     "settings.tab.auth": "المصادقة",
     "authCfg.title": "مصادقة المستخدمين",
     "authCfg.subtitle":
-      "تسجيل الدخول للمشغّلين والمحللين. يستخدم تسجيل تطبيق Entra ثانيًا (مستقل عن تطبيق قراءة وضع الجهات). اتركه معطّلًا للإبقاء على الوصول مفتوحًا للعروض.",
+      "تسجيل الدخول للمشغّلين والمحللين. يستخدم تسجيل تطبيق Entra ثانيًا (مستقل عن تطبيق قراءة وضع الجهات). تسجيل الدخول مطلوب دائمًا — يتولى معالج الإعداد الأولي تسجيل الدخول تلقائيًا.",
     "authCfg.field.clientId": "معرّف تطبيق المصادقة",
     "authCfg.field.clientSecret": "سر تطبيق المصادقة",
     "authCfg.field.clientSecretPlaceholder":
       "أدخل سرًا جديدًا، أو اتركه فارغًا للإبقاء على الموجود",
     "authCfg.field.tenantId": "معرّف مستأجر Entra المشغِّل",
-    "authCfg.field.sessionTimeout": "مدة الجلسة (بالدقائق)",
+    "authCfg.field.sessionTimeout": "مدة الجلسة",
     "authCfg.field.defaultRole": "الدور الافتراضي للمستخدمين الجدد",
-    "authCfg.field.enforce": "فرض تسجيل الدخول لكل طلب",
-    "authCfg.enforce.helper":
-      "عند التعطيل، تبقى اللوحة مفتوحة — مفيد أثناء الإعداد الأولي. فعّله بعد التأكد من نجاح تسجيل الدخول لمستخدم واحد على الأقل.",
+    "authCfg.session.8h": "٨ ساعات",
+    "authCfg.session.1d": "٢٤ ساعة",
+    "authCfg.session.7d": "٧ أيام (موصى به)",
+    "authCfg.session.30d": "٣٠ يومًا (الحد الأقصى)",
+    "authCfg.session.helper":
+      "نافذة منزلقة — أي نشاط داخل النافذة يُمدّد الانتهاء، بحد أقصى ٣٠ يومًا. بعد انتهاء النافذة يُعيد المستخدمون تسجيل الدخول عبر Microsoft SSO (عادةً فوريًا دون طلب كلمة المرور).",
     "authCfg.role.admin": "مشرف",
     "authCfg.role.analyst": "محلل",
     "authCfg.role.viewer": "مشاهد",
@@ -1546,6 +1920,19 @@ export const DICT = {
 
     "threats.ti.title": "استخبارات التهديدات",
     "threats.ti.subtitle": "مقالات حديثة من Microsoft Defender TI مرتبطة بتغذية {orgShort}.",
+    "threats.ti.subtitle30d":
+      "مقالات Microsoft Defender Threat Intelligence الأخيرة — آخر ٣٠ يومًا. اضغط على أي عنصر لعرض التفاصيل الكاملة.",
+    "threats.ti.count": "{count} مقالة",
+    "threats.ti.modal.published": "تاريخ النشر",
+    "threats.ti.modal.noSummary":
+      "لم تُدرج Microsoft ملخصًا لهذه المقالة. افتح في Defender للاطلاع على التحليل الكامل.",
+    "threats.ti.modal.openInDefender": "فتح المقالة الكاملة في Defender",
+    "threats.ti.modal.portalHint":
+      "تتضمن Defender Threat Analytics التحليل الكامل ومؤشرات الاختراق والمنتجات المتأثرة والإجراءات المقترحة.",
+    "threats.window.label": "النافذة",
+    "threats.window.30d": "٣٠ يومًا",
+    "threats.window.60d": "٦٠ يومًا",
+    "threats.window.90d": "٩٠ يومًا",
     "threats.ti.empty": "لا توجد مقالات استخبارات تهديدات بعد.",
     "threats.attackSim.title": "محاكاة الهجمات — معدل الضغط على التصيد",
     "threats.attackSim.subtitle":
@@ -1739,6 +2126,13 @@ export const DICT = {
     "time.daysAgo": "قبل {n} يوم",
 
     "entity.backToAll": "جميع الجهات",
+    "entity.backToIdentity": "العودة إلى الهوية",
+    "entity.backToDevices": "العودة إلى الأجهزة",
+    "entity.backToThreats": "العودة إلى التهديدات",
+    "entity.backToVulnerabilities": "العودة إلى الثغرات",
+    "entity.backToData": "العودة إلى حماية البيانات",
+    "entity.backToGovernance": "العودة إلى الحوكمة",
+    "entity.backToMaturity": "العودة إلى مؤشر النضج",
     "entity.tenant": "المستأجر",
     "entity.domain": "النطاق",
     "entity.ciso": "مسؤول أمن المعلومات",
@@ -1779,6 +2173,13 @@ export const DICT = {
     "entity.stats.riskyUsers": "ذوو المخاطر",
     "entity.stats.devicesCompliant": "امتثال الأجهزة",
 
+    "entity.overview.topVulns.title": "أبرز الثغرات",
+    "entity.overview.topVulns.subtitle":
+      "أعلى الثغرات خطورةً التي أبلغ عنها Defender لأجهزة هذه الجهة.",
+    "entity.overview.topVulns.viewAll": "عرض كل CVEs",
+    "entity.overview.topVulns.clean":
+      "لا توجد CVEs مُبلّغ عنها حاليًا — الأجهزة سليمة.",
+
     "subscores.title": "تفصيل المؤشرات الفرعية",
     "subscores.subtitle": "المدخلات المرجحة في مؤشر النضج",
     "subscores.identity": "الهوية",
@@ -1786,6 +2187,35 @@ export const DICT = {
     "subscores.data": "البيانات",
     "subscores.threatResponse": "الاستجابة للتهديدات",
     "subscores.compliance": "الامتثال (NESA)",
+
+    "maturity.sub.secureScore": "Secure Score",
+    "maturity.sub.identity": "الهوية",
+    "maturity.sub.device": "الأجهزة",
+    "maturity.sub.data": "البيانات",
+    "maturity.sub.threat": "الاستجابة للتهديدات",
+    "maturity.sub.compliance": "الامتثال",
+
+    "trend.title": "اتجاه النضج",
+    "trend.subtitle":
+      "كيف تحرك مؤشر النضج لهذه الجهة والمؤشرات الفرعية بمرور الوقت. بدّل أيًّا من المؤشرات الفرعية لإظهاره على الرسم.",
+    "trend.range.7d": "٧ أيام",
+    "trend.range.30d": "٣٠ يومًا",
+    "trend.range.90d": "٩٠ يومًا",
+    "trend.range.all": "الكل",
+    "trend.overSpan.7d": "خلال ٧ أيام",
+    "trend.overSpan.30d": "خلال ٣٠ يومًا",
+    "trend.overSpan.90d": "خلال ٩٠ يومًا",
+    "trend.overSpan.all": "خلال كل الفترة",
+    "trend.granularity.daily": "يومي",
+    "trend.granularity.weekly": "أسبوعي",
+    "trend.granularity.monthly": "شهري",
+    "trend.overlay": "طبقة",
+    "trend.series.overall": "مؤشر النضج",
+    "trend.points": "{count} نقطة بيانات",
+    "trend.latest": "الأحدث",
+    "trend.empty.title": "لا توجد بيانات اتجاه بعد",
+    "trend.empty.body":
+      "تُلتقط نقاط الاتجاه بعد كل مزامنة. شغّل مزامنة الآن، أو استخدم إجراء المشرف لإعادة بناء بيانات آخر ٩٠ يومًا من الإشارات الموجودة.",
 
     "recent.title": "التغييرات الأخيرة",
     "recent.subtitle": "الإشارات التي حركت المؤشر خلال الأيام السبعة الأخيرة",
@@ -1798,6 +2228,48 @@ export const DICT = {
     "benchmark.percentile": "المئين {n}",
     "benchmark.footer":
       "متوسط القطاع {cluster}. متوسط {orgShort} {council}. الهدف {target}.",
+
+    "tab.data.title": "حماية البيانات",
+    "tab.data.subtitle":
+      "DLP، مخاطر الداخل، الامتثال في الاتصالات، طلبات حقوق الأفراد، تصنيفات الاحتفاظ والحساسية، وضعية المشاركة الخارجية.",
+    "tab.data.emptyNoSync":
+      "لا توجد بيانات Purview بعد — هذه الجهة لم تُكمل أول مزامنة.",
+    "tab.data.empty.body":
+      "جميع مؤشرات Purview صفر. إما أن الجهة لا تملك سياسات Purview مُفعَّلة، أو تفتقد للترخيص. الاتصال بمصادر البيانات قائم، ولكن لا توجد بيانات لعرضها.",
+    "tab.data.kpi.dlp": "تنبيهات DLP",
+    "tab.data.kpi.irm": "مخاطر الداخل",
+    "tab.data.kpi.commComp": "امتثال الاتصالات",
+    "tab.data.kpi.srrs": "طلبات حقوق",
+    "tab.data.labels.title": "التصنيفات",
+    "tab.data.labels.subtitle":
+      "جرد تصنيفات الاحتفاظ والحساسية من Purview.",
+    "tab.data.labels.retention": "تصنيفات الاحتفاظ",
+    "tab.data.labels.retentionRecord": "— منها سجلات",
+    "tab.data.labels.sensitivity": "تصنيفات الحساسية",
+    "tab.data.labels.sensitivityActive": "— نشطة",
+    "tab.data.sharing.title": "المشاركة الخارجية",
+    "tab.data.sharing.subtitle":
+      "حدود المشاركة على مستوى المستأجر في SharePoint وOneDrive.",
+    "tab.data.sharing.sharepoint": "مشاركة SharePoint",
+    "tab.data.sharing.guestCount": "نطاقات المزامنة المسموح بها",
+    "tab.data.sharing.syncButtonHidden": "زر مزامنة OneDrive مخفي",
+    "tab.data.sharing.missing": "لم يتم جمع إعدادات SharePoint بعد.",
+
+    "tab.gov.title": "محاذاة الحوكمة",
+    "tab.gov.subtitle":
+      "تغطية إطار العمل لهذه الجهة، مُشتقة من تجميعات ضوابط Secure Score. معدلات النجاح لكل فئة تُطابق محاور الهوية/البيانات/الأجهزة/التطبيقات التي تُصنِّف حولها معظم الأطر (NESA، NCA، ISR).",
+    "tab.gov.emptyNoSync":
+      "لا توجد بيانات Secure Score بعد — هذه الجهة لم تُكمل أول مزامنة.",
+    "tab.gov.kpi.controls": "الضوابط المُقاسة",
+    "tab.gov.kpi.controlsCaption": "عبر كل فئات الإطار",
+    "tab.gov.kpi.passing": "ناجحة",
+    "tab.gov.kpi.passingCaption": "{passed} ضابط مُطبَّق بالكامل",
+    "tab.gov.kpi.complianceSub": "المؤشر الفرعي للامتثال",
+    "tab.gov.kpi.complianceSubCaption":
+      "من مؤشر النضج (وزن NESA)",
+    "tab.gov.categories.title": "التغطية حسب الفئة",
+    "tab.gov.categories.subtitle":
+      "أخضر = ناجح · كهرماني = جزئي · أحمر = غير مُطبَّق.",
 
     "subtabs.more.title": "علامات تبويب أخرى",
     "subtabs.more.subtitle":
@@ -1812,6 +2284,8 @@ export const DICT = {
     "tab.data": "البيانات",
     "tab.devices": "الأجهزة",
     "tab.governance": "الحوكمة",
+    "tab.vulnerabilities": "الثغرات",
+    "tab.attackSimulation": "محاكاة الهجمات",
     "tab.connection": "الاتصال",
 
     "tab.controls.title": "ضوابط Secure Score",
@@ -1826,6 +2300,9 @@ export const DICT = {
     "tab.controls.unknown": "غير معروف",
     "tab.controls.userImpact": "الأثر على المستخدم",
     "tab.controls.implCost": "تكلفة التطبيق",
+    "tab.controls.filter.label": "الفئة",
+    "tab.controls.filter.uncategorized": "غير مُصنَّف",
+    "tab.controls.filter.empty": "لا توجد ضوابط تطابق هذه الفئة.",
 
     "tab.incidents.title": "الحوادث الأمنية",
     "tab.incidents.subtitle": "موحّدة من Microsoft Defender XDR.",
@@ -1836,6 +2313,31 @@ export const DICT = {
     "tab.incidents.col.created": "الإنشاء",
     "tab.incidents.col.updated": "آخر تحديث",
     "tab.incidents.summary": "{total} إجمالي · {active} نشطة · {resolved} مُغلقة",
+    "tab.incidents.drill.created": "تاريخ الإنشاء",
+    "tab.incidents.drill.updated": "آخر تحديث",
+    "tab.incidents.drill.classification": "التصنيف",
+    "tab.incidents.drill.determination": "التحديد",
+    "tab.incidents.drill.assignedTo": "مُكلَّف إلى",
+    "tab.incidents.drill.unclassified": "لم يُصنَّف بعد",
+    "tab.incidents.drill.unassigned": "غير مُكلَّف",
+    "tab.incidents.drill.tags": "الوسوم",
+    "tab.incidents.drill.openInDefender": "فتح في Defender XDR",
+    "tab.incidents.drill.defenderHint":
+      "الرابط يفتح بوابة Microsoft Defender XDR في علامة تبويب جديدة مع الخط الزمني الكامل للحادثة والتنبيهات المرتبطة وإجراءات المحلل.",
+
+    "incidentClassification.truePositive": "إيجابي حقيقي",
+    "incidentClassification.falsePositive": "إيجابي خاطئ",
+    "incidentClassification.informationalExpectedActivity": "إعلامي / متوقع",
+    "incidentClassification.unknown": "غير معروف",
+
+    "incidentDetermination.apt": "تهديد مُستمر متقدم (APT)",
+    "incidentDetermination.malware": "برامج ضارة",
+    "incidentDetermination.phishing": "تصيد إلكتروني",
+    "incidentDetermination.unwantedSoftware": "برامج غير مرغوبة",
+    "incidentDetermination.compromisedAccount": "حساب مُخترَق",
+    "incidentDetermination.maliciousUserActivity": "نشاط مستخدم خبيث",
+    "incidentDetermination.insufficientInformation": "معلومات غير كافية",
+    "incidentDetermination.other": "أخرى",
 
     "tab.identity.title": "المستخدمون ذوو المخاطر",
     "tab.identity.subtitle": "من Microsoft Entra Identity Protection.",
@@ -1844,6 +2346,79 @@ export const DICT = {
     "tab.identity.col.state": "حالة الخطر",
     "tab.identity.col.updated": "آخر تحديث",
     "tab.identity.summary": "{atRisk} في خطر · {total} متابعون",
+    "tab.identity.empty": "لا توجد مستخدمون ذوو مخاطر مُبلَّغ عنهم لهذه الجهة.",
+    "tab.identity.helpBtn": "ما الفرق بين المستوى والحالة؟",
+    "tab.identity.help.levelTitle": "مستوى الخطر",
+    "tab.identity.help.levelBody":
+      "شدة أحدث إشارة من Identity Protection: لا يوجد · منخفض · متوسط · مرتفع. درجة ثقة Microsoft بوجود نشاط مشبوه.",
+    "tab.identity.help.stateTitle": "حالة الخطر",
+    "tab.identity.help.stateBody":
+      "الحالة الحالية: في خطر · مُؤكَّد الاختراق · تم العلاج · مرفوض · آمن مؤكَّد. المستوى هو الإشارة؛ الحالة هي ما اتُّخذ تجاهها.",
+    "tab.identity.help.clickHint":
+      "اضغط على «في خطر» لأي مستخدم لرؤية الكشوفات الدقيقة (نوع الحدث، الموقع، IP) المسببة للتنبيه.",
+    "tab.identity.clickToExplain": "اضغط لمعرفة السبب",
+    "tab.identity.why": "لماذا؟",
+    "tab.identity.why.title": "لماذا {user} في خطر؟",
+    "tab.identity.why.subtitle":
+      "الكشوفات من Microsoft Entra Identity Protection التي أدّت إلى حالة الخطر لهذا المستخدم. كل صف إشارة مستقلة خلال الأيام السبعة الماضية.",
+    "tab.identity.why.noDetections":
+      "لم تُرجِع Graph سجلات كشف لهذا المستخدم. الحالة لا تزال نشطة لكن الأدلة قد تكون انتهت صلاحيتها في نقطة /riskDetections.",
+    "tab.identity.why.event": "الكشف",
+    "tab.identity.why.severity": "الشدة",
+    "tab.identity.why.location": "الموقع",
+    "tab.identity.why.ip": "IP",
+    "tab.identity.why.detected": "وقت الكشف",
+
+    "riskEvent.unfamiliarFeatures": "خصائص تسجيل دخول غير مألوفة",
+    "riskEvent.atypicalTravel": "سفر غير نمطي",
+    "riskEvent.maliciousIPAddress": "عنوان IP خبيث",
+    "riskEvent.leakedCredentials": "بيانات اعتماد مُسرَّبة",
+    "riskEvent.passwordSpray": "هجوم رش كلمات المرور",
+    "riskEvent.anonymousIPAddress": "عنوان IP مجهول / Tor",
+    "riskEvent.impossibleTravel": "سفر مستحيل",
+    "riskEvent.suspiciousInboxManipulation": "تلاعب مشبوه بصندوق الوارد",
+    "tab.identity.view.label": "العرض",
+    "tab.identity.view.risky": "المستخدمون ذوو المخاطر",
+    "tab.identity.view.privileged": "الأدوار المميَّزة",
+    "tab.identity.view.sensors": "صحة المستشعرات",
+    "tab.identity.filter.level": "المستوى",
+    "tab.identity.filter.state": "الحالة",
+    "tab.identity.filter.empty": "لا يوجد مستخدمون يطابقون الفلاتر الحالية.",
+
+    "tab.identity.pim.title": "تَضخّم الأدوار المميَّزة",
+    "tab.identity.pim.subtitle":
+      "تعيينات أدوار PIM النشطة والمؤهلة في هذا المستأجر. الأدوار المميَّزة هي ما يستهدفه المهاجم.",
+    "tab.identity.pim.summary":
+      "{active} ثابت · {eligible} مؤهل · {privileged} مميَّز",
+    "tab.identity.pim.activeKpi": "نشط (ثابت)",
+    "tab.identity.pim.eligibleKpi": "مؤهل (PIM)",
+    "tab.identity.pim.privilegedKpi": "مميَّز",
+    "tab.identity.pim.col.role": "الدور",
+    "tab.identity.pim.col.active": "نشط",
+    "tab.identity.pim.col.eligible": "مؤهل",
+    "tab.identity.pim.col.total": "الإجمالي",
+    "tab.identity.pim.empty": "لا توجد تعيينات أدوار مُبلَّغ عنها.",
+
+    "tab.identity.dfi.title": "Defender for Identity — صحة المستشعرات",
+    "tab.identity.dfi.subtitle":
+      "كل مستشعر Defender for Identity يعمل في المستأجر، مع أحدث بيانات الصحة.",
+    "tab.identity.dfi.summary":
+      "{total} مستشعر · {healthy} سليم · {unhealthy} معطوب",
+    "tab.identity.dfi.totalKpi": "المستشعرات",
+    "tab.identity.dfi.healthyKpi": "سليمة",
+    "tab.identity.dfi.unhealthyKpi": "معطوبة",
+    "tab.identity.dfi.notLicensed":
+      "لا توجد مستشعرات Defender for Identity مُبلَّغ عنها. إما أن هذا المستأجر لا يشغّل DfI، أو لا يمتلك ترخيصًا.",
+    "tab.identity.dfi.allHealthy":
+      "جميع المستشعرات سليمة — لا توجد مشاكل نشطة.",
+    "tab.identity.dfi.col.sensor": "المستشعر / المشكلة",
+    "tab.identity.dfi.col.severity": "الخطورة",
+    "tab.identity.dfi.col.status": "الحالة",
+    "tab.identity.dfi.col.category": "الفئة",
+    "tab.identity.dfi.col.created": "تاريخ الفتح",
+    "tab.identity.dfi.filter.severity": "الخطورة",
+    "tab.identity.dfi.filter.status": "الحالة",
+    "tab.identity.dfi.filter.empty": "لا توجد مشاكل مستشعرات تطابق الفلاتر الحالية.",
 
     "tab.devices.title": "الأجهزة المُدارة",
     "tab.devices.subtitle": "مخزون أجهزة Intune وحالة الامتثال.",
@@ -1852,8 +2427,13 @@ export const DICT = {
     "tab.devices.col.user": "المستخدم",
     "tab.devices.col.state": "الامتثال",
     "tab.devices.col.encrypted": "مُشفَّر",
+    "tab.devices.col.cves": "CVEs",
+    "tab.devices.col.cvesHint": "اضغط لعرض تفاصيل CVE",
     "tab.devices.col.lastSync": "آخر مزامنة",
     "tab.devices.summary": "{total} جهاز · {compliancePct}% ممتثل",
+    "tab.devices.drilldown.title": "{count} CVE على هذا الجهاز",
+    "tab.devices.drilldown.empty":
+      "لا توجد بيانات CVE مفهرسة لهذا الجهاز. لم يُبلّغ Defender TVM عنه بعد.",
 
     "tab.connection.title": "صحة كل نقطة نهاية",
     "tab.connection.subtitle": "آخر استدعاء ناجح، الأخطاء، الحدّ من الاستدعاءات خلال ٢٤ ساعة.",
@@ -1862,6 +2442,127 @@ export const DICT = {
     "tab.connection.col.lastError": "آخر خطأ",
     "tab.connection.col.callCount": "الاستدعاءات (٢٤س)",
     "tab.connection.col.throttled": "محدودة (٢٤س)",
+
+    "vuln.eyebrow": "إدارة الثغرات",
+    "vuln.title": "الثغرات الأمنية عبر الجهات",
+    "vuln.subtitle":
+      "ثغرات CVE على مستوى الأجهزة مسحوبة من Microsoft Defender Vulnerability Management لجميع الجهات المُوافقة. الارتباط العابر للمستأجرين يكشف الثغرات التي تصيب عدة جهات — وهو ما لا يراه مسؤول أمن أي جهة بمفرده.",
+    "vuln.empty.body":
+      "لا توجد بيانات ثغرات بعد. الجهات تحتاج إلى Defender for Endpoint P2 أو إضافة Defender Vulnerability Management حتى تنساب بيانات TVM إلى Graph.",
+    "vuln.kpi.totalCves": "CVEs فريدة",
+    "vuln.kpi.critical": "حرجة",
+    "vuln.kpi.high": "عالية",
+    "vuln.kpi.exploitable": "قابلة للاستغلال علنًا",
+    "vuln.kpi.affectedDevices": "الأجهزة المتأثرة",
+    "vuln.kpi.exposedDevices": "الأجهزة المكشوفة",
+    "vuln.kpi.remediatedDevices": "الأجهزة المُعالَجة",
+    "vuln.severityFilter": "الخطورة",
+    "vuln.sev.critical": "حرجة",
+    "vuln.sev.high": "عالية",
+    "vuln.sev.medium": "متوسطة",
+    "vuln.sev.low": "منخفضة",
+    "vuln.exploit.yes": "استغلال",
+    "vuln.byEntity.title": "حسب الجهة",
+    "vuln.byEntity.subtitle":
+      "كل صف هو وضع جهة واحدة. اضغط الاسم للانتقال إلى تفاصيل الأجهزة وCVE.",
+    "vuln.cols.total": "الإجمالي",
+    "vuln.cols.critical": "حرجة",
+    "vuln.cols.high": "عالية",
+    "vuln.cols.exploitable": "قابلة للاستغلال",
+    "vuln.cols.devices": "الأجهزة",
+    "vuln.cols.exposedDevices": "أجهزة مكشوفة",
+    "vuln.cols.remediatedDevices": "مُعالَجة",
+    "vuln.cols.cve": "CVE",
+    "vuln.cols.severity": "الخطورة",
+    "vuln.cols.cvss": "CVSS",
+    "vuln.cols.exploit": "استغلال",
+    "vuln.cols.published": "النشر",
+    "vuln.correlated.title": "ارتباط عابر للجهات",
+    "vuln.correlated.subtitle":
+      "ثغرات موجودة في جهتين أو أكثر — عرض اتحادي لا يستطيع تكوينه أي مسؤول أمن منفرد. أعطِ الأولوية لترقيع هذه القائمة.",
+    "vuln.correlated.summary": "{count} مشتركة",
+    "vuln.correlated.empty": "لا يوجد حاليًا CVE في أكثر من جهة واحدة.",
+    "vuln.correlated.entityCount": "عدد الجهات",
+    "vuln.correlated.affectedEntities": "موجودة في",
+    "vuln.topCves.title": "أبرز CVEs في الشبكة",
+    "vuln.topCves.subtitle":
+      "مرتَّبة حسب الخطورة ثم CVSS ثم إجمالي الأجهزة المتأثرة.",
+    "vuln.topCves.empty": "لا توجد CVEs بهذه الخطورة.",
+    "vuln.topCves.totalDevices": "الأجهزة",
+
+    "vuln.drill.loading": "جاري تحميل الأجهزة المتأثرة…",
+    "vuln.drill.error": "تعذّر تحميل التفاصيل: {error}",
+    "vuln.drill.empty": "لا توجد أجهزة مُبلَّغ عنها لهذا CVE.",
+    "vuln.drill.entityHeader":
+      "{name} — {exposed} مكشوفة · {remediated} مُعالَجة",
+    "vuln.drill.col.device": "الجهاز",
+    "vuln.drill.col.os": "نظام التشغيل",
+    "vuln.drill.col.totalCves": "إجمالي CVEs",
+    "vuln.drill.col.critical": "حرجة",
+    "vuln.drill.col.high": "عالية",
+    "vuln.drill.col.maxCvss": "أعلى CVSS",
+    "vuln.drill.entitiesHint":
+      "اضغط صفًا في أعمدة الجهات أو الأجهزة المكشوفة لعرض التفاصيل.",
+
+    "tab.vulnerabilities.title": "الثغرات",
+    "tab.vulnerabilities.subtitle":
+      "وضع الثغرات لكل جهاز وكل CVE على هذه الجهة، من Defender Vulnerability Management.",
+    "tab.vulnerabilities.notLicensedTitle":
+      "Defender Vulnerability Management غير متاح",
+    "tab.vulnerabilities.notLicensedBody":
+      "عادت جداول TVM بخطأ — على الأرجح لأن هذه الجهة لا تملك Defender for Endpoint P2 أو إضافة Defender Vulnerability Management. لا يتطلب الأمر إجراءً من المجلس؛ المزامنة سليمة.",
+    "tab.vulnerabilities.kpi.cves": "CVEs فريدة",
+    "tab.vulnerabilities.kpi.critical": "حرجة",
+    "tab.vulnerabilities.kpi.high": "عالية",
+    "tab.vulnerabilities.kpi.exploitable": "قابلة للاستغلال",
+    "tab.vulnerabilities.kpi.devices": "الأجهزة",
+    "tab.vulnerabilities.filter.severity": "الخطورة",
+    "tab.vulnerabilities.filter.exploitOnly": "فقط القابلة للاستغلال",
+    "tab.vulnerabilities.filter.empty": "لا توجد عناصر تطابق الفلاتر الحالية.",
+    "tab.vulnerabilities.byDevice.title": "الأجهزة المتأثرة",
+    "tab.vulnerabilities.byDevice.subtitle":
+      "أكثر 50 جهازًا حسب عدد CVEs الحرجة والعالية.",
+    "tab.vulnerabilities.byDevice.subtitleAll":
+      "جميع الأجهزة الـ{count} التي تحمل CVE واحدًا على الأقل — اضغط عدد CVEs لعرضها.",
+    "tab.vulnerabilities.byDevice.device": "الجهاز",
+    "tab.vulnerabilities.byDevice.os": "نظام التشغيل",
+    "tab.vulnerabilities.byDevice.cves": "CVEs",
+    "tab.vulnerabilities.byDevice.maxCvss": "أعلى CVSS",
+    "tab.vulnerabilities.topCves.title": "أبرز CVEs في هذه الجهة",
+    "tab.vulnerabilities.topCves.titleAll": "جميع CVEs في هذه الجهة",
+    "tab.vulnerabilities.topCves.subtitle":
+      "مرتَّبة حسب عدد الأجهزة المتأثرة × CVSS.",
+    "tab.vulnerabilities.topCves.subtitleAll":
+      "جميع CVEs الـ{count} — اضغط عدد الأجهزة المكشوفة لعرضها.",
+    "tab.vulnerabilities.topCves.clickHint":
+      "عرض الأجهزة المتأثرة بهذا CVE",
+    "tab.vulnerabilities.topCves.affectedDevicesLabel":
+      "{count} أجهزة متأثرة",
+    "tab.vulnerabilities.topCves.noDevices":
+      "لم يُعثر على أجهزة لهذا CVE (على الأرجح خارج نطاق أول 50 جهازًا).",
+    "tab.vulnerabilities.remediationNotTracked":
+      "عدد المعالجات يتطلب مقارنة لقطات تاريخية — غير متاح لهذه الجهة بعد.",
+
+    "tab.attackSim.title": "تدريب محاكاة الهجمات",
+    "tab.attackSim.subtitle":
+      "محاكاة التصيد والهندسة الاجتماعية التي يُجريها فريق الأمن في هذه الجهة. انخفاض معدل الضغط = المستخدمون رصدوا التصيد المُحاكى.",
+    "tab.attackSim.notLicensedTitle": "تدريب محاكاة الهجمات غير مُهيَّأ",
+    "tab.attackSim.notLicensedBody":
+      "هذه الجهة لم تشغّل أي محاكاة بعد، أو لا تملك إضافة Defender for Office 365 Plan 2 التي تُفعّل وحدة المحاكاة.",
+    "tab.attackSim.kpi.simulations": "محاكاة مُشغّلة",
+    "tab.attackSim.kpi.attempts": "مستخدمون مستهدفون",
+    "tab.attackSim.kpi.clicks": "ضغطوا",
+    "tab.attackSim.kpi.clickRate": "معدل الضغط",
+    "tab.attackSim.kpi.reported": "أبلغوا",
+    "tab.attackSim.list.title": "الخط الزمني للمحاكاة",
+    "tab.attackSim.list.subtitle":
+      "كل صف هو محاكاة واحدة. معدل الضغط مُلوَّن: أخضر <١٠٪ · كهرماني ١٠–٢٠٪ · أحمر ٢٠٪+.",
+    "tab.attackSim.filter.status": "الحالة",
+    "tab.attackSim.filter.empty": "لا توجد محاكاة تطابق الفلاتر الحالية.",
+    "tab.attackSim.col.name": "المحاكاة",
+    "tab.attackSim.col.status": "الحالة",
+    "tab.attackSim.col.clickRate": "معدل الضغط",
+    "tab.attackSim.col.launched": "تاريخ الإطلاق",
 
     "severity.high": "عالية",
     "severity.medium": "متوسطة",
@@ -1918,6 +2619,7 @@ export const DICT = {
     "nav.entities": "الجهات",
     "nav.identity": "الهوية",
     "nav.threats": "التهديدات",
+    "nav.vulnerabilities": "الثغرات الأمنية",
     "nav.data": "حماية البيانات",
     "nav.devices": "الأجهزة",
     "nav.governance": "الحوكمة",

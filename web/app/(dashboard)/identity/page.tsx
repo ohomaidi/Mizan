@@ -81,7 +81,10 @@ export default function IdentityPage() {
                   return (
                     <tr key={e.id} className="border-t border-border hover:bg-surface-3/40">
                       <td className="ps-5 py-2.5">
-                        <Link href={`/entities/${e.id}`} className="text-ink-1 hover:text-council-strong">
+                        <Link
+                          href={`/entities/${e.id}?tab=identity&from=identity`}
+                          className="text-ink-1 hover:text-council-strong"
+                        >
                           {locale === "ar" ? e.nameAr : e.nameEn}
                         </Link>
                       </td>
@@ -157,7 +160,10 @@ function IdentityDepth({
               {pimRows.map(({ id, nameEn, nameAr, pim }) => (
                 <tr key={id} className="border-t border-border hover:bg-surface-3/40">
                   <td className="ps-5 py-2.5">
-                    <Link href={`/entities/${id}`} className="text-ink-1 hover:text-council-strong">
+                    <Link
+                      href={`/entities/${id}?tab=identity&view=privileged&from=identity`}
+                      className="text-ink-1 hover:text-council-strong"
+                    >
                       {locale === "ar" ? nameAr : nameEn}
                     </Link>
                   </td>
@@ -184,7 +190,7 @@ function IdentityDepth({
             {dfiRows.map(({ id, nameEn, nameAr, dfi }) => (
               <li key={id} className="flex items-center justify-between">
                 <Link
-                  href={`/entities/${id}`}
+                  href={`/entities/${id}?tab=identity&view=sensors&from=identity`}
                   className="text-ink-1 hover:text-council-strong truncate"
                 >
                   {locale === "ar" ? nameAr : nameEn}

@@ -185,8 +185,7 @@ export async function provisionGraphSignalsApp(
 /**
  * Create the single-tenant user-auth app in the caller's tenant. Wires
  * standard OIDC delegated scopes + the user-callback redirect. Persists the
- * client_id, secret, and tenant_id into Mizan's auth config. Leaves enforce=false
- * so the operator can validate sign-in before locking everyone out.
+ * client_id, secret, and tenant_id into Mizan's auth config.
  */
 export async function provisionUserAuthApp(
   accessToken: string,
@@ -221,7 +220,6 @@ export async function provisionUserAuthApp(
     clientId: app.appId,
     clientSecret: secret,
     tenantId: opts.tenantId,
-    enforce: false, // bootstrap-admin flow still needs the escape hatch
   });
   invalidateAuthClient();
 

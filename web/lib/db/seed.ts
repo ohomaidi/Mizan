@@ -685,6 +685,17 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
         }),
       });
 
+      // Defender Vulnerability Management — realistic CVE fixtures scaled by
+      // the entity's maturity index. We thread in the Intune device list so
+      // `byDevice` uses the *same* device names Intune reports — this is
+      // what makes the Devices-tab drill-down actually find matching CVEs
+      // on the same host entry (vs. the names drifting apart).
+      insertSnap.run({
+        tenant_id: e.id,
+        signal_type: "vulnerabilities",
+        payload: JSON.stringify(generateVulnerabilities(e, devices)),
+      });
+
       // Label adoption — synthesized from sensitivity label mix scaled by entity size.
       const adoptionEvents = Math.round(
         200 + Math.random() * 400 + e.index * 3,
@@ -740,6 +751,10 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   });
 
   tx(DEMO);
+
+  // Also backfill 90 days of maturity snapshots so the trend chart on
+  // Entity Detail lands populated on fresh installs.
+  seedDemoMaturityTrend(db);
 }
 
 // ————————————————————————————————————————
@@ -932,6 +947,201 @@ const DEMO_TI_ARTICLES = [
   },
 ];
 
+/**
+ * Synthesize a realistic Defender Vulnerability Management payload for a
+ * demo entity. The CVE catalog intentionally overlaps across entities so
+ * cross-tenant correlation on the /vulnerabilities roll-up surfaces real
+ * shared threats (e.g. CVE-2024-38063 affecting >1 entity), not just
+ * per-tenant noise.
+ *
+ * Severity distribution scales inversely with `e.index` (low-maturity
+ * entities get more criticals / more exploitable CVEs).
+ */
+const CVE_CATALOG = [
+  // Critical — actively exploited / known-public POCs.
+  { cveId: "CVE-2024-38063", severity: "Critical" as const, cvssScore: 9.8, hasExploit: true, published: "2024-08-13", product: "Windows TCP/IP" },
+  { cveId: "CVE-2024-26169", severity: "Critical" as const, cvssScore: 9.8, hasExploit: true, published: "2024-03-12", product: "Windows Error Reporting" },
+  { cveId: "CVE-2023-36884", severity: "Critical" as const, cvssScore: 9.3, hasExploit: true, published: "2023-07-11", product: "Office / Windows HTML RCE" },
+  { cveId: "CVE-2024-21412", severity: "Critical" as const, cvssScore: 8.1, hasExploit: true, published: "2024-02-13", product: "Defender SmartScreen" },
+  { cveId: "CVE-2023-24932", severity: "Critical" as const, cvssScore: 6.7, hasExploit: true, published: "2023-05-09", product: "Secure Boot (BlackLotus)" },
+  // High.
+  { cveId: "CVE-2024-30088", severity: "High" as const, cvssScore: 7.0, hasExploit: false, published: "2024-06-11", product: "Windows Kernel EoP" },
+  { cveId: "CVE-2024-38080", severity: "High" as const, cvssScore: 7.8, hasExploit: true, published: "2024-07-09", product: "Hyper-V EoP" },
+  { cveId: "CVE-2024-29988", severity: "High" as const, cvssScore: 8.8, hasExploit: true, published: "2024-04-09", product: "SmartScreen Prompt Bypass" },
+  { cveId: "CVE-2024-30078", severity: "High" as const, cvssScore: 8.8, hasExploit: false, published: "2024-06-11", product: "Wi-Fi Driver RCE" },
+  { cveId: "CVE-2024-38178", severity: "High" as const, cvssScore: 7.5, hasExploit: true, published: "2024-08-13", product: "Scripting Engine Type Confusion" },
+  { cveId: "CVE-2024-37085", severity: "High" as const, cvssScore: 6.8, hasExploit: false, published: "2024-06-25", product: "VMware ESXi Auth Bypass" },
+  { cveId: "CVE-2023-44487", severity: "High" as const, cvssScore: 7.5, hasExploit: true, published: "2023-10-10", product: "HTTP/2 Rapid Reset" },
+  // Medium.
+  { cveId: "CVE-2024-35250", severity: "Medium" as const, cvssScore: 6.4, hasExploit: false, published: "2024-06-11", product: "Windows Mobile Broadband" },
+  { cveId: "CVE-2023-38545", severity: "Medium" as const, cvssScore: 5.3, hasExploit: false, published: "2023-10-11", product: "curl SOCKS5 heap overflow" },
+  { cveId: "CVE-2024-23334", severity: "Medium" as const, cvssScore: 5.9, hasExploit: false, published: "2024-01-28", product: "aiohttp path traversal" },
+  { cveId: "CVE-2024-27198", severity: "Medium" as const, cvssScore: 6.8, hasExploit: true, published: "2024-03-04", product: "TeamCity auth bypass" },
+  { cveId: "CVE-2023-50164", severity: "Medium" as const, cvssScore: 6.2, hasExploit: false, published: "2023-12-07", product: "Apache Struts upload traversal" },
+  { cveId: "CVE-2024-4577", severity: "Medium" as const, cvssScore: 6.4, hasExploit: true, published: "2024-06-06", product: "PHP-CGI argument injection" },
+  // Low.
+  { cveId: "CVE-2024-28121", severity: "Low" as const, cvssScore: 3.5, hasExploit: false, published: "2024-03-12", product: "Windows Installer info leak" },
+  { cveId: "CVE-2023-21709", severity: "Low" as const, cvssScore: 3.6, hasExploit: false, published: "2023-08-08", product: "Exchange info disclosure" },
+];
+
+const OS_PLATFORMS = ["Windows11", "Windows10", "Windows Server 2019", "Windows Server 2022", "macOS", "iOS"];
+
+type SeedVulnCve = {
+  cveId: string;
+  severity: "Critical" | "High" | "Medium" | "Low" | "Unknown";
+  cvssScore: number | null;
+  affectedDevices: number;
+  remediatedDevices: number;
+  hasExploit: boolean;
+  publishedDateTime: string | null;
+};
+
+type SeedVulnDevice = {
+  deviceId: string;
+  deviceName: string;
+  osPlatform: string | null;
+  cveCount: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  maxCvss: number | null;
+  cveIds: string[];
+};
+
+function generateVulnerabilities(
+  e: DemoEntity,
+  intuneDevices: ReturnType<typeof generateDevices>,
+): {
+  total: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  exploitable: number;
+  affectedDevices: number;
+  remediationTracked: boolean;
+  byDevice: SeedVulnDevice[];
+  topCves: SeedVulnCve[];
+  error: null;
+} {
+  const rng = seedRandom(`${e.id}:vulns`);
+  // Maturity inverse — low-index entities have more criticals + more devices affected.
+  const scale = Math.max(0.3, (100 - e.index) / 100);
+  // Remediation ratio — high-maturity entities patch faster. Range ~0.1–0.5.
+  const remediationRatio = Math.min(0.6, 0.1 + (e.index / 100) * 0.4);
+
+  // Pick a subset of CVEs weighted by scale.
+  const cveCountTarget = Math.floor(8 + scale * 20 + rng() * 6); // 8–34
+  const chosenCves = CVE_CATALOG.slice(
+    0,
+    Math.min(CVE_CATALOG.length, cveCountTarget),
+  )
+    .slice()
+    .sort(() => rng() - 0.5)
+    .slice(0, cveCountTarget);
+
+  // Pull a subset of Intune devices — typically noncompliant + error first
+  // (those are the ones you'd expect unpatched CVEs on). This keeps device
+  // names aligned with the Intune payload so the Devices-tab drill-down
+  // actually matches.
+  const intuneSorted = intuneDevices.slice().sort((a, b) => {
+    const rank = (s: string) =>
+      s === "noncompliant" ? 3 : s === "error" ? 2 : s === "inGracePeriod" ? 1 : 0;
+    return rank(b.complianceState) - rank(a.complianceState);
+  });
+  const deviceCount = Math.min(
+    intuneSorted.length,
+    Math.max(1, Math.floor(6 + scale * 18 + rng() * 4)),
+  ); // 6–28 of the real Intune devices
+  const byDevice: SeedVulnDevice[] = [];
+  // Track which devices are affected by each CVE for accurate roll-up.
+  const devicesByCve = new Map<string, string[]>();
+
+  for (let i = 0; i < deviceCount; i++) {
+    const src = intuneSorted[i];
+    const picked = Math.floor(2 + rng() * 7); // 2–8 CVEs per device
+    const assigned = chosenCves
+      .slice()
+      .sort(() => rng() - 0.5)
+      .slice(0, picked);
+    const critical = assigned.filter((c) => c.severity === "Critical").length;
+    const high = assigned.filter((c) => c.severity === "High").length;
+    const medium = assigned.filter((c) => c.severity === "Medium").length;
+    const low = assigned.filter((c) => c.severity === "Low").length;
+    const maxCvss = assigned.reduce((m, c) => Math.max(m, c.cvssScore), 0);
+    byDevice.push({
+      deviceId: src.id,
+      deviceName: src.deviceName,
+      osPlatform: src.operatingSystem,
+      cveCount: assigned.length,
+      critical,
+      high,
+      medium,
+      low,
+      maxCvss: maxCvss || null,
+      cveIds: assigned.map((c) => c.cveId),
+    });
+    for (const c of assigned) {
+      const arr = devicesByCve.get(c.cveId) ?? [];
+      arr.push(src.deviceName);
+      devicesByCve.set(c.cveId, arr);
+    }
+  }
+  byDevice.sort(
+    (a, b) => b.critical - a.critical || b.high - a.high || b.cveCount - a.cveCount,
+  );
+
+  // Build CVE list with per-CVE exposed + remediated counts. Remediated is
+  // a fraction of the "would-have-been" exposed population — representing
+  // hosts that used to have this CVE and were patched. So exposed + remediated
+  // together make up the universe; remediationRatio controls the mix.
+  const topCves: SeedVulnCve[] = chosenCves.map((c) => {
+    const exposed = devicesByCve.get(c.cveId)?.length ?? 0;
+    // Imagine the "pre-remediation" population was larger by the ratio.
+    const simulatedUniverse = Math.max(
+      exposed,
+      Math.round(exposed / Math.max(0.01, 1 - remediationRatio)),
+    );
+    const remediated = simulatedUniverse - exposed;
+    return {
+      cveId: c.cveId,
+      severity: c.severity,
+      cvssScore: c.cvssScore,
+      affectedDevices: exposed,
+      remediatedDevices: remediated,
+      hasExploit: c.hasExploit,
+      publishedDateTime: c.published + "T00:00:00Z",
+    };
+  });
+
+  const critical = topCves.filter((c) => c.severity === "Critical").length;
+  const high = topCves.filter((c) => c.severity === "High").length;
+  const medium = topCves.filter((c) => c.severity === "Medium").length;
+  const low = topCves.filter((c) => c.severity === "Low").length;
+  const exploitable = topCves.filter((c) => c.hasExploit).length;
+
+  return {
+    total: topCves.length,
+    critical,
+    high,
+    medium,
+    low,
+    exploitable,
+    affectedDevices: byDevice.length,
+    remediationTracked: true,
+    byDevice: byDevice.slice(0, 50),
+    topCves: topCves
+      .sort(
+        (a, b) =>
+          b.affectedDevices - a.affectedDevices ||
+          (b.cvssScore ?? 0) - (a.cvssScore ?? 0),
+      )
+      .slice(0, 50),
+    error: null,
+  };
+}
+
 function generateKqlPackResults(e: DemoEntity): Array<{
   packId: string;
   name: string;
@@ -1029,6 +1239,58 @@ function pickWeighted<T>(arr: readonly T[], weights: readonly number[], seed: nu
   return arr[arr.length - 1];
 }
 
+const DEMO_RISK_EVENTS = [
+  {
+    type: "unfamiliarFeatures",
+    detail: "Sign-in properties (device, browser, ASN) the user hasn't used before",
+  },
+  {
+    type: "atypicalTravel",
+    detail: "Sign-in from a location unusual for this user given their recent activity",
+  },
+  {
+    type: "maliciousIPAddress",
+    detail: "Sign-in attempted from an IP flagged in Microsoft threat intel feeds",
+  },
+  {
+    type: "leakedCredentials",
+    detail: "The user's credentials were found in a public leaked-password dump",
+  },
+  {
+    type: "passwordSpray",
+    detail: "Account targeted by a password-spray attack pattern",
+  },
+  {
+    type: "anonymousIPAddress",
+    detail: "Sign-in from a Tor / anonymising proxy IP",
+  },
+  {
+    type: "impossibleTravel",
+    detail: "Two successful sign-ins from geographically far-apart locations within a short window",
+  },
+  {
+    type: "suspiciousInboxManipulation",
+    detail: "Post-compromise mailbox-rule behaviour observed (auto-forward, auto-delete)",
+  },
+];
+const DEMO_COUNTRIES = [
+  { city: "Istanbul", country: "Turkey" },
+  { city: "Minsk", country: "Belarus" },
+  { city: "Lagos", country: "Nigeria" },
+  { city: "Caracas", country: "Venezuela" },
+  { city: "Moscow", country: "Russia" },
+  { city: "Pyongyang", country: "DPR Korea" },
+  { city: "Tehran", country: "Iran" },
+  { city: "Manila", country: "Philippines" },
+];
+function rndIp(seed: number): string {
+  const a = ((seed * 31 + 17) % 254) + 1;
+  const b = ((seed * 47 + 5) % 254) + 1;
+  const c = ((seed * 59 + 3) % 254) + 1;
+  const d = ((seed * 13 + 11) % 254) + 1;
+  return `${a}.${b}.${c}.${d}`;
+}
+
 function generateRiskyUsers(atRiskCount: number, domain: string) {
   // Total list = atRiskCount active + some history of resolved/dismissed.
   const historical = Math.max(5, Math.round(atRiskCount * 1.3));
@@ -1040,6 +1302,18 @@ function generateRiskyUsers(atRiskCount: number, domain: string) {
     riskLevel: string;
     riskState: string;
     riskLastUpdatedDateTime: string;
+    detections: Array<{
+      id: string;
+      riskEventType: string;
+      riskDetail: string | null;
+      riskLevel: string;
+      source: string | null;
+      activity: string | null;
+      ipAddress: string | null;
+      city: string | null;
+      countryOrRegion: string | null;
+      detectedDateTime: string;
+    }>;
   }> = [];
   for (let i = 0; i < total; i++) {
     const first = pick(FIRST_NAMES, i * 7 + 11);
@@ -1051,14 +1325,47 @@ function generateRiskyUsers(atRiskCount: number, domain: string) {
       ? (lvlSeed % 10 < 2 ? "high" : lvlSeed % 10 < 5 ? "medium" : "low")
       : "low";
     const state = atRisk ? "atRisk" : lvlSeed % 10 < 7 ? "remediated" : "dismissed";
-    const ago = (i * 37 + 11) % (60 * 24 * 30); // within last 30 days
+    const lastUpdatedMs = Date.now() - ((i * 37 + 11) % (60 * 24 * 30)) * 60_000;
+
+    // Detections only for atRisk users — remediated / dismissed have no
+    // pending evidence, just history.
+    const detections: typeof out[number]["detections"] = [];
+    if (atRisk) {
+      const nDet = (lvlSeed % 3) + 1; // 1–3 detections per at-risk user
+      for (let d = 0; d < nDet; d++) {
+        const ev = DEMO_RISK_EVENTS[(i * 5 + d * 13 + 2) % DEMO_RISK_EVENTS.length];
+        const loc = DEMO_COUNTRIES[(i * 3 + d * 7 + 5) % DEMO_COUNTRIES.length];
+        const detAgo = (i * 11 + d * 17 + 5) % (60 * 24 * 7); // within 7 days
+        detections.push({
+          id: `rd-${i.toString(16)}-${d}`,
+          riskEventType: ev.type,
+          riskDetail: ev.detail,
+          riskLevel:
+            ev.type === "leakedCredentials" || ev.type === "maliciousIPAddress"
+              ? "high"
+              : ev.type === "atypicalTravel" || ev.type === "impossibleTravel"
+                ? "medium"
+                : "low",
+          source: "IdentityProtection",
+          activity: "signin",
+          ipAddress: rndIp(i * 7 + d * 11),
+          city: loc.city,
+          countryOrRegion: loc.country,
+          detectedDateTime: new Date(
+            lastUpdatedMs - detAgo * 60_000,
+          ).toISOString(),
+        });
+      }
+    }
+
     out.push({
       id: `ru-${i.toString(16)}-${first[0].toLowerCase()}${last[0].toLowerCase()}`,
       userPrincipalName: upn,
       displayName: `${first} ${last}`,
       riskLevel: level,
       riskState: state,
-      riskLastUpdatedDateTime: new Date(Date.now() - ago * 60_000).toISOString(),
+      riskLastUpdatedDateTime: new Date(lastUpdatedMs).toISOString(),
+      detections,
     });
   }
   return out;
@@ -1150,6 +1457,29 @@ const INCIDENT_TEMPLATES = [
 const SEVERITIES = ["low", "medium", "high"] as const;
 const STATUSES = ["active", "inProgress", "resolved"] as const;
 
+const INCIDENT_DETERMINATIONS = [
+  "apt",
+  "malware",
+  "phishing",
+  "unwantedSoftware",
+  "compromisedAccount",
+  "maliciousUserActivity",
+  "insufficientInformation",
+];
+const INCIDENT_ANALYSTS = [
+  "khalid.almaktoum@council.local",
+  "noura.alzaabi@council.local",
+  "ahmed.alsuwaidi@council.local",
+];
+const INCIDENT_TAGS = [
+  "priority-review",
+  "after-hours",
+  "external-source",
+  "privileged-account",
+  "phishing-campaign",
+  "malware-detected",
+];
+
 function generateIncidents(activeCount: number) {
   // Active + roughly 5x resolved history.
   const resolvedCount = Math.max(activeCount, Math.round(activeCount * 5.67));
@@ -1160,9 +1490,13 @@ function generateIncidents(activeCount: number) {
     severity: string;
     status: string;
     classification: string | null;
+    determination: string | null;
     createdDateTime: string;
     lastUpdateDateTime: string;
     alertCount: number | null;
+    assignedTo: string | null;
+    tags: string[];
+    incidentWebUrl: string | null;
   }> = [];
   for (let i = 0; i < total; i++) {
     const active = i < activeCount;
@@ -1177,18 +1511,137 @@ function generateIncidents(activeCount: number) {
       ? (i * 41 + 13) % (60 * 24 * 7)
       : (i * 53 + 23) % (60 * 24 * 30);
     const updatedMinsAgo = active ? Math.floor(createdMinsAgo / 2) : createdMinsAgo;
+    const classification =
+      status === "resolved"
+        ? pick(["truePositive", "informationalExpectedActivity", "falsePositive"], i * 7)
+        : null;
+    const determination =
+      classification === "truePositive"
+        ? pick(INCIDENT_DETERMINATIONS, i * 23 + 5)
+        : classification === "falsePositive"
+          ? "other"
+          : null;
+    const tagCount = sevSeed % 4; // 0-3 tags
+    const tags: string[] = [];
+    for (let k = 0; k < tagCount; k++) {
+      const tag = INCIDENT_TAGS[(i * 13 + k * 7 + 3) % INCIDENT_TAGS.length];
+      if (!tags.includes(tag)) tags.push(tag);
+    }
+    const id = `inc-${i.toString(16).padStart(5, "0")}`;
     out.push({
-      id: `inc-${i.toString(16).padStart(5, "0")}`,
+      id,
       displayName: pick(INCIDENT_TEMPLATES, i * 17 + 3),
       severity: sev,
       status,
-      classification: status === "resolved" ? pick(["truePositive", "informationalExpectedActivity", "falsePositive"], i * 7) : null,
+      classification,
+      determination,
       createdDateTime: new Date(Date.now() - createdMinsAgo * 60_000).toISOString(),
       lastUpdateDateTime: new Date(Date.now() - updatedMinsAgo * 60_000).toISOString(),
       alertCount: 1 + (i * 3 + 1) % 5,
+      assignedTo:
+        status === "active" || status === "inProgress"
+          ? pick(INCIDENT_ANALYSTS, i * 19 + 3)
+          : null,
+      tags,
+      incidentWebUrl: `https://security.microsoft.com/incident2/${encodeURIComponent(id)}/summary`,
     });
   }
   return out;
+}
+
+/**
+ * Backfill 90 days of maturity snapshots for every demo tenant so the new
+ * Entity Detail trend card shows realistic shape immediately instead of a
+ * flat line. Idempotent — skips any tenant that already has snapshots.
+ *
+ * Story we encode: slight upward movement over 90 days (~5 points total)
+ * plus small deterministic jitter so the chart doesn't look synthetic.
+ * Sub-scores track the overall with offsets derived per sub-domain so
+ * they stay internally consistent (device compliance roughly leads, data
+ * protection roughly lags, etc.).
+ */
+export function seedDemoMaturityTrend(db: Database.Database): number {
+  const demoTenants = db
+    .prepare(
+      "SELECT id, tenant_id FROM tenants WHERE is_demo = 1",
+    )
+    .all() as Array<{ id: string; tenant_id: string }>;
+  if (demoTenants.length === 0) return 0;
+
+  const insert = db.prepare(
+    `INSERT INTO maturity_snapshots
+       (tenant_id, captured_at, overall, secure_score, identity, device, data, threat, compliance)
+     VALUES
+       (@tenant_id, @captured_at, @overall, @secure_score, @identity, @device, @data, @threat, @compliance)`,
+  );
+  const hasAny = db.prepare(
+    "SELECT 1 FROM maturity_snapshots WHERE tenant_id = ? LIMIT 1",
+  );
+
+  const DAYS = 90;
+  const RAMP = 5; // total upward movement across the window
+  let totalRows = 0;
+
+  const tx = db.transaction(() => {
+    for (const t of demoTenants) {
+      if (hasAny.get(t.id)) continue;
+
+      // Find this tenant's baseline index. If the demo catalog changed and
+      // a tenant isn't in DEMO anymore we still skip gracefully.
+      const meta = DEMO.find((d) => d.id === t.id);
+      if (!meta) continue;
+      const latest = meta.index;
+      const earliest = Math.max(0, latest - RAMP);
+
+      const rng = seedRandom(`${t.id}:trend`);
+
+      // Sub-score deltas from overall — hand-tuned so charts look coherent.
+      // Device usually leads (Intune is well-deployed), data usually lags
+      // (Purview rollout is partial), compliance near-middle.
+      const offsets = {
+        secureScore: -2,
+        identity: -1,
+        device: 4,
+        data: -6,
+        threat: 2,
+        compliance: 0,
+      };
+
+      for (let i = DAYS - 1; i >= 0; i--) {
+        // Linear interpolation earliest → latest, plus tiny jitter.
+        const pct = (DAYS - 1 - i) / (DAYS - 1);
+        const overall = clamp(earliest + RAMP * pct + (rng() - 0.5) * 1.6);
+        const sub = (offset: number) =>
+          clamp(overall + offset + (rng() - 0.5) * 2.2);
+        const capturedAt = new Date(
+          Date.now() - i * 86_400_000,
+        ).toISOString();
+
+        insert.run({
+          tenant_id: t.id,
+          captured_at: capturedAt,
+          overall: round1(overall),
+          secure_score: round1(sub(offsets.secureScore)),
+          identity: round1(sub(offsets.identity)),
+          device: round1(sub(offsets.device)),
+          data: round1(sub(offsets.data)),
+          threat: round1(sub(offsets.threat)),
+          compliance: round1(sub(offsets.compliance)),
+        });
+        totalRows++;
+      }
+    }
+  });
+  tx();
+  return totalRows;
+}
+
+function clamp(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }
 
 /**

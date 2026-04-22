@@ -265,6 +265,29 @@ export async function fetchConditionalAccess(
 // Risky users
 // ————————————————————————————————————————
 
+/**
+ * One Identity Protection detection — the "why" behind a user being atRisk.
+ * Sourced from `/identityProtection/riskDetections`. Graph returns a lot of
+ * fields per detection; we keep just what the drill-down modal needs so the
+ * per-tenant snapshot stays small.
+ */
+export type RiskDetection = {
+  id: string;
+  /** Microsoft's taxonomy: unfamiliarFeatures, atypicalTravel, maliciousIPAddress, leakedCredentials, passwordSpray, impossibleTravel, etc. */
+  riskEventType: string;
+  /** One-liner from Microsoft — e.g. "Sign-in from anonymous IP address". */
+  riskDetail: string | null;
+  riskLevel: "low" | "medium" | "high" | "hidden" | "none" | string;
+  /** Origin of the signal: IdentityProtection / MCAS / etc. */
+  source: string | null;
+  /** signin / user — what user activity triggered it. */
+  activity: string | null;
+  ipAddress: string | null;
+  city: string | null;
+  countryOrRegion: string | null;
+  detectedDateTime: string;
+};
+
 export type RiskyUser = {
   id: string;
   userPrincipalName: string;
@@ -272,6 +295,9 @@ export type RiskyUser = {
   riskLevel: string;
   riskState: string;
   riskLastUpdatedDateTime: string;
+  /** Up to 5 recent detections explaining WHY this user is atRisk. Empty
+   *  for remediated/dismissed users — they have no current evidence. */
+  detections: RiskDetection[];
 };
 
 export type RiskyUsersPayload = {
@@ -299,6 +325,24 @@ type RawRiskyUser = {
   riskLastUpdatedDateTime: string;
 };
 
+type RawRiskDetection = {
+  id: string;
+  userId?: string;
+  userPrincipalName?: string;
+  riskEventType?: string;
+  riskDetail?: string;
+  riskLevel?: string;
+  source?: string;
+  activity?: string;
+  ipAddress?: string;
+  location?: {
+    city?: string;
+    state?: string;
+    countryOrRegion?: string;
+  };
+  detectedDateTime?: string;
+};
+
 export async function fetchRiskyUsers(
   ctx: SignalCallCtx,
 ): Promise<RiskyUsersPayload> {
@@ -321,6 +365,47 @@ export async function fetchRiskyUsers(
     }
     throw err;
   }
+
+  // Bulk-fetch recent detections — 1 call instead of N. /riskDetections is
+  // orderable by detectedDateTime so we get the freshest evidence per user.
+  // Tolerated to fail (license gap, Graph transient) — users still render,
+  // just without the "why" drill-down.
+  let rawDetections: RawRiskDetection[] = [];
+  try {
+    rawDetections = await graphFetchAll<RawRiskDetection>(
+      {
+        ...ctx,
+        path: "/identityProtection/riskDetections?$top=500&$orderby=detectedDateTime%20desc",
+      },
+      10,
+    );
+  } catch (err) {
+    if (!isProductUnavailable(err) && !(err instanceof GraphError)) {
+      // Network/unexpected — swallow and proceed.
+      rawDetections = [];
+    }
+  }
+  const detectionsByUser = new Map<string, RiskDetection[]>();
+  for (const r of rawDetections) {
+    const key = r.userId ?? r.userPrincipalName ?? "";
+    if (!key) continue;
+    const arr = detectionsByUser.get(key) ?? [];
+    if (arr.length >= 5) continue; // cap 5 per user
+    arr.push({
+      id: r.id,
+      riskEventType: r.riskEventType ?? "unknown",
+      riskDetail: r.riskDetail ?? null,
+      riskLevel: r.riskLevel ?? "none",
+      source: r.source ?? null,
+      activity: r.activity ?? null,
+      ipAddress: r.ipAddress ?? null,
+      city: r.location?.city ?? null,
+      countryOrRegion: r.location?.countryOrRegion ?? null,
+      detectedDateTime: r.detectedDateTime ?? "",
+    });
+    detectionsByUser.set(key, arr);
+  }
+
   let high = 0;
   let med = 0;
   let low = 0;
@@ -344,6 +429,10 @@ export async function fetchRiskyUsers(
       riskLevel: u.riskLevel,
       riskState: u.riskState,
       riskLastUpdatedDateTime: u.riskLastUpdatedDateTime,
+      detections:
+        detectionsByUser.get(u.id) ??
+        detectionsByUser.get(u.userPrincipalName) ??
+        [],
     })),
   };
 }
@@ -482,9 +571,17 @@ export type Incident = {
   severity: string;
   status: string;
   classification: string | null;
+  /** More specific than classification — `falsePositive`, `apt`, `malware` etc. */
+  determination: string | null;
   createdDateTime: string;
   lastUpdateDateTime: string;
   alertCount: number | null;
+  assignedTo: string | null;
+  tags: string[];
+  /** Deep-link to Defender XDR portal for this incident. Graph returns
+   *  `incidentWebUrl` on the incidents endpoint — we fall back to a
+   *  constructed security.microsoft.com URL if it's missing. */
+  incidentWebUrl: string | null;
 };
 
 export type IncidentsPayload = {
@@ -501,9 +598,13 @@ type RawIncident = {
   severity: "informational" | "low" | "medium" | "high" | "unknownFutureValue";
   status: "active" | "resolved" | "inProgress" | "redirected" | "unknownFutureValue";
   classification?: string | null;
+  determination?: string | null;
   createdDateTime: string;
   lastUpdateDateTime: string;
   alerts?: { length?: number } | unknown[];
+  assignedTo?: string | null;
+  tags?: string[];
+  incidentWebUrl?: string | null;
 };
 
 export async function fetchIncidents(
@@ -516,7 +617,7 @@ export async function fetchIncidents(
         ...ctx,
         // Note: space in `desc` gets URL-encoded by fetch's URL constructor. Some tenants
         // still 400 here if Defender XDR isn't initialized — we tolerate that below.
-        path: "/security/incidents?$top=200&$orderby=lastUpdateDateTime desc",
+        path: "/security/incidents?$top=200&$orderby=lastUpdateDateTime%20desc",
       },
       10,
     );
@@ -545,9 +646,17 @@ export async function fetchIncidents(
       severity: i.severity,
       status: i.status,
       classification: i.classification ?? null,
+      determination: i.determination ?? null,
       createdDateTime: i.createdDateTime,
       lastUpdateDateTime: i.lastUpdateDateTime,
       alertCount: Array.isArray(i.alerts) ? i.alerts.length : null,
+      assignedTo: i.assignedTo ?? null,
+      tags: Array.isArray(i.tags) ? i.tags : [],
+      // Graph returns `incidentWebUrl` on v1.0 since ~2024. Fallback URL
+      // lands operators on the Defender XDR portal even if Graph omits it.
+      incidentWebUrl:
+        i.incidentWebUrl ??
+        `https://security.microsoft.com/incident2/${encodeURIComponent(i.id)}/summary`,
     })),
   };
 }
@@ -625,12 +734,17 @@ async function fetchPurviewAlertsByService(
   };
 }
 
+// Graph's alerts_v2 serviceSource enum for the Purview workloads uses the
+// short-form (non-`microsoftPurview*`) names on v1.0. The long forms were
+// rejected with `Invalid filter clause: The string 'microsoftPurview...'`.
 export const fetchDlpAlerts = (ctx: SignalCallCtx) =>
-  fetchPurviewAlertsByService(ctx, "microsoftPurviewDataLossPrevention");
+  fetchPurviewAlertsByService(ctx, "microsoftDataLossPrevention");
 
 export const fetchIrmAlerts = (ctx: SignalCallCtx) =>
-  fetchPurviewAlertsByService(ctx, "microsoftPurviewInsiderRiskManagement");
+  fetchPurviewAlertsByService(ctx, "microsoftInsiderRiskManagement");
 
+// Communication Compliance retained its Purview prefix in the enum but some
+// tenants 400 on it. Catch block in fetchPurviewAlertsByService tolerates.
 export const fetchCommComplianceAlerts = (ctx: SignalCallCtx) =>
   fetchPurviewAlertsByService(ctx, "microsoftPurviewCommunicationCompliance");
 
@@ -677,7 +791,11 @@ export async function fetchSubjectRightsRequests(
       5,
     );
   } catch (err) {
-    if (isProductUnavailable(err)) {
+    // SRR endpoint 500s with UnknownError on tenants that have never had an
+    // SRR raised — treat every GraphError as "no data available" rather than
+    // propagating. Privacy workload licensing is also inconsistent across
+    // tenants; a hard 500 from Microsoft shouldn't tank the Council sync.
+    if (err instanceof GraphError) {
       return { total: 0, active: 0, closed: 0, overdue: 0, byType: {}, requests: [] };
     }
     throw err;
@@ -743,7 +861,9 @@ export async function fetchRetentionLabels(
   let rows: RawRetentionLabel[];
   try {
     rows = await graphFetchAll<RawRetentionLabel>(
-      { ...ctx, path: "/security/labels/retentionLabels?$top=200" },
+      // Endpoint is beta-only and rejects $top>100. Keeps the v1.0 path as a
+      // fallback so beta regressions don't take the tenant's whole sync down.
+      { ...ctx, path: "/security/labels/retentionLabels?$top=100", version: "beta" },
       5,
     );
   } catch (err) {
@@ -1077,7 +1197,7 @@ export async function fetchAttackSimulations(
 ): Promise<AttackSimulationPayload> {
   try {
     const sims = await graphFetchAll<RawSimulation>(
-      { ...ctx, path: "/security/attackSimulation/simulations?$top=25&$orderby=createdDateTime desc" },
+      { ...ctx, path: "/security/attackSimulation/simulations?$top=25&$orderby=createdDateTime%20desc" },
       2,
     );
     let totalAttempts = 0;
@@ -1122,7 +1242,11 @@ export async function fetchAttackSimulations(
       simulationsList,
     };
   } catch (err) {
-    if (err instanceof GraphError && (err.status === 404 || err.status === 403)) {
+    // Attack Simulation Training is a Defender for Office P2 add-on. Tenants
+    // without it 400 the endpoint, and at least one (documented) variant
+    // 500s. Treat every GraphError as "feature unavailable" — the sync
+    // shouldn't fail a whole tenant on a paywalled feature.
+    if (err instanceof GraphError) {
       return {
         simulations: 0,
         totalAttempts: 0,
@@ -1160,11 +1284,15 @@ type RawTiArticle = {
 export async function fetchThreatIntelligence(
   ctx: SignalCallCtx,
 ): Promise<ThreatIntelPayload> {
+  // Last 30 days only — the Council cares about recent tradecraft, not
+  // historical MDTI back-catalog. Bigger $top lets the /threats page show
+  // ~80-100 articles for the 90D window without a second call.
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
   try {
     const rows = await graphFetchAll<RawTiArticle>(
       {
         ...ctx,
-        path: "/security/threatIntelligence/articles?$top=25&$orderby=createdDateTime desc",
+        path: `/security/threatIntelligence/articles?$top=100&$filter=createdDateTime ge ${cutoff}&$orderby=createdDateTime%20desc`,
       },
       2,
     );
@@ -1178,7 +1306,15 @@ export async function fetchThreatIntelligence(
       })),
     };
   } catch (err) {
-    if (err instanceof GraphError && (err.status === 404 || err.status === 403)) {
+    // MDTI is license-gated (Defender Threat Intelligence add-on). Tenants
+    // without it surface a 401/403/400 *or* a 200 body with "does not have
+    // access to this report" — isProductUnavailable catches the 400/403/404
+    // class, and the generic GraphError fallback catches anything else so
+    // the sync never fails on this signal alone.
+    if (isProductUnavailable(err)) {
+      return { articles: 0, recentArticles: [] };
+    }
+    if (err instanceof GraphError) {
       return { articles: 0, recentArticles: [] };
     }
     throw err;
@@ -1335,13 +1471,17 @@ export async function fetchLabelAdoption(
     try {
       const statusRes = await graphFetch<GraphAuditQuery>({
         ...ctx,
+        // auditLog/queries is a beta-only surface; v1.0 returns "Resource
+        // not found for the segment 'auditLog'".
         path: `/security/auditLog/queries/${existing.graph_query_id}`,
+        version: "beta",
       });
       if (statusRes.status === "succeeded") {
         const recs = await graphFetchAll<GraphAuditRecord>(
           {
             ...ctx,
             path: `/security/auditLog/queries/${existing.graph_query_id}/records?$top=500`,
+            version: "beta",
           },
           10,
         );
@@ -1375,6 +1515,7 @@ export async function fetchLabelAdoption(
       const res = await graphFetch<GraphAuditQuery>({
         ...ctx,
         path: "/security/auditLog/queries",
+        version: "beta",
         method: "POST",
         body: {
           displayName: "SCSC Label Adoption",
@@ -1501,4 +1642,248 @@ export async function fetchAdvancedHunting(
     total: results.length,
     packs: results,
   };
+}
+
+// ————————————————————————————————————————
+// Defender Vulnerability Management — per-device + per-CVE posture
+// ————————————————————————————————————————
+//
+// Pulled via Advanced Hunting against the Defender TVM tables. Requires the
+// tenant to have Defender for Endpoint P2 or the Defender Vulnerability
+// Management add-on — tenants without either return KQL "failed to resolve
+// table" errors which we tolerate as empty.
+
+export type VulnDevice = {
+  deviceId: string;
+  deviceName: string;
+  osPlatform: string | null;
+  cveCount: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  /** Max CVSS of any unresolved CVE on this device. */
+  maxCvss: number | null;
+  /** Full list of CVE IDs currently affecting this device — used by the
+   *  Devices tab drill-down to show "which CVEs hit this specific host". */
+  cveIds: string[];
+};
+
+export type VulnCve = {
+  cveId: string;
+  severity: "Critical" | "High" | "Medium" | "Low" | "Unknown";
+  cvssScore: number | null;
+  /** Count of currently-affected devices. Renamed conceptually from
+   *  `affectedDevices` to distinguish from remediated; we keep the field
+   *  name for backward-compat with the existing rollup endpoint and UI. */
+  affectedDevices: number;
+  /** Count of devices where this CVE WAS present but has been patched. In
+   *  real tenants this needs either a `Status == 'Resolved'` filter on
+   *  DeviceTvmSoftwareVulnerabilities (schema-dependent) or a historical
+   *  diff against the previous snapshot. On demos it's synthesized. */
+  remediatedDevices: number;
+  /** True if Defender flagged a known public exploit for this CVE. */
+  hasExploit: boolean;
+  publishedDateTime: string | null;
+};
+
+export type VulnerabilitiesPayload = {
+  total: number; // distinct CVEs affecting this tenant
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  exploitable: number; // CVEs flagged with known exploit
+  affectedDevices: number; // distinct devices with >=1 CVE
+  /**
+   * True when the snapshot carries a meaningful `remediatedDevices` value.
+   * Live Defender TVM only surfaces current exposures; we can't tell how
+   * many devices USED to be exposed without a historical diff. Demo data
+   * carries synthesized remediation counts and sets this true; live
+   * tenants set this false and the UI renders "—" for the remediated
+   * column rather than misleadingly showing "0 patches applied".
+   */
+  remediationTracked: boolean;
+  byDevice: VulnDevice[]; // top 50 by severity, then CVE count
+  topCves: VulnCve[]; // top 50 by affected device count
+  error: string | null;
+};
+
+function emptyVulnerabilitiesPayload(error: string | null = null): VulnerabilitiesPayload {
+  return {
+    total: 0,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    exploitable: 0,
+    affectedDevices: 0,
+    remediationTracked: false,
+    byDevice: [],
+    topCves: [],
+    error,
+  };
+}
+
+// DeviceTvmSoftwareVulnerabilities shape (Defender for Endpoint TVM):
+//   DeviceId, DeviceName, OSPlatform, OSVersion, SoftwareVendor, SoftwareName,
+//   SoftwareVersion, CveId, VulnerabilitySeverityLevel, CvssScore,
+//   IsExploitAvailable, VulnerabilityPublishedDate
+//
+// The table lists ACTIVE exposures only — Defender removes rows as patches
+// are applied, so there's no `Status` column and no native "remediated"
+// metric. We derive remediated from the sibling DeviceTvmSoftwareInventory
+// table where each software version has `EndOfSupportStatus`, or leave it
+// at 0 for tenants where that doesn't resolve either. The UI renders "—"
+// in that case rather than implying zero patching happened.
+const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
+| summarize
+    CveCount = dcount(CveId),
+    Critical = dcountif(CveId, VulnerabilitySeverityLevel == "Critical"),
+    High = dcountif(CveId, VulnerabilitySeverityLevel == "High"),
+    Medium = dcountif(CveId, VulnerabilitySeverityLevel == "Medium"),
+    Low = dcountif(CveId, VulnerabilitySeverityLevel == "Low"),
+    MaxCvss = max(CvssScore),
+    OsPlatform = any(OSPlatform),
+    CveIds = make_set(CveId, 100)
+  by DeviceId, DeviceName
+| top 50 by Critical desc, High desc, CveCount desc`;
+
+const VULN_KQL_TOP_CVES = `DeviceTvmSoftwareVulnerabilities
+| summarize
+    AffectedDevices = dcount(DeviceId),
+    Severity = any(VulnerabilitySeverityLevel),
+    CvssScore = max(CvssScore),
+    HasExploit = iff(max(iff(IsExploitAvailable == true, 1, 0)) > 0, true, false),
+    PublishedDateTime = any(VulnerabilityPublishedDate)
+  by CveId
+| top 50 by AffectedDevices desc, CvssScore desc`;
+
+// NOTE: remediated counts on live tenants cannot be computed from this
+// single endpoint — TVM only returns currently-exposed findings. A future
+// V1.2 will derive remediated by diffing today's snapshot vs. N days ago
+// (CVE was on device X then, not now → remediated). Until that ships,
+// live tenants return `remediatedDevices: 0` and the UI shows "—".
+
+type RawVulnByDeviceRow = {
+  DeviceId?: string;
+  DeviceName?: string;
+  OsPlatform?: string;
+  CveCount?: number;
+  Critical?: number;
+  High?: number;
+  Medium?: number;
+  Low?: number;
+  MaxCvss?: number;
+  CveIds?: string[];
+};
+
+type RawVulnCveRow = {
+  CveId?: string;
+  Severity?: string;
+  CvssScore?: number;
+  AffectedDevices?: number;
+  HasExploit?: boolean;
+  PublishedDateTime?: string;
+};
+
+export async function fetchVulnerabilities(
+  ctx: SignalCallCtx,
+): Promise<VulnerabilitiesPayload> {
+  // Two hunting queries in parallel — cheaper than two serial KQL executions
+  // given the per-tenant runHuntingQuery throttle is already generous.
+  let byDeviceRes: { results?: RawVulnByDeviceRow[] };
+  let topCveRes: { results?: RawVulnCveRow[] };
+  try {
+    [byDeviceRes, topCveRes] = await Promise.all([
+      graphFetch<{ results?: RawVulnByDeviceRow[] }>({
+        ...ctx,
+        path: "/security/runHuntingQuery",
+        method: "POST",
+        body: { Query: VULN_KQL_BY_DEVICE },
+      }),
+      graphFetch<{ results?: RawVulnCveRow[] }>({
+        ...ctx,
+        path: "/security/runHuntingQuery",
+        method: "POST",
+        body: { Query: VULN_KQL_TOP_CVES },
+      }),
+    ]);
+  } catch (err) {
+    // Common failure: tenant has no Defender VM license → "Failed to resolve
+    // table or column DeviceTvmSoftwareVulnerabilities". Treat any GraphError
+    // as "feature unavailable" and return the empty payload.
+    if (err instanceof GraphError) {
+      return emptyVulnerabilitiesPayload(err.message);
+    }
+    throw err;
+  }
+
+  const byDeviceRows = byDeviceRes.results ?? [];
+  const topCveRows = topCveRes.results ?? [];
+
+  const byDevice: VulnDevice[] = byDeviceRows.map((r) => ({
+    deviceId: r.DeviceId ?? "",
+    deviceName: r.DeviceName ?? "(unknown)",
+    osPlatform: r.OsPlatform ?? null,
+    cveCount: r.CveCount ?? 0,
+    critical: r.Critical ?? 0,
+    high: r.High ?? 0,
+    medium: r.Medium ?? 0,
+    low: r.Low ?? 0,
+    maxCvss: typeof r.MaxCvss === "number" ? r.MaxCvss : null,
+    cveIds: Array.isArray(r.CveIds) ? r.CveIds : [],
+  }));
+
+  const topCves: VulnCve[] = topCveRows.map((r) => ({
+    cveId: r.CveId ?? "",
+    severity: normalizeSeverity(r.Severity),
+    cvssScore: typeof r.CvssScore === "number" ? r.CvssScore : null,
+    affectedDevices: r.AffectedDevices ?? 0,
+    // Defender TVM doesn't expose per-CVE remediated counts directly on
+    // runHuntingQuery — requires historical snapshot diff (see V1.2 note
+    // on VULN_KQL definitions). Live tenants get 0 here; UI renders "—".
+    remediatedDevices: 0,
+    hasExploit: r.HasExploit === true,
+    publishedDateTime: r.PublishedDateTime ?? null,
+  }));
+
+  // Tenant-wide totals derived from the top-CVE list (more accurate than
+  // summing per-device severity counts, which double-counts CVEs on >1 host).
+  const critical = topCves.filter((c) => c.severity === "Critical").length;
+  const high = topCves.filter((c) => c.severity === "High").length;
+  const medium = topCves.filter((c) => c.severity === "Medium").length;
+  const low = topCves.filter((c) => c.severity === "Low").length;
+  const exploitable = topCves.filter((c) => c.hasExploit).length;
+  const affectedDevices = byDevice.length;
+  const total = critical + high + medium + low + topCves.filter((c) => c.severity === "Unknown").length;
+
+  return {
+    total,
+    critical,
+    high,
+    medium,
+    low,
+    exploitable,
+    affectedDevices,
+    remediationTracked: false, // see type doc — live TVM doesn't expose it
+    byDevice,
+    topCves,
+    error: null,
+  };
+}
+
+function normalizeSeverity(s: string | undefined): VulnCve["severity"] {
+  switch ((s ?? "").toLowerCase()) {
+    case "critical":
+      return "Critical";
+    case "high":
+      return "High";
+    case "medium":
+      return "Medium";
+    case "low":
+      return "Low";
+    default:
+      return "Unknown";
+  }
 }

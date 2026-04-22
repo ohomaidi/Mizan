@@ -139,7 +139,6 @@ export const api = {
         tenantId: string;
         sessionTimeoutMinutes: number;
         defaultRole: "admin" | "analyst" | "viewer";
-        enforce: boolean;
         updatedAt: string | null;
         redirectUri: string;
       };
@@ -151,7 +150,6 @@ export const api = {
     tenantId?: string;
     sessionTimeoutMinutes?: number;
     defaultRole?: "admin" | "analyst" | "viewer";
-    enforce?: boolean;
   }) =>
     jsonFetch<{ config: unknown }>("/api/config/auth", {
       method: "PUT",
@@ -168,7 +166,7 @@ export const api = {
     jsonFetch<{
       authenticated: boolean;
       configured: boolean;
-      enforced: boolean;
+      demoMode: boolean;
       user: {
         id: string;
         email: string;
@@ -350,6 +348,65 @@ export const api = {
       }>;
     }>("/api/signals/defender-depth"),
 
+  getVulnerabilities: () =>
+    jsonFetch<{
+      totals: {
+        total: number;
+        critical: number;
+        high: number;
+        medium: number;
+        low: number;
+        exploitable: number;
+        affectedDevices: number;
+        remediatedDevices: number;
+        entitiesWithData: number;
+        entitiesWithCritical: number;
+      };
+      entities: Array<{
+        id: string;
+        nameEn: string;
+        nameAr: string;
+        cluster: string;
+        hasData: boolean;
+        total: number;
+        critical: number;
+        high: number;
+        medium: number;
+        low: number;
+        exploitable: number;
+        affectedDevices: number;
+        remediatedDevices: number;
+        remediationTracked: boolean;
+        error: string | null;
+      }>;
+      correlated: Array<{
+        cveId: string;
+        severity: "Critical" | "High" | "Medium" | "Low" | "Unknown";
+        cvssScore: number | null;
+        hasExploit: boolean;
+        publishedDateTime: string | null;
+        entityCount: number;
+        totalAffectedDevices: number;
+        totalRemediatedDevices: number;
+        entities: Array<{
+          id: string;
+          nameEn: string;
+          affectedDevices: number;
+          remediatedDevices: number;
+        }>;
+      }>;
+      topOverall: Array<{
+        cveId: string;
+        severity: "Critical" | "High" | "Medium" | "Low" | "Unknown";
+        cvssScore: number | null;
+        hasExploit: boolean;
+        publishedDateTime: string | null;
+        entityCount: number;
+        totalAffectedDevices: number;
+        totalRemediatedDevices: number;
+      }>;
+    }>("/api/signals/vulnerabilities"),
+
   syncTenant: (id: string) =>
     jsonFetch<{ tenantId: string; ok: boolean; errors: Array<{ signal: string; message: string }> }>(
       `/api/tenants/${id}/sync`,
@@ -469,7 +526,27 @@ export const api = {
         devices: { total: number; compliant: number; nonCompliant: number; byOs: Record<string, number> };
       };
       identity: Array<{ id: string; nameEn: string; nameAr: string; cluster: string; payload: { total: number; atRisk: number; highRisk: number; caMfa: number; caPolicies: number } | null }>;
-      threats: Array<{ id: string; nameEn: string; nameAr: string; cluster: string; payload: { total: number; active: number; resolved: number; bySeverity: Record<string, number> } | null }>;
+      threats: Array<{
+        id: string;
+        nameEn: string;
+        nameAr: string;
+        cluster: string;
+        payload: {
+          total: number;
+          active: number;
+          resolved: number;
+          bySeverity: Record<string, number>;
+          incidents: Array<{
+            id: string;
+            displayName: string;
+            severity: string;
+            status: string;
+            createdDateTime: string;
+            lastUpdateDateTime: string;
+            alertCount: number | null;
+          }>;
+        } | null;
+      }>;
       devices: Array<{ id: string; nameEn: string; nameAr: string; cluster: string; payload: { total: number; compliant: number; nonCompliant: number; compliancePct: number } | null }>;
     }>("/api/signals/rollup"),
 };

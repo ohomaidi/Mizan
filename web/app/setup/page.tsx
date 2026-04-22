@@ -131,9 +131,6 @@ export default function SetupPage() {
       if (step === 4 && authClientId.trim().length > 0) {
         const patch: Parameters<typeof api.saveAuthConfig>[0] = {
           clientId: authClientId.trim(),
-          // Leave enforce off at this stage — first login bootstraps the admin,
-          // then the operator can turn enforce on from Settings → Authentication.
-          enforce: false,
         };
         // Auto-provision path stores the real tenant GUID server-side during
         // the device flow. Only send tenantId from the form if the user is

@@ -50,6 +50,20 @@ export type ClusterSummary = {
   entitiesCount: number;
 };
 
+/**
+ * Council cares about two dimensions of entity health, in this order:
+ *   1. Is consent in place? (no → `pending`)
+ *   2. How fresh is the most-recent sync? (>48h → `amber`, the scheduler
+ *      missed a day — something external is wrong even if the last sync
+ *      technically succeeded).
+ *   3. Did the last sync's primary signals succeed? (no → `red`).
+ *
+ * The 48h threshold is 2× the default daily-sync cadence. Operators
+ * running hourly syncs can set SCSC_STALE_HOURS in env to tighten it;
+ * we intentionally default loose so a single missed sync doesn't alarm.
+ */
+const STALE_HOURS = Number(process.env.SCSC_STALE_HOURS ?? "48");
+
 function connectionFor(row: {
   consent_status: string;
   last_sync_ok: 0 | 1;
@@ -57,6 +71,11 @@ function connectionFor(row: {
 }): "green" | "amber" | "red" | "pending" {
   if (row.consent_status !== "consented") return "pending";
   if (!row.last_sync_at) return "amber";
+
+  const ageHours =
+    (Date.now() - new Date(row.last_sync_at).getTime()) / 3_600_000;
+  if (Number.isFinite(ageHours) && ageHours > STALE_HOURS) return "amber";
+
   if (row.last_sync_ok === 1) return "green";
   return "red";
 }

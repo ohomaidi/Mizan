@@ -87,6 +87,24 @@ export function countAdmins(): number {
   return row.n;
 }
 
+/**
+ * Admins who have actually signed in at least once — excludes pending-invite
+ * rows whose entra_oid is a "pending:<uuid>" sentinel. The auth bootstrap
+ * window uses this so pre-seeded invites don't close the window before the
+ * first real sign-in happens.
+ */
+export function countRealAdmins(): number {
+  const row = getDb()
+    .prepare(
+      `SELECT COUNT(*) AS n FROM users
+        WHERE role = 'admin'
+          AND is_active = 1
+          AND entra_oid NOT LIKE 'pending:%'`,
+    )
+    .get() as { n: number };
+  return row.n;
+}
+
 export type UserUpsertInput = {
   entra_oid: string;
   tenant_id: string;
@@ -185,6 +203,17 @@ export function getSession(id: string): SessionRow | null {
 
 export function deleteSession(id: string): void {
   getDb().prepare("DELETE FROM sessions WHERE id = ?").run(id);
+}
+
+/**
+ * Push a session's expiry forward. Used by the sliding-window extension in
+ * `currentUser()` — caller computes the new expires_at (clamped to absolute
+ * max), we just persist it.
+ */
+export function touchSession(id: string, newExpiresAt: string): void {
+  getDb()
+    .prepare("UPDATE sessions SET expires_at = ? WHERE id = ?")
+    .run(newExpiresAt, id);
 }
 
 export function pruneExpiredSessions(): number {

@@ -48,7 +48,19 @@ export function UserMenu() {
     );
   }
 
-  // Auth isn't configured at all (demo / fresh install). Nothing to show.
+  // Demo-mode deployments: the whole auth gate is off at the env level so
+  // prospects can browse freely. Show a read-only "Demo mode" pill instead of
+  // a sign-in CTA (there is nowhere to sign in to).
+  if (me.demoMode) {
+    return (
+      <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-accent/40 bg-accent/10 text-accent text-[11px] font-semibold uppercase tracking-[0.08em]">
+        {t("topbar.demo")}
+      </span>
+    );
+  }
+
+  // Auth isn't configured yet (fresh install before the wizard has finished).
+  // Nothing to show — the dashboard layout will have bounced to /setup anyway.
   if (!me.configured) {
     return (
       <div
@@ -61,8 +73,8 @@ export function UserMenu() {
   }
 
   // Auth is configured but this request is unauthenticated. Surface the Sign
-  // in button regardless of whether enforce is on — operators need a way in
-  // during the "configured, not enforced yet" staging period.
+  // in button — happens during the bootstrap window before the first admin
+  // has completed their first login.
   if (!me.authenticated || !me.user) {
     return (
       <a

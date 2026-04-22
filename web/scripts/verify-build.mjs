@@ -36,7 +36,13 @@ import { dirname } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, "..");
-const appDir = join(projectRoot, ".next/server/app");
+// Honor NEXT_DIST_DIR so we verify the same directory `next start` will read.
+const distDir = process.env.NEXT_DIST_DIR
+  ? process.env.NEXT_DIST_DIR.startsWith("/")
+    ? process.env.NEXT_DIST_DIR
+    : join(projectRoot, process.env.NEXT_DIST_DIR)
+  : join(projectRoot, ".next");
+const appDir = join(distDir, "server/app");
 
 const args = new Set(process.argv.slice(2));
 const AUTO_HEAL = args.has("--auto-heal");

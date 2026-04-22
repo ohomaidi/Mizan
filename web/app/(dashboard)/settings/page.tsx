@@ -23,6 +23,7 @@ import { OnboardingWizard } from "@/components/settings/OnboardingWizard";
 import { BrandingPanel } from "@/components/settings/BrandingPanel";
 import { AuthConfigPanel } from "@/components/settings/AuthConfigPanel";
 import { UsersPanel } from "@/components/settings/UsersPanel";
+import { AboutPanel } from "@/components/settings/AboutPanel";
 import type { DictKey } from "@/lib/i18n/dict";
 
 type SettingsTab =
@@ -35,7 +36,8 @@ type SettingsTab =
   | "audit"
   | "azure"
   | "nesa"
-  | "docs";
+  | "docs"
+  | "about";
 
 type Draft = {
   nameEn: string;
@@ -115,6 +117,7 @@ function SettingsPageInner() {
     { id: "pdf", labelKey: "settings.tab.pdf" },
     { id: "audit", labelKey: "settings.tab.audit" },
     { id: "docs", labelKey: "settings.tab.docs" },
+    { id: "about", labelKey: "settings.tab.about" },
   ];
 
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -242,6 +245,7 @@ function SettingsPageInner() {
       {activeTab === "azure" ? <AzureConfigPanel /> : null}
       {activeTab === "nesa" ? <NesaMappingPanel /> : null}
       {activeTab === "docs" ? <DocumentationPanel /> : null}
+      {activeTab === "about" ? <AboutPanel /> : null}
       {activeTab === "entities" ? (
       <>
       <DiscoveryBanner />

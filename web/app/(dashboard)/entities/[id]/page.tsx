@@ -1,9 +1,11 @@
 "use client";
 
-import { use, useCallback, useEffect, useState } from "react";
+import { Fragment, Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  ChevronRight,
   ExternalLink,
   FileText,
   CalendarClock,
@@ -13,6 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
+import { MaturityTrendCard } from "@/components/charts/MaturityTrendCard";
 import { HealthDot } from "@/components/ui/HealthDot";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
@@ -25,11 +28,22 @@ import type { TenantRow } from "@/lib/db/tenants";
 import type { MaturityBreakdown } from "@/lib/compute/maturity";
 import type { DictKey } from "@/lib/i18n/dict";
 import type {
+  AttackSimulationPayload,
   ConditionalAccessPayload,
   DevicesPayload,
+  DfiSensorHealthPayload,
+  Incident,
   IncidentsPayload,
+  PimSprawlPayload,
+  PurviewAlertsPayload,
+  RetentionLabelsPayload,
+  RiskyUser,
   RiskyUsersPayload,
   SecureScorePayload,
+  SensitivityLabelsPayload,
+  SharepointSettingsPayload,
+  SubjectRightsRequestsPayload,
+  VulnerabilitiesPayload,
 } from "@/lib/graph/signals";
 
 type Signals = {
@@ -38,6 +52,17 @@ type Signals = {
   riskyUsers: { payload: RiskyUsersPayload } | null;
   devices: { payload: DevicesPayload } | null;
   incidents: { payload: IncidentsPayload } | null;
+  dlpAlerts: { payload: PurviewAlertsPayload } | null;
+  irmAlerts: { payload: PurviewAlertsPayload } | null;
+  commCompAlerts: { payload: PurviewAlertsPayload } | null;
+  subjectRightsRequests: { payload: SubjectRightsRequestsPayload } | null;
+  retentionLabels: { payload: RetentionLabelsPayload } | null;
+  sensitivityLabels: { payload: SensitivityLabelsPayload } | null;
+  sharepointSettings: { payload: SharepointSettingsPayload } | null;
+  pimSprawl: { payload: PimSprawlPayload } | null;
+  dfiSensorHealth: { payload: DfiSensorHealthPayload } | null;
+  vulnerabilities: { payload: VulnerabilitiesPayload } | null;
+  attackSimulations: { payload: AttackSimulationPayload } | null;
 };
 
 type EndpointHealth = {
@@ -62,9 +87,27 @@ type State =
   | { kind: "missing" }
   | { kind: "ready"; detail: Detail };
 
-type SubTab = "overview" | "controls" | "incidents" | "identity" | "data" | "devices" | "governance" | "connection";
+type SubTab = "overview" | "controls" | "incidents" | "identity" | "data" | "devices" | "governance" | "vulnerabilities" | "attackSimulation" | "connection";
+const VALID_TABS: readonly SubTab[] = [
+  "overview", "controls", "incidents", "identity", "data", "devices", "governance", "vulnerabilities", "attackSimulation", "connection",
+] as const;
+
+type IdentityView = "risky" | "privileged" | "sensors";
+const VALID_IDENTITY_VIEWS: readonly IdentityView[] = ["risky", "privileged", "sensors"] as const;
 
 export default function EntityDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <EntityDetailInner params={params} />
+    </Suspense>
+  );
+}
+
+function EntityDetailInner({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -73,9 +116,67 @@ export default function EntityDetailPage({
   const { t, locale } = useI18n();
   const fmtRelative = useFmtRelative();
   const fmt = useFmtNum();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Tab + sub-view are URL-driven so deep-links from the global /identity
+  // page arrive on the right section and so browser-back restores state.
+  const rawTab = searchParams.get("tab");
+  const tab: SubTab = (VALID_TABS as readonly string[]).includes(rawTab ?? "")
+    ? (rawTab as SubTab)
+    : "overview";
+
+  const rawView = searchParams.get("view");
+  const identityView: IdentityView = (VALID_IDENTITY_VIEWS as readonly string[]).includes(
+    rawView ?? "",
+  )
+    ? (rawView as IdentityView)
+    : "risky";
+
+  // `from` lets us know where the user clicked in from, so the back button
+  // returns to the correct top-level surface instead of always /entities.
+  const cameFrom = searchParams.get("from"); // e.g. "identity"
+  const FROM_ROUTES: Record<string, { href: string; key: string }> = {
+    identity: { href: "/identity", key: "entity.backToIdentity" },
+    devices: { href: "/devices", key: "entity.backToDevices" },
+    threats: { href: "/threats", key: "entity.backToThreats" },
+    vulnerabilities: {
+      href: "/vulnerabilities",
+      key: "entity.backToVulnerabilities",
+    },
+    data: { href: "/data", key: "entity.backToData" },
+    governance: { href: "/governance", key: "entity.backToGovernance" },
+    maturity: { href: "/maturity", key: "entity.backToMaturity" },
+  };
+  const backRoute = cameFrom ? FROM_ROUTES[cameFrom] : null;
+  const backHref = backRoute?.href ?? "/entities";
+  const backKey = backRoute?.key ?? "entity.backToAll";
+
+  const setTab = useCallback(
+    (newTab: SubTab) => {
+      const qp = new URLSearchParams(Array.from(searchParams.entries()));
+      if (newTab === "overview") qp.delete("tab");
+      else qp.set("tab", newTab);
+      qp.delete("view"); // switching tabs clears the sub-view
+      const qs = qp.toString();
+      router.replace(qs ? `?${qs}` : window.location.pathname, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const setIdentityView = useCallback(
+    (v: IdentityView) => {
+      const qp = new URLSearchParams(Array.from(searchParams.entries()));
+      qp.set("tab", "identity");
+      if (v === "risky") qp.delete("view");
+      else qp.set("view", v);
+      router.replace(`?${qp.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
   const [state, setState] = useState<State>({ kind: "loading" });
   const [syncing, setSyncing] = useState(false);
-  const [tab, setTab] = useState<SubTab>("overview");
   const [suspendModal, setSuspendModal] = useState<"idle" | "confirm" | "working">("idle");
   const [reviewModal, setReviewModal] = useState<{ open: boolean; working: boolean }>({
     open: false,
@@ -180,6 +281,8 @@ export default function EntityDetailPage({
     { id: "data", labelKey: "tab.data" },
     { id: "devices", labelKey: "tab.devices" },
     { id: "governance", labelKey: "tab.governance" },
+    { id: "vulnerabilities", labelKey: "tab.vulnerabilities" },
+    { id: "attackSimulation", labelKey: "tab.attackSimulation" },
     { id: "connection", labelKey: "tab.connection" },
   ];
 
@@ -187,10 +290,11 @@ export default function EntityDetailPage({
     <div className="flex flex-col gap-6">
       <div>
         <Link
-          href="/entities"
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-[12px] text-ink-2 hover:text-ink-1"
         >
-          <ArrowLeft size={13} className="rtl:rotate-180" /> {t("entity.backToAll")}
+          <ArrowLeft size={13} className="rtl:rotate-180" />{" "}
+          {t(backKey as DictKey)}
         </Link>
       </div>
 
@@ -415,18 +519,59 @@ export default function EntityDetailPage({
 
       {/* Tab content */}
       {tab === "overview" ? (
-        <OverviewTab maturity={maturity} clusterIndex={cluster?.index ?? 0} />
+        <OverviewTab
+          maturity={maturity}
+          clusterIndex={cluster?.index ?? 0}
+          vulns={signals.vulnerabilities?.payload ?? null}
+          onOpenVulns={() => setTab("vulnerabilities")}
+        />
       ) : null}
       {tab === "controls" ? <ControlsTab payload={signals.secureScore?.payload ?? null} /> : null}
       {tab === "incidents" ? <IncidentsTab payload={signals.incidents?.payload ?? null} /> : null}
-      {tab === "identity" ? <IdentityTab payload={signals.riskyUsers?.payload ?? null} /> : null}
-      {tab === "devices" ? <DevicesTab payload={signals.devices?.payload ?? null} /> : null}
+      {tab === "identity" ? (
+        <IdentityTab
+          risky={signals.riskyUsers?.payload ?? null}
+          pim={signals.pimSprawl?.payload ?? null}
+          dfi={signals.dfiSensorHealth?.payload ?? null}
+          view={identityView}
+          setView={setIdentityView}
+        />
+      ) : null}
+      {tab === "devices" ? (
+        <DevicesTab
+          payload={signals.devices?.payload ?? null}
+          vulns={signals.vulnerabilities?.payload ?? null}
+          sortByCves={cameFrom === "vulnerabilities"}
+        />
+      ) : null}
+      {tab === "vulnerabilities" ? (
+        <VulnerabilitiesTab
+          payload={signals.vulnerabilities?.payload ?? null}
+        />
+      ) : null}
+      {tab === "attackSimulation" ? (
+        <AttackSimulationTab
+          payload={signals.attackSimulations?.payload ?? null}
+        />
+      ) : null}
       {tab === "connection" ? <ConnectionTab health={health} /> : null}
-      {tab === "data" || tab === "governance" ? (
-        <Card>
-          <CardHeader title={t("subtabs.more.title")} subtitle={t("subtabs.more.subtitle")} />
-          <div className="text-[12.5px] text-ink-3">{t("subtabs.more.body")}</div>
-        </Card>
+      {tab === "data" ? (
+        <DataTab
+          dlp={signals.dlpAlerts?.payload ?? null}
+          irm={signals.irmAlerts?.payload ?? null}
+          commComp={signals.commCompAlerts?.payload ?? null}
+          srrs={signals.subjectRightsRequests?.payload ?? null}
+          retention={signals.retentionLabels?.payload ?? null}
+          sensitivity={signals.sensitivityLabels?.payload ?? null}
+          sharing={signals.sharepointSettings?.payload ?? null}
+        />
+      ) : null}
+      {tab === "governance" ? (
+        <GovernanceTab
+          tenantId={id}
+          secureScore={signals.secureScore?.payload ?? null}
+          maturity={maturity}
+        />
       ) : null}
     </div>
   );
@@ -434,9 +579,13 @@ export default function EntityDetailPage({
   function OverviewTab({
     maturity,
     clusterIndex,
+    vulns,
+    onOpenVulns,
   }: {
     maturity: MaturityBreakdown;
     clusterIndex: number;
+    vulns: VulnerabilitiesPayload | null;
+    onOpenVulns: () => void;
   }) {
     const target = 75;
     const subScores = [
@@ -446,6 +595,28 @@ export default function EntityDetailPage({
       { key: "subscores.threatResponse" as const, value: maturity.subScores.threat },
       { key: "subscores.compliance" as const, value: maturity.subScores.compliance },
     ];
+
+    // Top 5 CVEs by severity rank, then affected-device count. Drives the
+    // compact "Top vulnerabilities" card at the bottom of the overview grid
+    // so a Council reviewer sees the loudest exposures without switching tabs.
+    const sevRank: Record<string, number> = {
+      Critical: 4,
+      High: 3,
+      Medium: 2,
+      Low: 1,
+      Unknown: 0,
+    };
+    const topVulnCves =
+      vulns && !vulns.error
+        ? [...vulns.topCves]
+            .sort(
+              (a, b) =>
+                (sevRank[b.severity] ?? 0) - (sevRank[a.severity] ?? 0) ||
+                b.affectedDevices - a.affectedDevices ||
+                (b.cvssScore ?? 0) - (a.cvssScore ?? 0),
+            )
+            .slice(0, 5)
+        : [];
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -513,11 +684,124 @@ export default function EntityDetailPage({
             })}
           </div>
         </Card>
+
+        {/* Maturity trend — full-width below the index/sub-score cards. */}
+        <div className="lg:col-span-3">
+          <MaturityTrendCard tenantId={id} target={target} />
+        </div>
+
+        {/* Top vulnerabilities — compact callout of the loudest CVEs on this
+            entity so a reviewer sees exposure risk without switching tabs. */}
+        <Card className="lg:col-span-3 p-0">
+          <div className="p-5 flex items-start justify-between gap-3">
+            <CardHeader
+              title={t("entity.overview.topVulns.title")}
+              subtitle={t("entity.overview.topVulns.subtitle")}
+            />
+            <button
+              type="button"
+              onClick={onOpenVulns}
+              className="h-7 px-3 text-[12px] rounded-md border border-border text-ink-2 hover:text-ink-1 hover:bg-surface-3"
+            >
+              {t("entity.overview.topVulns.viewAll")}
+            </button>
+          </div>
+          {vulns == null ? (
+            <div className="px-5 pb-5 text-[12.5px] text-ink-3">
+              {t("sync.never")}
+            </div>
+          ) : vulns.error ? (
+            <div className="px-5 pb-5 text-[12.5px] text-ink-3">
+              {t("tab.vulnerabilities.notLicensedBody")}
+            </div>
+          ) : topVulnCves.length === 0 ? (
+            <div className="px-5 pb-5 text-[12.5px] text-ink-3">
+              {t("entity.overview.topVulns.clean")}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em] border-t border-border">
+                    <th className="py-2.5 ps-5 text-start font-semibold">
+                      {t("vuln.cols.cve")}
+                    </th>
+                    <th className="py-2.5 text-start font-semibold">
+                      {t("vuln.cols.severity")}
+                    </th>
+                    <th className="py-2.5 text-end font-semibold">
+                      {t("vuln.cols.cvss")}
+                    </th>
+                    <th className="py-2.5 text-end font-semibold">
+                      {t("vuln.cols.exposedDevices")}
+                    </th>
+                    <th className="py-2.5 pe-5 text-start font-semibold">
+                      {t("vuln.cols.exploit")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topVulnCves.map((c) => (
+                    <tr
+                      key={c.cveId}
+                      className="border-t border-border hover:bg-surface-3/40 cursor-pointer"
+                      onClick={onOpenVulns}
+                    >
+                      <td className="ps-5 py-2.5 text-ink-1 tabular keep-ltr">
+                        <a
+                          href={`https://nvd.nist.gov/vuln/detail/${c.cveId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 hover:text-council-strong"
+                        >
+                          {c.cveId}
+                        </a>
+                      </td>
+                      <td className="py-2.5">
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-[0.06em] border ${
+                            c.severity === "Critical"
+                              ? "text-neg bg-neg/10 border-neg/40"
+                              : c.severity === "High"
+                                ? "text-warn bg-warn/10 border-warn/40"
+                                : "text-ink-2 bg-surface-3 border-border"
+                          }`}
+                        >
+                          {c.severity}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-end tabular">
+                        {c.cvssScore != null ? c.cvssScore.toFixed(1) : "—"}
+                      </td>
+                      <td className="py-2.5 text-end tabular">
+                        {fmt(c.affectedDevices)}
+                      </td>
+                      <td className="py-2.5 pe-5">
+                        {c.hasExploit ? (
+                          <span className="text-neg text-[11px] font-semibold uppercase tracking-[0.06em]">
+                            {t("vuln.exploit.yes")}
+                          </span>
+                        ) : (
+                          <span className="text-ink-3 text-[11px]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
     );
   }
 
   function ControlsTab({ payload }: { payload: SecureScorePayload | null }) {
+    // Category filter state must be declared *before* the empty-payload
+    // early-return so React sees the same hook order on every render.
+    const [activeCategory, setActiveCategory] = useState<string>("all");
+
     if (!payload || payload.controls.length === 0) {
       return (
         <Card>
@@ -525,6 +809,28 @@ export default function EntityDetailPage({
         </Card>
       );
     }
+
+    // Distinct categories present in this tenant's Secure Score control list.
+    // Controls whose `category` is null/empty get bucketed under the
+    // "Uncategorized" label so they're still reachable via the filter.
+    const UNCATEGORIZED = "__uncategorized__";
+    const categoryCounts = new Map<string, number>();
+    for (const c of payload.controls) {
+      const key = c.category && c.category.trim().length > 0 ? c.category : UNCATEGORIZED;
+      categoryCounts.set(key, (categoryCounts.get(key) ?? 0) + 1);
+    }
+    const categoriesInOrder = Array.from(categoryCounts.keys()).sort((a, b) => {
+      // Uncategorized always last; real categories alphabetical.
+      if (a === UNCATEGORIZED) return 1;
+      if (b === UNCATEGORIZED) return -1;
+      return a.localeCompare(b);
+    });
+
+    const matchesActive = (cat: string | null): boolean => {
+      if (activeCategory === "all") return true;
+      const key = cat && cat.trim().length > 0 ? cat : UNCATEGORIZED;
+      return key === activeCategory;
+    };
 
     // Classify each control:
     //   passed   — score > 0 AND (score == maxScore, or status looks positive)
@@ -576,13 +882,19 @@ export default function EntityDetailPage({
         .trim();
     };
 
+    const filteredControls = payload.controls.filter((c) =>
+      matchesActive(c.category),
+    );
+
+    // Totals reflect the active filter — operators opening Identity want to
+    // see "how many Identity controls are failing", not the whole tenant.
     const totals = { passed: 0, partial: 0, failed: 0, unknown: 0 };
-    for (const c of payload.controls) totals[classify(c)]++;
+    for (const c of filteredControls) totals[classify(c)]++;
 
     // Sort: failed first, then partial, then unknown, then passed. Within group,
     // sort by category ascending then control id.
     const rank = { failed: 0, partial: 1, unknown: 2, passed: 3 } as const;
-    const rows = [...payload.controls].sort((a, b) => {
+    const rows = [...filteredControls].sort((a, b) => {
       const ra = rank[classify(a)];
       const rb = rank[classify(b)];
       if (ra !== rb) return ra - rb;
@@ -619,6 +931,52 @@ export default function EntityDetailPage({
               </div>
             }
           />
+
+          {/* Category filter pills — match the cluster-chip style from the
+              entities list so the UI stays consistent across tabs. */}
+          <div className="mt-4 flex items-center gap-1 flex-wrap">
+            <span className="text-[11px] text-ink-3 uppercase tracking-wide me-1">
+              {t("tab.controls.filter.label")}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActiveCategory("all")}
+              className={`h-7 px-2.5 text-[11.5px] rounded-md border transition-colors ${
+                activeCategory === "all"
+                  ? "bg-surface-3 text-ink-1 border-border-strong"
+                  : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"
+              }`}
+            >
+              {t("cols.all")}{" "}
+              <span className="text-ink-3 tabular ms-1">
+                {fmt(payload.controls.length)}
+              </span>
+            </button>
+            {categoriesInOrder.map((cat) => {
+              const active = activeCategory === cat;
+              const label =
+                cat === UNCATEGORIZED
+                  ? t("tab.controls.filter.uncategorized")
+                  : cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setActiveCategory(cat)}
+                  className={`h-7 px-2.5 text-[11.5px] rounded-md border transition-colors ${
+                    active
+                      ? "bg-surface-3 text-ink-1 border-border-strong"
+                      : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"
+                  }`}
+                >
+                  {label}
+                  <span className="text-ink-3 tabular ms-1">
+                    {fmt(categoryCounts.get(cat) ?? 0)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]" style={{ tableLayout: "fixed" }}>
@@ -645,6 +1003,16 @@ export default function EntityDetailPage({
               </tr>
             </thead>
             <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="py-8 text-center text-[12.5px] text-ink-3"
+                  >
+                    {t("tab.controls.filter.empty")}
+                  </td>
+                </tr>
+              ) : null}
               {rows.map((c) => {
                 const kind = classify(c);
                 const tint =
@@ -748,90 +1116,629 @@ export default function EntityDetailPage({
   }
 
   function IncidentsTab({ payload }: { payload: IncidentsPayload | null }) {
-    if (!payload) return <Card><div className="text-ink-3 text-[13px]">{t("sync.never")}</div></Card>;
+    const [drill, setDrill] = useState<Incident | null>(null);
+    if (!payload)
+      return (
+        <Card>
+          <div className="text-ink-3 text-[13px]">{t("sync.never")}</div>
+        </Card>
+      );
     return (
-      <Card className="p-0">
-        <div className="p-5">
-          <CardHeader
-            title={t("tab.incidents.title")}
-            subtitle={t("tab.incidents.subtitle")}
-            right={
-              <div className="text-[12px] text-ink-2 tabular">
-                {t("tab.incidents.summary", {
-                  total: fmt(payload.total),
-                  active: fmt(payload.active),
-                  resolved: fmt(payload.resolved),
-                })}
-              </div>
-            }
-          />
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em] border-t border-border">
-                <th className="py-2.5 ps-5 text-start font-semibold">{t("tab.incidents.col.name")}</th>
-                <th className="py-2.5 text-start font-semibold">{t("tab.incidents.col.severity")}</th>
-                <th className="py-2.5 text-start font-semibold">{t("tab.incidents.col.status")}</th>
-                <th className="py-2.5 text-end font-semibold">{t("tab.incidents.col.alerts")}</th>
-                <th className="py-2.5 pe-5 text-start font-semibold">{t("tab.incidents.col.updated")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payload.incidents.slice(0, 50).map((i) => (
-                <tr key={i.id} className="border-t border-border">
-                  <td className="ps-5 py-2.5 text-ink-1">{i.displayName}</td>
-                  <td className="py-2.5"><SeverityChip sev={i.severity} /></td>
-                  <td className="py-2.5"><StatusChip status={i.status} /></td>
-                  <td className="py-2.5 text-end tabular">{i.alertCount != null ? fmt(i.alertCount) : "—"}</td>
-                  <td className="py-2.5 pe-5 text-ink-3 tabular">{fmtRelative(i.lastUpdateDateTime)}</td>
+      <>
+        <Card className="p-0">
+          <div className="p-5">
+            <CardHeader
+              title={t("tab.incidents.title")}
+              subtitle={t("tab.incidents.subtitle")}
+              right={
+                <div className="text-[12px] text-ink-2 tabular">
+                  {t("tab.incidents.summary", {
+                    total: fmt(payload.total),
+                    active: fmt(payload.active),
+                    resolved: fmt(payload.resolved),
+                  })}
+                </div>
+              }
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em] border-t border-border">
+                  <th className="py-2.5 ps-5 text-start font-semibold">{t("tab.incidents.col.name")}</th>
+                  <th className="py-2.5 text-start font-semibold">{t("tab.incidents.col.severity")}</th>
+                  <th className="py-2.5 text-start font-semibold">{t("tab.incidents.col.status")}</th>
+                  <th className="py-2.5 text-end font-semibold">{t("tab.incidents.col.alerts")}</th>
+                  <th className="py-2.5 pe-5 text-start font-semibold">{t("tab.incidents.col.updated")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+              </thead>
+              <tbody>
+                {payload.incidents.slice(0, 50).map((i) => (
+                  <tr
+                    key={i.id}
+                    className="border-t border-border cursor-pointer hover:bg-surface-3/40"
+                    onClick={() => setDrill(i)}
+                  >
+                    <td className="ps-5 py-2.5 text-ink-1 hover:text-council-strong">
+                      {i.displayName}
+                    </td>
+                    <td className="py-2.5"><SeverityChip sev={i.severity} /></td>
+                    <td className="py-2.5"><StatusChip status={i.status} /></td>
+                    <td className="py-2.5 text-end tabular">{i.alertCount != null ? fmt(i.alertCount) : "—"}</td>
+                    <td className="py-2.5 pe-5 text-ink-3 tabular">{fmtRelative(i.lastUpdateDateTime)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {drill ? (
+          <IncidentDetailsModal incident={drill} onClose={() => setDrill(null)} />
+        ) : null}
+      </>
     );
   }
 
-  function IdentityTab({ payload }: { payload: RiskyUsersPayload | null }) {
-    if (!payload) return <Card><div className="text-ink-3 text-[13px]">{t("sync.never")}</div></Card>;
+  function IncidentDetailsModal({
+    incident,
+    onClose,
+  }: {
+    incident: Incident;
+    onClose: () => void;
+  }) {
     return (
-      <Card className="p-0">
-        <div className="p-5">
+      <Modal open onClose={onClose} size="wide" title={incident.displayName}>
+        <div className="flex flex-col gap-4">
+          {/* Top row — severity + status + alert count + IDs */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <SeverityChip sev={incident.severity} />
+            <StatusChip status={incident.status} />
+            <span className="text-[11.5px] text-ink-3">
+              {t("tab.incidents.col.alerts")}:{" "}
+              <span className="text-ink-2 tabular">
+                {incident.alertCount != null ? fmt(incident.alertCount) : "—"}
+              </span>
+            </span>
+            <span className="text-[11.5px] text-ink-3 keep-ltr ms-auto">
+              ID {incident.id}
+            </span>
+          </div>
+
+          {/* Timestamps */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <LabelledValue
+              label={t("tab.incidents.drill.created")}
+              value={fmtRelative(incident.createdDateTime)}
+            />
+            <LabelledValue
+              label={t("tab.incidents.drill.updated")}
+              value={fmtRelative(incident.lastUpdateDateTime)}
+            />
+          </div>
+
+          {/* Classification / determination / assignee */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <LabelledValue
+              label={t("tab.incidents.drill.classification")}
+              value={
+                incident.classification
+                  ? t(
+                      `incidentClassification.${incident.classification}` as DictKey,
+                      {},
+                    ) || incident.classification
+                  : t("tab.incidents.drill.unclassified")
+              }
+            />
+            <LabelledValue
+              label={t("tab.incidents.drill.determination")}
+              value={
+                incident.determination
+                  ? t(
+                      `incidentDetermination.${incident.determination}` as DictKey,
+                      {},
+                    ) || incident.determination
+                  : "—"
+              }
+            />
+            <LabelledValue
+              label={t("tab.incidents.drill.assignedTo")}
+              value={incident.assignedTo ?? t("tab.incidents.drill.unassigned")}
+              mono={!!incident.assignedTo}
+            />
+          </div>
+
+          {/* Tags */}
+          {incident.tags.length > 0 ? (
+            <div>
+              <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mb-1">
+                {t("tab.incidents.drill.tags")}
+              </div>
+              <div className="flex items-center gap-1 flex-wrap">
+                {incident.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center h-6 px-2 rounded border border-border bg-surface-2 text-[11px] text-ink-2"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* External link to Defender portal */}
+          {incident.incidentWebUrl ? (
+            <div className="pt-2 border-t border-border">
+              <a
+                href={incident.incidentWebUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-council-strong text-white text-[12.5px] font-semibold"
+              >
+                <ExternalLink size={13} />
+                {t("tab.incidents.drill.openInDefender")}
+              </a>
+              <div className="text-[11px] text-ink-3 mt-2">
+                {t("tab.incidents.drill.defenderHint")}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </Modal>
+    );
+  }
+
+  function LabelledValue({
+    label,
+    value,
+    mono,
+  }: {
+    label: string;
+    value: React.ReactNode;
+    mono?: boolean;
+  }) {
+    return (
+      <div className="rounded-md border border-border bg-surface-1 p-3">
+        <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mb-0.5">
+          {label}
+        </div>
+        <div
+          className={`text-[13px] text-ink-1 ${mono ? "tabular keep-ltr" : ""}`}
+        >
+          {value}
+        </div>
+      </div>
+    );
+  }
+
+  function IdentityTab({
+    risky,
+    pim,
+    dfi,
+    view,
+    setView,
+  }: {
+    risky: RiskyUsersPayload | null;
+    pim: PimSprawlPayload | null;
+    dfi: DfiSensorHealthPayload | null;
+    view: IdentityView;
+    setView: (v: IdentityView) => void;
+  }) {
+    // Sub-view filter state — which of the three identity surfaces is active.
+    const views: Array<{
+      id: IdentityView;
+      labelKey:
+        | "tab.identity.view.risky"
+        | "tab.identity.view.privileged"
+        | "tab.identity.view.sensors";
+      count: number;
+    }> = [
+      {
+        id: "risky",
+        labelKey: "tab.identity.view.risky",
+        count: risky?.atRisk ?? 0,
+      },
+      {
+        id: "privileged",
+        labelKey: "tab.identity.view.privileged",
+        count: pim?.privilegedRoleAssignments ?? 0,
+      },
+      {
+        id: "sensors",
+        labelKey: "tab.identity.view.sensors",
+        count: dfi?.unhealthy ?? 0,
+      },
+    ];
+
+    return (
+      <div className="flex flex-col gap-4">
+        {/* Sub-view pill bar */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] text-ink-3 uppercase tracking-wide me-1">
+            {t("tab.identity.view.label")}
+          </span>
+          {views.map((v) => {
+            const active = view === v.id;
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => setView(v.id)}
+                className={`inline-flex items-center h-7 px-2.5 text-[11.5px] rounded-md border transition-colors ${
+                  active
+                    ? "bg-surface-3 text-ink-1 border-border-strong"
+                    : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"
+                }`}
+              >
+                {t(v.labelKey)}
+                <span
+                  className={`tabular ms-1.5 ${v.count > 0 ? (v.id === "risky" && (risky?.atRisk ?? 0) > 0 ? "text-warn" : v.id === "sensors" && (dfi?.unhealthy ?? 0) > 0 ? "text-neg" : "text-ink-2") : "text-ink-3"}`}
+                >
+                  {fmt(v.count)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {view === "risky" ? (
+          <RiskyUsersSection payload={risky} />
+        ) : view === "privileged" ? (
+          <PrivilegedRolesSection payload={pim} />
+        ) : (
+          <SensorHealthSection payload={dfi} />
+        )}
+      </div>
+    );
+  }
+
+  function RiskyUsersSection({ payload }: { payload: RiskyUsersPayload | null }) {
+    const [levelFilter, setLevelFilter] = useState<string>("all");
+    const [stateFilter, setStateFilter] = useState<string>("all");
+    const [helpOpen, setHelpOpen] = useState(false);
+    const [drillUser, setDrillUser] = useState<RiskyUser | null>(null);
+
+    if (!payload || payload.users.length === 0) {
+      return (
+        <Card>
           <CardHeader
             title={t("tab.identity.title")}
             subtitle={t("tab.identity.subtitle")}
+          />
+          <div className="text-ink-3 text-[13px]">
+            {!payload ? t("sync.never") : t("tab.identity.empty")}
+          </div>
+        </Card>
+      );
+    }
+
+    const levels = Array.from(new Set(payload.users.map((u) => u.riskLevel))).sort();
+    const states = Array.from(new Set(payload.users.map((u) => u.riskState))).sort();
+
+    const filtered = payload.users.filter(
+      (u) =>
+        (levelFilter === "all" || u.riskLevel === levelFilter) &&
+        (stateFilter === "all" || u.riskState === stateFilter),
+    );
+
+    return (
+      <>
+        <Card className="p-0">
+          <div className="p-5 border-b border-border">
+            <CardHeader
+              title={t("tab.identity.title")}
+              subtitle={t("tab.identity.subtitle")}
+              right={
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setHelpOpen((v) => !v)}
+                    className="inline-flex items-center gap-1 h-6 px-2 rounded border border-border text-ink-3 hover:text-ink-1 hover:bg-surface-3 text-[11px]"
+                  >
+                    {t("tab.identity.helpBtn")}
+                  </button>
+                  <div className="text-[12px] text-ink-2 tabular">
+                    {t("tab.identity.summary", {
+                      atRisk: fmt(payload.atRisk),
+                      total: fmt(payload.total),
+                    })}
+                  </div>
+                </div>
+              }
+            />
+            {helpOpen ? (
+              <div className="mt-3 rounded-md border border-border bg-surface-1 p-3 text-[12.5px] text-ink-2 leading-relaxed">
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <div className="text-ink-1 font-semibold mb-1">
+                      {t("tab.identity.help.levelTitle")}
+                    </div>
+                    <p>{t("tab.identity.help.levelBody")}</p>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-ink-1 font-semibold mb-1">
+                      {t("tab.identity.help.stateTitle")}
+                    </div>
+                    <p>{t("tab.identity.help.stateBody")}</p>
+                  </div>
+                </div>
+                <div className="mt-2 text-[11.5px] text-ink-3">
+                  {t("tab.identity.help.clickHint")}
+                </div>
+              </div>
+            ) : null}
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <FilterGroup
+                label={t("tab.identity.filter.level")}
+                options={[{ id: "all", label: t("cols.all") }, ...levels.map((l) => ({ id: l, label: l }))]}
+                value={levelFilter}
+                onChange={setLevelFilter}
+              />
+              <FilterGroup
+                label={t("tab.identity.filter.state")}
+                options={[{ id: "all", label: t("cols.all") }, ...states.map((s) => ({ id: s, label: s }))]}
+                value={stateFilter}
+                onChange={setStateFilter}
+              />
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em]">
+                  <th className="py-2.5 ps-5 text-start font-semibold">{t("tab.identity.col.user")}</th>
+                  <th className="py-2.5 text-start font-semibold">{t("tab.identity.col.level")}</th>
+                  <th className="py-2.5 text-start font-semibold">{t("tab.identity.col.state")}</th>
+                  <th className="py-2.5 pe-5 text-start font-semibold">{t("tab.identity.col.updated")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-[12.5px] text-ink-3">
+                      {t("tab.identity.filter.empty")}
+                    </td>
+                  </tr>
+                ) : null}
+                {filtered.slice(0, 200).map((u) => {
+                  const canDrill =
+                    (u.riskState === "atRisk" ||
+                      u.riskState === "confirmedCompromised") &&
+                    (u.detections?.length ?? 0) > 0;
+                  return (
+                    <tr key={u.id} className="border-t border-border">
+                      <td className="ps-5 py-2.5">
+                        <div className="text-ink-1">{u.displayName ?? u.userPrincipalName}</div>
+                        <div className="text-[11.5px] text-ink-3 keep-ltr">{u.userPrincipalName}</div>
+                      </td>
+                      <td className="py-2.5"><RiskChip level={u.riskLevel} /></td>
+                      <td className="py-2.5">
+                        {canDrill ? (
+                          <button
+                            type="button"
+                            onClick={() => setDrillUser(u)}
+                            className="inline-flex items-center"
+                            title={t("tab.identity.clickToExplain")}
+                          >
+                            <RiskStateChip state={u.riskState} />
+                            <span className="ms-1 text-[11px] text-ink-3 underline underline-offset-2 decoration-dotted">
+                              {t("tab.identity.why")}
+                            </span>
+                          </button>
+                        ) : (
+                          <RiskStateChip state={u.riskState} />
+                        )}
+                      </td>
+                      <td className="py-2.5 pe-5 text-ink-3 tabular">{fmtRelative(u.riskLastUpdatedDateTime)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {drillUser ? (
+          <RiskyUserDetailsModal
+            user={drillUser}
+            onClose={() => setDrillUser(null)}
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  function RiskyUserDetailsModal({
+    user,
+    onClose,
+  }: {
+    user: RiskyUser;
+    onClose: () => void;
+  }) {
+    return (
+      <Modal
+        open
+        onClose={onClose}
+        size="wide"
+        title={t("tab.identity.why.title", {
+          user: user.displayName ?? user.userPrincipalName,
+        })}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="rounded-md border border-border bg-surface-1 p-3 text-[12.5px] text-ink-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-ink-3 uppercase tracking-wide text-[10.5px]">
+                {t("tab.identity.col.user")}
+              </span>
+              <span className="text-ink-1 keep-ltr">{user.userPrincipalName}</span>
+              <span className="text-ink-3">·</span>
+              <span className="text-ink-3 uppercase tracking-wide text-[10.5px]">
+                {t("tab.identity.col.level")}
+              </span>
+              <RiskChip level={user.riskLevel} />
+              <span className="text-ink-3">·</span>
+              <span className="text-ink-3 uppercase tracking-wide text-[10.5px]">
+                {t("tab.identity.col.state")}
+              </span>
+              <RiskStateChip state={user.riskState} />
+            </div>
+          </div>
+
+          <div className="text-[12.5px] text-ink-2 leading-relaxed">
+            {t("tab.identity.why.subtitle")}
+          </div>
+
+          {user.detections.length === 0 ? (
+            <div className="rounded-md border border-warn/40 bg-warn/10 p-3 text-[12.5px] text-ink-1">
+              {t("tab.identity.why.noDetections")}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12.5px]">
+                <thead>
+                  <tr className="text-ink-3 text-[10.5px] uppercase tracking-[0.06em]">
+                    <th className="py-1.5 text-start font-semibold">
+                      {t("tab.identity.why.event")}
+                    </th>
+                    <th className="py-1.5 text-start font-semibold">
+                      {t("tab.identity.why.severity")}
+                    </th>
+                    <th className="py-1.5 text-start font-semibold">
+                      {t("tab.identity.why.location")}
+                    </th>
+                    <th className="py-1.5 text-start font-semibold">
+                      {t("tab.identity.why.ip")}
+                    </th>
+                    <th className="py-1.5 text-start font-semibold">
+                      {t("tab.identity.why.detected")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {user.detections.map((d) => (
+                    <tr key={d.id} className="border-t border-border align-top">
+                      <td className="py-2 pe-3">
+                        <div className="text-ink-1 font-medium">
+                          {t(
+                            `riskEvent.${d.riskEventType}` as DictKey,
+                            {},
+                          ) || d.riskEventType}
+                        </div>
+                        {d.riskDetail ? (
+                          <div className="text-[11.5px] text-ink-3 mt-0.5">
+                            {d.riskDetail}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="py-2 pe-3">
+                        <RiskChip level={d.riskLevel} />
+                      </td>
+                      <td className="py-2 pe-3 text-ink-2">
+                        {d.city && d.countryOrRegion
+                          ? `${d.city}, ${d.countryOrRegion}`
+                          : d.countryOrRegion ?? "—"}
+                      </td>
+                      <td className="py-2 pe-3 text-ink-3 keep-ltr tabular">
+                        {d.ipAddress ?? "—"}
+                      </td>
+                      <td className="py-2 pe-3 text-ink-3 tabular">
+                        {fmtRelative(d.detectedDateTime)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Modal>
+    );
+  }
+
+  function PrivilegedRolesSection({ payload }: { payload: PimSprawlPayload | null }) {
+    if (!payload) {
+      return (
+        <Card>
+          <CardHeader
+            title={t("tab.identity.pim.title")}
+            subtitle={t("tab.identity.pim.subtitle")}
+          />
+          <div className="text-ink-3 text-[13px]">{t("sync.never")}</div>
+        </Card>
+      );
+    }
+
+    const roleRows = Object.entries(payload.byRole)
+      .map(([role, counts]) => ({ role, ...counts, total: counts.active + counts.eligible }))
+      .sort((a, b) => b.total - a.total);
+
+    return (
+      <Card className="p-0">
+        <div className="p-5 border-b border-border">
+          <CardHeader
+            title={t("tab.identity.pim.title")}
+            subtitle={t("tab.identity.pim.subtitle")}
             right={
               <div className="text-[12px] text-ink-2 tabular">
-                {t("tab.identity.summary", {
-                  atRisk: fmt(payload.atRisk),
-                  total: fmt(payload.total),
+                {t("tab.identity.pim.summary", {
+                  active: fmt(payload.activeAssignments),
+                  eligible: fmt(payload.eligibleAssignments),
+                  privileged: fmt(payload.privilegedRoleAssignments),
                 })}
               </div>
             }
           />
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <MiniStat
+              label={t("tab.identity.pim.activeKpi")}
+              value={fmt(payload.activeAssignments)}
+              tone={undefined}
+            />
+            <MiniStat
+              label={t("tab.identity.pim.eligibleKpi")}
+              value={fmt(payload.eligibleAssignments)}
+              tone={undefined}
+            />
+            <MiniStat
+              label={t("tab.identity.pim.privilegedKpi")}
+              value={fmt(payload.privilegedRoleAssignments)}
+              tone={payload.privilegedRoleAssignments > 10 ? "warn" : undefined}
+            />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em] border-t border-border">
-                <th className="py-2.5 ps-5 text-start font-semibold">{t("tab.identity.col.user")}</th>
-                <th className="py-2.5 text-start font-semibold">{t("tab.identity.col.level")}</th>
-                <th className="py-2.5 text-start font-semibold">{t("tab.identity.col.state")}</th>
-                <th className="py-2.5 pe-5 text-start font-semibold">{t("tab.identity.col.updated")}</th>
+              <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em]">
+                <th className="py-2.5 ps-5 text-start font-semibold">
+                  {t("tab.identity.pim.col.role")}
+                </th>
+                <th className="py-2.5 text-end font-semibold">
+                  {t("tab.identity.pim.col.active")}
+                </th>
+                <th className="py-2.5 text-end font-semibold">
+                  {t("tab.identity.pim.col.eligible")}
+                </th>
+                <th className="py-2.5 pe-5 text-end font-semibold">
+                  {t("tab.identity.pim.col.total")}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {payload.users.slice(0, 100).map((u) => (
-                <tr key={u.id} className="border-t border-border">
-                  <td className="ps-5 py-2.5">
-                    <div className="text-ink-1">{u.displayName ?? u.userPrincipalName}</div>
-                    <div className="text-[11.5px] text-ink-3 keep-ltr">{u.userPrincipalName}</div>
+              {roleRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-[12.5px] text-ink-3">
+                    {t("tab.identity.pim.empty")}
                   </td>
-                  <td className="py-2.5"><RiskChip level={u.riskLevel} /></td>
-                  <td className="py-2.5"><RiskStateChip state={u.riskState} /></td>
-                  <td className="py-2.5 pe-5 text-ink-3 tabular">{fmtRelative(u.riskLastUpdatedDateTime)}</td>
+                </tr>
+              ) : null}
+              {roleRows.map((r) => (
+                <tr key={r.role} className="border-t border-border">
+                  <td className="ps-5 py-2.5 text-ink-1">{r.role}</td>
+                  <td className="py-2.5 text-end tabular text-ink-1">{fmt(r.active)}</td>
+                  <td className="py-2.5 text-end tabular text-ink-2">{fmt(r.eligible)}</td>
+                  <td className="py-2.5 pe-5 text-end tabular text-ink-1 font-semibold">{fmt(r.total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -841,8 +1748,250 @@ export default function EntityDetailPage({
     );
   }
 
-  function DevicesTab({ payload }: { payload: DevicesPayload | null }) {
-    if (!payload) return <Card><div className="text-ink-3 text-[13px]">{t("sync.never")}</div></Card>;
+  function SensorHealthSection({ payload }: { payload: DfiSensorHealthPayload | null }) {
+    const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [severityFilter, setSeverityFilter] = useState<string>("all");
+
+    if (!payload) {
+      return (
+        <Card>
+          <CardHeader
+            title={t("tab.identity.dfi.title")}
+            subtitle={t("tab.identity.dfi.subtitle")}
+          />
+          <div className="text-ink-3 text-[13px]">{t("sync.never")}</div>
+        </Card>
+      );
+    }
+
+    const statuses = Array.from(new Set(payload.issues.map((i) => i.status))).sort();
+    const severities = Array.from(new Set(payload.issues.map((i) => i.severity))).sort();
+
+    const filteredIssues = payload.issues.filter(
+      (i) =>
+        (statusFilter === "all" || i.status === statusFilter) &&
+        (severityFilter === "all" || i.severity === severityFilter),
+    );
+
+    return (
+      <Card className="p-0">
+        <div className="p-5 border-b border-border">
+          <CardHeader
+            title={t("tab.identity.dfi.title")}
+            subtitle={t("tab.identity.dfi.subtitle")}
+            right={
+              <div className="text-[12px] text-ink-2 tabular">
+                {t("tab.identity.dfi.summary", {
+                  total: fmt(payload.total),
+                  healthy: fmt(payload.healthy),
+                  unhealthy: fmt(payload.unhealthy),
+                })}
+              </div>
+            }
+          />
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <MiniStat
+              label={t("tab.identity.dfi.totalKpi")}
+              value={fmt(payload.total)}
+              tone={undefined}
+            />
+            <MiniStat
+              label={t("tab.identity.dfi.healthyKpi")}
+              value={fmt(payload.healthy)}
+              tone="pos"
+            />
+            <MiniStat
+              label={t("tab.identity.dfi.unhealthyKpi")}
+              value={fmt(payload.unhealthy)}
+              tone={payload.unhealthy > 0 ? "neg" : undefined}
+            />
+          </div>
+          {payload.issues.length > 0 ? (
+            <div className="mt-4 flex items-center gap-2 flex-wrap">
+              <FilterGroup
+                label={t("tab.identity.dfi.filter.severity")}
+                options={[
+                  { id: "all", label: t("cols.all") },
+                  ...severities.map((s) => ({ id: s, label: s })),
+                ]}
+                value={severityFilter}
+                onChange={setSeverityFilter}
+              />
+              <FilterGroup
+                label={t("tab.identity.dfi.filter.status")}
+                options={[
+                  { id: "all", label: t("cols.all") },
+                  ...statuses.map((s) => ({ id: s, label: s })),
+                ]}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
+            </div>
+          ) : null}
+        </div>
+        {payload.issues.length === 0 ? (
+          <div className="p-6 text-center text-[12.5px] text-ink-3">
+            {payload.total === 0
+              ? t("tab.identity.dfi.notLicensed")
+              : t("tab.identity.dfi.allHealthy")}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em]">
+                  <th className="py-2.5 ps-5 text-start font-semibold">
+                    {t("tab.identity.dfi.col.sensor")}
+                  </th>
+                  <th className="py-2.5 text-start font-semibold">
+                    {t("tab.identity.dfi.col.severity")}
+                  </th>
+                  <th className="py-2.5 text-start font-semibold">
+                    {t("tab.identity.dfi.col.status")}
+                  </th>
+                  <th className="py-2.5 text-start font-semibold">
+                    {t("tab.identity.dfi.col.category")}
+                  </th>
+                  <th className="py-2.5 pe-5 text-start font-semibold">
+                    {t("tab.identity.dfi.col.created")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredIssues.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-[12.5px] text-ink-3">
+                      {t("tab.identity.dfi.filter.empty")}
+                    </td>
+                  </tr>
+                ) : null}
+                {filteredIssues.slice(0, 200).map((i) => {
+                  const sevTone =
+                    i.severity === "high"
+                      ? "text-neg bg-neg/10"
+                      : i.severity === "medium"
+                        ? "text-warn bg-warn/10"
+                        : "text-ink-2 bg-surface-3";
+                  return (
+                    <tr key={i.id} className="border-t border-border">
+                      <td className="ps-5 py-2.5 text-ink-1">{i.displayName}</td>
+                      <td className="py-2.5">
+                        <span
+                          className={`inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-[0.06em] ${sevTone}`}
+                        >
+                          {i.severity}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-ink-2">{i.status}</td>
+                      <td className="py-2.5 text-ink-3">{i.category ?? "—"}</td>
+                      <td className="py-2.5 pe-5 text-ink-3 tabular">
+                        {fmtRelative(i.createdDateTime)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    );
+  }
+
+  function FilterGroup({
+    label,
+    options,
+    value,
+    onChange,
+  }: {
+    label: string;
+    options: Array<{ id: string; label: string }>;
+    value: string;
+    onChange: (v: string) => void;
+  }) {
+    return (
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className="text-[11px] text-ink-3 uppercase tracking-wide me-1">
+          {label}
+        </span>
+        {options.map((o) => {
+          const active = value === o.id;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => onChange(o.id)}
+              className={`h-6 px-2 text-[11px] rounded border transition-colors ${
+                active
+                  ? "bg-surface-3 text-ink-1 border-border-strong"
+                  : "text-ink-3 border-border hover:text-ink-1 hover:bg-surface-3"
+              }`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function DevicesTab({
+    payload,
+    vulns,
+    sortByCves,
+  }: {
+    payload: DevicesPayload | null;
+    vulns: VulnerabilitiesPayload | null;
+    sortByCves: boolean;
+  }) {
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+
+    // Index CVE-per-device from the Defender TVM payload (if available).
+    // Match on deviceName first (works for demos + Azure-AD-joined hosts where
+    // MDE sees the same hostname Intune does).
+    const vulnByDeviceName = useMemo(() => {
+      const m = new Map<string, NonNullable<typeof vulns>["byDevice"][number]>();
+      if (vulns?.byDevice) {
+        for (const d of vulns.byDevice) {
+          if (d.deviceName) m.set(d.deviceName.trim().toLowerCase(), d);
+        }
+      }
+      return m;
+    }, [vulns]);
+
+    const cveIndex = useMemo(() => {
+      const m = new Map<string, VulnerabilitiesPayload["topCves"][number]>();
+      if (vulns?.topCves) {
+        for (const c of vulns.topCves) m.set(c.cveId, c);
+      }
+      return m;
+    }, [vulns]);
+
+    // When arriving via /vulnerabilities → entity drill-down, the operator's
+    // intent is "which devices need patching?" — sort to put CVE-affected
+    // hosts at the top regardless of alphabetic / last-sync order.
+    const orderedDevices = useMemo(() => {
+      if (!payload) return [];
+      if (!sortByCves) return payload.devices;
+      return payload.devices.slice().sort((a, b) => {
+        const av = vulnByDeviceName.get((a.deviceName ?? "").trim().toLowerCase());
+        const bv = vulnByDeviceName.get((b.deviceName ?? "").trim().toLowerCase());
+        const aCrit = av?.critical ?? 0;
+        const bCrit = bv?.critical ?? 0;
+        if (aCrit !== bCrit) return bCrit - aCrit;
+        const aTot = av?.cveCount ?? 0;
+        const bTot = bv?.cveCount ?? 0;
+        return bTot - aTot;
+      });
+    }, [payload, sortByCves, vulnByDeviceName]);
+
+    if (!payload)
+      return (
+        <Card>
+          <div className="text-ink-3 text-[13px]">{t("sync.never")}</div>
+        </Card>
+      );
+
     return (
       <Card className="p-0">
         <div className="p-5">
@@ -868,28 +2017,1325 @@ export default function EntityDetailPage({
                 <th className="py-2.5 text-start font-semibold">{t("tab.devices.col.user")}</th>
                 <th className="py-2.5 text-start font-semibold">{t("tab.devices.col.state")}</th>
                 <th className="py-2.5 text-start font-semibold">{t("tab.devices.col.encrypted")}</th>
-                <th className="py-2.5 pe-5 text-start font-semibold">{t("tab.devices.col.lastSync")}</th>
+                <th className="py-2.5 pe-5 text-end font-semibold">{t("tab.devices.col.cves")}</th>
               </tr>
             </thead>
             <tbody>
-              {payload.devices.slice(0, 100).map((d) => (
-                <tr key={d.id} className="border-t border-border">
-                  <td className="ps-5 py-2.5 text-ink-1 keep-ltr">{d.deviceName}</td>
-                  <td className="py-2.5 text-ink-2">{d.operatingSystem}{d.osVersion ? ` · ${d.osVersion}` : ""}</td>
-                  <td className="py-2.5 text-ink-3 keep-ltr">{d.userPrincipalName ?? "—"}</td>
-                  <td className="py-2.5"><ComplianceChip state={d.complianceState} /></td>
-                  <td className="py-2.5">
-                    {d.isEncrypted === true ? <span className="text-pos">✓</span> : d.isEncrypted === false ? <span className="text-neg">✗</span> : <span className="text-ink-3">—</span>}
-                  </td>
-                  <td className="py-2.5 pe-5 text-ink-3 tabular">
-                    {d.lastSyncDateTime ? fmtRelative(d.lastSyncDateTime) : "—"}
-                  </td>
-                </tr>
-              ))}
+              {orderedDevices.slice(0, 100).map((d) => {
+                const key = (d.deviceName ?? "").trim().toLowerCase();
+                const vulnEntry = vulnByDeviceName.get(key) ?? null;
+                const expanded = expandedId === d.id;
+                const canExpand = !!vulnEntry && vulnEntry.cveIds.length > 0;
+                return (
+                  <Fragment key={d.id}>
+                    <tr className="border-t border-border hover:bg-surface-3/40">
+                      <td className="ps-5 py-2.5 text-ink-1 keep-ltr">
+                        {d.deviceName}
+                      </td>
+                      <td className="py-2.5 text-ink-2">
+                        {d.operatingSystem}
+                        {d.osVersion ? ` · ${d.osVersion}` : ""}
+                      </td>
+                      <td className="py-2.5 text-ink-3 keep-ltr">
+                        {d.userPrincipalName ?? "—"}
+                      </td>
+                      <td className="py-2.5">
+                        <ComplianceChip state={d.complianceState} />
+                      </td>
+                      <td className="py-2.5">
+                        {d.isEncrypted === true ? (
+                          <span className="text-pos">✓</span>
+                        ) : d.isEncrypted === false ? (
+                          <span className="text-neg">✗</span>
+                        ) : (
+                          <span className="text-ink-3">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pe-5 text-end tabular">
+                        {vulnEntry && vulnEntry.cveCount > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedId(expanded ? null : d.id)
+                            }
+                            aria-expanded={expanded}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold transition-colors ${
+                              vulnEntry.critical > 0
+                                ? "border-neg/40 bg-neg/10 text-neg hover:bg-neg/20"
+                                : vulnEntry.high > 0
+                                  ? "border-warn/40 bg-warn/10 text-warn hover:bg-warn/20"
+                                  : "border-border bg-surface-2 text-ink-1 hover:bg-surface-3"
+                            }`}
+                            title={t("tab.devices.col.cvesHint")}
+                          >
+                            <ChevronRight
+                              size={11}
+                              className={`transition-transform ${
+                                expanded ? "rotate-90" : ""
+                              }`}
+                            />
+                            {fmt(vulnEntry.cveCount)}
+                          </button>
+                        ) : vulnEntry ? (
+                          <span className="text-ink-3">{fmt(0)}</span>
+                        ) : (
+                          <span className="text-ink-3">—</span>
+                        )}
+                      </td>
+                    </tr>
+                    {expanded && vulnEntry ? (
+                      <tr className="bg-surface-1">
+                        <td colSpan={6} className="ps-8 pe-5 py-3">
+                          <DeviceCveDrilldown
+                            cveIds={vulnEntry.cveIds}
+                            cveIndex={cveIndex}
+                            remediationTracked={vulns?.remediationTracked === true}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Card>
+    );
+  }
+
+  function DeviceCveDrilldown({
+    cveIds,
+    cveIndex,
+    remediationTracked,
+  }: {
+    cveIds: string[];
+    cveIndex: Map<string, VulnerabilitiesPayload["topCves"][number]>;
+    remediationTracked: boolean;
+  }) {
+    if (cveIds.length === 0) {
+      return (
+        <div className="text-[12.5px] text-ink-3">
+          {t("tab.devices.drilldown.empty")}
+        </div>
+      );
+    }
+    // Join against the CVE index to enrich with severity / exploit / remediated.
+    const enriched = cveIds
+      .map((id) => cveIndex.get(id))
+      .filter(
+        (c): c is VulnerabilitiesPayload["topCves"][number] => c !== undefined,
+      )
+      .sort((a, b) => {
+        const rank = (s: string) =>
+          s === "Critical" ? 4 : s === "High" ? 3 : s === "Medium" ? 2 : s === "Low" ? 1 : 0;
+        return rank(b.severity) - rank(a.severity);
+      });
+
+    return (
+      <div>
+        <div className="text-[11.5px] text-ink-3 uppercase tracking-wide mb-2">
+          {t("tab.devices.drilldown.title", { count: fmt(enriched.length) })}
+        </div>
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="text-ink-3 text-[10.5px] uppercase tracking-[0.06em]">
+              <th className="py-1.5 text-start font-semibold">{t("vuln.cols.cve")}</th>
+              <th className="py-1.5 text-start font-semibold">{t("vuln.cols.severity")}</th>
+              <th className="py-1.5 text-end font-semibold">{t("vuln.cols.cvss")}</th>
+              <th className="py-1.5 text-start font-semibold">{t("vuln.cols.exploit")}</th>
+              <th className="py-1.5 text-end font-semibold">{t("vuln.cols.exposedDevices")}</th>
+              <th className="py-1.5 text-end font-semibold">{t("vuln.cols.remediatedDevices")}</th>
+              <th className="py-1.5 text-start font-semibold">{t("vuln.cols.published")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {enriched.map((c) => {
+              const tone =
+                c.severity === "Critical"
+                  ? "text-neg bg-neg/10 border-neg/40"
+                  : c.severity === "High"
+                    ? "text-warn bg-warn/10 border-warn/40"
+                    : "text-ink-2 bg-surface-3 border-border";
+              return (
+                <tr key={c.cveId} className="border-t border-border/60">
+                  <td className="py-1.5 text-ink-1 tabular keep-ltr">
+                    <a
+                      href={`https://nvd.nist.gov/vuln/detail/${c.cveId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 hover:text-council-strong"
+                    >
+                      {c.cveId}
+                      <ExternalLink size={10} className="text-ink-3" />
+                    </a>
+                  </td>
+                  <td className="py-1.5">
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.06em] border ${tone}`}
+                    >
+                      {c.severity}
+                    </span>
+                  </td>
+                  <td className="py-1.5 text-end tabular">
+                    {c.cvssScore != null ? c.cvssScore.toFixed(1) : "—"}
+                  </td>
+                  <td className="py-1.5">
+                    {c.hasExploit ? (
+                      <span className="text-neg text-[10.5px] font-semibold uppercase tracking-[0.06em]">
+                        {t("vuln.exploit.yes")}
+                      </span>
+                    ) : (
+                      <span className="text-ink-3 text-[10.5px]">—</span>
+                    )}
+                  </td>
+                  <td className="py-1.5 text-end tabular">{fmt(c.affectedDevices)}</td>
+                  <td className="py-1.5 text-end tabular">
+                    {remediationTracked ? (
+                      <span className="text-pos font-semibold">
+                        {fmt(c.remediatedDevices)}
+                      </span>
+                    ) : (
+                      <span className="text-ink-3">—</span>
+                    )}
+                  </td>
+                  <td className="py-1.5 text-ink-3 tabular keep-ltr text-[11px]">
+                    {c.publishedDateTime ? c.publishedDateTime.slice(0, 10) : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function DataTab({
+    dlp,
+    irm,
+    commComp,
+    srrs,
+    retention,
+    sensitivity,
+    sharing,
+  }: {
+    dlp: PurviewAlertsPayload | null;
+    irm: PurviewAlertsPayload | null;
+    commComp: PurviewAlertsPayload | null;
+    srrs: SubjectRightsRequestsPayload | null;
+    retention: RetentionLabelsPayload | null;
+    sensitivity: SensitivityLabelsPayload | null;
+    sharing: SharepointSettingsPayload | null;
+  }) {
+    const anyPayload =
+      dlp || irm || commComp || srrs || retention || sensitivity || sharing;
+    if (!anyPayload) {
+      return (
+        <Card>
+          <div className="text-ink-3 text-[13px]">{t("tab.data.emptyNoSync")}</div>
+        </Card>
+      );
+    }
+
+    // Cumulative signal across all Purview sources. When every field is zero
+    // it means the tenant has no Purview data configured yet (no DLP policies,
+    // no IRM plan, no retention labels) — show an explicit note so the page
+    // doesn't look broken.
+    const totalAlerts =
+      (dlp?.total ?? 0) + (irm?.total ?? 0) + (commComp?.total ?? 0);
+    const totalSrrs = srrs?.total ?? 0;
+    const totalLabels =
+      (retention?.labels.length ?? 0) + (sensitivity?.labels.length ?? 0);
+    const everythingZero =
+      totalAlerts === 0 && totalSrrs === 0 && totalLabels === 0;
+
+    const sharingLabels: Record<string, string> = {
+      disabled: locale === "ar" ? "تعطيل" : "Disabled",
+      existingExternalUserSharingOnly:
+        locale === "ar" ? "ضيوف حاليون فقط" : "Existing guests only",
+      externalUserSharingOnly: locale === "ar" ? "ضيوف" : "External users",
+      externalUserAndGuestSharing: locale === "ar" ? "أي شخص" : "Anyone",
+      unknown: locale === "ar" ? "غير معروف" : "Unknown",
+    };
+
+    return (
+      <div className="flex flex-col gap-5">
+        <Card>
+          <CardHeader title={t("tab.data.title")} subtitle={t("tab.data.subtitle")} />
+          {everythingZero ? (
+            <div className="rounded-md border border-warn/30 bg-warn/5 text-[12.5px] text-ink-2 px-3 py-2 mb-4">
+              {t("tab.data.empty.body")}
+            </div>
+          ) : null}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <DataKpi
+              label={t("tab.data.kpi.dlp")}
+              total={dlp?.total ?? 0}
+              active={dlp?.active ?? 0}
+            />
+            <DataKpi
+              label={t("tab.data.kpi.irm")}
+              total={irm?.total ?? 0}
+              active={irm?.active ?? 0}
+            />
+            <DataKpi
+              label={t("tab.data.kpi.commComp")}
+              total={commComp?.total ?? 0}
+              active={commComp?.active ?? 0}
+            />
+            <DataKpi
+              label={t("tab.data.kpi.srrs")}
+              total={srrs?.total ?? 0}
+              active={srrs?.active ?? 0}
+              extra={
+                srrs?.overdue && srrs.overdue > 0
+                  ? `${fmt(srrs.overdue)} ${locale === "ar" ? "متأخر" : "overdue"}`
+                  : null
+              }
+            />
+          </div>
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Card>
+            <CardHeader
+              title={t("tab.data.labels.title")}
+              subtitle={t("tab.data.labels.subtitle")}
+            />
+            <div className="text-[12.5px] text-ink-2 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span>{t("tab.data.labels.retention")}</span>
+                <span className="tabular text-ink-1 font-semibold">
+                  {fmt(retention?.labels.length ?? 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>{t("tab.data.labels.retentionRecord")}</span>
+                <span className="tabular text-ink-1 font-semibold">
+                  {fmt(retention?.recordLabels ?? 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>{t("tab.data.labels.sensitivity")}</span>
+                <span className="tabular text-ink-1 font-semibold">
+                  {fmt(sensitivity?.labels.length ?? 0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>{t("tab.data.labels.sensitivityActive")}</span>
+                <span className="tabular text-ink-1 font-semibold">
+                  {fmt(sensitivity?.activeCount ?? 0)}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title={t("tab.data.sharing.title")}
+              subtitle={t("tab.data.sharing.subtitle")}
+            />
+            {sharing ? (
+              <div className="flex flex-col gap-2 text-[12.5px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-ink-2">
+                    {t("tab.data.sharing.sharepoint")}
+                  </span>
+                  <span className="text-ink-1 font-semibold">
+                    {sharingLabels[sharing.sharingCapability ?? "unknown"] ??
+                      sharing.sharingCapability}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-ink-2">
+                    {t("tab.data.sharing.guestCount")}
+                  </span>
+                  <span className="text-ink-1 font-semibold tabular">
+                    {fmt(sharing.allowedDomainListForSyncApp ?? 0)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-ink-2">
+                    {t("tab.data.sharing.syncButtonHidden")}
+                  </span>
+                  <span className="text-ink-1 font-semibold">
+                    {sharing.isSyncButtonHiddenOnPersonalSite
+                      ? locale === "ar"
+                        ? "نعم"
+                        : "Yes"
+                      : locale === "ar"
+                        ? "لا"
+                        : "No"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-[12.5px] text-ink-3">
+                {t("tab.data.sharing.missing")}
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  function DataKpi({
+    label,
+    total,
+    active,
+    extra,
+  }: {
+    label: string;
+    total: number;
+    active: number;
+    extra?: string | null;
+  }) {
+    return (
+      <div className="rounded-md border border-border bg-surface-1 p-3">
+        <div className="text-[11px] text-ink-3 uppercase tracking-wide">
+          {label}
+        </div>
+        <div className="text-[22px] text-ink-1 font-semibold tabular mt-0.5">
+          {fmt(total)}
+        </div>
+        <div className="text-[11px] text-ink-3 tabular mt-0.5">
+          {active > 0 ? (
+            <span className="text-warn font-medium">
+              {fmt(active)} {locale === "ar" ? "نشِط" : "active"}
+            </span>
+          ) : (
+            <span>{locale === "ar" ? "لا توجد تنبيهات نشطة" : "no active alerts"}</span>
+          )}
+          {extra ? (
+            <>
+              <span className="mx-1.5 text-ink-3">·</span>
+              <span className="text-neg font-medium">{extra}</span>
+            </>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  function GovernanceTab({
+    secureScore,
+    maturity,
+  }: {
+    tenantId: string;
+    secureScore: SecureScorePayload | null;
+    maturity: MaturityBreakdown;
+  }) {
+    if (!secureScore) {
+      return (
+        <Card>
+          <div className="text-ink-3 text-[13px]">{t("tab.gov.emptyNoSync")}</div>
+        </Card>
+      );
+    }
+
+    // Group secureScore controls by category. Each group's pass ratio drives
+    // the framework alignment bars — categories mirror what NESA, NCA, and
+    // ISR cluster their controls around (Identity, Data, Device, Apps).
+    type Bucket = { total: number; passed: number; partial: number; failed: number };
+    const byCategory = new Map<string, Bucket>();
+    const tally = (cat: string, kind: keyof Bucket) => {
+      const b = byCategory.get(cat) ?? { total: 0, passed: 0, partial: 0, failed: 0 };
+      b.total++;
+      b[kind]++;
+      byCategory.set(cat, b);
+    };
+    for (const c of secureScore.controls) {
+      const cat = c.category?.trim() || "Uncategorized";
+      if (c.score == null) continue;
+      const statusLower = (c.implementationStatus ?? "").toLowerCase();
+      if (c.score === 0) tally(cat, "failed");
+      else if (
+        (c.maxScore != null && c.score < c.maxScore) ||
+        statusLower.includes("not") ||
+        statusLower.includes("partial")
+      ) {
+        tally(cat, "partial");
+      } else tally(cat, "passed");
+    }
+
+    const sorted = Array.from(byCategory.entries()).sort(
+      (a, b) => b[1].total - a[1].total,
+    );
+    const totalControls = sorted.reduce((s, [, b]) => s + b.total, 0);
+    const totalPassed = sorted.reduce((s, [, b]) => s + b.passed, 0);
+    const passingPct =
+      totalControls > 0 ? Math.round((totalPassed / totalControls) * 100) : 0;
+
+    return (
+      <div className="flex flex-col gap-5">
+        <Card>
+          <CardHeader
+            title={t("tab.gov.title")}
+            subtitle={t("tab.gov.subtitle")}
+          />
+          <div className="grid grid-cols-3 gap-3">
+            <GovKpi
+              label={t("tab.gov.kpi.controls")}
+              value={fmt(totalControls)}
+              caption={t("tab.gov.kpi.controlsCaption")}
+            />
+            <GovKpi
+              label={t("tab.gov.kpi.passing")}
+              value={`${fmt(passingPct)}%`}
+              caption={t("tab.gov.kpi.passingCaption", {
+                passed: fmt(totalPassed),
+              })}
+              tone={passingPct >= 75 ? "pos" : passingPct >= 50 ? "warn" : "neg"}
+            />
+            <GovKpi
+              label={t("tab.gov.kpi.complianceSub")}
+              value={fmt(Math.round(maturity.subScores.compliance))}
+              caption={t("tab.gov.kpi.complianceSubCaption")}
+              tone={
+                maturity.subScores.compliance >= 75
+                  ? "pos"
+                  : maturity.subScores.compliance >= 50
+                    ? "warn"
+                    : "neg"
+              }
+            />
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title={t("tab.gov.categories.title")}
+            subtitle={t("tab.gov.categories.subtitle")}
+          />
+          <ul className="flex flex-col gap-4">
+            {sorted.map(([cat, b]) => {
+              const passedPct =
+                b.total > 0 ? Math.round((b.passed / b.total) * 100) : 0;
+              return (
+                <li key={cat}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[13px] text-ink-1 font-medium">
+                      {cat}
+                    </span>
+                    <span className="text-[12px] text-ink-2 tabular">
+                      {fmt(b.passed)} / {fmt(b.total)}{" "}
+                      <span className="text-ink-3">({fmt(passedPct)}%)</span>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-surface-3 overflow-hidden flex">
+                    <div
+                      className="h-full bg-pos"
+                      style={{ width: `${(b.passed / Math.max(1, b.total)) * 100}%` }}
+                    />
+                    <div
+                      className="h-full bg-warn"
+                      style={{ width: `${(b.partial / Math.max(1, b.total)) * 100}%` }}
+                    />
+                    <div
+                      className="h-full bg-neg"
+                      style={{ width: `${(b.failed / Math.max(1, b.total)) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      </div>
+    );
+  }
+
+  function GovKpi({
+    label,
+    value,
+    caption,
+    tone,
+  }: {
+    label: string;
+    value: string;
+    caption: string;
+    tone?: "pos" | "warn" | "neg";
+  }) {
+    const toneClass =
+      tone === "pos"
+        ? "text-pos"
+        : tone === "warn"
+          ? "text-warn"
+          : tone === "neg"
+            ? "text-neg"
+            : "text-ink-1";
+    return (
+      <div className="rounded-md border border-border bg-surface-1 p-4">
+        <div className="text-[11px] text-ink-3 uppercase tracking-wide">
+          {label}
+        </div>
+        <div className={`text-[26px] font-semibold tabular mt-1 ${toneClass}`}>
+          {value}
+        </div>
+        <div className="text-[11px] text-ink-3 mt-1">{caption}</div>
+      </div>
+    );
+  }
+
+  function VulnerabilitiesTab({
+    payload,
+  }: {
+    payload: VulnerabilitiesPayload | null;
+  }) {
+    const [sevFilter, setSevFilter] = useState<
+      "all" | "Critical" | "High" | "Medium" | "Low"
+    >("all");
+    const [onlyExploitable, setOnlyExploitable] = useState(false);
+    const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
+    const [expandedCveId, setExpandedCveId] = useState<string | null>(null);
+
+    if (!payload) {
+      return (
+        <Card>
+          <CardHeader
+            title={t("tab.vulnerabilities.title")}
+            subtitle={t("tab.vulnerabilities.subtitle")}
+          />
+          <div className="text-ink-3 text-[13px]">{t("sync.never")}</div>
+        </Card>
+      );
+    }
+
+    if (payload.error) {
+      return (
+        <Card>
+          <CardHeader
+            title={t("tab.vulnerabilities.title")}
+            subtitle={t("tab.vulnerabilities.subtitle")}
+          />
+          <div className="rounded-md border border-warn/40 bg-warn/10 p-3 text-[12.5px] text-ink-1">
+            <div className="font-semibold mb-1">
+              {t("tab.vulnerabilities.notLicensedTitle")}
+            </div>
+            <div className="text-ink-2">
+              {t("tab.vulnerabilities.notLicensedBody")}
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    const devices = payload.byDevice.filter((d) => {
+      if (sevFilter === "Critical" && d.critical === 0) return false;
+      if (sevFilter === "High" && d.high === 0) return false;
+      if (sevFilter === "Medium" && d.medium === 0) return false;
+      if (sevFilter === "Low" && d.low === 0) return false;
+      return true;
+    });
+
+    const cves = payload.topCves.filter((c) => {
+      if (sevFilter !== "all" && c.severity !== sevFilter) return false;
+      if (onlyExploitable && !c.hasExploit) return false;
+      return true;
+    });
+
+    return (
+      <div className="flex flex-col gap-5">
+        <Card>
+          <CardHeader
+            title={t("tab.vulnerabilities.title")}
+            subtitle={t("tab.vulnerabilities.subtitle")}
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <MiniStat
+              label={t("tab.vulnerabilities.kpi.cves")}
+              value={fmt(payload.total)}
+            />
+            <MiniStat
+              label={t("tab.vulnerabilities.kpi.critical")}
+              value={fmt(payload.critical)}
+              tone={payload.critical > 0 ? "neg" : undefined}
+            />
+            <MiniStat
+              label={t("tab.vulnerabilities.kpi.high")}
+              value={fmt(payload.high)}
+              tone={payload.high > 0 ? "warn" : undefined}
+            />
+            <MiniStat
+              label={t("tab.vulnerabilities.kpi.exploitable")}
+              value={fmt(payload.exploitable)}
+              tone={payload.exploitable > 0 ? "neg" : undefined}
+            />
+            <MiniStat
+              label={t("tab.vulnerabilities.kpi.devices")}
+              value={fmt(payload.affectedDevices)}
+            />
+          </div>
+        </Card>
+
+        {/* Filter bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-ink-3 uppercase tracking-wide me-1">
+            {t("tab.vulnerabilities.filter.severity")}
+          </span>
+          {(["all", "Critical", "High", "Medium", "Low"] as const).map((s) => {
+            const active = sevFilter === s;
+            const label =
+              s === "all"
+                ? t("cols.all")
+                : s === "Critical"
+                  ? t("vuln.sev.critical")
+                  : s === "High"
+                    ? t("vuln.sev.high")
+                    : s === "Medium"
+                      ? t("vuln.sev.medium")
+                      : t("vuln.sev.low");
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSevFilter(s)}
+                className={`h-7 px-2.5 text-[11.5px] rounded-md border transition-colors ${
+                  active
+                    ? "bg-surface-3 text-ink-1 border-border-strong"
+                    : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setOnlyExploitable((v) => !v)}
+            className={`h-7 px-2.5 text-[11.5px] rounded-md border transition-colors ms-2 ${
+              onlyExploitable
+                ? "bg-neg/10 text-neg border-neg/40"
+                : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"
+            }`}
+          >
+            {t("tab.vulnerabilities.filter.exploitOnly")}
+          </button>
+        </div>
+
+        <Card className="p-0">
+          <div className="p-5 border-b border-border">
+            <CardHeader
+              title={t("tab.vulnerabilities.byDevice.title")}
+              subtitle={t("tab.vulnerabilities.byDevice.subtitleAll", {
+                count: fmt(devices.length),
+              })}
+            />
+          </div>
+          {/* Scrollable body — ~520px keeps the section visible without
+              pushing the CVE card off-screen, but operators can scroll
+              through every device, not just the top 50. */}
+          <div className="overflow-auto" style={{ maxHeight: 520 }}>
+            <table className="w-full text-[13px]">
+              <thead className="sticky top-0 bg-surface-1 z-10">
+                <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em]">
+                  <th className="py-2.5 ps-5 text-start font-semibold">
+                    {t("tab.vulnerabilities.byDevice.device")}
+                  </th>
+                  <th className="py-2.5 text-start font-semibold">
+                    {t("tab.vulnerabilities.byDevice.os")}
+                  </th>
+                  <th className="py-2.5 text-end font-semibold">
+                    {t("vuln.cols.critical")}
+                  </th>
+                  <th className="py-2.5 text-end font-semibold">
+                    {t("vuln.cols.high")}
+                  </th>
+                  <th className="py-2.5 text-end font-semibold">
+                    {t("tab.vulnerabilities.byDevice.maxCvss")}
+                  </th>
+                  <th className="py-2.5 pe-5 text-end font-semibold">
+                    {t("tab.vulnerabilities.byDevice.cves")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {devices.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="py-6 text-center text-[12.5px] text-ink-3"
+                    >
+                      {t("tab.vulnerabilities.filter.empty")}
+                    </td>
+                  </tr>
+                ) : null}
+                {devices.map((d) => {
+                  const expanded = expandedDeviceId === d.deviceId;
+                  const canExpand = d.cveIds.length > 0;
+                  return (
+                    <Fragment key={d.deviceId}>
+                      <tr className="border-t border-border hover:bg-surface-3/40">
+                        <td className="ps-5 py-2.5 text-ink-1">{d.deviceName}</td>
+                        <td className="py-2.5 text-ink-2">{d.osPlatform ?? "—"}</td>
+                        <td className="py-2.5 text-end tabular">
+                          {d.critical > 0 ? (
+                            <span className="text-neg font-semibold">{fmt(d.critical)}</span>
+                          ) : (
+                            fmt(0)
+                          )}
+                        </td>
+                        <td className="py-2.5 text-end tabular">
+                          {d.high > 0 ? (
+                            <span className="text-warn font-semibold">{fmt(d.high)}</span>
+                          ) : (
+                            fmt(0)
+                          )}
+                        </td>
+                        <td className="py-2.5 text-end tabular">
+                          {d.maxCvss != null ? d.maxCvss.toFixed(1) : "—"}
+                        </td>
+                        <td className="py-2.5 pe-5 text-end tabular">
+                          {canExpand ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedDeviceId(expanded ? null : d.deviceId)
+                              }
+                              aria-expanded={expanded}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold transition-colors ${
+                                d.critical > 0
+                                  ? "border-neg/40 bg-neg/10 text-neg hover:bg-neg/20"
+                                  : d.high > 0
+                                    ? "border-warn/40 bg-warn/10 text-warn hover:bg-warn/20"
+                                    : "border-border bg-surface-2 text-ink-1 hover:bg-surface-3"
+                              }`}
+                            >
+                              <ChevronRight
+                                size={11}
+                                className={`transition-transform ${
+                                  expanded ? "rotate-90" : ""
+                                }`}
+                              />
+                              {fmt(d.cveCount)}
+                            </button>
+                          ) : (
+                            <span className="text-ink-3">{fmt(0)}</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expanded ? (
+                        <tr className="bg-surface-1">
+                          <td colSpan={6} className="ps-8 pe-5 py-3">
+                            <VulnDeviceCveList
+                              cveIds={d.cveIds}
+                              allCves={payload.topCves}
+                              remediationTracked={payload.remediationTracked}
+                            />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        <Card className="p-0">
+          <div className="p-5 border-b border-border">
+            <CardHeader
+              title={t("tab.vulnerabilities.topCves.titleAll")}
+              subtitle={t("tab.vulnerabilities.topCves.subtitleAll", {
+                count: fmt(cves.length),
+              })}
+            />
+          </div>
+          <div className="overflow-auto" style={{ maxHeight: 520 }}>
+            <table className="w-full text-[13px]">
+              <thead className="sticky top-0 bg-surface-1 z-10">
+                <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em]">
+                  <th className="py-2.5 ps-5 text-start font-semibold">
+                    {t("vuln.cols.cve")}
+                  </th>
+                  <th className="py-2.5 text-start font-semibold">
+                    {t("vuln.cols.severity")}
+                  </th>
+                  <th className="py-2.5 text-end font-semibold">
+                    {t("vuln.cols.cvss")}
+                  </th>
+                  <th className="py-2.5 text-start font-semibold">
+                    {t("vuln.cols.exploit")}
+                  </th>
+                  <th className="py-2.5 text-end font-semibold">
+                    {t("vuln.cols.exposedDevices")}
+                  </th>
+                  <th className="py-2.5 text-end font-semibold">
+                    {t("vuln.cols.remediatedDevices")}
+                  </th>
+                  <th className="py-2.5 pe-5 text-start font-semibold">
+                    {t("vuln.cols.published")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {cves.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="py-6 text-center text-[12.5px] text-ink-3"
+                    >
+                      {t("tab.vulnerabilities.filter.empty")}
+                    </td>
+                  </tr>
+                ) : null}
+                {cves.map((c) => {
+                  const tone =
+                    c.severity === "Critical"
+                      ? "text-neg bg-neg/10 border-neg/40"
+                      : c.severity === "High"
+                        ? "text-warn bg-warn/10 border-warn/40"
+                        : "text-ink-2 bg-surface-3 border-border";
+                  const expanded = expandedCveId === c.cveId;
+                  const canExpand = c.affectedDevices > 0;
+                  return (
+                    <Fragment key={c.cveId}>
+                      <tr className="border-t border-border hover:bg-surface-3/40">
+                        <td className="ps-5 py-2.5 text-ink-1 tabular keep-ltr">
+                          <a
+                            href={`https://nvd.nist.gov/vuln/detail/${c.cveId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 hover:text-council-strong"
+                          >
+                            {c.cveId}
+                            <ExternalLink size={11} className="text-ink-3" />
+                          </a>
+                        </td>
+                        <td className="py-2.5">
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-[0.06em] border ${tone}`}
+                          >
+                            {c.severity}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-end tabular">
+                          {c.cvssScore != null ? c.cvssScore.toFixed(1) : "—"}
+                        </td>
+                        <td className="py-2.5">
+                          {c.hasExploit ? (
+                            <span className="text-neg text-[11px] font-semibold uppercase tracking-[0.06em]">
+                              {t("vuln.exploit.yes")}
+                            </span>
+                          ) : (
+                            <span className="text-ink-3 text-[11px]">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-end tabular">
+                          {canExpand ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedCveId(expanded ? null : c.cveId)
+                              }
+                              aria-expanded={expanded}
+                              title={t("tab.vulnerabilities.topCves.clickHint")}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold transition-colors ${
+                                c.severity === "Critical"
+                                  ? "border-neg/40 bg-neg/10 text-neg hover:bg-neg/20"
+                                  : c.severity === "High"
+                                    ? "border-warn/40 bg-warn/10 text-warn hover:bg-warn/20"
+                                    : "border-border bg-surface-2 text-ink-1 hover:bg-surface-3"
+                              }`}
+                            >
+                              <ChevronRight
+                                size={11}
+                                className={`transition-transform ${
+                                  expanded ? "rotate-90" : ""
+                                }`}
+                              />
+                              {fmt(c.affectedDevices)}
+                            </button>
+                          ) : (
+                            <span className="text-ink-3">{fmt(0)}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-end tabular">
+                          {payload.remediationTracked ? (
+                            <span className="text-pos font-semibold">
+                              {fmt(c.remediatedDevices)}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-ink-3"
+                              title={t("tab.vulnerabilities.remediationNotTracked")}
+                            >
+                              —
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pe-5 text-ink-3 tabular keep-ltr text-[12px]">
+                          {c.publishedDateTime ? c.publishedDateTime.slice(0, 10) : "—"}
+                        </td>
+                      </tr>
+                      {expanded ? (
+                        <tr className="bg-surface-1">
+                          <td colSpan={7} className="ps-8 pe-5 py-3">
+                            <VulnCveDeviceList
+                              cveId={c.cveId}
+                              byDevice={payload.byDevice}
+                            />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  function VulnDeviceCveList({
+    cveIds,
+    allCves,
+    remediationTracked,
+  }: {
+    cveIds: string[];
+    allCves: VulnerabilitiesPayload["topCves"];
+    remediationTracked: boolean;
+  }) {
+    // Join device-local CVE IDs against the tenant-wide CVE catalog.
+    const byId = new Map(allCves.map((c) => [c.cveId, c]));
+    const enriched = cveIds
+      .map((id) => byId.get(id))
+      .filter((c): c is VulnerabilitiesPayload["topCves"][number] => !!c)
+      .sort((a, b) => {
+        const rank = (s: string) =>
+          s === "Critical" ? 4 : s === "High" ? 3 : s === "Medium" ? 2 : s === "Low" ? 1 : 0;
+        return rank(b.severity) - rank(a.severity) || (b.cvssScore ?? 0) - (a.cvssScore ?? 0);
+      });
+    if (enriched.length === 0) {
+      return (
+        <div className="text-[12.5px] text-ink-3">
+          {t("tab.devices.drilldown.empty")}
+        </div>
+      );
+    }
+    return (
+      <div>
+        <div className="text-[11.5px] text-ink-3 uppercase tracking-wide mb-2">
+          {t("tab.devices.drilldown.title", { count: fmt(enriched.length) })}
+        </div>
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="text-ink-3 text-[10.5px] uppercase tracking-[0.06em]">
+              <th className="py-1.5 text-start font-semibold">{t("vuln.cols.cve")}</th>
+              <th className="py-1.5 text-start font-semibold">{t("vuln.cols.severity")}</th>
+              <th className="py-1.5 text-end font-semibold">{t("vuln.cols.cvss")}</th>
+              <th className="py-1.5 text-start font-semibold">{t("vuln.cols.exploit")}</th>
+              <th className="py-1.5 text-end font-semibold">{t("vuln.cols.exposedDevices")}</th>
+              <th className="py-1.5 text-end font-semibold">{t("vuln.cols.remediatedDevices")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {enriched.map((c) => {
+              const tone =
+                c.severity === "Critical"
+                  ? "text-neg bg-neg/10 border-neg/40"
+                  : c.severity === "High"
+                    ? "text-warn bg-warn/10 border-warn/40"
+                    : "text-ink-2 bg-surface-3 border-border";
+              return (
+                <tr key={c.cveId} className="border-t border-border/60">
+                  <td className="py-1.5 text-ink-1 tabular keep-ltr">
+                    <a
+                      href={`https://nvd.nist.gov/vuln/detail/${c.cveId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 hover:text-council-strong"
+                    >
+                      {c.cveId}
+                      <ExternalLink size={10} className="text-ink-3" />
+                    </a>
+                  </td>
+                  <td className="py-1.5">
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.06em] border ${tone}`}
+                    >
+                      {c.severity}
+                    </span>
+                  </td>
+                  <td className="py-1.5 text-end tabular">
+                    {c.cvssScore != null ? c.cvssScore.toFixed(1) : "—"}
+                  </td>
+                  <td className="py-1.5">
+                    {c.hasExploit ? (
+                      <span className="text-neg text-[10.5px] font-semibold uppercase tracking-[0.06em]">
+                        {t("vuln.exploit.yes")}
+                      </span>
+                    ) : (
+                      <span className="text-ink-3 text-[10.5px]">—</span>
+                    )}
+                  </td>
+                  <td className="py-1.5 text-end tabular">{fmt(c.affectedDevices)}</td>
+                  <td className="py-1.5 text-end tabular">
+                    {remediationTracked ? (
+                      <span className="text-pos font-semibold">
+                        {fmt(c.remediatedDevices)}
+                      </span>
+                    ) : (
+                      <span className="text-ink-3">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function VulnCveDeviceList({
+    cveId,
+    byDevice,
+  }: {
+    cveId: string;
+    byDevice: VulnerabilitiesPayload["byDevice"];
+  }) {
+    // Find every device whose cveIds array contains this CVE.
+    const matched = byDevice
+      .filter((d) => d.cveIds.includes(cveId))
+      .sort((a, b) => b.critical - a.critical || b.cveCount - a.cveCount);
+    if (matched.length === 0) {
+      return (
+        <div className="text-[12.5px] text-ink-3">
+          {t("tab.vulnerabilities.topCves.noDevices")}
+        </div>
+      );
+    }
+    return (
+      <div>
+        <div className="text-[11.5px] text-ink-3 uppercase tracking-wide mb-2">
+          {t("tab.vulnerabilities.topCves.affectedDevicesLabel", {
+            count: fmt(matched.length),
+          })}
+        </div>
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="text-ink-3 text-[10.5px] uppercase tracking-[0.06em]">
+              <th className="py-1.5 text-start font-semibold">
+                {t("tab.vulnerabilities.byDevice.device")}
+              </th>
+              <th className="py-1.5 text-start font-semibold">
+                {t("tab.vulnerabilities.byDevice.os")}
+              </th>
+              <th className="py-1.5 text-end font-semibold">
+                {t("tab.vulnerabilities.byDevice.cves")}
+              </th>
+              <th className="py-1.5 text-end font-semibold">
+                {t("vuln.cols.critical")}
+              </th>
+              <th className="py-1.5 text-end font-semibold">
+                {t("tab.vulnerabilities.byDevice.maxCvss")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {matched.map((d) => (
+              <tr key={d.deviceId} className="border-t border-border/60">
+                <td className="py-1.5 text-ink-1">{d.deviceName}</td>
+                <td className="py-1.5 text-ink-2">{d.osPlatform ?? "—"}</td>
+                <td className="py-1.5 text-end tabular">{fmt(d.cveCount)}</td>
+                <td className="py-1.5 text-end tabular">
+                  {d.critical > 0 ? (
+                    <span className="text-neg font-semibold">{fmt(d.critical)}</span>
+                  ) : (
+                    fmt(0)
+                  )}
+                </td>
+                <td className="py-1.5 text-end tabular">
+                  {d.maxCvss != null ? d.maxCvss.toFixed(1) : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  function AttackSimulationTab({
+    payload,
+  }: {
+    payload: AttackSimulationPayload | null;
+  }) {
+    const [statusFilter, setStatusFilter] = useState<string>("all");
+
+    if (!payload) {
+      return (
+        <Card>
+          <CardHeader
+            title={t("tab.attackSim.title")}
+            subtitle={t("tab.attackSim.subtitle")}
+          />
+          <div className="text-ink-3 text-[13px]">{t("sync.never")}</div>
+        </Card>
+      );
+    }
+
+    if (payload.simulations === 0) {
+      return (
+        <Card>
+          <CardHeader
+            title={t("tab.attackSim.title")}
+            subtitle={t("tab.attackSim.subtitle")}
+          />
+          <div className="rounded-md border border-warn/40 bg-warn/10 p-3 text-[12.5px] text-ink-1">
+            <div className="font-semibold mb-1">
+              {t("tab.attackSim.notLicensedTitle")}
+            </div>
+            <div className="text-ink-2">
+              {t("tab.attackSim.notLicensedBody")}
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    const statuses = Array.from(
+      new Set(payload.simulationsList.map((s) => s.status)),
+    ).sort();
+    const filtered = payload.simulationsList.filter(
+      (s) => statusFilter === "all" || s.status === statusFilter,
+    );
+    // Fleet click-rate tier for colour-coding each simulation row.
+    const tier = (rate: number | null): "pos" | "warn" | "neg" | "ink" => {
+      if (rate == null) return "ink";
+      if (rate >= 20) return "neg";
+      if (rate >= 10) return "warn";
+      if (rate > 0) return "pos";
+      return "ink";
+    };
+
+    return (
+      <div className="flex flex-col gap-5">
+        <Card>
+          <CardHeader
+            title={t("tab.attackSim.title")}
+            subtitle={t("tab.attackSim.subtitle")}
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <MiniStat
+              label={t("tab.attackSim.kpi.simulations")}
+              value={fmt(payload.simulations)}
+            />
+            <MiniStat
+              label={t("tab.attackSim.kpi.attempts")}
+              value={fmt(payload.totalAttempts)}
+            />
+            <MiniStat
+              label={t("tab.attackSim.kpi.clicks")}
+              value={fmt(payload.clicks)}
+              tone={payload.clicks > 0 ? "warn" : undefined}
+            />
+            <MiniStat
+              label={t("tab.attackSim.kpi.clickRate")}
+              value={`${fmt(payload.clickRatePct)}%`}
+              tone={
+                payload.clickRatePct >= 20
+                  ? "neg"
+                  : payload.clickRatePct >= 10
+                    ? "warn"
+                    : payload.clickRatePct > 0
+                      ? "pos"
+                      : undefined
+              }
+            />
+            <MiniStat
+              label={t("tab.attackSim.kpi.reported")}
+              value={fmt(payload.reported)}
+              tone={payload.reported > 0 ? "pos" : undefined}
+            />
+          </div>
+        </Card>
+
+        <Card className="p-0">
+          <div className="p-5 border-b border-border">
+            <CardHeader
+              title={t("tab.attackSim.list.title")}
+              subtitle={t("tab.attackSim.list.subtitle")}
+            />
+            {statuses.length > 1 ? (
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <FilterGroup
+                  label={t("tab.attackSim.filter.status")}
+                  options={[
+                    { id: "all", label: t("cols.all") },
+                    ...statuses.map((s) => ({ id: s, label: s })),
+                  ]}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em]">
+                  <th className="py-2.5 ps-5 text-start font-semibold">
+                    {t("tab.attackSim.col.name")}
+                  </th>
+                  <th className="py-2.5 text-start font-semibold">
+                    {t("tab.attackSim.col.status")}
+                  </th>
+                  <th className="py-2.5 text-end font-semibold">
+                    {t("tab.attackSim.col.clickRate")}
+                  </th>
+                  <th className="py-2.5 pe-5 text-start font-semibold">
+                    {t("tab.attackSim.col.launched")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className="py-6 text-center text-[12.5px] text-ink-3"
+                    >
+                      {t("tab.attackSim.filter.empty")}
+                    </td>
+                  </tr>
+                ) : null}
+                {filtered.slice(0, 50).map((s) => {
+                  const rate = s.clickRatePct;
+                  const toneCls =
+                    tier(rate) === "neg"
+                      ? "text-neg font-semibold"
+                      : tier(rate) === "warn"
+                        ? "text-warn font-semibold"
+                        : tier(rate) === "pos"
+                          ? "text-pos"
+                          : "text-ink-3";
+                  return (
+                    <tr key={s.id} className="border-t border-border">
+                      <td className="ps-5 py-2.5 text-ink-1">{s.displayName}</td>
+                      <td className="py-2.5 text-ink-2 capitalize">
+                        {s.status}
+                      </td>
+                      <td className={`py-2.5 text-end tabular ${toneCls}`}>
+                        {rate != null ? `${fmt(rate)}%` : "—"}
+                      </td>
+                      <td className="py-2.5 pe-5 text-ink-3 tabular">
+                        {fmtRelative(s.createdDateTime)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
     );
   }
 
@@ -987,9 +3433,16 @@ function MiniStat({
 }: {
   label: string;
   value: React.ReactNode;
-  tone: "pos" | "warn" | "neg";
+  tone?: "pos" | "warn" | "neg";
 }) {
-  const c = tone === "pos" ? "text-pos" : tone === "warn" ? "text-warn" : "text-neg";
+  const c =
+    tone === "pos"
+      ? "text-pos"
+      : tone === "warn"
+        ? "text-warn"
+        : tone === "neg"
+          ? "text-neg"
+          : "text-ink-1";
   return (
     <div className="rounded-md border border-border bg-surface-1 py-2.5">
       <div className={`text-[20px] font-semibold tabular ${c}`}>{value}</div>

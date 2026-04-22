@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { api } from "@/lib/api/client";
 import { LanguageToggle } from "./LanguageToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { SyncAllButton } from "./SyncAllButton";
@@ -19,6 +21,25 @@ export function TopBar() {
   const { t, branding } = useI18n();
   const displayHost =
     typeof window !== "undefined" ? window.location.host : "dashboard";
+
+  // The UserMenu already renders a "Demo mode" pill when MIZAN_DEMO_MODE=true.
+  // The old top-bar "DEMO" pill was shown unconditionally — kept it only for
+  // actual demo deployments, otherwise a production tenant would wear a
+  // misleading demo badge.
+  const [demoMode, setDemoMode] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api
+      .whoami()
+      .then((r) => {
+        if (alive) setDemoMode(r.demoMode);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <header className="h-14 flex items-center gap-4 px-5 border-b border-border bg-surface-2/90 backdrop-blur">
       <div className="flex items-center gap-3 min-w-[280px]">
@@ -41,9 +62,11 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-[10px] uppercase tracking-[0.1em] text-accent border border-accent/40 rounded px-2 py-0.5">
-          {t("topbar.demo")}
-        </span>
+        {demoMode ? (
+          <span className="text-[10px] uppercase tracking-[0.1em] text-accent border border-accent/40 rounded px-2 py-0.5">
+            {t("topbar.demo")}
+          </span>
+        ) : null}
         <SyncAllButton />
         <ThemeToggle />
         <LanguageToggle />

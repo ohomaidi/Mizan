@@ -19,6 +19,9 @@ next-env.d.ts
 *.sqlite-wal
 *.sqlite-shm
 
+# Scratch directory for dev experiments — never ship.
+/web/tmp/
+
 # Environment + secrets
 .env
 .env.local

@@ -95,7 +95,10 @@ export default function DevicesPage() {
                   return (
                     <tr key={e.id} className="border-t border-border hover:bg-surface-3/40">
                       <td className="ps-5 py-2.5">
-                        <Link href={`/entities/${e.id}`} className="text-ink-1 hover:text-council-strong">
+                        <Link
+                          href={`/entities/${e.id}?tab=devices&from=devices`}
+                          className="text-ink-1 hover:text-council-strong"
+                        >
                           {locale === "ar" ? e.nameAr : e.nameEn}
                         </Link>
                       </td>

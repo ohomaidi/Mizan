@@ -29,6 +29,17 @@ jobs:
             echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verify package.json version matches tag
+        run: |
+          TAG_VERSION="${{ steps.tag.outputs.value }}"
+          PKG_VERSION="$(node -p "require('./web/package.json').version")"
+          echo "tag: $TAG_VERSION"
+          echo "pkg: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::web/package.json version ($PKG_VERSION) doesn't match tag ($TAG_VERSION). Bump package.json before tagging."
+            exit 1
+          fi
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 

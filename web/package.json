@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,6 +9,7 @@
     "lint": "eslint",
     "purge-demo": "node scripts/purge-demo.mjs",
     "reseed-demo": "node scripts/reseed-demo.mjs",
+    "backfill-maturity-snapshots": "node scripts/backfill-maturity-snapshots.mjs",
     "build:safe": "next build && node scripts/verify-build.mjs --auto-heal",
     "build:clean": "rm -rf .next && next build && node scripts/verify-build.mjs",
     "verify-build": "node scripts/verify-build.mjs"

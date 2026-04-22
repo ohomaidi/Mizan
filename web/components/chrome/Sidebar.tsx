@@ -12,6 +12,7 @@ import {
   Scale,
   Settings,
   HelpCircle,
+  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DataSourcesPanel } from "./DataSourcesPanel";
@@ -23,6 +24,7 @@ const NAV: { href: string; labelKey: DictKey; icon: typeof LayoutDashboard }[] =
   { href: "/entities", labelKey: "nav.entities", icon: Building2 },
   { href: "/identity", labelKey: "nav.identity", icon: UserCog },
   { href: "/threats", labelKey: "nav.threats", icon: ShieldAlert },
+  { href: "/vulnerabilities", labelKey: "nav.vulnerabilities", icon: Bug },
   { href: "/data", labelKey: "nav.data", icon: Files },
   { href: "/devices", labelKey: "nav.devices", icon: MonitorSmartphone },
   { href: "/governance", labelKey: "nav.governance", icon: Scale },

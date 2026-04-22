@@ -119,6 +119,32 @@ const MIGRATIONS: Migration[] = [
       db.exec("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at)");
     },
   },
+  {
+    version: 6,
+    name: "add_maturity_snapshots",
+    run: (db) => {
+      // One row per successful sync per tenant. Stores the six sub-scores +
+      // overall index so Entity Detail can render a trend chart without
+      // re-computing from the raw signal payloads on every request.
+      // Retention matches signal_snapshots (see pruneOldMaturitySnapshots).
+      db.exec(`CREATE TABLE IF NOT EXISTS maturity_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL,
+        captured_at TEXT NOT NULL DEFAULT (datetime('now')),
+        overall REAL NOT NULL,
+        secure_score REAL NOT NULL,
+        identity REAL NOT NULL,
+        device REAL NOT NULL,
+        data REAL NOT NULL,
+        threat REAL NOT NULL,
+        compliance REAL NOT NULL,
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_maturity_snapshots_tenant_captured ON maturity_snapshots(tenant_id, captured_at DESC)",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {
