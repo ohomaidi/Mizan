@@ -76,8 +76,25 @@ Composite per-entity score, 0–100, computed daily. Drives ranking, benchmarkin
 - Suspicious admin role assignment
 
 ### Gap
-- **MDE TVM** (exposure score, recommendations, missing KBs, software inventory) is **not in Graph**. Either use MDE direct API (`api.securitycenter.microsoft.com`) per tenant, or hunt over `DeviceTvm*` advanced-hunting tables. Cost accordingly.
 - **Device response actions** (isolate, quarantine file, AV scan) are **not in Graph** — MDE direct API required for automation. Pillar 3 MTO handles the analyst UX side.
+
+### Shipped in v1.1 — Vulnerability Management (Defender TVM)
+
+CVE posture is now a first-class surface. We query `DeviceTvmSoftwareVulnerabilities` via `/security/runHuntingQuery` (two parallel KQL queries per tenant):
+
+- Per-CVE rollup: severity, CVSS, known-exploit flag, affected device count, remediated device count (where derivable), publishedDateTime
+- Per-device rollup: device name, OS platform, total CVE count, criticals/highs/mediums/lows, max CVSS, the list of CVE IDs on that host
+
+Three UI surfaces:
+
+- `/vulnerabilities` — fleet rollup with **cross-tenant CVE correlation** (CVEs present in 2+ entities, expandable per-entity device drill-down — the Council-unique view that no individual CISO can produce), top-CVEs, by-entity posture.
+- Entity sub-tab — all CVEs + all devices with bidirectional expand; CVE row shows affected hosts, device row shows CVEs on that host.
+- Entity Overview — top-5 CVEs card sorted by severity → exposed-device count → CVSS.
+
+Graceful fallback when the tenant lacks Defender VM P2 — KQL returns 400, fetcher treats it as "not licensed" and emits an empty payload with a helpful UI banner rather than failing the sync.
+
+Still-missing Defender-direct surfaces:
+- **MDE exposure score / recommendations / missing KBs / software inventory** — not in Graph, still requires `api.securitycenter.microsoft.com` per tenant. Not shipped.
 
 ---
 

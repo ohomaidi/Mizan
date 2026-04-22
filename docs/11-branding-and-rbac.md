@@ -59,10 +59,11 @@ browser → /login → /api/auth/user-login (PKCE redirect state in cookie)
 
 ### Session management
 
-- Opaque token (32-byte random) in an `httpOnly` cookie — `scsc_session`.
-- DB-backed: `sessions` table with `expires_at` absolute timeout.
-- Configurable `sessionTimeoutMinutes` (15 min to 24 h).
-- `currentUser()` reads the cookie, validates the DB row, returns the user. Expired rows are deleted on the fly.
+- Opaque token (32-byte random) in an `httpOnly`, `secure`, `sameSite=lax` cookie — `scsc_session`.
+- DB-backed: `sessions` table with `expires_at`.
+- **Sliding window.** On every authenticated request past the midpoint of the current window, `currentUser()` pushes `expires_at` forward by another full `sessionTimeoutMinutes` and re-writes the cookie. Active users never see an interruption; idle sessions expire cleanly.
+- **Absolute cap.** No session lives longer than `created_at + 30 days` regardless of how much sliding extension happens. Force re-auth at the 30-day mark closes a stale-session risk.
+- **Configurable lifetime.** `sessionTimeoutMinutes` is exposed in Settings → Authentication as a dropdown (8 h / 24 h / 7 d / 30 d). Default is 7 days — long enough that the common case is silent Microsoft SSO re-auth (no password prompt), short enough that a revoked account stops reading within a week.
 
 ### Role resolution (first login)
 
@@ -86,7 +87,15 @@ API routes use `apiRequireRole("admin")` etc. Pages use `requireUser(role)` in t
 
 ### Bootstrap escape hatch
 
-While the `users` table is empty, both `requireUser()` and `apiRequireRole()` return `ok` regardless of the request's session state. This is what lets a fresh install recover if the operator turned on `enforce` before completing a test sign-in. The window closes the instant a user row exists — by OIDC callback or by an admin-inserted invite.
+While no *real* admin exists (i.e. `countRealAdmins() === 0` — pending-invite rows with `entra_oid LIKE 'pending:%'` do **not** count), both `requireUser()` and `apiRequireRole()` return `{ ok: true, user: null }` regardless of the request's session state. This is what keeps `/setup` reachable on a fresh container until the device-code-flow admin sign-in completes. The window closes the instant the first real admin lands.
+
+The pending-invite exclusion is deliberate: pre-seeding a user invite before the first real sign-in (a reasonable admin workflow) would otherwise slam the bootstrap window shut and leave the operator locked out until the invited user completed their sign-in.
+
+### Demo mode (`MIZAN_DEMO_MODE=true`)
+
+Showcase deployments (e.g. `scscdemo.zaatarlabs.com`) set `MIZAN_DEMO_MODE=true` in the container environment. That env var — not a DB toggle, not a UI switch — short-circuits every RBAC gate to "open." Prospects can browse the dashboard without signing in. The top-bar shows a "DEMO" pill and the user menu renders a "Demo mode" chip instead of a sign-out control.
+
+Production customers never set this. It is intentionally an env var rather than a UI flag: the previous design (a `enforce` boolean in DB config) was a footgun — deployments left it off indefinitely and the whole dashboard rendered anonymously.
 
 ### In-app user management
 

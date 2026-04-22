@@ -31,9 +31,11 @@
 Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 tenant via Microsoft Graph, computes a per-entity **Maturity Index** (0–100), and ranks every entity against a target score you define. It's the one pane of glass for a holding company, ministry, or council that oversees dozens to hundreds of sub-organizations — each running their own tenant.
 
 - **Federated visibility** across every consented Microsoft 365 tenant
-- **18 Graph signals** — Secure Score, Conditional Access, Identity Protection, Intune compliance, Defender incidents, Purview DLP/IRM/Comm Compliance, Subject Rights Requests, retention/sensitivity labels, SharePoint tenant settings, PIM sprawl, Defender for Identity sensor health, Attack Simulation, Threat Intelligence, Advanced Hunting, label adoption
+- **19 Graph signals** — Secure Score, Conditional Access, Identity Protection, Intune compliance, Defender incidents, **Defender Vulnerability Management (CVE posture per device + cross-tenant CVE correlation)**, Purview DLP/IRM/Comm Compliance, Subject Rights Requests, retention/sensitivity labels, SharePoint tenant settings, PIM sprawl, Defender for Identity sensor health, Attack Simulation, Threat Intelligence, label adoption
+- **Cross-tenant CVE correlation** — surfaces CVEs present in 2+ consented entities with exposed/remediated device rollups; a federated view no individual CISO can produce
+- **Maturity trending** — per-entity daily snapshots with 30/90/180-day chart on the Overview tab
 - **Pluggable frameworks** — UAE NESA, KSA NCA, ISR / ISO 27001, or generic
-- **Entra ID sign-in + RBAC** — Admin / Analyst / Viewer, with configurable session timeouts
+- **Entra ID sign-in + RBAC** — Admin / Analyst / Viewer, 7-day sliding-window session (configurable 8h / 24h / 7d / 30d) with silent Microsoft SSO re-auth on expiry
 - **White-label** — organization name, logo (auto background-strip, 100% local), colors, tagline, framework — all in Settings
 - **Bilingual** — full English + Arabic, RTL-native
 - **Read-only, always** — never writes to an entity's tenant; no configuration push, no policy deployment
@@ -189,6 +191,19 @@ That's ACA's way of saying no replica is running — the container failed before
 
 The URL Mizan is running at doesn't match the redirect URI you registered on the Entra user-auth app. Update the Entra app's Web redirect URI to `https://<your-actual-url>/api/auth/user-callback`. See [Changing the dashboard URL](#changing-the-dashboard-url-after-the-first-deploy) above.
 
+#### 6a. After sign-in, browser lands on `https://0.0.0.0:8787/` and times out
+
+You're on a pre-v1.1.2 image behind a reverse proxy that doesn't forward `Host` cleanly — the OIDC callback built the post-sign-in redirect off the container's internal bind address instead of the public FQDN. Fix in two steps:
+
+1. Upgrade to `:1.1.2` or newer — every outbound redirect now resolves through `APP_BASE_URL` → `x-forwarded-host` → `Host`.
+2. Set `APP_BASE_URL` explicitly on the Container App so the base URL is deterministic:
+
+```sh
+az containerapp update -n <mizan-app-name> -g <your-rg> \
+    --image ghcr.io/ohomaidi/mizan:latest \
+    --set-env-vars APP_BASE_URL=https://<your-fqdn>
+```
+
 #### 7. `AADSTS65001: admin has not consented` on sign-in (or user gets a consent prompt that errors out)
 
 You skipped the admin-consent step after auto-provisioning. Open Entra admin center → **App registrations** → your user-auth app → **API permissions** → **Grant admin consent for \<tenant\>** → confirm every permission shows Status *"Granted for \<tenant\>"* in green. Retry sign-in.
@@ -329,7 +344,7 @@ Roll-up views for the cross-entity security story.
 </p>
 
 ### Branded sign-in + user management
-Entra ID sign-in, Admin / Analyst / Viewer roles, invite-by-email. All gated behind the in-app **Enforce sign-in** toggle so first-run installs stay open until you're ready.
+Entra ID sign-in, Admin / Analyst / Viewer roles, invite-by-email. **Sign-in is always required** — the first-run wizard auto-provisions the Entra app and auto-signs-in the operator as admin via device-code flow. Subsequent users sign in via Microsoft SSO. Session is a 7-day sliding window by default (configurable 8h / 24h / 7d / 30d in Settings → Authentication); when it lapses, Microsoft SSO silently re-issues a session — no password prompt unless cookies were cleared.
 
 <p align="center">
   <img src="docs/images/login.png" alt="Branded sign-in" width="420" />
