@@ -63,7 +63,12 @@ const SUB_SCORE_COLORS: Record<SubScoreKey, string> = {
   compliance: "#8B5CF6", // purple
 };
 
-const OVERALL_COLOR = "var(--council-strong)";
+// NOTE: the CSS variable is `--council-primary-strong`, NOT `--council-strong`.
+// Recharts embeds this string as the SVG `stroke` / `fill` attribute — when
+// `var()` fails to resolve, the browser falls back to default black (line
+// invisible on dark theme) and dots render without their intended color.
+// Keep this in sync with globals.css.
+const OVERALL_COLOR = "var(--council-primary-strong)";
 
 export function MaturityTrendCard({
   tenantId,
