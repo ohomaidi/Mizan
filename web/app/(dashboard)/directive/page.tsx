@@ -275,7 +275,13 @@ export default function DirectivePage() {
 function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
   const { t } = useI18n();
   const [tenants, setTenants] = useState<
-    Array<{ id: string; nameEn: string; nameAr: string; consentMode: string }>
+    Array<{
+      id: string;
+      nameEn: string;
+      nameAr: string;
+      consentMode: string;
+      isDemo: boolean;
+    }>
   >([]);
   const [tenantId, setTenantId] = useState<string>("");
   const [kind, setKind] = useState<"email" | "url" | "file">("url");
@@ -497,7 +503,8 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
             >
               {tenants.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {locale === "ar" ? t.nameAr : t.nameEn}
+                  {(locale === "ar" ? t.nameAr : t.nameEn) +
+                    (t.isDemo ? " · DEMO (simulated)" : "")}
                 </option>
               ))}
             </select>

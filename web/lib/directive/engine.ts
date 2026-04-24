@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { apiRequireRole } from "@/lib/auth/rbac";
 import { isDirectiveDeployment } from "@/lib/config/deployment-mode";
 import { getTenant, type TenantRow } from "@/lib/db/tenants";
-import { isDemoMode } from "@/lib/config/auth-config";
 import { recordDirectiveAction } from "./audit";
 
 /**
@@ -15,10 +14,12 @@ import { recordDirectiveAction } from "./audit";
  *   3. Per-tenant consent gate: refuses to run unless the tenant explicitly
  *      chose directive mode at onboarding. This is the code-level policy
  *      that backs the "observation entities are never written to" promise.
- *   4. Demo-mode simulation: on demo deployments OR against demo tenants
- *      (is_demo = 1), skips the real Graph call and records a "simulated"
- *      audit row with synthetic success. Lets the DESC demo exercise the
- *      full UX against fake tenants without hitting Graph.
+ *   4. Per-tenant demo simulation: ONLY when tenant.is_demo === 1. Demo
+ *      tenants have synthesized Entra GUIDs that Graph can't resolve, so
+ *      simulating is the only viable path for them. Real tenants onboarded
+ *      to the same deployment — even if MIZAN_DEMO_MODE is on for the
+ *      dashboard — go through the full Graph write path. MIZAN_DEMO_MODE
+ *      controls the auth bypass only, not the write simulation.
  *   5. Audit: every attempt — success, failure, or simulation — lands in
  *      directive_actions before the caller sees a result.
  */
@@ -90,10 +91,12 @@ export async function executeDirective<T>(
     actorUserId: gate.user?.id ?? null,
   };
 
-  // Demo path — simulate a success without actually calling Graph. Used
-  // when the whole deployment is in demo mode OR when this specific tenant
-  // is flagged is_demo (the synthesized Sharjah / DESC demo tenants).
-  if (isDemoMode() || tenant.is_demo === 1) {
+  // Demo path — simulate a success without actually calling Graph. ONLY
+  // fires for tenants flagged is_demo (the synthesized Sharjah / DESC demo
+  // tenants whose Entra GUIDs are fake). A real tenant onboarded to a
+  // demo-mode deployment is NOT demo-gated — its writes go through the
+  // real Graph path below.
+  if (tenant.is_demo === 1) {
     const result = (input.simulatedResult ??
       ({ simulated: true } as unknown as T)) as T;
     const auditId = recordDirectiveAction({

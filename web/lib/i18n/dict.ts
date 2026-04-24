@@ -1191,9 +1191,9 @@ export const DICT = {
     "directive.setup.cta": "Go to Settings",
     "directive.setup.helper": "One-time setup. Takes about 5 minutes.",
     "directive.demoBanner.title":
-      "Demo mode — no data is sent to Microsoft.",
+      "Demo mode — dashboard auth is bypassed.",
     "directive.demoBanner.body":
-      "Every directive action on this deployment is simulated. Classify, comment, confirm-compromised, force sign-out, and threat submissions all land as 'simulated' audit rows. No real Graph write, no Defender XDR change, no Microsoft submission. The simulation exists so the DESC workflow can be rehearsed against demo tenants without touching live entities.",
+      "Actions on DEMO tenants (flagged with a DEMO chip) are simulated: no Graph call, no Defender XDR change, no Microsoft submission. Actions on real onboarded tenants go through the full Graph path and do make real writes. The simulation is keyed on each tenant's is_demo flag, not on the deployment's demo-mode setting — you can onboard a real tenant into this environment for testing directive writes end to end without turning demo mode off.",
 
     "directive.roadmap.title": "Capability roadmap",
     "directive.roadmap.subtitle":
@@ -2668,9 +2668,9 @@ export const DICT = {
     "directive.setup.cta": "الانتقال إلى الإعدادات",
     "directive.setup.helper": "إعداد لمرة واحدة، يستغرق نحو ٥ دقائق.",
     "directive.demoBanner.title":
-      "وضع تجريبي — لا تُرسل أي بيانات إلى Microsoft.",
+      "وضع تجريبي — تم تجاوز مصادقة لوحة التحكم.",
     "directive.demoBanner.body":
-      "كل إجراء توجيهي في هذا النشر مُحاكى. عمليات التصنيف والتعليق وتأكيد الاختراق وفرض تسجيل الخروج وإرسال التهديدات كلها تُسجَّل كسطور تدقيق بحالة «محاكاة». لا توجد كتابة حقيقية على Graph، ولا تغيير فعلي في Defender XDR، ولا إرسال إلى Microsoft. وُجدت المحاكاة لتدريب سير العمل الخاص بـ DESC على جهات تجريبية دون المساس بالجهات الحقيقية.",
+      "الإجراءات على الجهات التجريبية (المُعلَّمة بشارة DEMO) مُحاكاة: لا استدعاء Graph، ولا تغيير في Defender XDR، ولا إرسال إلى Microsoft. أما الإجراءات على الجهات الحقيقية المُدرَجة فتمر بمسار Graph الكامل وتُنفَّذ كتابات فعلية. المحاكاة مرتبطة بعلم is_demo لكل جهة، لا بإعداد الوضع التجريبي في النشر — يمكنك إدراج جهة حقيقية في هذه البيئة لاختبار كتابات التوجيه من طرف إلى طرف دون إيقاف الوضع التجريبي.",
 
     "directive.roadmap.title": "خارطة القدرات",
     "directive.roadmap.subtitle":
