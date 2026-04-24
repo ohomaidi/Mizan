@@ -26,6 +26,12 @@ export const requireCompliantDevice: Baseline = {
       "Require device marked as compliant by Intune, OR Microsoft Entra hybrid-joined.",
     initialState: "enabledForReportingButNotEnforced",
     excludesOwnAdmins: true,
+    whyKey: "baseline.requireCompliantDevice.why",
+    impactKey: "baseline.requireCompliantDevice.impact",
+    prerequisitesKey: "baseline.requireCompliantDevice.prerequisites",
+    rolloutAdviceKey: "baseline.requireCompliantDevice.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-compliant-device",
   },
   idempotencyKey: "mizan:require-compliant-device:v1",
   buildPolicyBody: (options) => ({

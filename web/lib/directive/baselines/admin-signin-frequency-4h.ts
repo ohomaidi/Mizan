@@ -1,0 +1,66 @@
+import "server-only";
+import type { Baseline } from "./types";
+
+/**
+ * Force admins to re-authenticate every 4 hours. Without this a stolen
+ * admin session token is valid for up to 90 days by default. Reduces the
+ * blast radius of token theft.
+ *
+ * Session controls under `sessionControls.signInFrequency`, documented at
+ * https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-session-lifetime.
+ */
+
+const ADMIN_ROLE_IDS = [
+  "62e90394-69f5-4237-9190-012177145e10",
+  "e8611ab8-c189-46e8-94e1-60213ab1f814",
+  "194ae4cb-b126-40b2-bd5b-6091b380977d",
+  "b1be1c3e-b65d-4f19-8427-f6fa0d97feb9",
+  "29232cdf-9323-42fd-ade2-1d097af3e4de",
+  "f28a1f50-f6e7-4571-818b-6a12f2af6b6c",
+  "fe930be7-5e62-47db-91af-98c3a49a38b1",
+  "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3",
+  "158c047a-c907-4556-b7ef-446551a6b5f7",
+  "c4e39bd9-1100-46d3-8c65-fb160da0071f",
+  "729827e3-9c14-49f7-bb1b-9608f156bbb8",
+  "3a2c62db-5318-420d-8d74-23affee5d9d5",
+  "b0f54661-2d74-4c50-afa3-1ec803f12efe",
+];
+
+export const adminSignInFrequency4h: Baseline = {
+  descriptor: {
+    id: "admin-signin-frequency-4h",
+    titleKey: "baseline.adminSignInFrequency4h.title",
+    bodyKey: "baseline.adminSignInFrequency4h.body",
+    riskTier: "low",
+    targetSummary: "13 privileged directory roles. All apps.",
+    grantSummary: "Session control: re-authenticate every 4 hours",
+    initialState: "enabledForReportingButNotEnforced",
+    excludesOwnAdmins: false,
+    whyKey: "baseline.adminSignInFrequency4h.why",
+    impactKey: "baseline.adminSignInFrequency4h.impact",
+    prerequisitesKey: "baseline.adminSignInFrequency4h.prerequisites",
+    rolloutAdviceKey: "baseline.adminSignInFrequency4h.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-session-lifetime",
+  },
+  idempotencyKey: "mizan:admin-signin-frequency-4h:v1",
+  buildPolicyBody: (options) => ({
+    displayName:
+      "[Mizan] 4-hour sign-in frequency for admins (mizan:admin-signin-frequency-4h:v1)",
+    state: options.overrideState ?? "enabledForReportingButNotEnforced",
+    conditions: {
+      applications: { includeApplications: ["All"] },
+      users: { includeRoles: ADMIN_ROLE_IDS },
+      clientAppTypes: ["all"],
+    },
+    // No grantControls — this is a pure session-controls policy.
+    sessionControls: {
+      signInFrequency: {
+        isEnabled: true,
+        type: "hours",
+        value: 4,
+        authenticationType: "primaryAndSecondaryAuthentication",
+      },
+    },
+  }),
+};

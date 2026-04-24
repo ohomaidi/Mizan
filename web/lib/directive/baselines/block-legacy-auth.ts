@@ -22,6 +22,12 @@ export const blockLegacyAuth: Baseline = {
     grantSummary: "Block access",
     initialState: "enabledForReportingButNotEnforced",
     excludesOwnAdmins: true,
+    whyKey: "baseline.blockLegacyAuth.why",
+    impactKey: "baseline.blockLegacyAuth.impact",
+    prerequisitesKey: "baseline.blockLegacyAuth.prerequisites",
+    rolloutAdviceKey: "baseline.blockLegacyAuth.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-block-legacy-authentication",
   },
   idempotencyKey: "mizan:block-legacy-auth:v1",
   buildPolicyBody: (options) => ({

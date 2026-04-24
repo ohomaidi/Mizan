@@ -25,6 +25,11 @@ export async function GET() {
       initialState: b.descriptor.initialState,
       excludesOwnAdmins: b.descriptor.excludesOwnAdmins,
       idempotencyKey: b.idempotencyKey,
+      whyKey: b.descriptor.whyKey,
+      impactKey: b.descriptor.impactKey,
+      prerequisitesKey: b.descriptor.prerequisitesKey,
+      rolloutAdviceKey: b.descriptor.rolloutAdviceKey,
+      docsUrl: b.descriptor.docsUrl,
     })),
   });
 }

@@ -37,11 +37,23 @@ export type BaselineDescriptor = {
    * so a bad push cannot lock the entity out of their own tenant.
    */
   excludesOwnAdmins: boolean;
+  /** Dict key: WHY this policy exists — risk rationale shown on card expand. */
+  whyKey: string;
+  /** Dict key: IMPACT — who / what sees the change when enforced. */
+  impactKey: string;
+  /** Dict key: PREREQUISITES — licensing, enrollment, etc. an entity needs. */
+  prerequisitesKey: string;
+  /** Dict key: ROLLOUT ADVICE — how to move from report-only to enforced. */
+  rolloutAdviceKey: string;
+  /** Microsoft Learn reference URL for the operator to study before pushing. */
+  docsUrl: string;
 };
 
 /**
  * The Graph body shape for a Conditional Access policy. Trimmed to the
  * fields baselines actually set; Graph accepts any subset.
+ *
+ * Schema reference: https://learn.microsoft.com/en-us/graph/api/resources/conditionalaccesspolicy
  */
 export type CaPolicyBody = {
   displayName: string;
@@ -50,26 +62,71 @@ export type CaPolicyBody = {
     applications?: {
       includeApplications?: string[];
       excludeApplications?: string[];
+      includeUserActions?: string[];
     };
     users?: {
       includeUsers?: string[];
       includeRoles?: string[];
+      includeGroups?: string[];
       excludeUsers?: string[];
       excludeRoles?: string[];
       excludeGroups?: string[];
+      /**
+       * Targets guest / external identity types in the tenant. Graph schema:
+       *   guestOrExternalUserTypes = comma-separated list of:
+       *     internalGuest,b2bCollaborationGuest,b2bCollaborationMember,
+       *     b2bDirectConnectUser,otherExternalUser,serviceProvider
+       */
+      includeGuestsOrExternalUsers?: {
+        guestOrExternalUserTypes: string;
+        externalTenants?: { membershipKind: "all" | "enumerated" };
+      };
     };
     clientAppTypes?: string[];
     locations?: {
       includeLocations?: string[];
       excludeLocations?: string[];
     };
+    /** ["low","medium","high","none","hidden"] */
     signInRiskLevels?: string[];
+    /** ["low","medium","high"] */
+    userRiskLevels?: string[];
+    platforms?: {
+      includePlatforms?: string[];
+      excludePlatforms?: string[];
+    };
   };
   grantControls?: {
     operator: "OR" | "AND";
-    builtInControls: string[]; // "mfa", "compliantDevice", "domainJoinedDevice", "block"
+    /** "mfa" | "compliantDevice" | "domainJoinedDevice" | "approvedApplication"
+     *  | "compliantApplication" | "passwordChange" | "block" */
+    builtInControls: string[];
+    /**
+     * Authentication strength reference — used for phishing-resistant MFA.
+     * Built-in IDs (documented at Microsoft Learn):
+     *   MFA                     00000000-0000-0000-0000-000000000001
+     *   Passwordless MFA        00000000-0000-0000-0000-000000000002
+     *   Phishing-resistant MFA  00000000-0000-0000-0000-000000000003
+     */
+    authenticationStrength?: { id: string };
   };
-  sessionControls?: Record<string, unknown>;
+  sessionControls?: {
+    signInFrequency?: {
+      isEnabled: true;
+      type: "hours" | "days";
+      value: number;
+      authenticationType?:
+        | "primaryAndSecondaryAuthentication"
+        | "secondaryAuthentication";
+    };
+    persistentBrowser?: {
+      isEnabled: true;
+      mode: "never" | "always";
+    };
+    applicationEnforcedRestrictions?: {
+      isEnabled: true;
+    };
+  };
 };
 
 /** Options the Center operator can pass when pushing. */

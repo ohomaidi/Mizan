@@ -50,7 +50,13 @@ export const requireMfaForAdmins: Baseline = {
       "13 privileged directory roles (Global Admin, Security Admin, Conditional Access Admin, Exchange/SharePoint/User/App/Cloud App/Authentication/Helpdesk/Intune/Billing/Privileged Role Admin)",
     grantSummary: "Require multi-factor authentication",
     initialState: "enabledForReportingButNotEnforced",
-    excludesOwnAdmins: false, // policy targets admin roles directly; no blanket user exclusion
+    excludesOwnAdmins: false,
+    whyKey: "baseline.requireMfaForAdmins.why",
+    impactKey: "baseline.requireMfaForAdmins.impact",
+    prerequisitesKey: "baseline.requireMfaForAdmins.prerequisites",
+    rolloutAdviceKey: "baseline.requireMfaForAdmins.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-admin-mfa",
   },
   idempotencyKey: "mizan:require-mfa-for-admins:v1",
   buildPolicyBody: (options) => ({

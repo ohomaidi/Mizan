@@ -16,6 +16,10 @@ import {
   RefreshCw,
   Undo2,
   Play,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
@@ -788,51 +792,18 @@ function BaselinesSection({ locale }: { locale: "en" | "ar" }) {
       ) : !baselines ? (
         <div className="text-[12.5px] text-ink-3">{t("state.loading")}</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {baselines.map((b) => (
-            <div
-              key={b.id}
-              className="rounded-md border border-border bg-surface-1 p-3"
-            >
-              <div className="flex items-start justify-between gap-2 mb-1.5">
-                <div className="text-[13.5px] font-semibold text-ink-1">
-                  {t(b.titleKey as DictKey)}
-                </div>
-                <RiskChip tier={b.riskTier} />
-              </div>
-              <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
-                {t(b.bodyKey as DictKey)}
-              </div>
-              <div className="text-[11px] text-ink-3 mb-1 leading-relaxed">
-                <span className="font-semibold text-ink-2">
-                  {t("directive.baselines.target")}:
-                </span>{" "}
-                {b.targetSummary}
-              </div>
-              <div className="text-[11px] text-ink-3 mb-1 leading-relaxed">
-                <span className="font-semibold text-ink-2">
-                  {t("directive.baselines.grant")}:
-                </span>{" "}
-                {b.grantSummary}
-              </div>
-              <div className="text-[10.5px] text-ink-3 mb-3">
-                <span className="font-semibold text-ink-2">
-                  {t("directive.baselines.initialState")}:
-                </span>{" "}
-                {b.initialState === "enabledForReportingButNotEnforced"
-                  ? t("directive.baselines.reportOnly")
-                  : b.initialState}
-              </div>
-              <button
-                onClick={() => setSelected(b)}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold"
-              >
-                <Play size={11} />
-                {t("directive.baselines.pushCta")}
-              </button>
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {baselines.map((b) => (
+              <BaselineCard
+                key={b.id}
+                baseline={b}
+                onPush={() => setSelected(b)}
+              />
+            ))}
+          </div>
+          <BaselinesRoadmapCard />
+        </>
       )}
 
       {selected ? (
@@ -843,6 +814,142 @@ function BaselinesSection({ locale }: { locale: "en" | "ar" }) {
         />
       ) : null}
     </Card>
+  );
+}
+
+function BaselineCard({
+  baseline: b,
+  onPush,
+}: {
+  baseline: Baseline;
+  onPush: () => void;
+}) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="rounded-md border border-border bg-surface-1 p-3 flex flex-col">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="text-[13.5px] font-semibold text-ink-1 min-w-0 break-words">
+          {t(b.titleKey as DictKey)}
+        </div>
+        <RiskChip tier={b.riskTier} />
+      </div>
+      <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
+        {t(b.bodyKey as DictKey)}
+      </div>
+      <div className="text-[11px] text-ink-3 mb-1 leading-relaxed">
+        <span className="font-semibold text-ink-2">
+          {t("directive.baselines.target")}:
+        </span>{" "}
+        {b.targetSummary}
+      </div>
+      <div className="text-[11px] text-ink-3 mb-1 leading-relaxed">
+        <span className="font-semibold text-ink-2">
+          {t("directive.baselines.grant")}:
+        </span>{" "}
+        {b.grantSummary}
+      </div>
+      <div className="text-[10.5px] text-ink-3 mb-2">
+        <span className="font-semibold text-ink-2">
+          {t("directive.baselines.initialState")}:
+        </span>{" "}
+        {b.initialState === "enabledForReportingButNotEnforced"
+          ? t("directive.baselines.reportOnly")
+          : b.initialState}
+      </div>
+      {b.excludesOwnAdmins ? (
+        <div className="text-[10.5px] text-pos mb-2 inline-flex items-center gap-1">
+          <ShieldCheck size={10} />
+          {t("directive.baselines.excludesOwnAdmins")}
+        </div>
+      ) : null}
+
+      {expanded ? (
+        <div className="mt-1 mb-3 rounded border border-border/70 bg-surface-2 p-2.5 space-y-2">
+          <DetailBlock
+            label={t("directive.baselines.why")}
+            body={t(b.whyKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.impact")}
+            body={t(b.impactKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.prerequisites")}
+            body={t(b.prerequisitesKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.rollout")}
+            body={t(b.rolloutAdviceKey as DictKey)}
+          />
+          <a
+            href={b.docsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-council-strong hover:underline"
+          >
+            <ExternalLink size={10} />
+            {t("directive.baselines.docsLink")}
+          </a>
+        </div>
+      ) : null}
+
+      <div className="mt-auto flex items-center gap-2 pt-1">
+        <button
+          onClick={onPush}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold"
+        >
+          <Play size={11} />
+          {t("directive.baselines.pushCta")}
+        </button>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface-1 text-ink-2 text-[11.5px] font-semibold hover:bg-surface-2"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp size={11} />
+              {t("directive.baselines.hideDetails")}
+            </>
+          ) : (
+            <>
+              <ChevronDown size={11} />
+              {t("directive.baselines.details")}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DetailBlock({ label, body }: { label: string; body: string }) {
+  return (
+    <div>
+      <div className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-ink-2 mb-0.5">
+        {label}
+      </div>
+      <div className="text-[11.5px] text-ink-2 leading-relaxed">{body}</div>
+    </div>
+  );
+}
+
+function BaselinesRoadmapCard() {
+  const { t } = useI18n();
+  return (
+    <div className="mt-3 rounded-md border border-dashed border-border bg-surface-2 p-3">
+      <div className="flex items-start gap-2">
+        <Sparkles size={14} className="text-council-strong mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          <div className="text-[12.5px] font-semibold text-ink-1 mb-1">
+            {t("directive.baselines.roadmapTitle")}
+          </div>
+          <div className="text-[11.5px] text-ink-2 leading-relaxed">
+            {t("directive.baselines.roadmapBody")}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1045,7 +1152,20 @@ function BaselinePushModal({
               {t("directive.threat.noDirectiveEntities")}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[240px] overflow-y-auto">
+            <>
+              <div
+                className={`text-[11px] mb-1.5 ${
+                  selectedIds.size === 0 ? "text-ink-3" : "text-ink-2"
+                }`}
+              >
+                {selectedIds.size === 0
+                  ? t("directive.baselines.noneSelected")
+                  : t("directive.baselines.selectedCount", {
+                      count: String(selectedIds.size),
+                      total: String(tenants.length),
+                    })}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[240px] overflow-y-auto">
               {tenants.map((tenant) => {
                 const active = selectedIds.has(tenant.id);
                 return (
@@ -1074,7 +1194,8 @@ function BaselinePushModal({
                   </label>
                 );
               })}
-            </div>
+              </div>
+            </>
           )}
         </div>
 

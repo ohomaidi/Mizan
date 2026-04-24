@@ -743,6 +743,11 @@ export const api = {
         initialState: "enabledForReportingButNotEnforced" | "enabled";
         excludesOwnAdmins: boolean;
         idempotencyKey: string;
+        whyKey: string;
+        impactKey: string;
+        prerequisitesKey: string;
+        rolloutAdviceKey: string;
+        docsUrl: string;
       }>;
     }>("/api/directive/baselines"),
 

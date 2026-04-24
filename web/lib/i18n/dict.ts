@@ -1314,16 +1314,171 @@ export const DICT = {
       "Roll back this push? The Conditional Access policies it created will be deleted from every target tenant. This cannot be undone from inside Mizan — to re-apply, push the baseline again.",
     "directive.baselines.rolledbackStatus": "Rolled back",
     "directive.baselines.runningStatus": "Running",
+    "directive.baselines.details": "Details",
+    "directive.baselines.hideDetails": "Hide details",
+    "directive.baselines.why": "Why this matters",
+    "directive.baselines.impact": "User impact",
+    "directive.baselines.prerequisites": "Prerequisites",
+    "directive.baselines.rollout": "Rollout advice",
+    "directive.baselines.docsLink": "Microsoft Learn reference",
+    "directive.baselines.excludesOwnAdmins":
+      "Automatically excludes the entity's own Global Administrators",
+    "directive.baselines.selectedCount":
+      "{count} of {total} baselines selected",
+    "directive.baselines.noneSelected":
+      "Select one or more baselines to push.",
+    "directive.baselines.roadmapTitle": "Custom baselines — on the roadmap",
+    "directive.baselines.roadmapBody":
+      "Authoring a Conditional Access policy from scratch (custom targets, custom grant/session controls, approval workflow before push) is a planned Phase 4 feature. For now, the Center pushes the curated catalog above — every baseline has been validated against the Graph schema and ships report-only so entities can study impact before enforcing.",
 
     "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
     "baseline.requireMfaForAdmins.body":
       "Every privileged directory role (Global Admin, Security Admin, Exchange / SharePoint / User / App / Cloud App / Authentication / Helpdesk / Intune / Billing / Privileged Role / Conditional Access Administrator) must satisfy multi-factor authentication. Report-only by default.",
+    "baseline.requireMfaForAdmins.why":
+      "Admin accounts are the highest-value target in any tenant. A compromised Global Admin can exfiltrate mail, rotate secrets, add backdoors, and disable audit. MFA on admin roles is Microsoft's single most-recommended control and maps to CIS 5.1, NIST 800-63 AAL2, and NESA UAE-IAM-5.",
+    "baseline.requireMfaForAdmins.impact":
+      "Every user assigned to one of the 13 privileged roles will be prompted for a second factor on every new sign-in that doesn't already satisfy MFA. Existing sessions are not invalidated. Break-glass / emergency-access accounts should be excluded at the tenant level before enforcing.",
+    "baseline.requireMfaForAdmins.prerequisites":
+      "Entra ID P1 or higher on every targeted admin. At least one MFA method registered per admin (Authenticator app, FIDO2 key, or phone). A documented break-glass account that stays excluded from this policy.",
+    "baseline.requireMfaForAdmins.rollout":
+      "Ship in report-only for 7–14 days. Review the sign-in logs under Monitoring → Sign-ins filtered to Conditional Access → Report-only: Success. Confirm every admin has registered MFA. Then flip to enabled.",
     "baseline.blockLegacyAuth.title": "Block legacy authentication",
     "baseline.blockLegacyAuth.body":
       "Block sign-ins using legacy auth protocols (IMAP, POP, SMTP basic, Exchange ActiveSync basic, other clients). Modern auth not affected. Report-only by default; Global Admins auto-excluded so a misconfigured legacy-auth client on an admin's device cannot cause a lockout.",
+    "baseline.blockLegacyAuth.why":
+      "Legacy auth protocols do not support MFA, so every other MFA policy is bypassable while they remain open. Microsoft Threat Intelligence attributes >99% of password-spray success to legacy auth. Disabling it is the single highest-ROI change in Entra.",
+    "baseline.blockLegacyAuth.impact":
+      "Any client still authenticating with basic auth (old Outlook, scan-to-email devices, scripts, line-of-business apps using SMTP AUTH / IMAP / POP) will fail to sign in. Users on modern Outlook, Teams, OWA, and mobile Outlook are unaffected.",
+    "baseline.blockLegacyAuth.prerequisites":
+      "Inventory of any service accounts / MFPs / line-of-business apps using SMTP AUTH, IMAP, or POP. Plan to migrate them to Graph or OAuth 2.0 before enforcing.",
+    "baseline.blockLegacyAuth.rollout":
+      "Report-only for 14–30 days. Filter Sign-in logs by Client app = 'Other clients' / 'IMAP' / 'POP' / 'SMTP' — each result is a legacy-auth attempt that will be blocked once enforced. Remediate each before flipping to enabled.",
     "baseline.requireCompliantDevice.title": "Require compliant device for Office 365",
     "baseline.requireCompliantDevice.body":
       "Office 365 apps (Exchange Online, SharePoint, Teams, Office web/desktop) require either an Intune-compliant device OR a Microsoft Entra hybrid-joined device. Blocks data exfiltration to personal / unmanaged endpoints. Report-only by default; Global Admins auto-excluded.",
+    "baseline.requireCompliantDevice.why":
+      "A valid credential + unmanaged device is the canonical supply-chain / BYOD compromise path: attacker extracts a refresh token on a personal laptop and uses it to drain mailboxes. Tying access to device posture makes the credential alone insufficient.",
+    "baseline.requireCompliantDevice.impact":
+      "Users on personal or BYOD devices lose access to Exchange / SharePoint / Teams until the device is enrolled in Intune (and passes compliance) or hybrid-joined. Managed corporate endpoints are unaffected.",
+    "baseline.requireCompliantDevice.prerequisites":
+      "Intune tenant with compliance policies defined, OR AD/Entra hybrid-join configured. Users must be licensed for Intune. A communication plan for BYOD users who will need to enroll.",
+    "baseline.requireCompliantDevice.rollout":
+      "Start report-only. Review the 'Not compliant' bucket in Intune device compliance — enroll or remediate each. Run a 7-day soak. Then flip to enabled, ideally outside business hours.",
+
+    "baseline.requireMfaAllUsers.title": "Require MFA for all users",
+    "baseline.requireMfaAllUsers.body":
+      "Every user in the tenant must satisfy MFA on sign-in to any cloud app. Global Administrators are excluded at the policy level to keep a recoverable path into the tenant. Report-only by default.",
+    "baseline.requireMfaAllUsers.why":
+      "Password-only authentication is bypassed by 99% of automated attacks according to Microsoft's Digital Defense Report. Tenant-wide MFA closes the most common intrusion path and is a CIS Level 1 / NESA core control.",
+    "baseline.requireMfaAllUsers.impact":
+      "Every user will be prompted for MFA on new sign-ins that don't already satisfy it (roughly every 90 days per device by default). Users without a registered MFA method will be sent through combined registration on their next sign-in.",
+    "baseline.requireMfaAllUsers.prerequisites":
+      "Entra ID P1 tenant-wide. Combined registration enabled. A plan for users without mobile phones (FIDO2 keys / Windows Hello as alternatives).",
+    "baseline.requireMfaAllUsers.rollout":
+      "Report-only for at least 14 days while driving MFA registration. Watch Sign-in logs → Conditional Access → Report-only Failure for users who would have been blocked. Remediate registration, then enforce.",
+
+    "baseline.blockHighSignInRisk.title": "Block high sign-in risk",
+    "baseline.blockHighSignInRisk.body":
+      "Entra Identity Protection calculates a per-sign-in risk score based on anomalous location, impossible travel, leaked credentials, and token anomalies. This baseline blocks any sign-in classified 'high'. Report-only by default.",
+    "baseline.blockHighSignInRisk.why":
+      "A 'high' sign-in risk verdict from Identity Protection correlates with genuine compromise in >85% of cases (Microsoft internal telemetry). Blocking high-risk sign-ins stops an attack during the session rather than after.",
+    "baseline.blockHighSignInRisk.impact":
+      "Users flagged high-risk will be blocked and must contact the helpdesk to regain access. False-positive rate is low but non-zero on legitimate VPN usage or travel — a remediation playbook is required.",
+    "baseline.blockHighSignInRisk.prerequisites":
+      "Entra ID P2 (Identity Protection). A helpdesk runbook for user-reported lockouts. A named responder who can review Identity Protection alerts daily.",
+    "baseline.blockHighSignInRisk.rollout":
+      "Report-only for 14 days. Compare to Identity Protection → Risky sign-ins filtered by 'high'. Validate each was genuinely suspicious. Then enforce.",
+
+    "baseline.requirePasswordChangeHighUserRisk.title":
+      "Require password change on high user risk",
+    "baseline.requirePasswordChangeHighUserRisk.body":
+      "When Entra Identity Protection raises a user's risk to 'high' (typically from leaked-credentials feeds), the user is forced to change password AND re-satisfy MFA at next sign-in. Self-remediation cuts incident response time dramatically.",
+    "baseline.requirePasswordChangeHighUserRisk.why":
+      "High user risk almost always means the credential is circulating publicly (paste sites, breach dumps). Auto-forcing a password change closes the window without helpdesk involvement, while still requiring MFA so an attacker with the leaked password alone cannot rotate it.",
+    "baseline.requirePasswordChangeHighUserRisk.impact":
+      "Affected users see a self-service password reset prompt on next sign-in. They must complete SSPR + MFA to regain access. Existing sessions are not cut off but will be forced on re-auth.",
+    "baseline.requirePasswordChangeHighUserRisk.prerequisites":
+      "Entra ID P2 for every targeted user. Self-service password reset enabled. Users registered for SSPR (via combined registration).",
+    "baseline.requirePasswordChangeHighUserRisk.rollout":
+      "Report-only for 7 days to validate the SSPR registration rate. If low, drive registration first. Then enforce.",
+
+    "baseline.phishingResistantMfaAdmins.title":
+      "Phishing-resistant MFA for admin roles",
+    "baseline.phishingResistantMfaAdmins.body":
+      "Privileged roles must authenticate with phishing-resistant methods only — FIDO2 security keys, Windows Hello for Business, or certificate-based authentication. Standard Authenticator-app push and SMS are rejected.",
+    "baseline.phishingResistantMfaAdmins.why":
+      "Push-fatigue and real-time phishing proxies (Evilginx, EvilProxy) routinely bypass standard MFA. CISA and NSA guidance 2023+ explicitly require phishing-resistant methods for privileged accounts. This policy enforces that boundary.",
+    "baseline.phishingResistantMfaAdmins.impact":
+      "Admins without a FIDO2 key / Windows Hello / CBA enrolment lose access until they enrol. Standard Authenticator push or SMS will be rejected for the listed roles.",
+    "baseline.phishingResistantMfaAdmins.prerequisites":
+      "FIDO2 security keys procured and distributed, OR Windows Hello for Business rolled out, OR a CBA configuration. Entra Authentication methods policy must allow the chosen method.",
+    "baseline.phishingResistantMfaAdmins.rollout":
+      "Report-only while distributing keys. Track registration via Entra Authentication methods usage report. Flip to enabled only when every admin has a registered phishing-resistant method.",
+
+    "baseline.requireMfaGuests.title":
+      "Require MFA for guests and external users",
+    "baseline.requireMfaGuests.body":
+      "Every guest / external identity type (B2B collaboration guests, B2B members, B2B direct-connect users, service providers, internal guests, other external users) must satisfy MFA. Closes the most common supply-chain compromise path.",
+    "baseline.requireMfaGuests.why":
+      "Guest accounts are the #1 supply-chain intrusion vector in M365 — a compromised partner sign-in becomes a lateral move into your tenant. Forcing MFA on guests eliminates the 'trusted partner account → inside your tenant' path entirely.",
+    "baseline.requireMfaGuests.impact":
+      "Every external collaborator will be prompted for MFA on first sign-in to a resource in the tenant. If the guest's home tenant already enforces MFA and cross-tenant access settings trust inbound MFA, they may not be re-prompted.",
+    "baseline.requireMfaGuests.prerequisites":
+      "Entra External Identities configured. Cross-tenant access settings reviewed — decide whether to accept inbound MFA claims from partner tenants.",
+    "baseline.requireMfaGuests.rollout":
+      "Safe to enforce directly in most tenants — guests are comparatively low-volume and the policy is purely protective. If you have legacy partners without MFA, run report-only first and surface them through Sign-in logs.",
+
+    "baseline.adminSignInFrequency4h.title":
+      "4-hour sign-in frequency for admins",
+    "baseline.adminSignInFrequency4h.body":
+      "Admin sessions force re-authentication every 4 hours. Without this policy, a session token issued to an admin is valid for up to 90 days — a stolen token would give an attacker that full window.",
+    "baseline.adminSignInFrequency4h.why":
+      "Session token theft (via adversary-in-the-middle phishing, stealer malware, cookie theft) defeats MFA because the token already represents a completed MFA. Short sign-in frequency limits the time a stolen admin token stays useful.",
+    "baseline.adminSignInFrequency4h.impact":
+      "Admins re-authenticate (password + MFA) every 4 hours of active use. This is a session-control only — it does not change who can sign in, just how often they must prove it.",
+    "baseline.adminSignInFrequency4h.prerequisites":
+      "None beyond the baseline role assignments already in place. Admins must accept the reduced convenience.",
+    "baseline.adminSignInFrequency4h.rollout":
+      "Report-only for 3–5 days to confirm the interval matches admin workflow. Increase to 8h or 12h if 4h is disruptive. Enforce once admins have adapted.",
+
+    "baseline.adminNoPersistentBrowser.title":
+      "No persistent browser sessions for admins",
+    "baseline.adminNoPersistentBrowser.body":
+      "Disables 'Stay signed in?' for privileged accounts. An admin who closes their browser must sign in again to the next session, even on their primary device.",
+    "baseline.adminNoPersistentBrowser.why":
+      "Persistent browser cookies remain valid after the user walks away. On a shared workstation or lost laptop, that cookie is enough to enter the Entra admin center. Blocking persistence eliminates a cheap lateral-move path.",
+    "baseline.adminNoPersistentBrowser.impact":
+      "Admins see a fresh sign-in prompt every time they re-open a browser after a full close. Still benefits from SSO within the same session.",
+    "baseline.adminNoPersistentBrowser.prerequisites":
+      "None. This is a policy-only session control.",
+    "baseline.adminNoPersistentBrowser.rollout":
+      "Safe to enforce directly. The UX impact is mild and the security win is immediate.",
+
+    "baseline.compliantDeviceAdminPortals.title":
+      "Compliant device for admin portals",
+    "baseline.compliantDeviceAdminPortals.body":
+      "Access to Microsoft admin portals (Entra admin, Azure portal, Defender XDR, Intune, Exchange admin, SharePoint admin, M365 admin) requires a compliant or hybrid-joined device. Prevents admin tasks from a personal / unmanaged endpoint.",
+    "baseline.compliantDeviceAdminPortals.why":
+      "Even phishing-resistant MFA doesn't defend against session hijack from a malware-infected personal device. Binding admin portal access to device compliance raises the attack floor to 'compromise a managed device' — materially harder.",
+    "baseline.compliantDeviceAdminPortals.impact":
+      "Admins on personal / unmanaged devices cannot reach any Microsoft admin portal. Managed laptops, Windows 365 Cloud PCs, and hybrid-joined desktops are unaffected.",
+    "baseline.compliantDeviceAdminPortals.prerequisites":
+      "Intune compliance policies OR hybrid Entra join. Every admin issued a managed device or a Cloud PC.",
+    "baseline.compliantDeviceAdminPortals.rollout":
+      "Report-only for 7 days. Confirm every admin has a compliant device visible in Intune. Then enforce.",
+
+    "baseline.requireMfaAzureManagement.title":
+      "Require MFA for Azure management",
+    "baseline.requireMfaAzureManagement.body":
+      "MFA is required for every sign-in to the Azure control plane (Azure portal, Azure CLI, Azure PowerShell, ARM REST). The highest-blast-radius surface in the tenant. Report-only by default; Global Admins auto-excluded.",
+    "baseline.requireMfaAzureManagement.why":
+      "Anyone reaching ARM with a valid token can inventory, reconfigure, or destroy subscriptions wholesale. Protecting the control plane with MFA is Microsoft's reference Azure policy and a NIST 800-53 AC-2(12) / ISO 27001 A.9.4.2 equivalent.",
+    "baseline.requireMfaAzureManagement.impact":
+      "Azure portal / CLI / PowerShell / ARM sign-ins re-prompt for MFA. Service principals and managed identities are not affected (they sign in with certificates or secrets, not user credentials).",
+    "baseline.requireMfaAzureManagement.prerequisites":
+      "Entra ID P1. Service principals used in CI/CD should be reviewed and converted to federated credentials where possible.",
+    "baseline.requireMfaAzureManagement.rollout":
+      "Report-only for 7–14 days. Confirm CI/CD pipelines do not trip the policy (they shouldn't — they use app credentials). Then enforce.",
 
     "directive.audit.title": "Audit log",
     "directive.audit.subtitle":
@@ -2836,16 +2991,172 @@ export const DICT = {
       "تراجع عن هذه الدفعة؟ ستُحذف سياسات Conditional Access التي أُنشئت من كل جهة مستهدفة. لا يمكن التراجع عن هذا من داخل Mizan — لإعادة التطبيق، ادفع القاعدة مرة أخرى.",
     "directive.baselines.rolledbackStatus": "تم التراجع",
     "directive.baselines.runningStatus": "قيد التنفيذ",
+    "directive.baselines.details": "التفاصيل",
+    "directive.baselines.hideDetails": "إخفاء التفاصيل",
+    "directive.baselines.why": "لماذا يهمّ هذا",
+    "directive.baselines.impact": "الأثر على المستخدمين",
+    "directive.baselines.prerequisites": "المتطلبات المسبقة",
+    "directive.baselines.rollout": "إرشادات التطبيق",
+    "directive.baselines.docsLink": "مرجع Microsoft Learn",
+    "directive.baselines.excludesOwnAdmins":
+      "يستثني تلقائيًا مسؤولي الجهة العامّين (Global Admins)",
+    "directive.baselines.selectedCount":
+      "{count} من أصل {total} قاعدة محدَّدة",
+    "directive.baselines.noneSelected":
+      "اختر قاعدة أو أكثر للدفع.",
+    "directive.baselines.roadmapTitle":
+      "قواعد مخصّصة — ضمن خارطة الطريق",
+    "directive.baselines.roadmapBody":
+      "إنشاء سياسة Conditional Access من الصفر (أهداف مخصّصة، منح / ضوابط جلسة مخصّصة، مسار اعتماد قبل الدفع) ميزة مخطَّطة في المرحلة الرابعة. حاليًا يدفع المركز فقط القواعد المنسَّقة أعلاه — كلها مُتحقَّق منها مقابل مخطّط Graph وتُشحَن بوضع التقارير حتى تدرس الجهات الأثر قبل الإنفاذ.",
 
     "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
     "baseline.requireMfaForAdmins.body":
       "كل دور دليل ذي امتياز (Global Admin وSecurity Admin وExchange وSharePoint وUser وApp وCloud App وAuthentication وHelpdesk وIntune وBilling وPrivileged Role وConditional Access Administrator) يجب أن يُحقّق المصادقة متعددة العوامل. وضع التقارير فقط افتراضيًا.",
+    "baseline.requireMfaForAdmins.why":
+      "حسابات المسؤولين هي الهدف الأعلى قيمة في أي مستأجر. اختراق Global Admin يتيح تسريب البريد، وتدوير الأسرار، وزراعة أبواب خلفية، وتعطيل التدقيق. فرض MFA على أدوار المسؤولين هو التوصية الأولى لدى Microsoft ويوافق CIS 5.1 وNIST 800-63 AAL2 وNESA UAE-IAM-5.",
+    "baseline.requireMfaForAdmins.impact":
+      "كل مستخدم معيَّن في أحد الأدوار الـ13 ذات الامتياز سيُطالَب بعامل ثانٍ في كل تسجيل دخول جديد لم يُحقّق MFA مسبقًا. الجلسات القائمة لا تُقطع. يجب استثناء حسابات الكسر في حالات الطوارئ على مستوى المستأجر قبل الإنفاذ.",
+    "baseline.requireMfaForAdmins.prerequisites":
+      "Entra ID P1 أو أعلى لكل مسؤول مستهدَف. تسجيل أسلوب MFA واحد على الأقل لكل مسؤول (تطبيق Authenticator، مفتاح FIDO2، أو هاتف). وحساب طوارئ موثَّق يبقى مستثنى.",
+    "baseline.requireMfaForAdmins.rollout":
+      "شغّله بوضع التقارير لمدة 7–14 يومًا. راجع سجلات تسجيل الدخول ضمن Monitoring → Sign-ins مُرشَّحة بـ Conditional Access → Report-only: Success. تحقّق من تسجيل كل مسؤول لطريقة MFA. ثم حوّل إلى enabled.",
     "baseline.blockLegacyAuth.title": "حظر المصادقة القديمة",
     "baseline.blockLegacyAuth.body":
       "حظر تسجيلات الدخول باستخدام بروتوكولات المصادقة القديمة (IMAP وPOP وSMTP basic وExchange ActiveSync basic وعملاء آخرون). المصادقة الحديثة غير متأثرة. وضع التقارير فقط افتراضيًا؛ يُستثنى مسؤولو Global Admin تلقائيًا حتى لا يتسبب عميل قديم يعمل على جهاز مسؤول في قفله.",
+    "baseline.blockLegacyAuth.why":
+      "بروتوكولات المصادقة القديمة لا تدعم MFA، لذا تبقى كل سياسة MFA أخرى قابلة للتجاوز ما دامت مفتوحة. تُرجع بيانات Microsoft Threat Intelligence أكثر من 99% من نجاح هجمات رشّ كلمات المرور إلى المصادقة القديمة. تعطيلها أعلى تغيير عائدًا في Entra.",
+    "baseline.blockLegacyAuth.impact":
+      "أي عميل لا يزال يستخدم المصادقة الأساسية (Outlook قديم، أجهزة Scan-to-email، نصوص برمجية، تطبيقات مؤسسية تستخدم SMTP AUTH / IMAP / POP) سيفشل في تسجيل الدخول. المستخدمون على Outlook الحديث وTeams وOWA وOutlook للجوّال غير متأثرين.",
+    "baseline.blockLegacyAuth.prerequisites":
+      "جرد لأي حسابات خدمة / طابعات متعددة الوظائف / تطبيقات مؤسسية تستخدم SMTP AUTH أو IMAP أو POP. وخطة لترحيلها إلى Graph أو OAuth 2.0 قبل الإنفاذ.",
+    "baseline.blockLegacyAuth.rollout":
+      "وضع التقارير 14–30 يومًا. رشّح سجلات تسجيل الدخول بـ Client app = 'Other clients' / 'IMAP' / 'POP' / 'SMTP' — كل نتيجة هي محاولة مصادقة قديمة ستُحظر عند الإنفاذ. عالج كلًا منها قبل التحويل إلى enabled.",
     "baseline.requireCompliantDevice.title": "طلب جهاز متوافق لتطبيقات Office 365",
     "baseline.requireCompliantDevice.body":
       "تطبيقات Office 365 (Exchange Online وSharePoint وTeams وOffice web/desktop) تتطلب إما جهازًا متوافقًا مع Intune أو جهازًا هجينًا متصلًا بـ Entra. يمنع تسرّب البيانات إلى الأجهزة الشخصية / غير المُدارة. وضع التقارير فقط افتراضيًا؛ يُستثنى مسؤولو Global Admin تلقائيًا.",
+    "baseline.requireCompliantDevice.why":
+      "اعتماد صحيح + جهاز غير مُدار هو المسار المعياري لاختراق سلسلة التوريد / BYOD: يستخرج المهاجم رمز التحديث على حاسوب شخصي ويستعمله لتفريغ صناديق البريد. ربط الوصول بحالة الجهاز يجعل الاعتماد وحده غير كافٍ.",
+    "baseline.requireCompliantDevice.impact":
+      "يفقد المستخدمون على أجهزة شخصية أو BYOD الوصول إلى Exchange / SharePoint / Teams حتى يُسجَّل الجهاز في Intune (ويجتاز التوافق) أو يكون هجين الانضمام. النقاط الطرفية المؤسسية المُدارة غير متأثرة.",
+    "baseline.requireCompliantDevice.prerequisites":
+      "مستأجر Intune مع سياسات توافق مُعرَّفة، أو ضبط AD/Entra الهجين. ترخيص Intune للمستخدمين. وخطة تواصل مع مستخدمي BYOD الذين يحتاجون إلى التسجيل.",
+    "baseline.requireCompliantDevice.rollout":
+      "ابدأ بوضع التقارير. راجع فئة 'غير متوافق' في Intune device compliance — سجّل أو عالج كلًا منها. شغّل 7 أيام تنقُّص. ثم حوّل إلى enabled، ويفضَّل خارج ساعات العمل.",
+
+    "baseline.requireMfaAllUsers.title": "طلب MFA لجميع المستخدمين",
+    "baseline.requireMfaAllUsers.body":
+      "يجب على كل مستخدم في المستأجر تحقيق MFA عند تسجيل الدخول لأي تطبيق سحابي. يُستثنى Global Administrators على مستوى السياسة لإبقاء مسار استرداد. وضع التقارير فقط افتراضيًا.",
+    "baseline.requireMfaAllUsers.why":
+      "المصادقة بكلمة مرور فقط يتجاوزها 99% من الهجمات الآلية وفق تقرير Microsoft Digital Defense. فرض MFA على مستوى المستأجر يغلق أكثر مسار اختراق شيوعًا وهو ضابط أساسي في CIS Level 1 وNESA.",
+    "baseline.requireMfaAllUsers.impact":
+      "كل مستخدم سيُطالَب بـ MFA في تسجيلات الدخول الجديدة التي لم تحقّقه (عادةً كل 90 يومًا لكل جهاز). المستخدمون بلا أسلوب MFA مسجَّل سيُرسَلون إلى التسجيل المدمج في تسجيل الدخول التالي.",
+    "baseline.requireMfaAllUsers.prerequisites":
+      "Entra ID P1 على مستوى المستأجر. تمكين التسجيل المدمج. خطة للمستخدمين بلا هاتف محمول (مفاتيح FIDO2 / Windows Hello كبديل).",
+    "baseline.requireMfaAllUsers.rollout":
+      "وضع التقارير لـ 14 يومًا على الأقل أثناء قيادة التسجيل. راقب Sign-in logs → Conditional Access → Report-only Failure للمستخدمين الذين كانوا سيُحظرون. عالج التسجيل، ثم فرّض.",
+
+    "baseline.blockHighSignInRisk.title": "حظر تسجيلات الدخول عالية الخطورة",
+    "baseline.blockHighSignInRisk.body":
+      "يحسب Entra Identity Protection درجة خطورة لكل عملية تسجيل دخول بناءً على الموقع الشاذ والسفر المستحيل والاعتمادات المسرَّبة وشذوذ الرموز. هذه القاعدة تحظر أي تسجيل دخول مصنَّف 'عالٍ'. وضع التقارير فقط افتراضيًا.",
+    "baseline.blockHighSignInRisk.why":
+      "حكم 'خطورة عالية' لتسجيل الدخول من Identity Protection يرتبط باختراق حقيقي في أكثر من 85% من الحالات (قياسات Microsoft الداخلية). حظره يوقف الهجوم أثناء الجلسة لا بعدها.",
+    "baseline.blockHighSignInRisk.impact":
+      "المستخدمون المُعلَّمون بخطورة عالية سيُحظرون ويجب أن يتواصلوا مع Helpdesk لاستعادة الوصول. معدل الإيجابيات الخاطئة منخفض لكنه غير صفري في حالات VPN أو السفر المشروع — يلزم إجراء استجابة.",
+    "baseline.blockHighSignInRisk.prerequisites":
+      "Entra ID P2 (Identity Protection). كتيّب تشغيل Helpdesk لحالات القفل المُبلَّغ عنها. مسؤول معيَّن لمراجعة تنبيهات Identity Protection يوميًا.",
+    "baseline.blockHighSignInRisk.rollout":
+      "وضع التقارير لـ 14 يومًا. قارن بـ Identity Protection → Risky sign-ins المُرشَّحة بـ 'high'. تحقّق أن كلًا منها مشبوه فعلًا. ثم فرّض.",
+
+    "baseline.requirePasswordChangeHighUserRisk.title":
+      "طلب تغيير كلمة المرور عند خطورة مستخدم عالية",
+    "baseline.requirePasswordChangeHighUserRisk.body":
+      "عندما يرفع Entra Identity Protection خطورة مستخدم إلى 'عالٍ' (غالبًا من موجزات الاعتمادات المسرَّبة)، يُجبَر على تغيير كلمة المرور وإعادة تحقيق MFA في تسجيل الدخول التالي. الإصلاح الذاتي يقلّل زمن الاستجابة للحوادث بشكل كبير.",
+    "baseline.requirePasswordChangeHighUserRisk.why":
+      "الخطورة العالية للمستخدم تعني غالبًا أن الاعتماد يدور علنًا (مواقع اللصق، قواعد بيانات الاختراق). إجبار تغيير كلمة المرور تلقائيًا يغلق النافذة دون تدخل Helpdesk، مع الاحتفاظ بـ MFA حتى لا يستطيع مهاجم بالاعتماد المسرَّب وحده تدويرها.",
+    "baseline.requirePasswordChangeHighUserRisk.impact":
+      "يرى المستخدمون المتأثرون محث إعادة تعيين كلمة المرور ذاتيًا عند تسجيل الدخول التالي. يجب إتمام SSPR + MFA لاستعادة الوصول. الجلسات القائمة لا تُقطع لكنها ستُجبَر على إعادة المصادقة.",
+    "baseline.requirePasswordChangeHighUserRisk.prerequisites":
+      "Entra ID P2 لكل مستخدم مستهدَف. تمكين SSPR. تسجيل المستخدمين لـ SSPR (عبر التسجيل المدمج).",
+    "baseline.requirePasswordChangeHighUserRisk.rollout":
+      "وضع التقارير لـ 7 أيام للتحقق من معدل تسجيل SSPR. إن كان منخفضًا فادفع التسجيل أولًا. ثم فرّض.",
+
+    "baseline.phishingResistantMfaAdmins.title":
+      "MFA مقاوم للتصيد لأدوار المسؤولين",
+    "baseline.phishingResistantMfaAdmins.body":
+      "يجب أن يستخدم المسؤولون طرقًا مقاومة للتصيد فقط — مفاتيح FIDO2 أو Windows Hello for Business أو المصادقة القائمة على الشهادات. يُرفض الدفع بـ Authenticator العادي وSMS.",
+    "baseline.phishingResistantMfaAdmins.why":
+      "إرهاق الدفع ووسطاء التصيد الفوريون (Evilginx وEvilProxy) يتجاوزون MFA العادية روتينيًا. توجيهات CISA وNSA منذ 2023 تشترط صراحةً طرقًا مقاومة للتصيد للحسابات ذات الامتياز. هذه السياسة تُرسّخ تلك الحدود.",
+    "baseline.phishingResistantMfaAdmins.impact":
+      "المسؤولون دون تسجيل FIDO2 / Windows Hello / CBA يفقدون الوصول حتى يسجّلوا. دفع Authenticator العادي وSMS سيُرفضان للأدوار المدرَجة.",
+    "baseline.phishingResistantMfaAdmins.prerequisites":
+      "مفاتيح FIDO2 مُشتراة وموزَّعة، أو Windows Hello for Business مطروح، أو تهيئة CBA. يجب أن تسمح سياسة Authentication methods في Entra بالطريقة المختارة.",
+    "baseline.phishingResistantMfaAdmins.rollout":
+      "وضع التقارير أثناء توزيع المفاتيح. تابع التسجيل عبر تقرير Entra Authentication methods usage. حوّل إلى enabled فقط عندما يمتلك كل مسؤول طريقة مقاومة للتصيد مسجَّلة.",
+
+    "baseline.requireMfaGuests.title":
+      "طلب MFA للضيوف والمستخدمين الخارجيين",
+    "baseline.requireMfaGuests.body":
+      "يجب أن يُحقّق كل نوع هوية خارجية (B2B collaboration guests وB2B members وB2B direct-connect users وservice providers وinternal guests وother external users) مصادقة MFA. يغلق أشيع مسار اختراق سلسلة التوريد.",
+    "baseline.requireMfaGuests.why":
+      "حسابات الضيوف هي الناقل الأول لاختراق سلسلة التوريد في M365 — تسجيل دخول شريك مُخترَق يصبح حركة جانبية إلى مستأجرك. فرض MFA على الضيوف يُزيل مسار 'حساب شريك موثوق → داخل مستأجرك'.",
+    "baseline.requireMfaGuests.impact":
+      "كل متعاون خارجي سيُطالَب بـ MFA في أول تسجيل دخول لأي مورد في المستأجر. إن كان المستأجر الأصلي للضيف يفرض MFA وإعدادات الوصول عبر المستأجرين تثق بادعاءات MFA الواردة، فقد لا يُطالَب مجددًا.",
+    "baseline.requireMfaGuests.prerequisites":
+      "تهيئة Entra External Identities. مراجعة إعدادات الوصول عبر المستأجرين — قرر قبول ادعاءات MFA الواردة من مستأجرات الشركاء.",
+    "baseline.requireMfaGuests.rollout":
+      "آمن للإنفاذ مباشرة في معظم المستأجرات — الضيوف أقل حجمًا والسياسة وقائية بحتة. إن كان لديك شركاء قدماء بلا MFA فشغّل وضع التقارير أولًا واستخرجهم من Sign-in logs.",
+
+    "baseline.adminSignInFrequency4h.title":
+      "تردّد تسجيل دخول كل 4 ساعات للمسؤولين",
+    "baseline.adminSignInFrequency4h.body":
+      "تفرض جلسات المسؤولين إعادة المصادقة كل 4 ساعات. بلا هذه السياسة، يبقى رمز الجلسة الصادر لمسؤول صالحًا حتى 90 يومًا — نافذة كاملة في يد مهاجم إن سُرق.",
+    "baseline.adminSignInFrequency4h.why":
+      "سرقة رموز الجلسات (عبر التصيد الوسيط، والبرمجيات السارقة، وسرقة الكوكيز) تهزم MFA لأن الرمز يمثّل مصادقة مكتملة. تقصير تردّد تسجيل الدخول يحدّ من الزمن الذي يبقى فيه رمز مسؤول مسروق مفيدًا.",
+    "baseline.adminSignInFrequency4h.impact":
+      "يعيد المسؤولون المصادقة (كلمة مرور + MFA) كل 4 ساعات من الاستخدام الفعّال. ضبط جلسة فقط — لا يغيّر من يسجّل الدخول، بل فقط كم مرة يُثبت ذلك.",
+    "baseline.adminSignInFrequency4h.prerequisites":
+      "لا شيء إضافي بعد تعيينات الأدوار القائمة. يجب أن يقبل المسؤولون التراجع في الراحة.",
+    "baseline.adminSignInFrequency4h.rollout":
+      "وضع التقارير لـ 3–5 أيام لتأكيد أن الفاصل يناسب سير العمل. زد إلى 8 أو 12 ساعة إن كان 4 ساعات مزعجًا. فرّض بعد تكيّف المسؤولين.",
+
+    "baseline.adminNoPersistentBrowser.title":
+      "لا جلسات متصفّح دائمة للمسؤولين",
+    "baseline.adminNoPersistentBrowser.body":
+      "يُعطّل 'البقاء مسجّلًا؟' للحسابات ذات الامتياز. المسؤول الذي يغلق متصفّحه يجب أن يسجّل الدخول مجددًا في الجلسة التالية، حتى على جهازه الأساسي.",
+    "baseline.adminNoPersistentBrowser.why":
+      "كوكيز المتصفح الدائمة تبقى صالحة بعد ابتعاد المستخدم. على محطة مشتركة أو حاسوب مفقود، هذه الكوكي تكفي للدخول إلى مركز إدارة Entra. حظر الديمومة يُلغي مسار حركة جانبية رخيص.",
+    "baseline.adminNoPersistentBrowser.impact":
+      "يرى المسؤولون محث تسجيل دخول جديد في كل مرة يُعيدون فتح المتصفح بعد إغلاقه كليًا. يبقون يستفيدون من SSO داخل الجلسة نفسها.",
+    "baseline.adminNoPersistentBrowser.prerequisites":
+      "لا شيء. إنه ضبط جلسة على مستوى السياسة فقط.",
+    "baseline.adminNoPersistentBrowser.rollout":
+      "آمن للإنفاذ مباشرة. أثر UX بسيط والربح الأمني فوري.",
+
+    "baseline.compliantDeviceAdminPortals.title":
+      "جهاز متوافق لبوابات الإدارة",
+    "baseline.compliantDeviceAdminPortals.body":
+      "الوصول إلى بوابات إدارة Microsoft (Entra admin وAzure portal وDefender XDR وIntune وExchange admin وSharePoint admin وM365 admin) يتطلب جهازًا متوافقًا أو هجين الانضمام. يمنع مهام الإدارة من نقطة طرفية شخصية / غير مُدارة.",
+    "baseline.compliantDeviceAdminPortals.why":
+      "حتى MFA المقاومة للتصيد لا تحمي من اختطاف الجلسة من جهاز شخصي مُصاب ببرمجية خبيثة. ربط الوصول إلى بوابات الإدارة بتوافق الجهاز يرفع أرضية الهجوم إلى 'اختراق جهاز مُدار' — أصعب بكثير.",
+    "baseline.compliantDeviceAdminPortals.impact":
+      "المسؤولون على أجهزة شخصية / غير مُدارة لا يستطيعون الوصول إلى أي بوابة إدارة Microsoft. الحواسيب المُدارة، وWindows 365 Cloud PCs، وأجهزة هجين الانضمام غير متأثرة.",
+    "baseline.compliantDeviceAdminPortals.prerequisites":
+      "سياسات توافق Intune أو Entra hybrid join. كل مسؤول يمتلك جهازًا مُدارًا أو Cloud PC.",
+    "baseline.compliantDeviceAdminPortals.rollout":
+      "وضع التقارير لـ 7 أيام. تحقّق أن كل مسؤول يمتلك جهازًا متوافقًا ظاهرًا في Intune. ثم فرّض.",
+
+    "baseline.requireMfaAzureManagement.title":
+      "طلب MFA لإدارة Azure",
+    "baseline.requireMfaAzureManagement.body":
+      "MFA مطلوبة لكل تسجيل دخول إلى مستوى التحكم في Azure (Azure portal وAzure CLI وAzure PowerShell وARM REST). أعلى سطح نصف قطر تفجير في المستأجر. وضع التقارير فقط افتراضيًا؛ يُستثنى Global Admins تلقائيًا.",
+    "baseline.requireMfaAzureManagement.why":
+      "كل من يصل إلى ARM برمز صالح يستطيع جرد الاشتراكات وإعادة تهيئتها أو تدميرها بالكامل. حماية مستوى التحكم بـ MFA هي سياسة Azure المرجعية لدى Microsoft وتوافق NIST 800-53 AC-2(12) وISO 27001 A.9.4.2.",
+    "baseline.requireMfaAzureManagement.impact":
+      "تسجيلات دخول Azure portal / CLI / PowerShell / ARM تُطالَب بـ MFA. الـ Service principals والـ managed identities غير متأثرة (تسجّل الدخول بشهادات أو أسرار لا باعتمادات مستخدم).",
+    "baseline.requireMfaAzureManagement.prerequisites":
+      "Entra ID P1. مراجعة الـ Service principals المستخدمة في CI/CD وتحويلها إلى federated credentials حيثما أمكن.",
+    "baseline.requireMfaAzureManagement.rollout":
+      "وضع التقارير لـ 7–14 يومًا. تحقّق أن خطوط CI/CD لا تُطلق السياسة (لا ينبغي — تستخدم اعتمادات تطبيقات). ثم فرّض.",
 
     "directive.audit.title": "سجل التدقيق",
     "directive.audit.subtitle":
