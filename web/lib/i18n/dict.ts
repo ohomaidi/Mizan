@@ -1234,6 +1234,50 @@ export const DICT = {
     "mode.observation": "Observation",
     "mode.directive": "Directive",
 
+    "directive.action.title": "Directive action",
+    "directive.action.apply": "Apply",
+    "directive.action.comment": "Add comment",
+    "directive.action.commentLabel": "Analyst comment",
+    "directive.action.commentPlaceholder":
+      "Short note that lands in the incident / alert on Defender XDR.",
+    "directive.action.confirmCompromised": "Confirm compromised",
+    "directive.action.dismiss": "Dismiss risk",
+    "directive.action.revokeSessions": "Force sign-out",
+    "directive.action.riskyHelper":
+      "Confirm-compromised flags the user as a genuine threat in Entra ID Protection. Dismiss clears the flag. Force sign-out invalidates every active session for that user.",
+    "directive.toast.success": "Sent \u2014 audit #{auditId}",
+    "directive.toast.simulated": "Simulated \u2014 audit #{auditId}",
+
+    "directive.threat.title": "Submit threat to Microsoft",
+    "directive.threat.subtitle":
+      "Forward phishing emails, malicious URLs, and suspicious files to Microsoft for analysis. Submissions feed back into Defender so every entity benefits from the classification.",
+    "directive.threat.noDirectiveEntities":
+      "No directive-mode entities onboarded yet. Onboard an entity with directive consent first.",
+    "directive.threat.kind": "Kind",
+    "directive.threat.category": "Category",
+    "directive.threat.url": "URL",
+    "directive.threat.recipient": "Recipient email",
+    "directive.threat.messageUri":
+      "Message Graph URI (from Defender XDR alert or email headers)",
+    "directive.threat.fileName": "File name",
+    "directive.threat.fileContent": "Base64 file content",
+    "directive.threat.submit": "Submit",
+
+    "directive.audit.title": "Audit log",
+    "directive.audit.subtitle":
+      "Every directive action, ever. Refreshes every 15 seconds. Simulated actions against demo tenants are marked so they cannot be confused with real Graph writes.",
+    "directive.audit.refresh": "Refresh",
+    "directive.audit.empty":
+      "No directive actions recorded yet. The next classify / comment / disposition / submission will land here.",
+    "directive.audit.col.when": "When",
+    "directive.audit.col.entity": "Entity",
+    "directive.audit.col.action": "Action",
+    "directive.audit.col.target": "Target",
+    "directive.audit.col.status": "Status",
+    "directive.audit.status.success": "Success",
+    "directive.audit.status.simulated": "Simulated",
+    "directive.audit.status.failed": "Failed",
+
     "vuln.eyebrow": "Vulnerability management",
     "vuln.title": "Vulnerabilities across the federation",
     "vuln.subtitle":
@@ -2649,6 +2693,50 @@ export const DICT = {
 
     "mode.observation": "مراقبة",
     "mode.directive": "توجيه",
+
+    "directive.action.title": "إجراء توجيهي",
+    "directive.action.apply": "تطبيق",
+    "directive.action.comment": "إضافة تعليق",
+    "directive.action.commentLabel": "تعليق المحلّل",
+    "directive.action.commentPlaceholder":
+      "ملاحظة قصيرة تظهر على الحادث / التنبيه في Defender XDR.",
+    "directive.action.confirmCompromised": "تأكيد الاختراق",
+    "directive.action.dismiss": "تجاهل المخاطرة",
+    "directive.action.revokeSessions": "فرض تسجيل الخروج",
+    "directive.action.riskyHelper":
+      "تأكيد الاختراق يُعلّم المستخدم تهديدًا فعليًا في Entra ID Protection. تجاهل يُزيل الإشارة. فرض تسجيل الخروج يُبطل كل جلسة نشطة للمستخدم.",
+    "directive.toast.success": "تم الإرسال — تدقيق #{auditId}",
+    "directive.toast.simulated": "محاكاة — تدقيق #{auditId}",
+
+    "directive.threat.title": "إرسال تهديد إلى Microsoft",
+    "directive.threat.subtitle":
+      "أرسل رسائل التصيّد وعناوين URL الضارّة والملفات المشبوهة إلى Microsoft للتحليل. تغذّى الاستعلامات في Defender لتستفيد كل جهة من التصنيف.",
+    "directive.threat.noDirectiveEntities":
+      "لا توجد جهات في وضع التوجيه بعد. أدرج جهة بموافقة التوجيه أولًا.",
+    "directive.threat.kind": "النوع",
+    "directive.threat.category": "التصنيف",
+    "directive.threat.url": "رابط URL",
+    "directive.threat.recipient": "بريد المستلم",
+    "directive.threat.messageUri":
+      "رابط Graph للرسالة (من تنبيه Defender XDR أو رؤوس البريد)",
+    "directive.threat.fileName": "اسم الملف",
+    "directive.threat.fileContent": "محتوى الملف Base64",
+    "directive.threat.submit": "إرسال",
+
+    "directive.audit.title": "سجل التدقيق",
+    "directive.audit.subtitle":
+      "كل إجراء توجيهي، بلا استثناء. يُحدَّث كل ١٥ ثانية. إجراءات المحاكاة على الجهات التجريبية مُعلَّمة حتى لا تُخلط بعمليات Graph الحقيقية.",
+    "directive.audit.refresh": "تحديث",
+    "directive.audit.empty":
+      "لم تُسجَّل إجراءات توجيهية بعد. أول إجراء تصنيف / تعليق / تصرّف / إرسال سيظهر هنا.",
+    "directive.audit.col.when": "متى",
+    "directive.audit.col.entity": "الجهة",
+    "directive.audit.col.action": "الإجراء",
+    "directive.audit.col.target": "الهدف",
+    "directive.audit.col.status": "الحالة",
+    "directive.audit.status.success": "نجاح",
+    "directive.audit.status.simulated": "محاكاة",
+    "directive.audit.status.failed": "فشل",
 
     "vuln.eyebrow": "إدارة الثغرات",
     "vuln.title": "الثغرات الأمنية عبر الجهات",

@@ -567,4 +567,148 @@ export const api = {
       }>;
       devices: Array<{ id: string; nameEn: string; nameAr: string; cluster: string; payload: { total: number; compliant: number; nonCompliant: number; compliancePct: number } | null }>;
     }>("/api/signals/rollup"),
+
+  // ----- Phase 2 Directive actions (directive-mode deployments only) -----
+  directiveClassifyIncident: (
+    incidentId: string,
+    body: {
+      tenantId: string;
+      classification?:
+        | "truePositive"
+        | "falsePositive"
+        | "informationalExpectedActivity";
+      determination?:
+        | "apt"
+        | "malware"
+        | "phishing"
+        | "compromisedAccount"
+        | "maliciousUserActivity"
+        | "unwantedSoftware"
+        | "insufficientInformation"
+        | "other";
+      status?: "active" | "resolved" | "inProgress" | "redirected";
+      assignedTo?: string;
+      customTags?: string[];
+    },
+  ) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      `/api/directive/incidents/${encodeURIComponent(incidentId)}/classify`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveCommentIncident: (
+    incidentId: string,
+    body: { tenantId: string; comment: string },
+  ) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      `/api/directive/incidents/${encodeURIComponent(incidentId)}/comment`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveClassifyAlert: (
+    alertId: string,
+    body: {
+      tenantId: string;
+      classification?:
+        | "truePositive"
+        | "falsePositive"
+        | "informationalExpectedActivity";
+      determination?:
+        | "apt"
+        | "malware"
+        | "phishing"
+        | "compromisedAccount"
+        | "maliciousUserActivity"
+        | "unwantedSoftware"
+        | "insufficientInformation"
+        | "other";
+      status?: "new" | "inProgress" | "resolved";
+      assignedTo?: string;
+    },
+  ) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      `/api/directive/alerts/${encodeURIComponent(alertId)}/classify`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveCommentAlert: (
+    alertId: string,
+    body: { tenantId: string; comment: string },
+  ) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      `/api/directive/alerts/${encodeURIComponent(alertId)}/comment`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveConfirmCompromised: (body: { tenantId: string; userIds: string[] }) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      "/api/directive/users/risky/confirm-compromised",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveDismissRiskyUsers: (body: { tenantId: string; userIds: string[] }) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      "/api/directive/users/risky/dismiss",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveRevokeSessions: (
+    userId: string,
+    body: { tenantId: string },
+  ) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      `/api/directive/users/${encodeURIComponent(userId)}/revoke-sessions`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveSubmitThreat: (
+    body:
+      | {
+          kind: "email";
+          tenantId: string;
+          category: "phishing" | "malware" | "spam" | "notSpam";
+          recipientEmailAddress: string;
+          messageUri: string;
+        }
+      | {
+          kind: "url";
+          tenantId: string;
+          category: "phishing" | "malware" | "spam" | "notSpam";
+          url: string;
+        }
+      | {
+          kind: "file";
+          tenantId: string;
+          category: "malware" | "notMalware";
+          fileName: string;
+          fileContent: string;
+        },
+  ) =>
+    jsonFetch<{ ok: boolean; simulated: boolean; auditId: number; result: unknown }>(
+      "/api/directive/threat-submission",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveAudit: (opts: { tenantId?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.tenantId) q.set("tenantId", opts.tenantId);
+    if (opts.limit) q.set("limit", String(opts.limit));
+    const qs = q.toString();
+    return jsonFetch<{
+      actions: Array<{
+        id: number;
+        tenantId: string;
+        tenantNameEn: string;
+        tenantNameAr: string;
+        actionType: string;
+        targetId: string | null;
+        status: "success" | "failed" | "simulated";
+        inputJson: string | null;
+        resultJson: string | null;
+        errorMessage: string | null;
+        actorUserId: string | null;
+        at: string;
+      }>;
+    }>(`/api/directive/audit${qs ? `?${qs}` : ""}`);
+  },
 };

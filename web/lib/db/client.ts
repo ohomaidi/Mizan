@@ -193,6 +193,46 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 8,
+    name: "add_directive_actions",
+    run: (db) => {
+      // Every directive write attempt is captured here. Never deleted. This
+      // is the single source of truth for "what did the Center do, to whom,
+      // when, and did it succeed." Powers /directive → Audit.
+      //
+      //   action_type   e.g. 'incident.classify', 'user.revoke_sessions'
+      //   target_id     the Graph resource ID we targeted (incident id,
+      //                 user id, etc.)
+      //   status        'success' | 'failed' | 'simulated'
+      //                 'simulated' is what demo/is_demo tenants get — the
+      //                 UI surfaces this as a SIMULATED chip so nothing gets
+      //                 confused with a real write.
+      //   input_json    the parameters the Center user passed
+      //   result_json   Graph response summary on success
+      //   error_message truncated error string on failure
+      //   actor_user_id the Mizan user who triggered the action
+      db.exec(`CREATE TABLE IF NOT EXISTS directive_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL,
+        action_type TEXT NOT NULL,
+        target_id TEXT,
+        status TEXT NOT NULL CHECK (status IN ('success','failed','simulated')),
+        input_json TEXT,
+        result_json TEXT,
+        error_message TEXT,
+        actor_user_id TEXT,
+        at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_actions_tenant_at ON directive_actions(tenant_id, at DESC)",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_actions_at ON directive_actions(at DESC)",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

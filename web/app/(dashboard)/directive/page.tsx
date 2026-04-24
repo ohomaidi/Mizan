@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { redirect } from "next/navigation";
 import {
   Gavel,
@@ -11,22 +11,22 @@ import {
   Package,
   Radar,
   Lock,
+  Loader2,
+  Send,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { useFmtRelative } from "@/lib/i18n/time";
 import { api } from "@/lib/api/client";
+import type { DictKey } from "@/lib/i18n/dict";
 
 /**
  * /directive — top-level page only reachable in directive-mode deployments.
  *
- * For Phase 1 this is a roadmap shell, NOT a working write surface. It exists
- * to (a) show Center admins what is coming, (b) exercise the env-gated routing
- * end to end, and (c) land the UI scaffolding so Phase 2+ plugs in without a
- * restructure. No write endpoint is called from this page in Phase 1.
- *
- * Observation-mode deployments (SCSC) should never render this page. The
- * route is defensive — if someone hits it directly on an observation
- * deployment the effect redirects them to /maturity.
+ * Phase 2 surfaces: capability cards for the shipped Phase 2 actions flip
+ * from "Planned" to "Available"; a threat-submission console and the
+ * audit log table render below the roadmap.
  */
 
 type Status = "available" | "in_progress" | "planned";
@@ -61,21 +61,21 @@ const CAPABILITIES: Capability[] = [
     titleKey: "directive.cap.incidentOps.title",
     bodyKey: "directive.cap.incidentOps.body",
     phase: 2,
-    status: "planned",
+    status: "available",
   },
   {
     icon: UserX,
     titleKey: "directive.cap.riskyUsers.title",
     bodyKey: "directive.cap.riskyUsers.body",
     phase: 2,
-    status: "planned",
+    status: "available",
   },
   {
     icon: Radar,
     titleKey: "directive.cap.threatSubmissions.title",
     bodyKey: "directive.cap.threatSubmissions.body",
     phase: 2,
-    status: "planned",
+    status: "available",
   },
   {
     icon: Lock,
@@ -114,8 +114,11 @@ const CAPABILITIES: Capability[] = [
   },
 ];
 
+type AuditRow = Awaited<ReturnType<typeof api.directiveAudit>>["actions"][number];
+
 export default function DirectivePage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const fmtRelative = useFmtRelative();
   const [me, setMe] = useState<Awaited<ReturnType<typeof api.whoami>> | null>(null);
   const [checked, setChecked] = useState(false);
 
@@ -152,12 +155,6 @@ export default function DirectivePage() {
           {t("directive.subtitle")}
         </p>
       </div>
-
-      {/* No "Directive app not provisioned" banner — this deployment uses a
-          single Graph app registration whose scope list was set at /setup
-          based on deployment mode. If we're on this page at all, the
-          deployment already chose read+write and the app has the right
-          scopes. */}
 
       <Card>
         <CardHeader
@@ -198,6 +195,10 @@ export default function DirectivePage() {
           })}
         </div>
       </Card>
+
+      <ThreatSubmissionConsole locale={locale} />
+
+      <AuditLogSection fmtRelative={fmtRelative} />
 
       <Card>
         <CardHeader
@@ -251,6 +252,390 @@ export default function DirectivePage() {
   );
 }
 
+function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
+  const { t } = useI18n();
+  const [tenants, setTenants] = useState<
+    Array<{ id: string; nameEn: string; nameAr: string; consentMode: string }>
+  >([]);
+  const [tenantId, setTenantId] = useState<string>("");
+  const [kind, setKind] = useState<"email" | "url" | "file">("url");
+  const [urlStr, setUrlStr] = useState("");
+  const [emailRecipient, setEmailRecipient] = useState("");
+  const [messageUri, setMessageUri] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [fileBase64, setFileBase64] = useState("");
+  const [category, setCategory] = useState<"phishing" | "malware" | "spam" | "notSpam">(
+    "phishing",
+  );
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getEntities()
+      .then((r) => {
+        const directive = r.entities.filter((e) => e.consentMode === "directive");
+        setTenants(directive);
+        if (directive.length > 0 && !tenantId) setTenantId(directive[0].id);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const show = (msg: string, isError?: boolean) => {
+    if (isError) {
+      setErrorMsg(msg);
+      setToast(null);
+    } else {
+      setToast(msg);
+      setErrorMsg(null);
+    }
+    setTimeout(() => {
+      setToast(null);
+      setErrorMsg(null);
+    }, 5000);
+  };
+
+  const submit = async () => {
+    if (!tenantId) return;
+    setSaving(true);
+    try {
+      let r: Awaited<ReturnType<typeof api.directiveSubmitThreat>>;
+      if (kind === "email") {
+        r = await api.directiveSubmitThreat({
+          kind: "email",
+          tenantId,
+          category,
+          recipientEmailAddress: emailRecipient.trim(),
+          messageUri: messageUri.trim(),
+        });
+      } else if (kind === "url") {
+        r = await api.directiveSubmitThreat({
+          kind: "url",
+          tenantId,
+          category,
+          url: urlStr.trim(),
+        });
+      } else {
+        r = await api.directiveSubmitThreat({
+          kind: "file",
+          tenantId,
+          category: category === "notSpam" ? "notMalware" : "malware",
+          fileName: fileName.trim(),
+          fileContent: fileBase64.trim(),
+        });
+      }
+      show(
+        r.simulated
+          ? t("directive.toast.simulated", { auditId: String(r.auditId) })
+          : t("directive.toast.success", { auditId: String(r.auditId) }),
+      );
+      // Clear body fields but keep tenant / category so repeat submissions
+      // are cheap.
+      setUrlStr("");
+      setEmailRecipient("");
+      setMessageUri("");
+      setFileName("");
+      setFileBase64("");
+    } catch (err) {
+      show((err as Error).message, true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Send size={14} className="text-council-strong" />
+            {t("directive.threat.title")}
+          </span>
+        }
+        subtitle={t("directive.threat.subtitle")}
+        right={
+          toast ? (
+            <span className="text-[11.5px] text-pos">{toast}</span>
+          ) : errorMsg ? (
+            <span className="text-[11.5px] text-neg truncate max-w-[50%]">
+              {errorMsg}
+            </span>
+          ) : null
+        }
+      />
+      {tenants.length === 0 ? (
+        <div className="text-[12.5px] text-ink-3">
+          {t("directive.threat.noDirectiveEntities")}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("cols.entity")}
+            </span>
+            <select
+              value={tenantId}
+              onChange={(e) => setTenantId(e.target.value)}
+              className="h-9 px-2 rounded border border-border bg-surface-1 text-[13px] text-ink-1"
+            >
+              {tenants.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {locale === "ar" ? t.nameAr : t.nameEn}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("directive.threat.kind")}
+            </span>
+            <select
+              value={kind}
+              onChange={(e) =>
+                setKind(e.target.value as "email" | "url" | "file")
+              }
+              className="h-9 px-2 rounded border border-border bg-surface-1 text-[13px] text-ink-1"
+            >
+              <option value="url">URL</option>
+              <option value="email">Email</option>
+              <option value="file">File hash</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("directive.threat.category")}
+            </span>
+            <select
+              value={category}
+              onChange={(e) =>
+                setCategory(
+                  e.target.value as
+                    | "phishing"
+                    | "malware"
+                    | "spam"
+                    | "notSpam",
+                )
+              }
+              className="h-9 px-2 rounded border border-border bg-surface-1 text-[13px] text-ink-1"
+            >
+              <option value="phishing">Phishing</option>
+              <option value="malware">Malware</option>
+              <option value="spam">Spam</option>
+              <option value="notSpam">Not spam (false positive)</option>
+            </select>
+          </label>
+          {kind === "url" ? (
+            <label className="flex flex-col gap-1 sm:col-span-2">
+              <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+                {t("directive.threat.url")}
+              </span>
+              <input
+                value={urlStr}
+                onChange={(e) => setUrlStr(e.target.value)}
+                dir="ltr"
+                placeholder="https://suspicious.example.com/login"
+                className="h-9 px-3 rounded border border-border bg-surface-1 text-[13px] text-ink-1 keep-ltr"
+              />
+            </label>
+          ) : kind === "email" ? (
+            <>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+                  {t("directive.threat.recipient")}
+                </span>
+                <input
+                  type="email"
+                  value={emailRecipient}
+                  onChange={(e) => setEmailRecipient(e.target.value)}
+                  dir="ltr"
+                  placeholder="victim@entity.gov.ae"
+                  className="h-9 px-3 rounded border border-border bg-surface-1 text-[13px] text-ink-1 keep-ltr"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+                  {t("directive.threat.messageUri")}
+                </span>
+                <input
+                  value={messageUri}
+                  onChange={(e) => setMessageUri(e.target.value)}
+                  dir="ltr"
+                  placeholder="https://graph.microsoft.com/v1.0/users/.../messages/..."
+                  className="h-9 px-3 rounded border border-border bg-surface-1 text-[13px] text-ink-1 keep-ltr"
+                />
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+                  {t("directive.threat.fileName")}
+                </span>
+                <input
+                  value={fileName}
+                  onChange={(e) => setFileName(e.target.value)}
+                  dir="ltr"
+                  placeholder="suspicious.exe"
+                  className="h-9 px-3 rounded border border-border bg-surface-1 text-[13px] text-ink-1 keep-ltr"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+                  {t("directive.threat.fileContent")}
+                </span>
+                <input
+                  value={fileBase64}
+                  onChange={(e) => setFileBase64(e.target.value)}
+                  dir="ltr"
+                  placeholder="base64-encoded file content"
+                  className="h-9 px-3 rounded border border-border bg-surface-1 text-[13px] text-ink-1 keep-ltr"
+                />
+              </label>
+            </>
+          )}
+          <div className="sm:col-span-2 flex justify-end">
+            <button
+              onClick={submit}
+              disabled={
+                saving ||
+                !tenantId ||
+                (kind === "url" && !urlStr.trim()) ||
+                (kind === "email" &&
+                  (!emailRecipient.trim() || !messageUri.trim())) ||
+                (kind === "file" &&
+                  (!fileName.trim() || !fileBase64.trim()))
+              }
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-council-strong text-white text-[12.5px] font-semibold disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Send size={13} />
+              )}
+              {t("directive.threat.submit")}
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function AuditLogSection({
+  fmtRelative,
+}: {
+  fmtRelative: (s: string) => string;
+}) {
+  const { t } = useI18n();
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const r = await api.directiveAudit({ limit: 50 });
+      setRows(r.actions);
+    } catch {
+      /* ignore */
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const t = setInterval(() => void load(), 15000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  return (
+    <Card className="p-0">
+      <div className="p-5 border-b border-border">
+        <CardHeader
+          title={t("directive.audit.title")}
+          subtitle={t("directive.audit.subtitle")}
+          right={
+            <button
+              onClick={() => void load()}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[11.5px] disabled:opacity-50"
+            >
+              {refreshing ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+              {t("directive.audit.refresh")}
+            </button>
+          }
+        />
+      </div>
+      {rows === null ? (
+        <div className="p-5 text-[12.5px] text-ink-3">
+          {t("state.loading")}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="p-5 text-[12.5px] text-ink-3">
+          {t("directive.audit.empty")}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead>
+              <tr className="text-ink-3 text-[10.5px] uppercase tracking-[0.06em] border-t border-border">
+                <th className="py-2.5 ps-5 text-start font-semibold">
+                  {t("directive.audit.col.when")}
+                </th>
+                <th className="py-2.5 text-start font-semibold">
+                  {t("directive.audit.col.entity")}
+                </th>
+                <th className="py-2.5 text-start font-semibold">
+                  {t("directive.audit.col.action")}
+                </th>
+                <th className="py-2.5 text-start font-semibold">
+                  {t("directive.audit.col.target")}
+                </th>
+                <th className="py-2.5 pe-5 text-start font-semibold">
+                  {t("directive.audit.col.status")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.id}
+                  className="border-t border-border hover:bg-surface-3/40"
+                >
+                  <td className="py-2 ps-5 text-ink-2 tabular">
+                    {fmtRelative(r.at)}
+                  </td>
+                  <td className="py-2 text-ink-1">{r.tenantNameEn}</td>
+                  <td className="py-2 text-ink-2 keep-ltr tabular">
+                    {r.actionType}
+                  </td>
+                  <td className="py-2 text-ink-3 keep-ltr tabular truncate max-w-[220px]">
+                    {r.targetId ?? "—"}
+                  </td>
+                  <td className="py-2 pe-5">
+                    <AuditStatusChip status={r.status} />
+                    {r.status === "failed" && r.errorMessage ? (
+                      <div className="text-[10.5px] text-neg mt-0.5 truncate max-w-[220px]">
+                        {r.errorMessage}
+                      </div>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function StatusChip({ status }: { status: Status }) {
   const { t } = useI18n();
   const tone =
@@ -269,7 +654,34 @@ function StatusChip({ status }: { status: Status }) {
     <span
       className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-semibold uppercase tracking-[0.08em] border ${tone}`}
     >
-      {t(labelKey)}
+      {t(labelKey as DictKey)}
+    </span>
+  );
+}
+
+function AuditStatusChip({
+  status,
+}: {
+  status: "success" | "failed" | "simulated";
+}) {
+  const { t } = useI18n();
+  const tone =
+    status === "success"
+      ? "text-pos border-pos/40 bg-pos/10"
+      : status === "simulated"
+        ? "text-accent border-accent/40 bg-accent/10"
+        : "text-neg border-neg/40 bg-neg/10";
+  const labelKey =
+    status === "success"
+      ? "directive.audit.status.success"
+      : status === "simulated"
+        ? "directive.audit.status.simulated"
+        : "directive.audit.status.failed";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.08em] border ${tone}`}
+    >
+      {t(labelKey as DictKey)}
     </span>
   );
 }

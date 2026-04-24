@@ -1192,6 +1192,10 @@ function EntityDetailInner({
     incident: Incident;
     onClose: () => void;
   }) {
+    // Directive actions only render when (a) this deployment is directive-
+    // mode AND (b) this specific entity consented to directive. Second check
+    // is the policy-level guard that keeps observation-only entities clean.
+    const canDirect = tenant.consent_mode === "directive";
     return (
       <Modal open onClose={onClose} size="wide" title={incident.displayName}>
         <div className="flex flex-col gap-4">
@@ -1272,6 +1276,14 @@ function EntityDetailInner({
             </div>
           ) : null}
 
+          {/* Directive actions — only available on directive-mode entities */}
+          {canDirect ? (
+            <IncidentDirectiveActions
+              tenantId={tenant.id}
+              incident={incident}
+            />
+          ) : null}
+
           {/* External link to Defender portal */}
           {incident.incidentWebUrl ? (
             <div className="pt-2 border-t border-border">
@@ -1291,6 +1303,214 @@ function EntityDetailInner({
           ) : null}
         </div>
       </Modal>
+    );
+  }
+
+  function IncidentDirectiveActions({
+    tenantId,
+    incident,
+  }: {
+    tenantId: string;
+    incident: Incident;
+  }) {
+    const [saving, setSaving] = useState(false);
+    const [toast, setToast] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [classification, setClassification] = useState<string>(
+      incident.classification ?? "",
+    );
+    const [determination, setDetermination] = useState<string>(
+      incident.determination ?? "",
+    );
+    const [status, setStatus] = useState<string>(incident.status ?? "");
+    const [assignedTo, setAssignedTo] = useState<string>(
+      incident.assignedTo ?? "",
+    );
+    const [comment, setComment] = useState("");
+
+    const showToast = (msg: string, isError?: boolean) => {
+      if (isError) {
+        setErrorMsg(msg);
+        setToast(null);
+      } else {
+        setToast(msg);
+        setErrorMsg(null);
+      }
+      setTimeout(() => {
+        setToast(null);
+        setErrorMsg(null);
+      }, 5000);
+    };
+
+    const onSaveClassification = async () => {
+      setSaving(true);
+      try {
+        const body: Parameters<typeof api.directiveClassifyIncident>[1] = {
+          tenantId,
+        };
+        if (classification) body.classification = classification as never;
+        if (determination) body.determination = determination as never;
+        if (status) body.status = status as never;
+        if (assignedTo.trim()) body.assignedTo = assignedTo.trim();
+        const r = await api.directiveClassifyIncident(incident.id, body);
+        showToast(
+          r.simulated
+            ? t("directive.toast.simulated", { auditId: String(r.auditId) })
+            : t("directive.toast.success", { auditId: String(r.auditId) }),
+        );
+      } catch (err) {
+        showToast((err as Error).message, true);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const onAddComment = async () => {
+      if (!comment.trim()) return;
+      setSaving(true);
+      try {
+        const r = await api.directiveCommentIncident(incident.id, {
+          tenantId,
+          comment: comment.trim(),
+        });
+        showToast(
+          r.simulated
+            ? t("directive.toast.simulated", { auditId: String(r.auditId) })
+            : t("directive.toast.success", { auditId: String(r.auditId) }),
+        );
+        setComment("");
+      } catch (err) {
+        showToast((err as Error).message, true);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <div className="rounded-md border border-council-strong/40 bg-council-strong/5 p-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[12.5px] font-semibold text-ink-1">
+            {t("directive.action.title")}
+          </div>
+          {toast ? (
+            <span className="text-[11.5px] text-pos">{toast}</span>
+          ) : errorMsg ? (
+            <span className="text-[11.5px] text-neg truncate max-w-[50%]">
+              {errorMsg}
+            </span>
+          ) : (
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-council-strong border border-council-strong/40 rounded px-1.5 py-0.5 font-semibold">
+              {t("mode.directive")}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("tab.incidents.drill.classification")}
+            </span>
+            <select
+              value={classification}
+              onChange={(e) => setClassification(e.target.value)}
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+            >
+              <option value="">—</option>
+              <option value="truePositive">True positive</option>
+              <option value="falsePositive">False positive</option>
+              <option value="informationalExpectedActivity">
+                Informational / expected
+              </option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("tab.incidents.drill.determination")}
+            </span>
+            <select
+              value={determination}
+              onChange={(e) => setDetermination(e.target.value)}
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+            >
+              <option value="">—</option>
+              <option value="apt">APT</option>
+              <option value="malware">Malware</option>
+              <option value="phishing">Phishing</option>
+              <option value="compromisedAccount">Compromised account</option>
+              <option value="maliciousUserActivity">Malicious user activity</option>
+              <option value="unwantedSoftware">Unwanted software</option>
+              <option value="insufficientInformation">
+                Insufficient information
+              </option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("tab.incidents.col.status")}
+            </span>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+            >
+              <option value="">—</option>
+              <option value="active">Active</option>
+              <option value="inProgress">In progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="redirected">Redirected</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("tab.incidents.drill.assignedTo")}
+            </span>
+            <input
+              type="email"
+              value={assignedTo}
+              onChange={(e) => setAssignedTo(e.target.value)}
+              dir="ltr"
+              placeholder="analyst@entity.gov.ae"
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+            />
+          </label>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={onSaveClassification}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : null}
+            {t("directive.action.apply")}
+          </button>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-border/60">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("directive.action.commentLabel")}
+            </span>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={2}
+              className="px-2 py-1 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+              placeholder={t("directive.action.commentPlaceholder")}
+            />
+          </label>
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={onAddComment}
+              disabled={saving || !comment.trim()}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[11.5px] font-semibold disabled:opacity-50"
+            >
+              {t("directive.action.comment")}
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1656,8 +1876,127 @@ function EntityDetailInner({
               </table>
             </div>
           )}
+
+          {tenant.consent_mode === "directive" ? (
+            <RiskyUserDirectiveActions tenantId={tenant.id} user={user} />
+          ) : null}
         </div>
       </Modal>
+    );
+  }
+
+  function RiskyUserDirectiveActions({
+    tenantId,
+    user,
+  }: {
+    tenantId: string;
+    user: RiskyUser;
+  }) {
+    const [saving, setSaving] = useState<string | null>(null);
+    const [toast, setToast] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+    const show = (msg: string, isError?: boolean) => {
+      if (isError) {
+        setErrorMsg(msg);
+        setToast(null);
+      } else {
+        setToast(msg);
+        setErrorMsg(null);
+      }
+      setTimeout(() => {
+        setToast(null);
+        setErrorMsg(null);
+      }, 5000);
+    };
+
+    const run = async (
+      action: "confirm" | "dismiss" | "revoke",
+      fn: () => Promise<{ simulated: boolean; auditId: number }>,
+    ) => {
+      setSaving(action);
+      try {
+        const r = await fn();
+        show(
+          r.simulated
+            ? t("directive.toast.simulated", { auditId: String(r.auditId) })
+            : t("directive.toast.success", { auditId: String(r.auditId) }),
+        );
+      } catch (err) {
+        show((err as Error).message, true);
+      } finally {
+        setSaving(null);
+      }
+    };
+
+    return (
+      <div className="rounded-md border border-council-strong/40 bg-council-strong/5 p-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[12.5px] font-semibold text-ink-1">
+            {t("directive.action.title")}
+          </div>
+          {toast ? (
+            <span className="text-[11.5px] text-pos">{toast}</span>
+          ) : errorMsg ? (
+            <span className="text-[11.5px] text-neg truncate max-w-[50%]">
+              {errorMsg}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            disabled={!!saving}
+            onClick={() =>
+              run("confirm", () =>
+                api.directiveConfirmCompromised({
+                  tenantId,
+                  userIds: [user.id],
+                }),
+              )
+            }
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-neg text-white text-[11.5px] font-semibold disabled:opacity-50"
+          >
+            {saving === "confirm" ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : null}
+            {t("directive.action.confirmCompromised")}
+          </button>
+          <button
+            disabled={!!saving}
+            onClick={() =>
+              run("dismiss", () =>
+                api.directiveDismissRiskyUsers({
+                  tenantId,
+                  userIds: [user.id],
+                }),
+              )
+            }
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[11.5px] font-semibold disabled:opacity-50"
+          >
+            {saving === "dismiss" ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : null}
+            {t("directive.action.dismiss")}
+          </button>
+          <button
+            disabled={!!saving}
+            onClick={() =>
+              run("revoke", () =>
+                api.directiveRevokeSessions(user.id, { tenantId }),
+              )
+            }
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-warn/60 bg-warn/10 text-ink-1 text-[11.5px] font-semibold disabled:opacity-50"
+          >
+            {saving === "revoke" ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : null}
+            {t("directive.action.revokeSessions")}
+          </button>
+        </div>
+        <div className="text-[10.5px] text-ink-3 mt-2 leading-relaxed">
+          {t("directive.action.riskyHelper")}
+        </div>
+      </div>
     );
   }
 
