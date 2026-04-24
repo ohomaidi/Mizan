@@ -1331,6 +1331,42 @@ export const DICT = {
     "directive.baselines.roadmapBody":
       "Authoring a Conditional Access policy from scratch (custom targets, custom grant/session controls, approval workflow before push) is a planned Phase 4 feature. For now, the Center pushes the curated catalog above — every baseline has been validated against the Graph schema and ships report-only so entities can study impact before enforcing.",
 
+    "directive.baselines.reportOnlyChip": "Ships report-only",
+    "directive.baselines.reportOnlySubtitle":
+      "Nothing is enforced until the entity flips the policy on in their own Entra tenant.",
+    "directive.baselines.alreadyAppliedStatus": "Already applied",
+    "directive.baselines.alreadyAppliedExplain":
+      "The entity already has this baseline (matched by Mizan tag). No new policy was created — Mizan detected it and made the push a no-op. The state column shows the state inside the entity's tenant right now.",
+
+    "directive.baselines.stateReportOnly": "Report-only",
+    "directive.baselines.stateEnabled": "Enabled (enforced)",
+    "directive.baselines.stateDisabled": "Disabled",
+    "directive.baselines.stateUnknown": "Unknown",
+
+    "directive.status.title": "Baseline status per entity",
+    "directive.status.subtitle":
+      "For the selected entity, shows which of the catalogue baselines are present in the entity's Entra tenant right now and what state each is in — so you can see if they flipped a report-only policy to enabled after your push.",
+    "directive.status.entityLabel": "Entity",
+    "directive.status.entityPlaceholder": "Select a directive entity…",
+    "directive.status.refresh": "Refresh",
+    "directive.status.refreshing": "Refreshing…",
+    "directive.status.generatedAt": "Snapshot taken",
+    "directive.status.modeSimulated":
+      "Simulated view — reconstructed from the most recent push to this demo entity",
+    "directive.status.modeReal": "Live from the entity's Entra tenant",
+    "directive.status.col.baseline": "Baseline",
+    "directive.status.col.present": "Present",
+    "directive.status.col.state": "Current state",
+    "directive.status.col.observed": "Observed",
+    "directive.status.presentYes": "Yes",
+    "directive.status.presentNo": "Not present",
+    "directive.status.empty":
+      "Pick an entity above — the matrix will show each of the 12 baselines with its current state.",
+    "directive.status.flippedWarn":
+      "Different from the report-only state we pushed — entity flipped this on",
+    "directive.status.stillReportOnly":
+      "Still in report-only — entity hasn't enforced yet",
+
     "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
     "baseline.requireMfaForAdmins.body":
       "Every privileged directory role (Global Admin, Security Admin, Exchange / SharePoint / User / App / Cloud App / Authentication / Helpdesk / Intune / Billing / Privileged Role / Conditional Access Administrator) must satisfy multi-factor authentication. Report-only by default.",
@@ -3008,6 +3044,42 @@ export const DICT = {
       "قواعد مخصّصة — ضمن خارطة الطريق",
     "directive.baselines.roadmapBody":
       "إنشاء سياسة Conditional Access من الصفر (أهداف مخصّصة، منح / ضوابط جلسة مخصّصة، مسار اعتماد قبل الدفع) ميزة مخطَّطة في المرحلة الرابعة. حاليًا يدفع المركز فقط القواعد المنسَّقة أعلاه — كلها مُتحقَّق منها مقابل مخطّط Graph وتُشحَن بوضع التقارير حتى تدرس الجهات الأثر قبل الإنفاذ.",
+
+    "directive.baselines.reportOnlyChip": "يُشحَن بوضع التقارير",
+    "directive.baselines.reportOnlySubtitle":
+      "لا يُنفَّذ شيء حتى تُفعّل الجهة السياسة من مستأجر Entra لديها.",
+    "directive.baselines.alreadyAppliedStatus": "مُطبَّق مسبقًا",
+    "directive.baselines.alreadyAppliedExplain":
+      "الجهة تمتلك هذه القاعدة مسبقًا (رُصدت عبر وسم Mizan). لم تُنشَأ سياسة جديدة — رصدها Mizan وجعل الدفع بلا أثر. عمود الحالة يُظهر الحالة داخل مستأجر الجهة الآن.",
+
+    "directive.baselines.stateReportOnly": "تقارير فقط",
+    "directive.baselines.stateEnabled": "مُفعَّلة (مُنفَّذة)",
+    "directive.baselines.stateDisabled": "مُعطَّلة",
+    "directive.baselines.stateUnknown": "غير معروفة",
+
+    "directive.status.title": "حالة القواعد لكل جهة",
+    "directive.status.subtitle":
+      "للجهة المحدَّدة، يعرض أيٌّ من قواعد الكتالوج موجود في مستأجر Entra الخاص بالجهة حاليًا وما هي حالة كلٍّ منها — لترى إن حوّلت سياسةً من التقارير إلى مُفعَّلة بعد دفعك.",
+    "directive.status.entityLabel": "الجهة",
+    "directive.status.entityPlaceholder": "اختر جهة Directive…",
+    "directive.status.refresh": "تحديث",
+    "directive.status.refreshing": "جارٍ التحديث…",
+    "directive.status.generatedAt": "تاريخ اللقطة",
+    "directive.status.modeSimulated":
+      "عرض محاكاة — مُعاد بناؤه من آخر دفعة إلى جهة العرض هذه",
+    "directive.status.modeReal": "مباشر من مستأجر Entra للجهة",
+    "directive.status.col.baseline": "القاعدة",
+    "directive.status.col.present": "موجودة",
+    "directive.status.col.state": "الحالة الحالية",
+    "directive.status.col.observed": "وقت الرصد",
+    "directive.status.presentYes": "نعم",
+    "directive.status.presentNo": "غير موجودة",
+    "directive.status.empty":
+      "اختر جهة أعلاه — ستعرض المصفوفة كل القواعد الـ12 مع حالتها الحالية.",
+    "directive.status.flippedWarn":
+      "تختلف عن حالة التقارير التي دفعناها — الجهة فعّلت هذه السياسة",
+    "directive.status.stillReportOnly":
+      "لا تزال بوضع التقارير — لم تُفعّلها الجهة بعد",
 
     "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
     "baseline.requireMfaForAdmins.body":

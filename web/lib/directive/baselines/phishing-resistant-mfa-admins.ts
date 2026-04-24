@@ -32,7 +32,7 @@ export const phishingResistantMfaAdmins: Baseline = {
     id: "phishing-resistant-mfa-admins",
     titleKey: "baseline.phishingResistantMfaAdmins.title",
     bodyKey: "baseline.phishingResistantMfaAdmins.body",
-    riskTier: "medium",
+    riskTier: "high",
     targetSummary: "13 privileged directory roles.",
     grantSummary:
       "Satisfy the 'phishing-resistant MFA' built-in authentication strength (FIDO2 keys, Windows Hello for Business, or certificate-based auth).",

@@ -12,7 +12,7 @@ export const blockHighSignInRisk: Baseline = {
     id: "block-high-signin-risk",
     titleKey: "baseline.blockHighSignInRisk.title",
     bodyKey: "baseline.blockHighSignInRisk.body",
-    riskTier: "medium",
+    riskTier: "high",
     targetSummary:
       "All users (GA excluded). All apps. Applies only when the sign-in itself is scored high risk by Identity Protection.",
     grantSummary: "Block access",

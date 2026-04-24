@@ -226,6 +226,8 @@ export default function DirectivePage() {
 
       <BaselinesSection locale={locale} />
 
+      <BaselinesStatusSection locale={locale} fmtRelative={fmtRelative} />
+
       <PushHistorySection fmtRelative={fmtRelative} />
 
       <ThreatSubmissionConsole locale={locale} />
@@ -849,14 +851,24 @@ function BaselineCard({
         </span>{" "}
         {b.grantSummary}
       </div>
-      <div className="text-[10.5px] text-ink-3 mb-2">
-        <span className="font-semibold text-ink-2">
-          {t("directive.baselines.initialState")}:
-        </span>{" "}
-        {b.initialState === "enabledForReportingButNotEnforced"
-          ? t("directive.baselines.reportOnly")
-          : b.initialState}
-      </div>
+      {b.initialState === "enabledForReportingButNotEnforced" ? (
+        <div className="mb-2 rounded border border-warn/40 bg-warn/10 px-2 py-1.5">
+          <div className="text-[11px] font-semibold text-warn inline-flex items-center gap-1">
+            <Radar size={10} />
+            {t("directive.baselines.reportOnlyChip")}
+          </div>
+          <div className="text-[10.5px] text-ink-2 leading-snug mt-0.5">
+            {t("directive.baselines.reportOnlySubtitle")}
+          </div>
+        </div>
+      ) : (
+        <div className="text-[10.5px] text-ink-3 mb-2">
+          <span className="font-semibold text-ink-2">
+            {t("directive.baselines.initialState")}:
+          </span>{" "}
+          {b.initialState}
+        </div>
+      )}
       {b.excludesOwnAdmins ? (
         <div className="text-[10.5px] text-pos mb-2 inline-flex items-center gap-1">
           <ShieldCheck size={10} />
@@ -950,6 +962,240 @@ function BaselinesRoadmapCard() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CaStateChip({ state }: { state: string }) {
+  const { t } = useI18n();
+  const tone =
+    state === "enabled"
+      ? "text-warn border-warn/40 bg-warn/10"
+      : state === "enabledForReportingButNotEnforced"
+        ? "text-ink-2 border-border bg-surface-3"
+        : state === "disabled"
+          ? "text-ink-3 border-border bg-surface-3"
+          : "text-ink-3 border-border bg-surface-3";
+  const labelKey =
+    state === "enabled"
+      ? "directive.baselines.stateEnabled"
+      : state === "enabledForReportingButNotEnforced"
+        ? "directive.baselines.stateReportOnly"
+        : state === "disabled"
+          ? "directive.baselines.stateDisabled"
+          : "directive.baselines.stateUnknown";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-[0.04em] border ${tone}`}
+    >
+      {t(labelKey as DictKey)}
+    </span>
+  );
+}
+
+function BaselinesStatusSection({
+  locale,
+  fmtRelative,
+}: {
+  locale: "en" | "ar";
+  fmtRelative: (iso: string) => string;
+}) {
+  const { t } = useI18n();
+  const [tenants, setTenants] = useState<
+    Array<{
+      id: string;
+      nameEn: string;
+      nameAr: string;
+      consentMode: string;
+      isDemo: boolean;
+    }>
+  >([]);
+  const [tenantId, setTenantId] = useState<string>("");
+  const [status, setStatus] = useState<null | Awaited<
+    ReturnType<typeof api.directiveBaselineStatus>
+  >>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getEntities()
+      .then((r) =>
+        setTenants(
+          r.entities.filter((e) => e.consentMode === "directive"),
+        ),
+      )
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  const load = useCallback(
+    async (tid: string) => {
+      if (!tid) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const r = await api.directiveBaselineStatus(tid);
+        setStatus(r);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (tenantId) load(tenantId);
+    else setStatus(null);
+  }, [tenantId, load]);
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Radar size={14} className="text-council-strong" />
+            {t("directive.status.title")}
+          </span>
+        }
+        subtitle={t("directive.status.subtitle")}
+      />
+      <div className="flex flex-wrap items-end gap-2 mb-3">
+        <label className="flex flex-col gap-1 min-w-[260px]">
+          <span className="text-[11px] text-ink-2 font-semibold uppercase tracking-[0.06em]">
+            {t("directive.status.entityLabel")}
+          </span>
+          <select
+            value={tenantId}
+            onChange={(e) => setTenantId(e.target.value)}
+            className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+          >
+            <option value="">{t("directive.status.entityPlaceholder")}</option>
+            {tenants.map((tenant) => (
+              <option key={tenant.id} value={tenant.id}>
+                {locale === "ar" ? tenant.nameAr : tenant.nameEn}
+                {tenant.isDemo ? " — demo" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        {tenantId ? (
+          <button
+            onClick={() => load(tenantId)}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface-1 text-ink-1 text-[12px] font-semibold hover:bg-surface-2 disabled:opacity-60"
+          >
+            {loading ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <RefreshCw size={11} />
+            )}
+            {loading
+              ? t("directive.status.refreshing")
+              : t("directive.status.refresh")}
+          </button>
+        ) : null}
+      </div>
+
+      {error ? (
+        <div className="text-[12px] text-neg mb-2">{error}</div>
+      ) : null}
+
+      {!tenantId ? (
+        <div className="text-[12px] text-ink-3 rounded-md border border-border bg-surface-1 p-3">
+          {t("directive.status.empty")}
+        </div>
+      ) : !status ? (
+        <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px] text-ink-3">
+            <span>
+              {t("directive.status.generatedAt")}:{" "}
+              {fmtRelative(status.generatedAt)}
+            </span>
+            <span>·</span>
+            <span
+              className={
+                status.mode === "simulated"
+                  ? "text-accent"
+                  : "text-pos"
+              }
+            >
+              {status.mode === "simulated"
+                ? t("directive.status.modeSimulated")
+                : t("directive.status.modeReal")}
+            </span>
+          </div>
+          <div className="overflow-x-auto -mx-3 px-3">
+            <table className="w-full text-[12px] border-collapse">
+              <thead>
+                <tr className="text-left text-[10.5px] uppercase tracking-[0.06em] text-ink-3 border-b border-border">
+                  <th className="py-1.5 pr-2">
+                    {t("directive.status.col.baseline")}
+                  </th>
+                  <th className="py-1.5 pr-2">
+                    {t("directive.status.col.present")}
+                  </th>
+                  <th className="py-1.5 pr-2">
+                    {t("directive.status.col.state")}
+                  </th>
+                  <th className="py-1.5 pr-2">
+                    {t("directive.status.col.observed")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {status.entries.map((e) => {
+                  const flipped =
+                    e.present && e.state === "enabled";
+                  const stillReportOnly =
+                    e.present &&
+                    e.state === "enabledForReportingButNotEnforced";
+                  return (
+                    <tr
+                      key={e.baselineId}
+                      className="border-b border-border/50 align-top"
+                    >
+                      <td className="py-1.5 pr-2 text-ink-1">
+                        {t(e.titleKey as DictKey)}
+                      </td>
+                      <td className="py-1.5 pr-2">
+                        {e.present ? (
+                          <span className="text-[10.5px] text-pos border border-pos/40 bg-pos/10 rounded px-1.5 py-0.5 font-semibold">
+                            {t("directive.status.presentYes")}
+                          </span>
+                        ) : (
+                          <span className="text-[10.5px] text-ink-3 border border-border bg-surface-3 rounded px-1.5 py-0.5 font-semibold">
+                            {t("directive.status.presentNo")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-2">
+                        {e.state ? <CaStateChip state={e.state} /> : "—"}
+                        {flipped ? (
+                          <div className="text-[10px] text-warn mt-0.5">
+                            {t("directive.status.flippedWarn")}
+                          </div>
+                        ) : null}
+                        {stillReportOnly ? (
+                          <div className="text-[10px] text-ink-3 mt-0.5">
+                            {t("directive.status.stillReportOnly")}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="py-1.5 pr-2 text-ink-3 text-[11px]">
+                        {e.observedAt ? fmtRelative(e.observedAt) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 
@@ -1212,6 +1458,11 @@ function BaselinePushModal({
                 pushId: String(result.pushRequestId),
               })}
             </div>
+            {result.perTenant.some((r) => r.status === "already_applied") ? (
+              <div className="text-[11px] text-ink-2 leading-relaxed mb-2 p-2 rounded border border-border bg-surface-2">
+                {t("directive.baselines.alreadyAppliedExplain")}
+              </div>
+            ) : null}
             <ul className="flex flex-col gap-1 text-[12px]">
               {result.perTenant.map((r) => {
                 const tenant = tenants.find((t) => t.id === r.tenantId);
@@ -1228,6 +1479,9 @@ function BaselinePushModal({
                     <span className="text-ink-1 truncate flex-1 min-w-0">
                       {name}
                     </span>
+                    {r.status === "already_applied" && r.currentState ? (
+                      <CaStateChip state={r.currentState} />
+                    ) : null}
                     <PushStatusChip status={r.status} />
                     {r.error ? (
                       <span className="text-[10.5px] text-neg max-w-[180px] truncate">
@@ -1430,25 +1684,34 @@ function PushHistorySection({
 function PushStatusChip({
   status,
 }: {
-  status: "success" | "failed" | "simulated" | "skipped_observation";
+  status:
+    | "success"
+    | "already_applied"
+    | "failed"
+    | "simulated"
+    | "skipped_observation";
 }) {
   const { t } = useI18n();
   const tone =
     status === "success"
       ? "text-pos border-pos/40 bg-pos/10"
-      : status === "simulated"
-        ? "text-accent border-accent/40 bg-accent/10"
-        : status === "skipped_observation"
-          ? "text-ink-3 border-border bg-surface-3"
-          : "text-neg border-neg/40 bg-neg/10";
+      : status === "already_applied"
+        ? "text-ink-2 border-border bg-surface-3"
+        : status === "simulated"
+          ? "text-accent border-accent/40 bg-accent/10"
+          : status === "skipped_observation"
+            ? "text-ink-3 border-border bg-surface-3"
+            : "text-neg border-neg/40 bg-neg/10";
   const labelKey =
     status === "success"
       ? "directive.audit.status.success"
-      : status === "simulated"
-        ? "directive.audit.status.simulated"
-        : status === "skipped_observation"
-          ? "directive.baselines.skippedObservation"
-          : "directive.audit.status.failed";
+      : status === "already_applied"
+        ? "directive.baselines.alreadyAppliedStatus"
+        : status === "simulated"
+          ? "directive.audit.status.simulated"
+          : status === "skipped_observation"
+            ? "directive.baselines.skippedObservation"
+            : "directive.audit.status.failed";
   return (
     <span
       className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.08em] border ${tone}`}

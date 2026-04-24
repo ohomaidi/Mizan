@@ -788,8 +788,14 @@ export const api = {
       pushRequestId: number;
       perTenant: Array<{
         tenantId: string;
-        status: "success" | "failed" | "simulated" | "skipped_observation";
+        status:
+          | "success"
+          | "already_applied"
+          | "failed"
+          | "simulated"
+          | "skipped_observation";
         policyId?: string | null;
+        currentState?: string | null;
         error?: string | null;
         auditId?: number;
       }>;
@@ -823,6 +829,23 @@ export const api = {
         rolledbackAt: string | null;
       }>;
     }>(`/api/directive/pushes?limit=${limit}`),
+
+  directiveBaselineStatus: (tenantId: string) =>
+    jsonFetch<{
+      tenantId: string;
+      mode: "real" | "simulated";
+      generatedAt: string;
+      entries: Array<{
+        baselineId: string;
+        titleKey: string;
+        present: boolean;
+        policyId: string | null;
+        state: string | null;
+        observedAt: string | null;
+      }>;
+    }>(
+      `/api/directive/baselines/status?tenantId=${encodeURIComponent(tenantId)}`,
+    ),
 
   directivePushRollback: (pushId: number) =>
     jsonFetch<{

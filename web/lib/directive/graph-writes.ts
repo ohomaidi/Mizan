@@ -252,3 +252,23 @@ export async function findCaPolicyByIdempotencyTag(
   const hit = r.value.find((p) => p.displayName.includes(idempotencyKey));
   return hit ?? null;
 }
+
+/**
+ * One-shot list of every Mizan-tagged CA policy in a tenant. Used by the
+ * baseline-status view so we only pay one Graph round-trip per tenant even
+ * though we resolve twelve baselines. Matches policies whose displayName
+ * contains the "mizan:" prefix.
+ */
+export async function listMizanCaPolicies(
+  tenant: Ids,
+): Promise<Array<{ id: string; displayName: string; state: string }>> {
+  const r = await graphFetch<{
+    value: Array<{ id: string; displayName: string; state: string }>;
+  }>({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "GET",
+    path: `/identity/conditionalAccess/policies?$select=id,displayName,state`,
+  });
+  return r.value.filter((p) => p.displayName.includes("mizan:"));
+}

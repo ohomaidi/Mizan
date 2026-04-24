@@ -19,7 +19,7 @@ export const requireCompliantDevice: Baseline = {
     id: "require-compliant-device",
     titleKey: "baseline.requireCompliantDevice.title",
     bodyKey: "baseline.requireCompliantDevice.body",
-    riskTier: "medium",
+    riskTier: "high",
     targetSummary:
       "All users accessing Office 365 apps (Exchange Online, SharePoint, Teams, Office web/desktop).",
     grantSummary:

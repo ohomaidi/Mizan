@@ -75,8 +75,19 @@ export async function POST(
 
   const perTenant: Array<{
     tenantId: string;
-    status: "success" | "failed" | "simulated" | "skipped_observation";
+    status:
+      | "success"
+      | "already_applied"
+      | "failed"
+      | "simulated"
+      | "skipped_observation";
     policyId?: string | null;
+    /**
+     * For `already_applied` — the state the existing policy is currently in
+     * inside the tenant. Lets the operator see whether the entity has left
+     * it in report-only or moved it to enabled since the original push.
+     */
+    currentState?: string | null;
     error?: string | null;
     auditId?: number;
   }> = [];
@@ -150,16 +161,29 @@ export async function POST(
         policyId: string;
         displayName: string;
         state: string;
+        idempotent: boolean;
       };
+      // Distinguish idempotent no-op from a genuine new push. This is the
+      // signal the UI surfaces back to the operator so they know the entity
+      // already had this baseline — and what state they left it in.
+      const resolvedStatus = outcome.simulated
+        ? "simulated"
+        : r.idempotent
+          ? "already_applied"
+          : "success";
       perTenant.push({
         tenantId,
-        status: outcome.simulated ? "simulated" : "success",
+        status: resolvedStatus,
         policyId: r.policyId,
+        currentState: r.idempotent ? r.state : null,
         auditId: outcome.auditId,
       });
       recordPushAction({
         pushRequestId,
         tenantId,
+        // DB still only accepts success / simulated / failed / rolledback —
+        // collapse already_applied to success there; the distinction lives
+        // in the per-request summary and the immediate response.
         status: outcome.simulated ? "simulated" : "success",
         graphPolicyId: r.policyId,
       });
