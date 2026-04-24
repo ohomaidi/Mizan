@@ -1215,6 +1215,37 @@ function EntityDetailInner({
     }, []);
     const showPanel = deploymentMode === "directive";
     const enabled = tenant.consent_mode === "directive";
+
+    // Evidence for this incident — URLs / email message URIs / file hashes
+    // pulled through the Signals Graph app (or synthesized for demo
+    // tenants). Surfaces what a Defender analyst would copy out of the
+    // entity's portal — except the Center doesn't have access to that
+    // portal, so Mizan is the only place it can appear.
+    type EvidenceItem = Awaited<
+      ReturnType<typeof api.directiveTenantIncidentEvidence>
+    >["evidence"][number];
+    const [evidence, setEvidence] = useState<EvidenceItem[] | null>(null);
+    const [evidenceLoading, setEvidenceLoading] = useState(false);
+    useEffect(() => {
+      // Only fetch on directive deployments — the endpoint is 404 elsewhere.
+      if (deploymentMode !== "directive") return;
+      let alive = true;
+      setEvidenceLoading(true);
+      api
+        .directiveTenantIncidentEvidence(tenant.id, incident.id)
+        .then((r) => {
+          if (alive) setEvidence(r.evidence);
+        })
+        .catch(() => {
+          if (alive) setEvidence([]);
+        })
+        .finally(() => {
+          if (alive) setEvidenceLoading(false);
+        });
+      return () => {
+        alive = false;
+      };
+    }, [deploymentMode, incident.id]);
     return (
       <Modal open onClose={onClose} size="wide" title={incident.displayName}>
         <div className="flex flex-col gap-4">
@@ -1295,6 +1326,19 @@ function EntityDetailInner({
             </div>
           ) : null}
 
+          {/* Alert evidence — URLs, email message URIs, file hashes the
+              Center would otherwise need to copy from the entity's
+              Defender XDR portal. Only rendered on directive deployments
+              because the evidence endpoint is gated there. */}
+          {showPanel ? (
+            <IncidentEvidenceList
+              tenantId={tenant.id}
+              evidence={evidence}
+              loading={evidenceLoading}
+              canSubmit={enabled}
+            />
+          ) : null}
+
           {/* Directive actions panel. Rendered on every directive-mode
               deployment so the capability is visible; enabled only when
               this entity explicitly consented to directive mode. */}
@@ -1325,6 +1369,158 @@ function EntityDetailInner({
           ) : null}
         </div>
       </Modal>
+    );
+  }
+
+  function IncidentEvidenceList({
+    tenantId,
+    evidence,
+    loading,
+    canSubmit,
+  }: {
+    tenantId: string;
+    evidence:
+      | Awaited<
+          ReturnType<typeof api.directiveTenantIncidentEvidence>
+        >["evidence"]
+      | null;
+    loading: boolean;
+    canSubmit: boolean;
+  }) {
+    const [submitting, setSubmitting] = useState<number | null>(null);
+    const [toast, setToast] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+    const show = (msg: string, isError?: boolean) => {
+      if (isError) {
+        setErrorMsg(msg);
+        setToast(null);
+      } else {
+        setToast(msg);
+        setErrorMsg(null);
+      }
+      setTimeout(() => {
+        setToast(null);
+        setErrorMsg(null);
+      }, 5000);
+    };
+
+    const onSubmit = async (
+      ev: Awaited<
+        ReturnType<typeof api.directiveTenantIncidentEvidence>
+      >["evidence"][number],
+      index: number,
+    ) => {
+      setSubmitting(index);
+      try {
+        let r: Awaited<ReturnType<typeof api.directiveSubmitThreat>>;
+        if (ev.kind === "url") {
+          r = await api.directiveSubmitThreat({
+            kind: "url",
+            tenantId,
+            category: "phishing",
+            url: ev.url ?? "",
+          });
+        } else if (ev.kind === "email") {
+          r = await api.directiveSubmitThreat({
+            kind: "email",
+            tenantId,
+            category: "phishing",
+            recipientEmailAddress: ev.emailRecipient ?? "",
+            messageUri: ev.messageUri ?? "",
+          });
+        } else {
+          r = await api.directiveSubmitThreat({
+            kind: "file",
+            tenantId,
+            category: "malware",
+            fileName: ev.fileName ?? "unknown.bin",
+            fileContent: ev.fileHash ?? "",
+          });
+        }
+        show(
+          r.simulated
+            ? t("directive.toast.simulated", { auditId: String(r.auditId) })
+            : t("directive.toast.success", { auditId: String(r.auditId) }),
+        );
+      } catch (err) {
+        show((err as Error).message, true);
+      } finally {
+        setSubmitting(null);
+      }
+    };
+
+    return (
+      <div className="rounded-md border border-border bg-surface-1 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[12.5px] font-semibold text-ink-1">
+            {t("directive.threat.evidenceTitle")}
+          </div>
+          {toast ? (
+            <span className="text-[11.5px] text-pos">{toast}</span>
+          ) : errorMsg ? (
+            <span className="text-[11.5px] text-neg truncate max-w-[50%]">
+              {errorMsg}
+            </span>
+          ) : null}
+        </div>
+        {loading ? (
+          <div className="text-[11.5px] text-ink-3">{t("state.loading")}</div>
+        ) : !evidence || evidence.length === 0 ? (
+          <div className="text-[11.5px] text-ink-3">
+            {t("directive.threat.noEvidence")}
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {evidence.map((ev, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 rounded-md border border-border bg-surface-2 p-2"
+              >
+                <span
+                  className={`shrink-0 text-[10px] uppercase tracking-[0.06em] font-semibold rounded px-1.5 py-0.5 border ${
+                    ev.kind === "url"
+                      ? "text-warn border-warn/40 bg-warn/10"
+                      : ev.kind === "email"
+                        ? "text-accent border-accent/40 bg-accent/10"
+                        : "text-neg border-neg/40 bg-neg/10"
+                  }`}
+                >
+                  {ev.kind}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-ink-1 text-[12px] keep-ltr truncate">
+                    {ev.label}
+                  </div>
+                  {ev.detail ? (
+                    <div className="text-ink-3 text-[10.5px] mt-0.5 truncate">
+                      {ev.detail}
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  onClick={() => onSubmit(ev, i)}
+                  disabled={!canSubmit || submitting !== null}
+                  title={
+                    canSubmit ? undefined : t("directive.action.observationHint")
+                  }
+                  className="shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-md bg-council-strong text-white text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting === i ? (
+                    <Loader2 size={11} className="animate-spin" />
+                  ) : null}
+                  {t("directive.threat.submitToMicrosoft")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!canSubmit && evidence && evidence.length > 0 ? (
+          <div className="text-[10.5px] text-ink-3 mt-2 leading-relaxed">
+            {t("directive.action.observationHint")}
+          </div>
+        ) : null}
+      </div>
     );
   }
 

@@ -141,6 +141,8 @@ export default function DirectivePage() {
     redirect("/maturity");
   }
 
+  const demoMode = me?.demoMode ?? false;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -155,6 +157,24 @@ export default function DirectivePage() {
           {t("directive.subtitle")}
         </p>
       </div>
+
+      {demoMode ? (
+        <div className="rounded-md border border-accent/50 bg-accent/10 p-3 flex items-start gap-2.5">
+          <ShieldAlert
+            size={14}
+            className="text-accent mt-0.5 shrink-0"
+            strokeWidth={2.2}
+          />
+          <div className="text-[12.5px] text-ink-1 leading-relaxed">
+            <div className="font-semibold">
+              {t("directive.demoBanner.title")}
+            </div>
+            <div className="text-ink-2 mt-0.5">
+              {t("directive.demoBanner.body")}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader

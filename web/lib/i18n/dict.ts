@@ -1190,6 +1190,11 @@ export const DICT = {
       "Directive-mode deployments require a second Entra app with .ReadWrite scopes, separate from the Graph Signals read-only app. Provision it from Settings \u2192 Authentication and grant admin consent before onboarding any entity in directive mode.",
     "directive.setup.cta": "Go to Settings",
     "directive.setup.helper": "One-time setup. Takes about 5 minutes.",
+    "directive.demoBanner.title":
+      "Demo mode — no data is sent to Microsoft.",
+    "directive.demoBanner.body":
+      "Every directive action on this deployment is simulated. Classify, comment, confirm-compromised, force sign-out, and threat submissions all land as 'simulated' audit rows. No real Graph write, no Defender XDR change, no Microsoft submission. The simulation exists so the DESC workflow can be rehearsed against demo tenants without touching live entities.",
+
     "directive.roadmap.title": "Capability roadmap",
     "directive.roadmap.subtitle":
       "What this deployment will be able to do as directive phases land. Phase numbering maps to the product plan in docs/13.",
@@ -1271,6 +1276,7 @@ export const DICT = {
     "directive.threat.noEvidence":
       "This incident has no extractable evidence (URLs, emails, or files) cached. Try another incident.",
     "directive.threat.useInForm": "Use in form",
+    "directive.threat.submitToMicrosoft": "Submit to Microsoft",
     "directive.threat.evidenceHint":
       "Each evidence item was pulled from the alerts attached to this incident. Click \u201CUse in form\u201D to pre-fill the submission below \u2014 no need to leave Mizan or open the entity's Defender XDR portal.",
 
@@ -2661,6 +2667,11 @@ export const DICT = {
       "تتطلب عمليات النشر بوضع التوجيهات تطبيق Entra ثانيًا بصلاحيات .ReadWrite، منفصل عن تطبيق قراءة Graph. أعِدّه من الإعدادات ← المصادقة وامنح موافقة المسؤول قبل إدراج أي جهة في وضع التوجيهات.",
     "directive.setup.cta": "الانتقال إلى الإعدادات",
     "directive.setup.helper": "إعداد لمرة واحدة، يستغرق نحو ٥ دقائق.",
+    "directive.demoBanner.title":
+      "وضع تجريبي — لا تُرسل أي بيانات إلى Microsoft.",
+    "directive.demoBanner.body":
+      "كل إجراء توجيهي في هذا النشر مُحاكى. عمليات التصنيف والتعليق وتأكيد الاختراق وفرض تسجيل الخروج وإرسال التهديدات كلها تُسجَّل كسطور تدقيق بحالة «محاكاة». لا توجد كتابة حقيقية على Graph، ولا تغيير فعلي في Defender XDR، ولا إرسال إلى Microsoft. وُجدت المحاكاة لتدريب سير العمل الخاص بـ DESC على جهات تجريبية دون المساس بالجهات الحقيقية.",
+
     "directive.roadmap.title": "خارطة القدرات",
     "directive.roadmap.subtitle":
       "ما سيتمكن هذا النشر من فعله مع إطلاق مراحل التوجيهات. ترقيم المراحل يتبع خطة المنتج في docs/13.",
@@ -2742,6 +2753,7 @@ export const DICT = {
     "directive.threat.noEvidence":
       "لا توجد أدلة قابلة للاستخراج (روابط أو رسائل أو ملفات) لهذه الحادثة. جرّب حادثة أخرى.",
     "directive.threat.useInForm": "استخدم في النموذج",
+    "directive.threat.submitToMicrosoft": "إرسال إلى Microsoft",
     "directive.threat.evidenceHint":
       "كل عنصر دليل مُستخرَج من التنبيهات المرتبطة بهذه الحادثة. اضغط «استخدم في النموذج» لتعبئة نموذج الإرسال أدناه — دون الحاجة لمغادرة Mizan أو فتح بوابة Defender XDR الخاصة بالجهة.",
 
