@@ -24,6 +24,8 @@ import {
   Trash2,
   Plus,
   Wand2,
+  X,
+  Copy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -937,8 +939,126 @@ function BaselineCard({
             </>
           )}
         </button>
+        <CloneBaselineButton baselineId={b.id} />
+        <RollbackAllBaselineButton baselineId={b.id} />
       </div>
     </div>
+  );
+}
+
+function CloneBaselineButton({ baselineId }: { baselineId: string }) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await api.directiveBaselineCloneToCustom(baselineId);
+      router.push(`/directive/custom-policies/${r.id}/edit`);
+    } catch (e) {
+      window.alert((e as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      onClick={() => void run()}
+      disabled={busy}
+      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface-1 text-ink-2 text-[11.5px] font-semibold hover:bg-surface-2 disabled:opacity-50"
+      title={t("custom.cloneFromBaseline")}
+    >
+      {busy ? (
+        <Loader2 size={11} className="animate-spin" />
+      ) : (
+        <Copy size={11} />
+      )}
+      {t("custom.cloneFromBaseline")}
+    </button>
+  );
+}
+
+function RollbackAllBaselineButton({ baselineId }: { baselineId: string }) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [lastResult, setLastResult] = useState<string | null>(null);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await api.directiveBaselineRollbackAll(baselineId);
+      setLastResult(
+        t("rollback.all.done", { count: String(r.affectedTenants) }),
+      );
+    } catch (e) {
+      setLastResult((e as Error).message);
+    } finally {
+      setBusy(false);
+      setShowConfirm(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={busy}
+        className="ms-auto inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-neg/40 text-neg text-[11px] font-semibold hover:bg-neg/10 disabled:opacity-50"
+        title={t("rollback.all.cta")}
+      >
+        {busy ? (
+          <Loader2 size={10} className="animate-spin" />
+        ) : (
+          <Undo2 size={10} />
+        )}
+        {t("rollback.all.cta")}
+      </button>
+      {showConfirm ? (
+        <Modal
+          title={t("rollback.all.confirmTitle")}
+          onClose={() => setShowConfirm(false)}
+          open={true}
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-[12px] text-ink-2 leading-relaxed">
+              {t("rollback.all.confirmBody")}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={busy}
+                className="h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold"
+              >
+                {t("rollback.cancel")}
+              </button>
+              <button
+                onClick={() => void run()}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-neg text-white text-[12.5px] font-semibold disabled:opacity-60"
+              >
+                {busy ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Undo2 size={11} />
+                )}
+                {t("rollback.all.confirmCta")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+      {lastResult ? (
+        <div className="fixed bottom-4 right-4 z-50 rounded-md border border-border bg-surface-1 text-ink-1 text-[12px] p-2.5 shadow-lg">
+          {lastResult}
+          <button
+            onClick={() => setLastResult(null)}
+            className="ms-2 text-ink-3"
+          >
+            <X size={11} className="inline" />
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -1108,7 +1228,7 @@ function CustomPoliciesSection({
                     {fmtRelative(p.updatedAt)}
                   </td>
                   <td className="py-2 pr-2 text-end">
-                    <div className="inline-flex items-center gap-1">
+                    <div className="inline-flex items-center gap-1 flex-wrap justify-end">
                       <button
                         onClick={() =>
                           router.push(
@@ -1120,6 +1240,8 @@ function CustomPoliciesSection({
                         <Pencil size={11} />
                         {t("custom.edit")}
                       </button>
+                      <CloneDraftButton policyId={p.id} onCloned={load} />
+                      <RollbackAllCustomButton policyId={p.id} />
                       <button
                         onClick={() => void remove(p.id)}
                         className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-border bg-surface-1 text-neg text-[11px] font-semibold hover:bg-neg/10"
@@ -1370,6 +1492,125 @@ function BaselinesStatusSection({
         </>
       )}
     </Card>
+  );
+}
+
+function RollbackAllCustomButton({ policyId }: { policyId: number }) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [lastResult, setLastResult] = useState<string | null>(null);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await api.directiveCustomPolicyRollbackAll(policyId);
+      setLastResult(
+        t("rollback.all.done", { count: String(r.affectedTenants) }),
+      );
+    } catch (e) {
+      setLastResult((e as Error).message);
+    } finally {
+      setBusy(false);
+      setShowConfirm(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setShowConfirm(true)}
+        disabled={busy}
+        className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-neg/40 text-neg text-[11px] font-semibold hover:bg-neg/10 disabled:opacity-50"
+      >
+        {busy ? (
+          <Loader2 size={10} className="animate-spin" />
+        ) : (
+          <Undo2 size={10} />
+        )}
+        {t("rollback.all.cta")}
+      </button>
+      {showConfirm ? (
+        <Modal
+          title={t("rollback.all.confirmTitle")}
+          onClose={() => setShowConfirm(false)}
+          open={true}
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-[12px] text-ink-2 leading-relaxed">
+              {t("rollback.all.confirmBody")}
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold"
+              >
+                {t("rollback.cancel")}
+              </button>
+              <button
+                onClick={() => void run()}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-neg text-white text-[12.5px] font-semibold disabled:opacity-60"
+              >
+                {busy ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Undo2 size={11} />
+                )}
+                {t("rollback.all.confirmCta")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+      {lastResult ? (
+        <div className="fixed bottom-4 right-4 z-50 rounded-md border border-border bg-surface-1 text-ink-1 text-[12px] p-2.5 shadow-lg">
+          {lastResult}
+          <button
+            onClick={() => setLastResult(null)}
+            className="ms-2 text-ink-3"
+          >
+            <X size={11} className="inline" />
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function CloneDraftButton({
+  policyId,
+  onCloned,
+}: {
+  policyId: number;
+  onCloned: () => void;
+}) {
+  const { t } = useI18n();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      await api.directiveCustomPolicyClone(policyId);
+      onCloned();
+    } catch (e) {
+      window.alert((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      onClick={() => void run()}
+      disabled={busy}
+      className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-border bg-surface-1 text-ink-1 text-[11px] font-semibold hover:bg-surface-2 disabled:opacity-50"
+    >
+      {busy ? (
+        <Loader2 size={10} className="animate-spin" />
+      ) : (
+        <Copy size={10} />
+      )}
+      {t("custom.clone")}
+    </button>
   );
 }
 
@@ -1718,7 +1959,7 @@ function PushHistorySection({
   const fmt = useFmtNum();
   const [rows, setRows] = useState<PushRow[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [rollingBack, setRollingBack] = useState<number | null>(null);
+  const [rollbackTarget, setRollbackTarget] = useState<PushRow | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -1737,19 +1978,6 @@ function PushHistorySection({
     const id = setInterval(() => void load(), 20000);
     return () => clearInterval(id);
   }, [load]);
-
-  const onRollback = async (pushId: number) => {
-    if (!window.confirm(t("directive.baselines.rollbackConfirm"))) return;
-    setRollingBack(pushId);
-    try {
-      await api.directivePushRollback(pushId);
-      await load();
-    } catch (e) {
-      window.alert((e as Error).message);
-    } finally {
-      setRollingBack(null);
-    }
-  };
 
   return (
     <Card className="p-0">
@@ -1832,15 +2060,10 @@ function PushHistorySection({
                   <td className="py-2 pe-5 text-end">
                     {r.status === "complete" || r.status === "failed" ? (
                       <button
-                        onClick={() => void onRollback(r.id)}
-                        disabled={rollingBack !== null}
-                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border bg-surface-2 text-ink-1 text-[11px] font-semibold disabled:opacity-50"
+                        onClick={() => setRollbackTarget(r)}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border bg-surface-2 text-ink-1 text-[11px] font-semibold"
                       >
-                        {rollingBack === r.id ? (
-                          <Loader2 size={11} className="animate-spin" />
-                        ) : (
-                          <Undo2 size={11} />
-                        )}
+                        <Undo2 size={11} />
                         {t("directive.baselines.rollback")}
                       </button>
                     ) : null}
@@ -1851,7 +2074,210 @@ function PushHistorySection({
           </table>
         </div>
       )}
+      {rollbackTarget ? (
+        <RollbackModal
+          push={rollbackTarget}
+          onClose={() => setRollbackTarget(null)}
+          onDone={() => {
+            setRollbackTarget(null);
+            void load();
+          }}
+        />
+      ) : null}
     </Card>
+  );
+}
+
+function RollbackModal({
+  push,
+  onClose,
+  onDone,
+}: {
+  push: PushRow;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { t } = useI18n();
+  const [preview, setPreview] = useState<null | Awaited<
+    ReturnType<typeof api.directivePushRollbackPreview>
+  >>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [rollingBack, setRollingBack] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .directivePushRollbackPreview(push.id)
+      .then((r) => {
+        if (!alive) return;
+        setPreview(r);
+        // Default-select every eligible entry so the operator just clicks
+        // through for the common "roll it all back" case.
+        const eligible = r.entries
+          .filter((e) => !e.skipReason && !e.alreadyGone)
+          .map((e) => e.actionId);
+        setSelected(new Set(eligible));
+      })
+      .catch((e) => setError((e as Error).message));
+    return () => {
+      alive = false;
+    };
+  }, [push.id]);
+
+  const toggle = (actionId: number) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(actionId)) n.delete(actionId);
+      else n.add(actionId);
+      return n;
+    });
+
+  const run = async (scope: "selected" | "all") => {
+    setRollingBack(true);
+    setError(null);
+    try {
+      const body =
+        scope === "all"
+          ? undefined
+          : { actionIds: Array.from(selected) };
+      await api.directivePushRollback(push.id, body);
+      onDone();
+    } catch (e) {
+      setError((e as Error).message);
+      setRollingBack(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={t("rollback.preflightTitle")}
+      onClose={onClose}
+      open={true}
+      size="wide"
+    >
+      <div className="flex flex-col gap-3">
+        <div className="text-[12px] text-ink-2 leading-relaxed">
+          {t("rollback.preflightIntro")}
+        </div>
+
+        {error ? (
+          <div className="rounded-md border border-neg/40 bg-neg/10 p-2.5 text-[12px] text-ink-1">
+            {error}
+          </div>
+        ) : null}
+
+        {!preview ? (
+          <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px] border-collapse">
+              <thead>
+                <tr className="text-left text-[10.5px] uppercase tracking-[0.06em] text-ink-3 border-b border-border">
+                  <th className="py-1.5 pr-2 w-6">&nbsp;</th>
+                  <th className="py-1.5 pr-2">
+                    {t("rollback.col.tenant")}
+                  </th>
+                  <th className="py-1.5 pr-2">
+                    {t("rollback.col.currentState")}
+                  </th>
+                  <th className="py-1.5 pr-2">
+                    {t("rollback.col.action")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.entries.map((e) => {
+                  const tenantName =
+                    push.targetTenantNames.find((x) => x.id === e.tenantId)
+                      ?.nameEn ?? e.tenantId;
+                  const canRollBack =
+                    !e.skipReason && !e.alreadyGone;
+                  const note = e.skipReason
+                    ? t(
+                        `rollback.skipReason.${e.skipReason}` as DictKey,
+                      )
+                    : e.alreadyGone
+                      ? t("rollback.alreadyGone")
+                      : e.wouldUnprotect
+                        ? t("rollback.flipWarn")
+                        : null;
+                  return (
+                    <tr
+                      key={e.actionId}
+                      className="border-b border-border/50 align-top"
+                    >
+                      <td className="py-2 pr-2">
+                        <input
+                          type="checkbox"
+                          disabled={!canRollBack}
+                          checked={selected.has(e.actionId)}
+                          onChange={() => toggle(e.actionId)}
+                          className="accent-council-strong"
+                        />
+                      </td>
+                      <td className="py-2 pr-2 text-ink-1">{tenantName}</td>
+                      <td className="py-2 pr-2">
+                        {e.currentState ? (
+                          <CaStateChip state={e.currentState} />
+                        ) : (
+                          <span className="text-[11px] text-ink-3">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-2">
+                        {canRollBack ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[11px] font-semibold text-neg">
+                              {t("rollback.actionWillDelete")}
+                            </span>
+                            {e.wouldUnprotect ? (
+                              <span className="text-[10.5px] text-warn">
+                                {note}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-ink-3">
+                            {t("rollback.actionSkip")}
+                            {note ? (
+                              <span className="block text-[10.5px] text-ink-3">
+                                {note}
+                              </span>
+                            ) : null}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+          <button
+            onClick={onClose}
+            disabled={rollingBack}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold disabled:opacity-60"
+          >
+            {t("rollback.cancel")}
+          </button>
+          <button
+            onClick={() => void run("selected")}
+            disabled={rollingBack || selected.size === 0}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-neg text-white text-[12.5px] font-semibold disabled:opacity-60"
+          >
+            {rollingBack ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <Undo2 size={11} />
+            )}
+            {t("rollback.perTenantCta", { count: String(selected.size) })}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

@@ -1383,6 +1383,8 @@ export const DICT = {
     "custom.delete": "Delete",
     "custom.confirmDelete":
       "Delete this draft? This cannot be undone.",
+    "custom.clone": "Clone",
+    "custom.cloneFromBaseline": "Clone as custom draft",
     "custom.scopeUsers.all": "All users",
     "custom.scopeUsers.none": "No users",
     "custom.scopeUsers.roles": "Directory roles",
@@ -1525,6 +1527,37 @@ export const DICT = {
       "Add at least one application when targeting specific apps.",
     "wizard.validation.grantEmpty":
       "Pick at least one requirement — or choose Block.",
+
+    "rollback.preflightTitle": "Before rolling back",
+    "rollback.preflightIntro":
+      "Review what will be deleted. Any policy still in report-only is safe to remove. Policies now in Enabled were flipped on by the entity — deleting them immediately un-enforces the control for that entity.",
+    "rollback.flipWarn":
+      "Entity has flipped this to Enabled — rollback will un-enforce",
+    "rollback.alreadyGone":
+      "Policy not found in entity — nothing to delete",
+    "rollback.skipReason.already_rolledback": "Already rolled back",
+    "rollback.skipReason.failed": "Push failed — nothing to roll back",
+    "rollback.skipReason.no_policy_id":
+      "Idempotent match — this push didn't create the policy",
+    "rollback.col.tenant": "Entity",
+    "rollback.col.currentState": "Current state",
+    "rollback.col.action": "Action",
+    "rollback.actionWillDelete": "Will DELETE",
+    "rollback.actionSkip": "Skip",
+    "rollback.perTenantCta": "Roll back selected ({count})",
+    "rollback.allCta": "Roll back all eligible",
+    "rollback.cancel": "Cancel",
+    "rollback.confirmOne":
+      "Roll back from {tenant}? The CA policy will be deleted in their Entra tenant.",
+
+    "rollback.all.cta": "Remove from ALL entities",
+    "rollback.all.confirmTitle":
+      "Remove this policy from every entity that has it",
+    "rollback.all.confirmBody":
+      "Mizan will DELETE the CA policy in every Entra tenant where it was pushed (by tag match, so even if the entity renamed it). This cannot be undone — re-pushing will create a fresh policy with a new Graph id.",
+    "rollback.all.confirmCta": "Yes, remove from all",
+    "rollback.all.done":
+      "Removed from {count} entity(ies)",
 
     "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
     "baseline.requireMfaForAdmins.body":
@@ -3256,6 +3289,8 @@ export const DICT = {
     "custom.delete": "حذف",
     "custom.confirmDelete":
       "هل تريد حذف هذه المسوّدة؟ لا يمكن التراجع.",
+    "custom.clone": "نسخ",
+    "custom.cloneFromBaseline": "نسخ كمسوّدة مخصّصة",
     "custom.scopeUsers.all": "كل المستخدمين",
     "custom.scopeUsers.none": "لا أحد",
     "custom.scopeUsers.roles": "أدوار دليل",
@@ -3398,6 +3433,37 @@ export const DICT = {
       "أضف تطبيقًا واحدًا على الأقل عند استهداف تطبيقات محدّدة.",
     "wizard.validation.grantEmpty":
       "اختر متطلّبًا واحدًا على الأقل — أو اختر الحظر.",
+
+    "rollback.preflightTitle": "قبل التراجع",
+    "rollback.preflightIntro":
+      "راجع ما الذي سيُحذَف. أي سياسة لا تزال بوضع التقارير يمكن حذفها بأمان. السياسات المُفعَّلة قامت الجهة بتفعيلها — حذفها يُزيل الضابط فورًا عنها.",
+    "rollback.flipWarn":
+      "الجهة حوّلتها إلى مُفعَّلة — التراجع سيُزيل الإنفاذ",
+    "rollback.alreadyGone":
+      "السياسة غير موجودة في الجهة — لا شيء لحذفه",
+    "rollback.skipReason.already_rolledback": "تم التراجع مسبقًا",
+    "rollback.skipReason.failed": "فشلت الدفعة — لا شيء للتراجع عنه",
+    "rollback.skipReason.no_policy_id":
+      "مطابقة عبر البصمة — هذه الدفعة لم تُنشئ السياسة",
+    "rollback.col.tenant": "الجهة",
+    "rollback.col.currentState": "الحالة الحالية",
+    "rollback.col.action": "الإجراء",
+    "rollback.actionWillDelete": "سيُحذَف",
+    "rollback.actionSkip": "تخطٍّ",
+    "rollback.perTenantCta": "تراجُع عن المحدَّد ({count})",
+    "rollback.allCta": "تراجُع عن كل المؤهَّل",
+    "rollback.cancel": "إلغاء",
+    "rollback.confirmOne":
+      "تراجَع من {tenant}؟ ستُحذَف سياسة CA من مستأجر Entra لديها.",
+
+    "rollback.all.cta": "إزالة من كل الجهات",
+    "rollback.all.confirmTitle":
+      "إزالة هذه السياسة من كل جهة تمتلكها",
+    "rollback.all.confirmBody":
+      "سيحذف Mizan سياسة CA في كل مستأجر Entra دُفِعت إليه (عبر مطابقة الوسم، حتى لو أعادت الجهة تسميتها). لا يمكن التراجع — إعادة الدفع ستُنشئ سياسة جديدة بمعرّف Graph مختلف.",
+    "rollback.all.confirmCta": "نعم، أزِل من كلها",
+    "rollback.all.done":
+      "أُزيلت من {count} جهة",
 
     "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
     "baseline.requireMfaForAdmins.body":

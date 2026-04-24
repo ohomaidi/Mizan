@@ -954,6 +954,18 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  directiveCustomPolicyClone: (id: number) =>
+    jsonFetch<{ id: number }>(
+      `/api/directive/custom-policies/${id}/clone`,
+      { method: "POST" },
+    ),
+
+  directiveBaselineCloneToCustom: (baselineId: string) =>
+    jsonFetch<{ id: number }>(
+      `/api/directive/baselines/${encodeURIComponent(baselineId)}/clone-to-custom`,
+      { method: "POST" },
+    ),
+
   directiveCustomPolicyReference: () =>
     jsonFetch<{
       roles: Array<{
@@ -974,10 +986,14 @@ export const api = {
       guestTypes: ReadonlyArray<{ value: string; label: string }>;
     }>("/api/directive/custom-policies/reference"),
 
-  directivePushRollback: (pushId: number) =>
+  directivePushRollback: (
+    pushId: number,
+    body?: { actionIds?: number[] },
+  ) =>
     jsonFetch<{
       ok: boolean;
       pushId: number;
+      fullyRolledback: boolean;
       results: Array<{
         tenantId: string;
         status: "rolledback" | "skipped" | "failed";
@@ -985,8 +1001,52 @@ export const api = {
       }>;
     }>(
       `/api/directive/pushes/${pushId}/rollback`,
+      {
+        method: "POST",
+        body: body ? JSON.stringify(body) : undefined,
+      },
+    ),
+
+  directivePushRollbackPreview: (pushId: number) =>
+    jsonFetch<{
+      pushId: number;
+      baselineId: string;
+      entries: Array<{
+        actionId: number;
+        tenantId: string;
+        currentState: string | null;
+        wouldUnprotect: boolean;
+        alreadyGone: boolean;
+        skipReason: "already_rolledback" | "failed" | "no_policy_id" | null;
+      }>;
+    }>(`/api/directive/pushes/${pushId}/rollback-preview`),
+
+  directiveBaselineRollbackAll: (baselineId: string) =>
+    jsonFetch<{
+      ok: boolean;
+      affectedTenants: number;
+      results: Array<{
+        tenantId: string;
+        status: "rolledback" | "skipped" | "failed";
+        error?: string | null;
+      }>;
+    }>(
+      `/api/directive/baselines/${encodeURIComponent(baselineId)}/rollback-all`,
       { method: "POST" },
     ),
+
+  directiveCustomPolicyRollbackAll: (id: number) =>
+    jsonFetch<{
+      ok: boolean;
+      affectedTenants: number;
+      results: Array<{
+        tenantId: string;
+        status: "rolledback" | "skipped" | "failed";
+        error?: string | null;
+      }>;
+    }>(`/api/directive/custom-policies/${id}/rollback-all`, {
+      method: "POST",
+    }),
 
   directiveAudit: (opts: { tenantId?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();

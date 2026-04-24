@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import {
   executeDirective,
   gateDirectiveRoute,
@@ -15,6 +16,19 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const Body = z
+  .object({
+    /**
+     * Optional per-tenant scoping — if provided, only these push_action
+     * ids are rolled back. The push_request is only flipped to
+     * 'rolledback' when every non-skip action has been rolled back.
+     * If omitted, every rollback-eligible action in the push is reversed
+     * (matches the Phase 3 behaviour).
+     */
+    actionIds: z.array(z.number().int().positive()).optional(),
+  })
+  .optional();
+
 /**
  * POST /api/directive/pushes/{id}/rollback — reverse a baseline push by
  * DELETE-ing each successfully-created CA policy. Per-tenant rollback
@@ -25,7 +39,7 @@ export const dynamic = "force-dynamic";
  * actions are flipped to 'rolledback' without any Graph call.
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: { params: Promise<{ pushId: string }> },
 ) {
   const gate = await gateDirectiveRoute("admin");
@@ -47,6 +61,26 @@ export async function POST(
     );
   }
 
+  let parsedBody: z.infer<typeof Body> = undefined;
+  try {
+    const raw = req.headers.get("content-length") === "0" ? null : await req.json().catch(() => null);
+    if (raw !== null) {
+      const p = Body.safeParse(raw);
+      if (!p.success) {
+        return NextResponse.json(
+          { error: "validation", issues: p.error.issues },
+          { status: 400 },
+        );
+      }
+      parsedBody = p.data;
+    }
+  } catch {
+    // tolerate empty body — default to "roll back everything"
+  }
+  const scopeIds = parsedBody?.actionIds
+    ? new Set(parsedBody.actionIds)
+    : null;
+
   const actions = listActionsForPush(pushIdNum);
   const results: Array<{
     tenantId: string;
@@ -55,6 +89,10 @@ export async function POST(
   }> = [];
 
   for (const action of actions) {
+    if (scopeIds && !scopeIds.has(action.id)) {
+      // Out of scope for this partial rollback — leave untouched.
+      continue;
+    }
     if (action.status === "rolledback" || action.status === "failed") {
       results.push({ tenantId: action.tenant_id, status: "skipped" });
       continue;
@@ -91,6 +129,23 @@ export async function POST(
     }
   }
 
-  markPushRolledback(pushIdNum);
-  return NextResponse.json({ ok: true, pushId: pushIdNum, results });
+  // Only mark the push_request as 'rolledback' when every eligible action
+  // in the push has actually been rolled back. Partial rollbacks leave the
+  // request in its prior status so the operator can continue later.
+  const remaining = actions.filter(
+    (a) =>
+      a.status !== "rolledback" &&
+      a.status !== "failed" &&
+      !!a.graph_policy_id,
+  );
+  const allDone = remaining.length === 0;
+  if (allDone) {
+    markPushRolledback(pushIdNum);
+  }
+  return NextResponse.json({
+    ok: true,
+    pushId: pushIdNum,
+    fullyRolledback: allDone,
+    results,
+  });
 }
