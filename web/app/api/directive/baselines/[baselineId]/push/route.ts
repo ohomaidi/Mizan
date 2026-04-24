@@ -185,7 +185,13 @@ export async function POST(
         // collapse already_applied to success there; the distinction lives
         // in the per-request summary and the immediate response.
         status: outcome.simulated ? "simulated" : "success",
-        graphPolicyId: r.policyId,
+        // CRITICAL: do NOT store graphPolicyId on idempotent rows. The
+        // policy was created by a previous push (or existed before Mizan
+        // entirely) — this push merely matched it. Rollback deletes by
+        // graph_policy_id, so keeping it here would make a rollback of
+        // THIS push delete a policy this push did not create. Nulling it
+        // makes rollback skip this row, which is the correct behaviour.
+        graphPolicyId: r.idempotent ? null : r.policyId,
       });
     } else {
       perTenant.push({
