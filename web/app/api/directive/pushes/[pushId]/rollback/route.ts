@@ -5,13 +5,18 @@ import {
   executeDirective,
   gateDirectiveRoute,
 } from "@/lib/directive/engine";
-import { deleteConditionalAccessPolicy } from "@/lib/directive/graph-writes";
+import {
+  deleteConditionalAccessPolicy,
+  deletePolicyByKind,
+  type PolicyKind,
+} from "@/lib/directive/graph-writes";
 import {
   getPushRequest,
   listActionsForPush,
   markActionRolledback,
   markPushRolledback,
 } from "@/lib/directive/push-store";
+import { getIntuneBaseline } from "@/lib/directive/intune/registry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +87,16 @@ export async function POST(
     : null;
 
   const actions = listActionsForPush(pushIdNum);
+
+  // Resolve the policy kind once based on the push's baseline_id prefix.
+  // Intune pushes delete via the kind-generic helper; CA (default + custom)
+  // keeps the legacy CA call for clarity + Phase-3 parity.
+  let policyKind: Exclude<PolicyKind, "ca"> | null = null;
+  if (pushRequest.baseline_id.startsWith("intune:")) {
+    const intuneId = pushRequest.baseline_id.slice("intune:".length);
+    const intune = getIntuneBaseline(intuneId);
+    if (intune) policyKind = intune.descriptor.kind;
+  }
   const results: Array<{
     tenantId: string;
     status: "rolledback" | "skipped" | "failed";
@@ -110,10 +125,15 @@ export async function POST(
       tenantId: action.tenant_id,
       actionType: `baseline.rollback.${pushRequest.baseline_id}`,
       targetId: policyId,
-      input: { policyId },
+      input: { policyId, policyKind: policyKind ?? ("ca" as const) },
       simulatedResult: { deleted: true, policyId },
       run: async ({ tenant }) => {
-        await deleteConditionalAccessPolicy(tenant, policyId);
+        if (policyKind) {
+          // Intune kinds route through the kind-generic helper.
+          await deletePolicyByKind(policyKind, tenant, policyId);
+        } else {
+          await deleteConditionalAccessPolicy(tenant, policyId);
+        }
         return { deleted: true, policyId };
       },
     });

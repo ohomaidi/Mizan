@@ -1605,6 +1605,154 @@ export const DICT = {
     "rollback.all.done":
       "Removed from {count} entity(ies)",
 
+    // ---- Phase 5 Intune ----
+    "intune.title": "Intune device posture baselines",
+    "intune.subtitle":
+      "Push device-compliance, app-protection (MAM), and endpoint-configuration policies to consented entities. Policies ship un-assigned by default — the Intune equivalent of report-only. The entity's admin decides which users / devices the policy enforces against. Same idempotency + rollback as Conditional Access.",
+    "intune.platformFilter": "Platform",
+    "intune.platformAll": "All platforms",
+    "intune.platform.iOS": "iOS",
+    "intune.platform.Android": "Android",
+    "intune.platform.Windows": "Windows",
+    "intune.platform.macOS": "macOS",
+    "intune.targets": "Targets",
+    "intune.effect": "Effect",
+    "intune.pushCta": "Push to entities",
+    "intune.unassignedChip": "Ships un-assigned",
+    "intune.unassignedSubtitle":
+      "The policy is created but not applied to any users/devices. Entity admin assigns from their Intune portal once they've reviewed it.",
+    "intune.licenseNote":
+      "Requires Intune licensing at each target entity (Microsoft 365 E3+ / A3+ / standalone Intune P1). Unlicensed entities return 403 on push.",
+
+    "intune.baseline.iosCompliance.title": "iOS compliance — minimum",
+    "intune.baseline.iosCompliance.body":
+      "iOS / iPadOS devices must have a 6-digit numeric passcode, lock after 5 minutes, not be jailbroken, and run iOS 16 or later. Data encryption is enforced by the passcode requirement.",
+    "intune.baseline.iosCompliance.why":
+      "iOS devices are the highest-volume Microsoft 365 mobile endpoint for most regulators and the most common lost/stolen surface. A passcode + encryption + jailbreak block forms the single strongest return per configured control. Fits CIS iOS Benchmark L1 and NIST 800-124.",
+    "intune.baseline.iosCompliance.impact":
+      "Devices that don't meet all criteria get marked non-compliant in Intune. If paired with a Conditional Access 'require compliant device' baseline (Phase 3), those devices are blocked from Microsoft 365. Users can remediate by setting a passcode, updating iOS, or replacing a jailbroken device.",
+    "intune.baseline.iosCompliance.prerequisites":
+      "Intune P1 licence per user. iOS devices enrolled via Company Portal, ADE, or User-affinity DEP. Users capable of running iOS 16 (iPhone 8 or later).",
+    "intune.baseline.iosCompliance.rollout":
+      "Create the policy un-assigned. Let it populate in Intune for 24h. Then assign to a pilot group of 10 and check the compliance dashboard. Expand the assignment over 2–4 weeks.",
+
+    "intune.baseline.androidCompliance.title": "Android compliance — minimum",
+    "intune.baseline.androidCompliance.body":
+      "Android work-profile devices must have a 6-digit numeric passcode, device encryption, Google Play Protect attestation (SafetyNet certified), not be rooted, and run Android 12 or later.",
+    "intune.baseline.androidCompliance.why":
+      "Android fragmentation means the OS floor matters more than on iOS. Android 12 brings Scoped Storage enforcement, permission auto-reset, and required privacy indicators — meaningful drops in exfiltration surface. Combined with Play Protect attestation, blocks the typical stolen-device / rooted-device attack chain.",
+    "intune.baseline.androidCompliance.impact":
+      "Devices running Android < 12 or with a non-certified ROM become non-compliant. Older hardware (pre-2020 flagships; many budget devices) may need replacement. SafetyNet failures often signal a carrier image without Play Services.",
+    "intune.baseline.androidCompliance.prerequisites":
+      "Intune P1 licence per user. Devices enrolled via Android Enterprise (work profile or fully-managed). Google Play Services available.",
+    "intune.baseline.androidCompliance.rollout":
+      "Inventory devices running Android < 12 before assigning. Give users 30–60 days to update or replace. Ship to a pilot first, watch non-compliant count, then expand.",
+
+    "intune.baseline.windowsCompliance.title": "Windows compliance — minimum",
+    "intune.baseline.windowsCompliance.body":
+      "Windows 10/11 devices must have BitLocker on the OS drive, Secure Boot enabled, TPM present, Windows Defender real-time protection + antivirus + antispyware enabled, firewall on, 8-character alphanumeric password with 15-minute lock, and at least Windows 10.0.19045 (22H2).",
+    "intune.baseline.windowsCompliance.why":
+      "BitLocker + Secure Boot + TPM is the defence-in-depth triad for the physical-access attack. Defender real-time + firewall is the runtime triad. Windows 10 22H2 is the last supported Win10 feature update — anything earlier is out of support and accumulates unpatched CVEs. This baseline is the minimum no CISO can defend against.",
+    "intune.baseline.windowsCompliance.impact":
+      "Devices without TPM 1.2+ / Secure Boot (most pre-2018 hardware) become non-compliant. CA-paired enforcement blocks them from Microsoft 365. Operator should flag hardware refresh cycles before assigning broadly.",
+    "intune.baseline.windowsCompliance.prerequisites":
+      "Intune P1 licence. Devices enrolled via Autopilot, Hybrid Entra Join, or Entra Join. Windows 10 21H2+ or Windows 11. TPM 1.2 or higher; Secure Boot capable hardware.",
+    "intune.baseline.windowsCompliance.rollout":
+      "Biggest hardware-refresh impact of any baseline — inventory TPM / Secure Boot coverage first. Ship to IT-managed fleet pilot. Expand over a quarter, aligned with hardware refresh plans.",
+
+    "intune.baseline.macosCompliance.title": "macOS compliance — minimum",
+    "intune.baseline.macosCompliance.body":
+      "macOS devices must have an 8-character alphanumeric passcode locking after 15 minutes, FileVault full-disk encryption, System Integrity Protection enabled, firewall on with stealth mode, Gatekeeper set to App Store + identified developers, and at least macOS Ventura 13.0.",
+    "intune.baseline.macosCompliance.why":
+      "macOS ships with strong defaults but users commonly disable them. FileVault off leaves disks readable on theft. Gatekeeper off lets unsigned binaries run. Enforcing the defaults through Intune means the policy persists across user reinstalls.",
+    "intune.baseline.macosCompliance.impact":
+      "Users who previously disabled FileVault will be prompted to enable it (requires restart). Unsigned-developer binaries stop running. Minor user friction; no hardware impact on Macs from 2018+.",
+    "intune.baseline.macosCompliance.prerequisites":
+      "Intune P1 licence. Macs enrolled via user-approved enrolment (UAMDM) or ABM. macOS Monterey 12+ supports all settings; Ventura 13 is the minimum for full compliance-evaluation parity.",
+    "intune.baseline.macosCompliance.rollout":
+      "FileVault enablement is disruptive — schedule it with users rather than silent-pushing. Pilot IT + finance Macs first, then broaden.",
+
+    "intune.baseline.iosMam.title": "iOS app protection (MAM)",
+    "intune.baseline.iosMam.body":
+      "Protects corporate data inside Outlook, Teams, Word, Excel, OneDrive, Edge, and other Microsoft apps on iOS — no device enrolment required. Blocks copy/paste from managed apps to personal apps, blocks Save-As to personal clouds, requires a 6-digit app PIN, wipes corporate data on jailbreak detection, forces a re-auth after 30 minutes offline, blocks printing, forces managed Edge for link handling.",
+    "intune.baseline.iosMam.why":
+      "MAM works on unenrolled and BYOD devices — the attack surface enrolment-based compliance policies miss. Copy/paste + Save-As block closes the typical accidental-exfil path; jailbreak wipe closes the malicious path. High-leverage control with no hardware or enrolment cost.",
+    "intune.baseline.iosMam.impact":
+      "Users see an app PIN on first launch of any corporate app. Copy from Outlook to WhatsApp fails silently. Save-As from Word to personal iCloud fails. Links from corporate apps open in Edge rather than Safari.",
+    "intune.baseline.iosMam.prerequisites":
+      "Intune P1 licence per user. Users signed into the Microsoft apps with their work account.",
+    "intune.baseline.iosMam.rollout":
+      "Safe to enforce broadly — no device-level changes, no hardware dependency. Communicate the PIN expectation before assigning.",
+
+    "intune.baseline.androidMam.title": "Android app protection (MAM)",
+    "intune.baseline.androidMam.body":
+      "Parallel to iOS MAM, for Android corporate apps — no enrolment required. Copy/paste + Save-As block, 6-digit PIN, root wipe, 30-minute offline re-auth, printing blocked, screen capture blocked, managed Edge for links.",
+    "intune.baseline.androidMam.why":
+      "Same as iOS MAM but Android often has larger BYOD surface — MAM fills that gap without requiring fully-managed enrolment. Screen-capture block is an Android-specific mitigation against screenshot-based exfil.",
+    "intune.baseline.androidMam.impact":
+      "Same as iOS MAM plus: users can't screenshot corporate apps. The managed-browser requirement means Chrome opens non-work links (where configured).",
+    "intune.baseline.androidMam.prerequisites":
+      "Intune P1 licence. Corporate apps signed in with work account. Google Play Services available (non-GMS Android devices don't support MAM).",
+    "intune.baseline.androidMam.rollout":
+      "Same as iOS MAM — safe to enforce broadly.",
+
+    "intune.baseline.windowsBitlocker.title": "Windows BitLocker enforcement",
+    "intune.baseline.windowsBitlocker.body":
+      "Endpoint Protection configuration profile that turns on BitLocker with XTS-AES 256-bit encryption on the OS drive + fixed data drives, requires TPM-backed startup auth (no PIN), backs up recovery keys to Entra, and blocks write access to unencrypted removable drives.",
+    "intune.baseline.windowsBitlocker.why":
+      "The Windows compliance baseline CHECKS for BitLocker; this profile ENFORCES it. Ship them together: compliance reports non-compliant devices, this profile brings them into compliance by actively enabling encryption. Entra recovery-key escrow means a forgotten PIN never bricks the device.",
+    "intune.baseline.windowsBitlocker.impact":
+      "Devices without BitLocker start encrypting silently in the background (~30 min to 2h depending on drive size + usage). No user-visible change once encryption completes, except on removable drives — writing to an unencrypted USB stick is blocked.",
+    "intune.baseline.windowsBitlocker.prerequisites":
+      "Intune P1. TPM 1.2+ present. Windows Pro / Enterprise / Education (BitLocker isn't on Home). Entra Join or Hybrid Join (for key escrow).",
+    "intune.baseline.windowsBitlocker.rollout":
+      "Test on an IT pilot machine first — validate the recovery-key escrow path works by deliberately triggering recovery. Then assign to IT fleet, then to general population. The removable-drive write block causes the most user friction; communicate before assigning.",
+
+    // ---- Phase 6 DLP (preview) ----
+    "dlp.title": "Data Loss Prevention baselines",
+    "dlp.subtitle":
+      "Curated DLP policy catalog planned for Phase 6. Push is currently disabled — Microsoft Graph's DLP surface is too limited for production use. Full authoring (endpoint DLP, rule exceptions, user notifications, incident reports, most condition types) needs a PowerShell automation tier, pending user approval.",
+    "dlp.previewBanner.title": "Preview only — push disabled",
+    "dlp.previewBanner.body":
+      "These baselines describe the Phase 6 direction. Pushing DLP policies via Graph today would silently drop most of the rule grammar — we've chosen not to ship a push button that misbehaves on real tenants. PowerShell automation tier lands as Phase 6.5 once you approve the architecture.",
+    "dlp.surface": "Surface",
+    "dlp.baseline.blockSensitiveExternal.title":
+      "Block external sharing of sensitive data",
+    "dlp.baseline.blockSensitiveExternal.body":
+      "Across Exchange, SharePoint, OneDrive, and Teams, block external send/share of content matching the built-in sensitive-info types (credit cards, ID numbers, financial data, health records). Allow with business justification for select exceptions.",
+    "dlp.baseline.blockCredentialExfil.title":
+      "Block credential exfiltration",
+    "dlp.baseline.blockCredentialExfil.body":
+      "Detect secret patterns — Azure Service Principal keys, AWS access keys, GitHub PATs, PEM private keys — in outbound email and chat. Block transmission, alert admin. Highest-signal DLP rule in most tenants.",
+    "dlp.baseline.blockBulkExfil.title":
+      "Flag bulk data transfer",
+    "dlp.baseline.blockBulkExfil.body":
+      "Warn the user and notify admin when a single action moves >100 files or >500 MB to external cloud or personal storage. Behavioural signal — catches departing-employee exfil.",
+    "dlp.baseline.regulatedDataLabels.title":
+      "Block external share of labelled data",
+    "dlp.baseline.regulatedDataLabels.body":
+      "Block external sharing of anything labelled Confidential or Highly Confidential by the Phase 7 sensitivity-label hierarchy. Simplest and strongest DLP rule, but depends on labels being in place first.",
+
+    // ---- Phase 7 Sensitivity Labels (preview) ----
+    "labels.title": "Sensitivity labels",
+    "labels.subtitle":
+      "Curated label hierarchy + auto-labeling baselines planned for Phase 7. Push is currently disabled — Graph can create bare labels but cannot configure encryption, content marking, or publishing policies. PowerShell automation tier required.",
+    "labels.previewBanner.title": "Preview only — push disabled",
+    "labels.previewBanner.body":
+      "Graph support for sensitivity-label authoring is incomplete: encryption, content marking, protection settings, label publishing policies, and auto-labeling rules all require Security & Compliance PowerShell. We've chosen not to ship a partial push path. PowerShell tier lands together with DLP as Phase 6.5 pending user approval.",
+    "labels.baseline.hierarchy4.title":
+      "4-level label hierarchy",
+    "labels.baseline.hierarchy4.body":
+      "Create Public / Internal / Confidential / Highly Confidential labels. Baseline user-visible structure every entity uses identically. Encryption and content-marking settings (required in practice) need the PS tier.",
+    "labels.baseline.autoLabelInternal.title":
+      "Auto-label internal email",
+    "labels.baseline.autoLabelInternal.body":
+      "Every outbound email from an internal user to an internal recipient is auto-labelled 'Internal'. Removes the 'no label at all' baseline that makes every downstream DLP rule weaker.",
+    "labels.baseline.autoLabelSensitive.title":
+      "Auto-label sensitive content",
+    "labels.baseline.autoLabelSensitive.body":
+      "Content matching built-in sensitive-info types is auto-labelled Confidential or Highly Confidential based on severity. Bridges the gap between DLP detection and label-based enforcement.",
+
     "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
     "baseline.requireMfaForAdmins.body":
       "Every privileged directory role (Global Admin, Security Admin, Exchange / SharePoint / User / App / Cloud App / Authentication / Helpdesk / Intune / Billing / Privileged Role / Conditional Access Administrator) must satisfy multi-factor authentication. Report-only by default.",
@@ -3556,6 +3704,154 @@ export const DICT = {
     "rollback.all.confirmCta": "نعم، أزِل من كلها",
     "rollback.all.done":
       "أُزيلت من {count} جهة",
+
+    // ---- Phase 5 Intune ----
+    "intune.title": "قواعد وضع الأجهزة عبر Intune",
+    "intune.subtitle":
+      "ادفع سياسات توافق الأجهزة، وحماية التطبيقات (MAM)، وتهيئة النقاط الطرفية إلى الجهات الموافِقة. تُشحن السياسات بدون تخصيص افتراضيًا — ما يكافئ وضع التقارير في Intune. يقرّر مسؤول الجهة أي المستخدمين/الأجهزة تطبَّق عليهم. نفس نمط التحقّق والتراجع مثل Conditional Access.",
+    "intune.platformFilter": "المنصّة",
+    "intune.platformAll": "كل المنصّات",
+    "intune.platform.iOS": "iOS",
+    "intune.platform.Android": "Android",
+    "intune.platform.Windows": "Windows",
+    "intune.platform.macOS": "macOS",
+    "intune.targets": "الأهداف",
+    "intune.effect": "الأثر",
+    "intune.pushCta": "دفع إلى الجهات",
+    "intune.unassignedChip": "تُشحن بدون تخصيص",
+    "intune.unassignedSubtitle":
+      "تُنشأ السياسة لكنها لا تُطبّق على أي مستخدمين/أجهزة. يخصّصها مسؤول الجهة من بوابة Intune بعد المراجعة.",
+    "intune.licenseNote":
+      "تتطلّب ترخيص Intune في كل جهة مستهدفة (Microsoft 365 E3+ / A3+ / Intune P1 مستقل). الجهات غير المرخّصة تُرجع 403 عند الدفع.",
+
+    "intune.baseline.iosCompliance.title": "توافق iOS — الحد الأدنى",
+    "intune.baseline.iosCompliance.body":
+      "أجهزة iOS / iPadOS تحتاج رمزًا رقميًا من 6 خانات، تقفل بعد 5 دقائق، غير مكسورة الحماية، وتعمل على iOS 16 أو أحدث. التشفير مفروض عبر اشتراط الرمز.",
+    "intune.baseline.iosCompliance.why":
+      "أجهزة iOS هي أكثر نقاط النهاية المحمولة شيوعًا في Microsoft 365 عند أغلب الجهات التنظيمية، وهي السطح الأكثر تعرّضًا للفقد والسرقة. الرمز + التشفير + حظر كسر الحماية أعلى عائد أمان لكل ضابط. يوافق CIS iOS L1 وNIST 800-124.",
+    "intune.baseline.iosCompliance.impact":
+      "الأجهزة غير المستوفية تُعلَّم 'غير متوافقة' في Intune. إن ارتبطت بقاعدة CA 'تتطلّب جهازًا متوافقًا' (المرحلة 3)، تُحظَر من Microsoft 365. العلاج: ضبط رمز، تحديث iOS، أو استبدال جهاز مكسور الحماية.",
+    "intune.baseline.iosCompliance.prerequisites":
+      "ترخيص Intune P1 لكل مستخدم. أجهزة iOS مسجّلة عبر Company Portal أو ADE أو User-affinity DEP. أجهزة قادرة على تشغيل iOS 16 (iPhone 8 أو أحدث).",
+    "intune.baseline.iosCompliance.rollout":
+      "أنشئ السياسة بدون تخصيص. اترك البيانات تتجمّع في Intune لـ 24 ساعة. ثم خصّصها لمجموعة تجريبية من 10 مستخدمين وراقب لوحة التوافق. وسّع التخصيص على 2–4 أسابيع.",
+
+    "intune.baseline.androidCompliance.title": "توافق Android — الحد الأدنى",
+    "intune.baseline.androidCompliance.body":
+      "أجهزة Android بوضع العمل تحتاج رمزًا رقميًا من 6 خانات، وتشفير، واعتماد Google Play Protect (SafetyNet)، وأن لا تكون روت، وتعمل على Android 12 أو أحدث.",
+    "intune.baseline.androidCompliance.why":
+      "تجزّؤ Android يجعل حد الـ OS أهم من iOS. Android 12 يفرض التخزين المقصور، وإعادة ضبط الأذونات، ومؤشرات الخصوصية — تقليل ملموس لسطح التسرّب. مع اعتماد Play Protect، يُغلق نمط هجوم الجهاز المسروق/الروت.",
+    "intune.baseline.androidCompliance.impact":
+      "الأجهزة التي تعمل على Android < 12 أو بنُسخ غير معتمدة تصبح غير متوافقة. الأجهزة القديمة (قبل 2020؛ معظم الأجهزة الاقتصادية) قد تحتاج استبدال. إخفاقات SafetyNet غالبًا تشير إلى صورة مشغّل بدون Play Services.",
+    "intune.baseline.androidCompliance.prerequisites":
+      "ترخيص Intune P1. أجهزة مسجّلة عبر Android Enterprise (وضع العمل أو إدارة كاملة). Google Play Services متوفّرة.",
+    "intune.baseline.androidCompliance.rollout":
+      "جرد الأجهزة التي تعمل على Android < 12 قبل التخصيص. امنح المستخدمين 30–60 يومًا للتحديث أو الاستبدال. ابدأ بمجموعة تجريبية، راقب عدد غير المتوافقين، ثم وسّع.",
+
+    "intune.baseline.windowsCompliance.title": "توافق Windows — الحد الأدنى",
+    "intune.baseline.windowsCompliance.body":
+      "أجهزة Windows 10/11 تحتاج BitLocker على قرص النظام، Secure Boot، TPM، حماية Defender الفورية + antivirus + antispyware، جدار الحماية، كلمة مرور أبجدية-رقمية 8 أحرف تقفل خلال 15 دقيقة، وعلى الأقل Windows 10.0.19045 (22H2).",
+    "intune.baseline.windowsCompliance.why":
+      "BitLocker + Secure Boot + TPM ثلاثية الدفاع ضد الهجوم المادي. Defender + Firewall ثلاثية الدفاع أثناء التشغيل. 22H2 آخر تحديث مدعوم لـ Win10 — أي أقدم خارج الدعم ويُراكم CVEs. هذا الحد الأدنى الذي لا يستطيع أي CISO الدفاع عن ما هو دونه.",
+    "intune.baseline.windowsCompliance.impact":
+      "الأجهزة بدون TPM 1.2+ / Secure Boot (معظم ما قبل 2018) تصبح غير متوافقة. الإنفاذ مع CA يحظرها من Microsoft 365. على المشغّل تحديد دورات تجديد الأجهزة قبل التخصيص الواسع.",
+    "intune.baseline.windowsCompliance.prerequisites":
+      "ترخيص Intune P1. أجهزة مسجّلة عبر Autopilot أو Hybrid Entra Join أو Entra Join. Windows 10 21H2+ أو Windows 11. TPM 1.2 أو أحدث؛ جهاز داعم لـ Secure Boot.",
+    "intune.baseline.windowsCompliance.rollout":
+      "أكبر تأثير على تجديد الأجهزة بين كل القواعد — جرد تغطية TPM / Secure Boot أولًا. ابدأ بأسطول IT المُدار. وسّع على ربع سنة متوافقًا مع خطط التجديد.",
+
+    "intune.baseline.macosCompliance.title": "توافق macOS — الحد الأدنى",
+    "intune.baseline.macosCompliance.body":
+      "أجهزة macOS تحتاج رمزًا أبجديًا رقميًا من 8 أحرف يقفل خلال 15 دقيقة، FileVault، SIP، جدار حماية مع وضع التخفّي، Gatekeeper على App Store + مطوّرين معرّفين، وعلى الأقل macOS Ventura 13.0.",
+    "intune.baseline.macosCompliance.why":
+      "macOS يشحن بإعدادات افتراضية قوية لكن المستخدمين يعطّلونها. إيقاف FileVault يترك الأقراص مقروءة عند السرقة. إيقاف Gatekeeper يشغّل برامج غير موقّعة. فرض الافتراضيات عبر Intune يبقيها قائمة حتى عبر إعادة تنصيب المستخدمين.",
+    "intune.baseline.macosCompliance.impact":
+      "المستخدمون الذين عطّلوا FileVault يُطالبون بتفعيله (يتطلّب إعادة تشغيل). تتوقّف برامج المطوّرين غير الموقّعة عن العمل. احتكاك خفيف؛ لا أثر على الأجهزة من 2018+.",
+    "intune.baseline.macosCompliance.prerequisites":
+      "ترخيص Intune P1. أجهزة Mac مسجّلة عبر UAMDM أو ABM. macOS Monterey 12+ لكل الإعدادات؛ Ventura 13 الحد الأدنى للتكافؤ الكامل.",
+    "intune.baseline.macosCompliance.rollout":
+      "تفعيل FileVault مزعج — خطّطه مع المستخدمين بدل الدفع الصامت. ابدأ بأجهزة IT والمالية، ثم وسّع.",
+
+    "intune.baseline.iosMam.title": "حماية تطبيقات iOS (MAM)",
+    "intune.baseline.iosMam.body":
+      "تحمي البيانات المؤسّسية داخل Outlook وTeams وWord وExcel وOneDrive وEdge وسائر تطبيقات Microsoft على iOS — بلا تسجيل جهاز. تحظر النسخ/اللصق من التطبيقات المُدارة إلى الشخصية، تحظر Save-As إلى السحب الشخصية، تشترط PIN من 6 خانات، تمسح البيانات المؤسسية عند كشف كسر الحماية، تفرض إعادة مصادقة بعد 30 دقيقة عدم اتّصال، تحظر الطباعة، تفرض Edge المُدار لفتح الروابط.",
+    "intune.baseline.iosMam.why":
+      "MAM تعمل على الأجهزة غير المسجّلة وBYOD — السطح الذي لا تغطّيه سياسات التوافق المبنيّة على التسجيل. حظر النسخ/اللصق + Save-As يُغلق مسار التسرّب العَرضي الشائع؛ مسح كسر الحماية يُغلق المسار الخبيث. ضابط عالي العائد بلا تكلفة أجهزة أو تسجيل.",
+    "intune.baseline.iosMam.impact":
+      "يرى المستخدمون PIN للتطبيقات عند أول تشغيل لأي تطبيق مؤسسي. النسخ من Outlook إلى WhatsApp يفشل صامتًا. Save-As من Word إلى iCloud الشخصي يفشل. روابط التطبيقات المؤسسية تُفتح في Edge لا Safari.",
+    "intune.baseline.iosMam.prerequisites":
+      "ترخيص Intune P1. مستخدمون مسجّلون الدخول في تطبيقات Microsoft بحساب العمل.",
+    "intune.baseline.iosMam.rollout":
+      "آمن للإنفاذ واسعًا — بلا تغييرات على مستوى الجهاز، بلا تبعية أجهزة. تواصل بتوقّع PIN قبل التخصيص.",
+
+    "intune.baseline.androidMam.title": "حماية تطبيقات Android (MAM)",
+    "intune.baseline.androidMam.body":
+      "موازية لـ iOS MAM، للتطبيقات المؤسسية على Android — بلا تسجيل. حظر النسخ/اللصق وSave-As، PIN 6 خانات، مسح الروت، إعادة مصادقة بعد 30 دقيقة، حظر الطباعة، حظر التقاط الشاشة، Edge المُدار للروابط.",
+    "intune.baseline.androidMam.why":
+      "نفس منطق iOS MAM لكن Android غالبًا يكون به BYOD أوسع — MAM تملأ تلك الفجوة دون الحاجة إلى إدارة كاملة. حظر التقاط الشاشة تخفيف خاص بـ Android ضد التسرّب عبر لقطات الشاشة.",
+    "intune.baseline.androidMam.impact":
+      "نفس iOS MAM بالإضافة إلى: لا يستطيع المستخدمون التقاط شاشة التطبيقات المؤسّسية. شرط المتصفّح المُدار يعني أن Chrome يفتح الروابط غير المؤسّسية (حيثما ضُبط).",
+    "intune.baseline.androidMam.prerequisites":
+      "ترخيص Intune P1. تطبيقات مسجَّل الدخول إليها بحساب العمل. Google Play Services متوفّرة (أجهزة Android بدون GMS لا تدعم MAM).",
+    "intune.baseline.androidMam.rollout":
+      "كما iOS MAM — آمن للإنفاذ واسعًا.",
+
+    "intune.baseline.windowsBitlocker.title": "فرض BitLocker على Windows",
+    "intune.baseline.windowsBitlocker.body":
+      "ملف تعريف حماية نقطة طرفية يُفعّل BitLocker مع تشفير XTS-AES 256-bit على قرص النظام وأقراص البيانات الثابتة، يشترط مصادقة تشغيل عبر TPM (بدون PIN)، يحتفظ بمفاتيح الاسترداد في Entra، ويحظر الكتابة على الأقراص القابلة للإزالة غير المشفَّرة.",
+    "intune.baseline.windowsBitlocker.why":
+      "قاعدة توافق Windows تفحص BitLocker؛ هذا الملف يفرضه. اشحنهما معًا: التوافق يُبلّغ عن الأجهزة غير المتوافقة، وهذا الملف يعيدها إلى التوافق بتفعيل التشفير. احتفاظ المفاتيح في Entra يعني أن نسيان PIN لا يجعل الجهاز غير قابل للاستخدام.",
+    "intune.baseline.windowsBitlocker.impact":
+      "الأجهزة بدون BitLocker تبدأ التشفير بصمت في الخلفية (~30 دقيقة إلى ساعتين). لا تغيير مرئي بعد الاكتمال، ما عدا الأقراص القابلة للإزالة — الكتابة على USB غير مشفَّر محظورة.",
+    "intune.baseline.windowsBitlocker.prerequisites":
+      "Intune P1. TPM 1.2+ متوفّر. Windows Pro / Enterprise / Education (BitLocker غير متوفّر في Home). Entra Join أو Hybrid Join (لحفظ المفاتيح).",
+    "intune.baseline.windowsBitlocker.rollout":
+      "اختبر على جهاز IT تجريبي أولًا — تحقّق من مسار استرداد المفتاح بتحفيز الاسترداد عمدًا. ثم خصّص لأسطول IT، ثم للعموم. حظر كتابة الأقراص القابلة للإزالة الاحتكاك الأكبر؛ تواصل قبل التخصيص.",
+
+    // ---- Phase 6 DLP (preview) ----
+    "dlp.title": "قواعد منع تسرّب البيانات (DLP)",
+    "dlp.subtitle":
+      "كتالوج DLP مخطّط للمرحلة 6. الدفع مُعطَّل حاليًا — سطح Graph لـ DLP محدود بحيث لا يصلح للإنتاج. التحكّم الكامل يتطلّب طبقة PowerShell معلَّقة على موافقتك.",
+    "dlp.previewBanner.title": "معاينة فقط — الدفع مُعطَّل",
+    "dlp.previewBanner.body":
+      "هذه القواعد تصف اتجاه المرحلة 6. الدفع عبر Graph اليوم يُسقط معظم قواعد DLP بصمت — اخترنا ألا نشحن زر دفع يتصرّف بشكل خاطئ على المستأجرين الحقيقيين. طبقة PowerShell ستهبط كمرحلة 6.5 بعد موافقتك.",
+    "dlp.surface": "السطح",
+    "dlp.baseline.blockSensitiveExternal.title":
+      "حظر المشاركة الخارجية للبيانات الحسّاسة",
+    "dlp.baseline.blockSensitiveExternal.body":
+      "عبر Exchange وSharePoint وOneDrive وTeams، احظر الإرسال/المشاركة الخارجية للمحتوى المطابق لأنواع المعلومات الحسّاسة المدمجة (بطاقات ائتمان، أرقام هوية، بيانات مالية، سجلات صحية). اسمح بمبرر عمل لاستثناءات مختارة.",
+    "dlp.baseline.blockCredentialExfil.title":
+      "حظر تسرّب الاعتمادات",
+    "dlp.baseline.blockCredentialExfil.body":
+      "اكتشاف أنماط الأسرار — مفاتيح Azure Service Principal، مفاتيح AWS، GitHub PAT، مفاتيح PEM الخاصة — في البريد والدردشة الصادرة. احظر الإرسال، نبّه المسؤول. أقوى قاعدة DLP إشارةً في معظم المستأجرين.",
+    "dlp.baseline.blockBulkExfil.title":
+      "رصد نقل البيانات بالجملة",
+    "dlp.baseline.blockBulkExfil.body":
+      "حذّر المستخدم وأبلغ المسؤول عندما يُحرّك إجراء واحد >100 ملف أو >500 ميجابايت إلى سحابة خارجية أو تخزين شخصي. إشارة سلوكية — تُمسك تسرّب الموظّف المغادر.",
+    "dlp.baseline.regulatedDataLabels.title":
+      "حظر المشاركة الخارجية للبيانات المُوسَّمة",
+    "dlp.baseline.regulatedDataLabels.body":
+      "احظر المشاركة الخارجية لأي محتوى مُوسَّم Confidential أو Highly Confidential في هرمية تصنيفات المرحلة 7. أبسط وأقوى قاعدة DLP، لكنها تعتمد على وجود التصنيفات أولًا.",
+
+    // ---- Phase 7 Sensitivity Labels (preview) ----
+    "labels.title": "تصنيفات الحساسية",
+    "labels.subtitle":
+      "هرمية تصنيفات + تصنيف تلقائي مخطّطان للمرحلة 7. الدفع مُعطَّل حاليًا — Graph يُنشئ تصنيفات أساسية لكن لا يُهيّئ التشفير أو وضع العلامات أو سياسات النشر. طبقة PowerShell مطلوبة.",
+    "labels.previewBanner.title": "معاينة فقط — الدفع مُعطَّل",
+    "labels.previewBanner.body":
+      "دعم Graph لتأليف تصنيفات الحساسية ناقص: التشفير، علامات المحتوى، إعدادات الحماية، سياسات النشر، وقواعد التصنيف التلقائي كلها تتطلّب Security & Compliance PowerShell. اخترنا عدم شحن مسار دفع جزئي. طبقة PowerShell تنزل مع DLP كمرحلة 6.5 بانتظار موافقتك.",
+    "labels.baseline.hierarchy4.title":
+      "هرمية تصنيفات من 4 مستويات",
+    "labels.baseline.hierarchy4.body":
+      "إنشاء تصنيفات Public / Internal / Confidential / Highly Confidential. هيكل أساسي ظاهر للمستخدم يستخدمه كل كيان بنفس الشكل. إعدادات التشفير ووضع العلامات (مطلوبة عمليًا) تحتاج طبقة PS.",
+    "labels.baseline.autoLabelInternal.title":
+      "تصنيف تلقائي للبريد الداخلي",
+    "labels.baseline.autoLabelInternal.body":
+      "كل بريد صادر من مستخدم داخلي إلى متلقٍ داخلي يُصنَّف تلقائيًا 'Internal'. يُزيل حالة 'بلا تصنيف' التي تُضعف كل قاعدة DLP لاحقة.",
+    "labels.baseline.autoLabelSensitive.title":
+      "تصنيف تلقائي للمحتوى الحسّاس",
+    "labels.baseline.autoLabelSensitive.body":
+      "المحتوى المطابق لأنواع المعلومات الحسّاسة المدمجة يُصنَّف تلقائيًا Confidential أو Highly Confidential حسب الشدّة. يربط كشف DLP بالإنفاذ المُستند إلى التصنيف.",
 
     "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
     "baseline.requireMfaForAdmins.body":

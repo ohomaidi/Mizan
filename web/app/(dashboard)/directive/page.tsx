@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { redirect } from "next/navigation";
 import {
   Gavel,
@@ -26,6 +26,9 @@ import {
   Wand2,
   X,
   Copy,
+  Smartphone,
+  FileWarning,
+  Tag,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -232,6 +235,12 @@ export default function DirectivePage() {
       </Card>
 
       <BaselinesSection locale={locale} />
+
+      <IntuneBaselinesSection locale={locale} />
+
+      <DlpBaselinesSection />
+
+      <LabelsBaselinesSection />
 
       <CustomPoliciesSection fmtRelative={fmtRelative} />
 
@@ -1255,6 +1264,574 @@ function CustomPoliciesSection({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ============================================================================
+// Phase 5 — Intune
+// ============================================================================
+
+type IntuneBaseline = Awaited<
+  ReturnType<typeof api.directiveIntuneBaselines>
+>["baselines"][number];
+
+function IntuneBaselinesSection({ locale }: { locale: "en" | "ar" }) {
+  const { t } = useI18n();
+  const [baselines, setBaselines] = useState<IntuneBaseline[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<IntuneBaseline | null>(null);
+  const [platformFilter, setPlatformFilter] = useState<string>("all");
+
+  useEffect(() => {
+    api
+      .directiveIntuneBaselines()
+      .then((r) => setBaselines(r.baselines))
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!baselines) return [];
+    if (platformFilter === "all") return baselines;
+    return baselines.filter((b) => b.platform === platformFilter);
+  }, [baselines, platformFilter]);
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Smartphone size={14} className="text-council-strong" />
+            {t("intune.title")}
+          </span>
+        }
+        subtitle={t("intune.subtitle")}
+      />
+      <div className="rounded-md border border-warn/30 bg-warn/5 px-2.5 py-1.5 mb-3 text-[11px] text-ink-2">
+        {t("intune.licenseNote")}
+      </div>
+      {error ? (
+        <div className="text-[12.5px] text-neg">{error}</div>
+      ) : !baselines ? (
+        <div className="text-[12.5px] text-ink-3">{t("state.loading")}</div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("intune.platformFilter")}:
+            </span>
+            {(["all", "iOS", "Android", "Windows", "macOS"] as const).map(
+              (p) => {
+                const active = platformFilter === p;
+                const label =
+                  p === "all"
+                    ? t("intune.platformAll")
+                    : t(`intune.platform.${p}` as DictKey);
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPlatformFilter(p)}
+                    className={`inline-flex items-center h-7 px-2.5 rounded-md border text-[11px] font-semibold ${
+                      active
+                        ? "border-council-strong bg-council-strong/10 text-council-strong"
+                        : "border-border bg-surface-1 text-ink-2 hover:bg-surface-2"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              },
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {filtered.map((b) => (
+              <IntuneBaselineCard
+                key={b.id}
+                baseline={b}
+                onPush={() => setSelected(b)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {selected ? (
+        <IntuneBaselinePushModal
+          baseline={selected}
+          onClose={() => setSelected(null)}
+          locale={locale}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+function IntuneBaselineCard({
+  baseline: b,
+  onPush,
+}: {
+  baseline: IntuneBaseline;
+  onPush: () => void;
+}) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="rounded-md border border-border bg-surface-1 p-3 flex flex-col">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="text-[13.5px] font-semibold text-ink-1 min-w-0 break-words">
+          {t(b.titleKey as DictKey)}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-[0.08em] border border-border bg-surface-2 text-ink-2">
+            {b.platform}
+          </span>
+          <RiskChip tier={b.riskTier} />
+        </div>
+      </div>
+      <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
+        {t(b.bodyKey as DictKey)}
+      </div>
+      <div className="text-[11px] text-ink-3 mb-1 leading-relaxed">
+        <span className="font-semibold text-ink-2">{t("intune.targets")}:</span>{" "}
+        {b.targetSummary}
+      </div>
+      <div className="text-[11px] text-ink-3 mb-2 leading-relaxed">
+        <span className="font-semibold text-ink-2">{t("intune.effect")}:</span>{" "}
+        {b.effectSummary}
+      </div>
+      <div className="mb-2 rounded border border-warn/40 bg-warn/10 px-2 py-1.5">
+        <div className="text-[11px] font-semibold text-warn inline-flex items-center gap-1">
+          <Radar size={10} />
+          {t("intune.unassignedChip")}
+        </div>
+        <div className="text-[10.5px] text-ink-2 leading-snug mt-0.5">
+          {t("intune.unassignedSubtitle")}
+        </div>
+      </div>
+
+      {expanded ? (
+        <div className="mt-1 mb-3 rounded border border-border/70 bg-surface-2 p-2.5 space-y-2">
+          <DetailBlock
+            label={t("directive.baselines.why")}
+            body={t(b.whyKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.impact")}
+            body={t(b.impactKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.prerequisites")}
+            body={t(b.prerequisitesKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.rollout")}
+            body={t(b.rolloutAdviceKey as DictKey)}
+          />
+          <a
+            href={b.docsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-council-strong hover:underline"
+          >
+            <ExternalLink size={10} />
+            {t("directive.baselines.docsLink")}
+          </a>
+        </div>
+      ) : null}
+
+      <div className="mt-auto flex items-center gap-2 pt-1">
+        <button
+          onClick={onPush}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold"
+        >
+          <Play size={11} />
+          {t("intune.pushCta")}
+        </button>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface-1 text-ink-2 text-[11.5px] font-semibold hover:bg-surface-2"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp size={11} />
+              {t("directive.baselines.hideDetails")}
+            </>
+          ) : (
+            <>
+              <ChevronDown size={11} />
+              {t("directive.baselines.details")}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function IntuneBaselinePushModal({
+  baseline,
+  onClose,
+  locale,
+}: {
+  baseline: IntuneBaseline;
+  onClose: () => void;
+  locale: "en" | "ar";
+}) {
+  const { t } = useI18n();
+  const [tenants, setTenants] = useState<
+    Array<{
+      id: string;
+      nameEn: string;
+      nameAr: string;
+      consentMode: string;
+      isDemo: boolean;
+    }>
+  >([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pushing, setPushing] = useState(false);
+  const [result, setResult] = useState<null | Awaited<
+    ReturnType<typeof api.directiveIntuneBaselinePush>
+  >>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getEntities()
+      .then((r) =>
+        setTenants(
+          r.entities.filter((e) => e.consentMode === "directive"),
+        ),
+      )
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  const toggle = (id: string) =>
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const doPush = async () => {
+    setPushing(true);
+    setError(null);
+    try {
+      const r = await api.directiveIntuneBaselinePush(baseline.id, {
+        targetTenantIds: Array.from(selectedIds),
+      });
+      setResult(r);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={t(baseline.titleKey as DictKey)}
+      onClose={onClose}
+      open={true}
+      size="wide"
+    >
+      <div className="flex flex-col gap-3">
+        <div className="text-[12px] text-ink-2 leading-relaxed">
+          {t(baseline.bodyKey as DictKey)}
+        </div>
+        <div className="rounded-md border border-warn/40 bg-warn/10 px-2.5 py-2 text-[11.5px] text-ink-1">
+          <strong>{t("intune.unassignedChip")}.</strong>{" "}
+          {t("intune.unassignedSubtitle")}
+        </div>
+
+        {tenants.length === 0 ? (
+          <div className="text-[12px] text-ink-3 rounded-md border border-border bg-surface-1 p-3">
+            {t("directive.threat.noDirectiveEntities")}
+          </div>
+        ) : (
+          <>
+            <div className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("directive.baselines.targetsTitle")}
+            </div>
+            <div
+              className={`text-[11px] mb-1 ${
+                selectedIds.size === 0 ? "text-ink-3" : "text-ink-2"
+              }`}
+            >
+              {selectedIds.size === 0
+                ? t("directive.baselines.noneSelected")
+                : t("directive.baselines.selectedCount", {
+                    count: String(selectedIds.size),
+                    total: String(tenants.length),
+                  })}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[240px] overflow-y-auto">
+              {tenants.map((tenant) => {
+                const active = selectedIds.has(tenant.id);
+                return (
+                  <label
+                    key={tenant.id}
+                    className={`flex items-center gap-2 rounded-md border p-2 cursor-pointer ${
+                      active
+                        ? "border-council-strong bg-council-strong/5"
+                        : "border-border bg-surface-1 hover:border-council-strong/60"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggle(tenant.id)}
+                      className="accent-council-strong"
+                    />
+                    <span className="text-[12px] text-ink-1 flex-1 min-w-0 truncate">
+                      {locale === "ar" ? tenant.nameAr : tenant.nameEn}
+                    </span>
+                    {tenant.isDemo ? (
+                      <span className="text-[9.5px] uppercase tracking-[0.06em] border border-accent/50 text-accent rounded px-1.5 py-px font-semibold">
+                        {t("demo.badge")}
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {error ? (
+          <div className="rounded-md border border-neg/40 bg-neg/10 p-3 text-[12px] text-ink-1">
+            {error}
+          </div>
+        ) : null}
+        {result ? (
+          <div className="rounded-md border border-border bg-surface-1 p-3">
+            <div className="text-[12.5px] font-semibold text-ink-1 mb-2">
+              {t("directive.baselines.resultTitle", {
+                pushId: String(result.pushRequestId),
+              })}
+            </div>
+            <ul className="flex flex-col gap-1 text-[12px]">
+              {result.perTenant.map((r) => {
+                const tenant = tenants.find((t) => t.id === r.tenantId);
+                const name = tenant
+                  ? locale === "ar"
+                    ? tenant.nameAr
+                    : tenant.nameEn
+                  : r.tenantId;
+                return (
+                  <li
+                    key={r.tenantId}
+                    className="flex items-center gap-2 justify-between"
+                  >
+                    <span className="text-ink-1 truncate flex-1 min-w-0">
+                      {name}
+                    </span>
+                    <PushStatusChip status={r.status} />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+          {result ? (
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold"
+            >
+              {t("directive.baselines.close")}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                disabled={pushing}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold disabled:opacity-60"
+              >
+                {t("directive.baselines.cancel")}
+              </button>
+              <button
+                onClick={() => void doPush()}
+                disabled={pushing || selectedIds.size === 0}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-council-strong text-white text-[12.5px] font-semibold disabled:opacity-60"
+              >
+                {pushing ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Send size={11} />
+                )}
+                {t("directive.baselines.executeCta", {
+                  count: String(selectedIds.size),
+                })}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// Phase 6 — DLP (preview)
+// ============================================================================
+
+function DlpBaselinesSection() {
+  const { t } = useI18n();
+  const [data, setData] = useState<Awaited<
+    ReturnType<typeof api.directiveDlpBaselines>
+  > | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .directiveDlpBaselines()
+      .then(setData)
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <FileWarning size={14} className="text-council-strong" />
+            {t("dlp.title")}
+          </span>
+        }
+        subtitle={t("dlp.subtitle")}
+      />
+      <div className="rounded-md border border-neg/40 bg-neg/10 p-3 mb-3">
+        <div className="text-[12px] font-semibold text-neg inline-flex items-center gap-1.5 mb-1">
+          <ShieldAlert size={12} />
+          {t("dlp.previewBanner.title")}
+        </div>
+        <div className="text-[11.5px] text-ink-1 leading-relaxed">
+          {t("dlp.previewBanner.body")}
+        </div>
+      </div>
+      {error ? (
+        <div className="text-[12px] text-neg">{error}</div>
+      ) : !data ? (
+        <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {data.baselines.map((b) => (
+            <div
+              key={b.id}
+              className="rounded-md border border-border bg-surface-1 p-3 opacity-75"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="text-[13.5px] font-semibold text-ink-1 min-w-0 break-words">
+                  {t(b.titleKey as DictKey)}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-[0.08em] border border-border bg-surface-2 text-ink-2">
+                    {b.surface}
+                  </span>
+                  <RiskChip tier={b.riskTier} />
+                </div>
+              </div>
+              <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
+                {t(b.bodyKey as DictKey)}
+              </div>
+              <div className="text-[11px] text-ink-3 leading-relaxed">
+                <span className="font-semibold text-ink-2">
+                  {t("intune.effect")}:
+                </span>{" "}
+                {b.effectSummary}
+              </div>
+              <button
+                disabled
+                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-surface-3 text-ink-3 text-[11.5px] font-semibold cursor-not-allowed"
+              >
+                <Play size={11} />
+                {t("intune.pushCta")}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ============================================================================
+// Phase 7 — Sensitivity Labels (preview)
+// ============================================================================
+
+function LabelsBaselinesSection() {
+  const { t } = useI18n();
+  const [data, setData] = useState<Awaited<
+    ReturnType<typeof api.directiveLabelsBaselines>
+  > | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .directiveLabelsBaselines()
+      .then(setData)
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Tag size={14} className="text-council-strong" />
+            {t("labels.title")}
+          </span>
+        }
+        subtitle={t("labels.subtitle")}
+      />
+      <div className="rounded-md border border-neg/40 bg-neg/10 p-3 mb-3">
+        <div className="text-[12px] font-semibold text-neg inline-flex items-center gap-1.5 mb-1">
+          <ShieldAlert size={12} />
+          {t("labels.previewBanner.title")}
+        </div>
+        <div className="text-[11.5px] text-ink-1 leading-relaxed">
+          {t("labels.previewBanner.body")}
+        </div>
+      </div>
+      {error ? (
+        <div className="text-[12px] text-neg">{error}</div>
+      ) : !data ? (
+        <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {data.baselines.map((b) => (
+            <div
+              key={b.id}
+              className="rounded-md border border-border bg-surface-1 p-3 opacity-75"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="text-[13.5px] font-semibold text-ink-1 min-w-0 break-words">
+                  {t(b.titleKey as DictKey)}
+                </div>
+                <RiskChip tier={b.riskTier} />
+              </div>
+              <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
+                {t(b.bodyKey as DictKey)}
+              </div>
+              <div className="text-[11px] text-ink-3 leading-relaxed">
+                <span className="font-semibold text-ink-2">
+                  {t("intune.effect")}:
+                </span>{" "}
+                {b.effectSummary}
+              </div>
+              <button
+                disabled
+                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-surface-3 text-ink-3 text-[11.5px] font-semibold cursor-not-allowed"
+              >
+                <Play size={11} />
+                {t("intune.pushCta")}
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </Card>

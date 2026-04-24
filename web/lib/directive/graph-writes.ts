@@ -272,3 +272,137 @@ export async function listMizanCaPolicies(
   });
   return r.value.filter((p) => p.displayName.includes("mizan:"));
 }
+
+// ---------------------------------------------------------------------------
+// Generic policy dispatcher — Phase 5+
+// ---------------------------------------------------------------------------
+
+/**
+ * Policy kinds the directive engine can push. Each maps to a Graph
+ * resource collection with its own create/list/delete URLs and idempotency
+ * field (the displayName for every kind we currently support). Adding a
+ * new regulatory domain = adding an entry here + a row in POLICY_RESOURCES.
+ */
+export type PolicyKind =
+  | "ca" // Phase 3 / 4 — Conditional Access
+  | "intune-compliance" // Phase 5
+  | "intune-mam-ios" // Phase 5
+  | "intune-mam-android" // Phase 5
+  | "intune-config"; // Phase 5
+
+type PolicyResourceSpec = {
+  /** Graph collection URL, relative to /v1.0 or /beta. */
+  collectionPath: string;
+  /**
+   * $select clause for list calls. Every kind we support exposes id +
+   * displayName; Intune compliance also has @odata.type we may want to
+   * surface. Keeping this minimal keeps token/throttle usage down.
+   */
+  listSelect: string;
+};
+
+const POLICY_RESOURCES: Record<PolicyKind, PolicyResourceSpec> = {
+  ca: {
+    collectionPath: "/identity/conditionalAccess/policies",
+    listSelect: "id,displayName,state",
+  },
+  "intune-compliance": {
+    collectionPath: "/deviceManagement/deviceCompliancePolicies",
+    listSelect: "id,displayName",
+  },
+  "intune-mam-ios": {
+    collectionPath: "/deviceAppManagement/iosManagedAppProtections",
+    listSelect: "id,displayName",
+  },
+  "intune-mam-android": {
+    collectionPath: "/deviceAppManagement/androidManagedAppProtections",
+    listSelect: "id,displayName",
+  },
+  "intune-config": {
+    collectionPath: "/deviceManagement/deviceConfigurations",
+    listSelect: "id,displayName",
+  },
+};
+
+/**
+ * Create a policy of the given kind in the entity's tenant. The caller
+ * supplies the already-validated body including the @odata.type discriminator
+ * that Intune endpoints require on create. Returns the server-assigned id
+ * which rollback + push-store rely on.
+ */
+export async function createPolicyByKind(
+  kind: PolicyKind,
+  tenant: Ids,
+  body: unknown,
+): Promise<{ id: string; displayName: string }> {
+  const spec = POLICY_RESOURCES[kind];
+  return graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "POST",
+    path: spec.collectionPath,
+    body: body as Record<string, unknown>,
+  });
+}
+
+/**
+ * Delete a policy of the given kind by id. Rollback calls this.
+ */
+export async function deletePolicyByKind(
+  kind: PolicyKind,
+  tenant: Ids,
+  policyId: string,
+): Promise<void> {
+  const spec = POLICY_RESOURCES[kind];
+  await graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "DELETE",
+    path: `${spec.collectionPath}/${encodeURIComponent(policyId)}`,
+  });
+}
+
+/**
+ * Tag-match lookup — kind-generic equivalent of findCaPolicyByIdempotencyTag.
+ * List the kind's collection and find the policy whose displayName embeds
+ * the idempotency tag. Every baseline + custom-policy push passes through
+ * this so repeat pushes are no-ops.
+ */
+export async function findPolicyByKindAndTag(
+  kind: PolicyKind,
+  tenant: Ids,
+  idempotencyKey: string,
+): Promise<{ id: string; displayName: string } | null> {
+  const spec = POLICY_RESOURCES[kind];
+  const r = await graphFetch<{
+    value: Array<{ id: string; displayName: string }>;
+  }>({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "GET",
+    path: `${spec.collectionPath}?$select=${encodeURIComponent(spec.listSelect)}`,
+  });
+  const hit = r.value.find((p) => p.displayName.includes(idempotencyKey));
+  return hit ?? null;
+}
+
+/**
+ * One-shot list of every Mizan-tagged policy of the given kind in a tenant.
+ * Used by the baseline-status views so we only pay one round-trip per kind
+ * per tenant.
+ */
+export async function listMizanPoliciesByKind(
+  kind: PolicyKind,
+  tenant: Ids,
+): Promise<Array<{ id: string; displayName: string }>> {
+  const spec = POLICY_RESOURCES[kind];
+  const r = await graphFetch<{
+    value: Array<{ id: string; displayName: string }>;
+  }>({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "GET",
+    path: `${spec.collectionPath}?$select=${encodeURIComponent(spec.listSelect)}`,
+  });
+  return r.value.filter((p) => p.displayName.includes("mizan:"));
+}

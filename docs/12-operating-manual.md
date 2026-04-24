@@ -265,18 +265,42 @@ Identical plumbing to baseline pushes — same directive engine, same idempotenc
 
 Never deleted. When real tenants go live, this is the regulator's defensible record of what happened and when.
 
-### B.7 What directive mode still doesn't do (deferred)
+### B.7 Intune baselines (Phase 5) — SHIPPED 2026-04-24
+
+Seven Intune baselines live on `/directive → Intune device posture baselines`. Same card + push + rollback pattern as CA; separate section in the UI, different Graph collections underneath.
+
+| Baseline | Kind | Platform | Notes |
+|---|---|---|---|
+| iOS compliance — minimum | compliance | iOS | 6-digit passcode, no jailbreak, iOS 16+ |
+| iOS app protection (MAM) | mam | iOS | Copy/paste block, 6-digit PIN, jailbreak wipe, no enrolment needed |
+| Android compliance — minimum | compliance | Android | 6-digit passcode, no root, Play Protect, Android 12+ |
+| Android app protection (MAM) | mam | Android | Parallel to iOS MAM |
+| Windows compliance — minimum | compliance | Windows | BitLocker, Secure Boot, TPM, Defender, 22H2+ |
+| Windows BitLocker enforcement | config | Windows | Endpoint Protection profile that actually TURNS ON encryption |
+| macOS compliance — minimum | compliance | macOS | FileVault, Gatekeeper, firewall, Ventura 13+ |
+
+Policies ship **un-assigned by default** — the Intune equivalent of CA's report-only. The entity's admin decides which users/devices they enforce against. Same idempotency tag (`mizan:intune-<id>:v1`), same rollback pre-flight modal, same "Remove from ALL entities" shortcut.
+
+License requirement: every target entity must have Intune P1 (Microsoft 365 E3+ / A3+ / standalone). Unlicensed tenants return 403 on push — the push modal surfaces this as `failed` with the Graph error.
+
+### B.8 DLP + Sensitivity Labels (Phases 6/7) — PREVIEW ONLY
+
+Both Phases 6 (Data Loss Prevention) and 7 (Sensitivity Labels) ship as **catalog + card UI with push disabled**. A prominent red *"Preview only — push disabled"* banner explains why.
+
+Reason: Microsoft Graph's write coverage for DLP and sensitivity-label authoring is too limited for production regulator use. Endpoint DLP, most DLP rule conditions, user notifications, incident reports, label encryption, content marking, publishing policies, and auto-labeling rules all live in Security & Compliance PowerShell (`New-DlpCompliancePolicy`, `New-Label`, `New-LabelPolicy`, `New-AutoSensitivityLabelPolicy`).
+
+The **push buttons are disabled**, not hidden — the catalog demos the Phase 6/7 direction and previews the baseline copy for customer review. Flipping the push on requires a PowerShell automation tier (Phase 6.5), which needs a user architecture decision first. See the canonical backlog: [`project_sharjah_council_backlog.md §PS tier decision`](../../.claude/projects/-Users-zaatarlabs/memory/project_sharjah_council_backlog.md).
+
+### B.9 What directive mode still doesn't do (deferred)
 
 These features appeared on the roadmap but are **not shipped**. Don't promise them to customers.
 
 | Feature | Status | Notes |
 |---|---|---|
 | Two-person approval workflow | Deferred | Every push today is single-click. Approval workflow is a future feature — user explicitly asked to defer it. No env var controls it. |
-| Intune policy push (compliance, MAM, device config) | **Phase 5 next** | First write tier after CA. See `project_sharjah_council_backlog.md`. |
-| DLP / sensitivity labels / retention pushes | Later phases | In the roadmap table after Intune. |
-| Defender for Office presets / Safe Links / anti-phishing pushes | Later phase | |
-| Exchange transport rules | Later phase | Partial Graph coverage; may need PowerShell tier. |
-| SharePoint / OneDrive / Teams governance pushes | Later phase | |
+| Phase 6.5 PowerShell automation tier | Awaiting decision | Unblocks Phase 6 (DLP), Phase 7 (Labels), Phase 8 (Retention policies), Phase 10 (Exchange transport). Architecture sketch in Claude memory. |
+| Defender for Office presets / Safe Links / anti-phishing pushes | Later phase (Phase 9) | |
+| SharePoint / OneDrive / Teams governance pushes | Later phase (Phase 11) | |
 
 See [`project_sharjah_council_backlog.md`](../../.claude/projects/-Users-zaatarlabs/memory/project_sharjah_council_backlog.md) (Claude memory) for the full phase order.
 

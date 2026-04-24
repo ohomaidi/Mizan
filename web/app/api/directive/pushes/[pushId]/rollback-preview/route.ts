@@ -6,12 +6,17 @@ import {
   listActionsForPush,
 } from "@/lib/directive/push-store";
 import { getTenant } from "@/lib/db/tenants";
-import { findCaPolicyByIdempotencyTag } from "@/lib/directive/graph-writes";
+import {
+  findCaPolicyByIdempotencyTag,
+  findPolicyByKindAndTag,
+  type PolicyKind,
+} from "@/lib/directive/graph-writes";
 import { getBaseline } from "@/lib/directive/baselines/registry";
 import {
   getCustomPolicy,
   idempotencyKeyForPolicy,
 } from "@/lib/directive/custom-policies/store";
+import { getIntuneBaseline } from "@/lib/directive/intune/registry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,12 +49,22 @@ export async function GET(
   }
   const actions = listActionsForPush(pushIdNum);
 
-  // Resolve the idempotency key for this push (baseline or custom policy).
+  // Resolve the idempotency key + policy kind for this push. Three
+  // tracks today: CA baselines, custom CA drafts, Intune baselines.
+  // baseline_id encodes which track via prefix.
   let idempotencyKey: string | null = null;
+  let policyKind: PolicyKind = "ca";
   if (push.baseline_id.startsWith("custom:")) {
     const policyId = Number(push.baseline_id.slice("custom:".length));
     const row = getCustomPolicy(policyId);
     if (row) idempotencyKey = idempotencyKeyForPolicy(policyId);
+  } else if (push.baseline_id.startsWith("intune:")) {
+    const intuneId = push.baseline_id.slice("intune:".length);
+    const intune = getIntuneBaseline(intuneId);
+    if (intune) {
+      idempotencyKey = intune.idempotencyKey;
+      policyKind = intune.descriptor.kind;
+    }
   } else {
     const baseline = getBaseline(push.baseline_id);
     if (baseline) idempotencyKey = baseline.idempotencyKey;
@@ -111,14 +126,25 @@ export async function GET(
       continue;
     }
     try {
-      const found = await findCaPolicyByIdempotencyTag(tenant, idempotencyKey);
+      // CA policies carry a state; Intune policies don't — the
+      // findPolicyByKindAndTag helper returns only { id, displayName }
+      // for non-CA kinds, so wouldUnprotect stays false (Intune
+      // enforcement is controlled by assignment, not state).
+      const found =
+        policyKind === "ca"
+          ? await findCaPolicyByIdempotencyTag(tenant, idempotencyKey)
+          : await findPolicyByKindAndTag(policyKind, tenant, idempotencyKey);
       if (!found) {
         entries.push({ ...base, alreadyGone: true });
       } else {
+        const state =
+          "state" in found && typeof found.state === "string"
+            ? found.state
+            : null;
         entries.push({
           ...base,
-          currentState: found.state,
-          wouldUnprotect: found.state === "enabled",
+          currentState: state,
+          wouldUnprotect: state === "enabled",
         });
       }
     } catch {

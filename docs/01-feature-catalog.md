@@ -162,8 +162,8 @@ Mizan is a federated **observability** layer for observation-mode customers (ent
 | **Attack Simulation benchmark** | Phish click rate per entity from `/security/attackSimulation`. | ✅ Shipped (read) |
 | **Executive reporting pack** | Monthly PDF/PPT auto-generated from the maturity index, delivered to leadership. | 🟡 Planned |
 | **Policy Deployment Service — Conditional Access (Graph)** | 12 curated CA baselines + custom CA wizard, idempotent push, per-entity status, pre-flight rollback preview, tenant-scoped wizard mode | ✅ Shipped — **directive deployments only** |
-| **Policy Deployment Service — Intune (Graph)** | Device compliance + app-protection / MAM + device configuration baselines | 🟡 Phase 5 — next |
-| **Policy Deployment Service — Purview DLP / labels / retention (Graph)** | DLP / sensitivity-label / retention-label / retention-policy push | 🟡 Phases 6–8 |
+| **Policy Deployment Service — Intune (Graph)** | 7 baselines: iOS/Android/Windows/macOS compliance + iOS/Android MAM + Windows BitLocker | ✅ Shipped 2026-04-24 — **directive deployments only** |
+| **Policy Deployment Service — Purview DLP / labels / retention (Graph)** | DLP / sensitivity-label / retention-label / retention-policy push | ⚠️ Preview UI shipped for DLP + Labels; blocked on Phase 6.5 PS tier for real push |
 | **Policy Deployment Service — Defender for Office / Exchange / SP-Teams / PIM / App consent / Attack sim / Tenant identity defaults** | See roadmap | 🟡 Phases 9–15 |
 | Two-person approval workflow before push | Reviewer/approver split | 🟡 Deferred by user 2026-04-24 |
 | ~~Policy Deployment Service (PS tier)~~ | DLP / IRM / Comm Compliance / Info Barriers PS runbooks | **[deferred]** — reopens only if Exchange transport rules force the question |
@@ -217,9 +217,10 @@ Phases 1–4.5 are the observation + directive ladder as actually shipped. Phase
 | 3 — Conditional Access baselines | 12 curated baselines + idempotent push + per-entity status + pre-flight rollback preview + per-tenant rollback + baseline-wide "remove from all". | ✅ Shipped (directive only) |
 | 4 — Custom CA wizard (MVP) | 7-step cross-tenant wizard (cross-tenant-stable fields only), clone-from-baseline. | ✅ Shipped (directive only) |
 | 4.5 — CA wizard close-out | Tenant-scoped mode (reference tenant) unlocks specific users / groups / named locations / ToU / custom auth strengths. Device filter rule builder. Push scope gate. | ✅ Shipped (directive only) |
-| 5 — Intune writes | Device compliance baselines, app protection (MAM) baselines, device configuration profiles. | 🟡 Next |
-| 6 — Purview DLP writes | DLP policies across Exchange / SharePoint / OneDrive / Teams / endpoint. | 🟡 Future |
-| 7 — Sensitivity labels + auto-labeling | Label hierarchy push, encryption, auto-label rules. | 🟡 Future |
+| 5 — Intune writes | 7 baselines: iOS/Android/Windows/macOS compliance + iOS/Android MAM + Windows BitLocker config. Kind-generic Graph dispatcher. Policies ship un-assigned. | ✅ Shipped |
+| 6 — Purview DLP writes | 4 baselines in preview-only UI (push disabled). Real authoring blocked on PS tier — Graph coverage too limited. | ⚠️ Preview only — waiting on Phase 6.5 |
+| 7 — Sensitivity labels + auto-labeling | 3 baselines in preview-only UI (push disabled). Same PS tier block as Phase 6. | ⚠️ Preview only — waiting on Phase 6.5 |
+| 6.5 — PowerShell automation tier | Azure Automation runbooks, cert-based tenant connection, unblocks Phases 6, 7, 8, 10. | 🔴 Architecture decision required |
 | 8 — Retention + records | Retention baselines + records-management holds. | 🟡 Future |
 | 9 — Defender for Office | Anti-phishing, Safe Links, Safe Attachments, preset security policies, attack simulation scheduling. | 🟡 Future |
 | 10 — Exchange transport + email auth | Transport rules, DMARC/SPF/DKIM. Has Graph-coverage gap — may reopen PS tier. | 🟡 Future |

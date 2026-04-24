@@ -847,6 +847,87 @@ export const api = {
       `/api/directive/baselines/status?tenantId=${encodeURIComponent(tenantId)}`,
     ),
 
+  // ----- Phase 5 Intune baselines -----
+
+  directiveIntuneBaselines: () =>
+    jsonFetch<{
+      baselines: Array<{
+        id: string;
+        kind:
+          | "intune-compliance"
+          | "intune-mam-ios"
+          | "intune-mam-android"
+          | "intune-config";
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        platform: "iOS" | "Android" | "Windows" | "macOS" | "cross-platform";
+        targetSummary: string;
+        effectSummary: string;
+        whyKey: string;
+        impactKey: string;
+        prerequisitesKey: string;
+        rolloutAdviceKey: string;
+        docsUrl: string;
+        idempotencyKey: string;
+      }>;
+    }>("/api/directive/intune/baselines"),
+
+  directiveIntuneBaselinePush: (
+    baselineId: string,
+    body: { targetTenantIds: string[] },
+  ) =>
+    jsonFetch<{
+      ok: boolean;
+      pushRequestId: number;
+      perTenant: Array<{
+        tenantId: string;
+        status:
+          | "success"
+          | "already_applied"
+          | "failed"
+          | "simulated"
+          | "skipped_observation";
+        policyId?: string | null;
+        error?: string | null;
+        auditId?: number;
+      }>;
+    }>(
+      `/api/directive/intune/baselines/${encodeURIComponent(baselineId)}/push`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  // ----- Phase 6 DLP (preview) -----
+
+  directiveDlpBaselines: () =>
+    jsonFetch<{
+      pushEnabled: boolean;
+      coverageNote: string;
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        surface: string;
+        effectSummary: string;
+      }>;
+    }>("/api/directive/dlp/baselines"),
+
+  // ----- Phase 7 Sensitivity Labels (preview) -----
+
+  directiveLabelsBaselines: () =>
+    jsonFetch<{
+      pushEnabled: boolean;
+      coverageNote: string;
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        effectSummary: string;
+      }>;
+    }>("/api/directive/labels/baselines"),
+
   // ----- Phase 4 custom CA policies -----
 
   directiveCustomPolicies: () =>
