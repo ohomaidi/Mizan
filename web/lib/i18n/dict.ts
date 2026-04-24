@@ -1267,10 +1267,12 @@ export const DICT = {
     "directive.threat.relatedIncident": "Related incident (optional)",
     "directive.threat.pickIncident": "Pick an incident for context…",
     "directive.threat.noIncidents": "No incidents on this entity yet.",
-    "directive.threat.alertsCount": "{count} alerts · use the Defender XDR link below to copy the exact URL, message URI, or file hash from the alert evidence.",
-    "directive.threat.openInDefender": "Open incident in Defender XDR",
-    "directive.threat.contextHint":
-      "Pasting the URL / message URI / file from the alert evidence into the form below makes the submission precise. The incident details above stay on screen while you fill the form.",
+    "directive.threat.evidenceTitle": "Evidence from alerts",
+    "directive.threat.noEvidence":
+      "This incident has no extractable evidence (URLs, emails, or files) cached. Try another incident.",
+    "directive.threat.useInForm": "Use in form",
+    "directive.threat.evidenceHint":
+      "Each evidence item was pulled from the alerts attached to this incident. Click \u201CUse in form\u201D to pre-fill the submission below \u2014 no need to leave Mizan or open the entity's Defender XDR portal.",
 
     "directive.audit.title": "Audit log",
     "directive.audit.subtitle":
@@ -2736,10 +2738,12 @@ export const DICT = {
     "directive.threat.relatedIncident": "حادثة ذات صلة (اختياري)",
     "directive.threat.pickIncident": "اختر حادثة للسياق…",
     "directive.threat.noIncidents": "لا توجد حوادث لهذه الجهة بعد.",
-    "directive.threat.alertsCount": "{count} تنبيه · استخدم رابط Defender XDR أدناه لنسخ الرابط أو URI الرسالة أو تجزئة الملف من أدلة التنبيه.",
-    "directive.threat.openInDefender": "فتح الحادثة في Defender XDR",
-    "directive.threat.contextHint":
-      "لصق الرابط / URI الرسالة / الملف من أدلة التنبيه في النموذج أدناه يجعل الإرسال دقيقًا. تبقى تفاصيل الحادثة أعلاه على الشاشة أثناء ملء النموذج.",
+    "directive.threat.evidenceTitle": "أدلة التنبيهات",
+    "directive.threat.noEvidence":
+      "لا توجد أدلة قابلة للاستخراج (روابط أو رسائل أو ملفات) لهذه الحادثة. جرّب حادثة أخرى.",
+    "directive.threat.useInForm": "استخدم في النموذج",
+    "directive.threat.evidenceHint":
+      "كل عنصر دليل مُستخرَج من التنبيهات المرتبطة بهذه الحادثة. اضغط «استخدم في النموذج» لتعبئة نموذج الإرسال أدناه — دون الحاجة لمغادرة Mizan أو فتح بوابة Defender XDR الخاصة بالجهة.",
 
     "directive.audit.title": "سجل التدقيق",
     "directive.audit.subtitle":

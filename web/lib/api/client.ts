@@ -689,6 +689,26 @@ export const api = {
       { method: "POST", body: JSON.stringify(body) },
     ),
 
+  directiveTenantIncidentEvidence: (tenantId: string, incidentId: string) =>
+    jsonFetch<{
+      tenantId: string;
+      incidentId: string;
+      simulated: boolean;
+      evidence: Array<{
+        kind: "url" | "email" | "file";
+        label: string;
+        description: string;
+        url?: string;
+        emailRecipient?: string;
+        messageUri?: string;
+        fileName?: string;
+        fileHash?: string;
+        detail?: string;
+      }>;
+    }>(
+      `/api/directive/tenant-incident-evidence?tenantId=${encodeURIComponent(tenantId)}&incidentId=${encodeURIComponent(incidentId)}`,
+    ),
+
   directiveTenantIncidents: (tenantId: string) =>
     jsonFetch<{
       tenantId: string;

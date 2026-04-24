@@ -272,14 +272,22 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Incident context — pulls recent incidents for the selected tenant.
-  // Lets the analyst pick an incident they're working on and see its details
-  // inline, without leaving the page to go look up a URI in Defender XDR.
+  // Lets the analyst pick an incident they're working on. DESC analysts
+  // cannot reach the entity's Defender XDR portal (they sit outside the
+  // entity's tenant), so Mizan surfaces the alert evidence directly: URLs,
+  // email message URIs, and file hashes land inline with one-click
+  // "submit this" buttons.
   type IncidentRow = Awaited<
     ReturnType<typeof api.directiveTenantIncidents>
   >["incidents"][number];
+  type EvidenceItem = Awaited<
+    ReturnType<typeof api.directiveTenantIncidentEvidence>
+  >["evidence"][number];
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string>("");
   const [incidentsLoading, setIncidentsLoading] = useState(false);
+  const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
 
   useEffect(() => {
     api
@@ -322,6 +330,53 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
   }, [tenantId]);
 
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
+
+  // Load evidence whenever an incident is picked. Clears when the user
+  // unpicks (selects the empty option).
+  useEffect(() => {
+    if (!tenantId || !selectedIncidentId) {
+      setEvidence([]);
+      return;
+    }
+    setEvidenceLoading(true);
+    let alive = true;
+    api
+      .directiveTenantIncidentEvidence(tenantId, selectedIncidentId)
+      .then((r) => {
+        if (alive) setEvidence(r.evidence);
+      })
+      .catch(() => {
+        if (alive) setEvidence([]);
+      })
+      .finally(() => {
+        if (alive) setEvidenceLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, selectedIncidentId]);
+
+  // One-click prefill from an evidence row.
+  const prefillFromEvidence = (ev: EvidenceItem) => {
+    setKind(ev.kind);
+    if (ev.kind === "url") {
+      setUrlStr(ev.url ?? "");
+      setCategory("phishing");
+    } else if (ev.kind === "email") {
+      setEmailRecipient(ev.emailRecipient ?? "");
+      setMessageUri(ev.messageUri ?? "");
+      setCategory("phishing");
+    } else {
+      setFileName(ev.fileName ?? "");
+      // For file submissions, Microsoft's endpoint accepts either the raw
+      // base64 content OR a file hash. We persist the hash here; the server
+      // route treats the hash as the fileContent for demo/simulated
+      // submissions. Real-tenant submissions of actual file bytes can
+      // still use the manual form below.
+      setFileBase64(ev.fileHash ?? "");
+      setCategory("malware");
+    }
+  };
 
   const show = (msg: string, isError?: boolean) => {
     if (isError) {
@@ -453,7 +508,7 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
           </label>
           {selectedIncident ? (
             <div className="sm:col-span-2 rounded-md border border-border bg-surface-1 p-3 text-[12px]">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
+              <div className="flex items-center gap-2 flex-wrap mb-2">
                 <span className="text-ink-1 font-semibold">
                   {selectedIncident.displayName}
                 </span>
@@ -467,23 +522,58 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
                   ID {selectedIncident.id}
                 </span>
               </div>
-              <div className="text-ink-3 text-[11.5px]">
-                {t("directive.threat.alertsCount", {
-                  count: String(selectedIncident.alertCount ?? 0),
-                })}
+
+              <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 font-semibold mb-2">
+                {t("directive.threat.evidenceTitle")}
               </div>
-              {selectedIncident.incidentWebUrl ? (
-                <a
-                  href={selectedIncident.incidentWebUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 mt-2 text-[11.5px] text-council-strong hover:underline"
-                >
-                  {t("directive.threat.openInDefender")} →
-                </a>
-              ) : null}
+              {evidenceLoading ? (
+                <div className="text-[11.5px] text-ink-3">
+                  {t("state.loading")}
+                </div>
+              ) : evidence.length === 0 ? (
+                <div className="text-[11.5px] text-ink-3">
+                  {t("directive.threat.noEvidence")}
+                </div>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {evidence.map((ev, i) => (
+                    <li
+                      key={i}
+                      className="flex items-start gap-3 rounded-md border border-border bg-surface-2 p-2"
+                    >
+                      <span
+                        className={`shrink-0 text-[10px] uppercase tracking-[0.06em] font-semibold rounded px-1.5 py-0.5 border ${
+                          ev.kind === "url"
+                            ? "text-warn border-warn/40 bg-warn/10"
+                            : ev.kind === "email"
+                              ? "text-accent border-accent/40 bg-accent/10"
+                              : "text-neg border-neg/40 bg-neg/10"
+                        }`}
+                      >
+                        {ev.kind}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-ink-1 text-[12px] keep-ltr truncate">
+                          {ev.label}
+                        </div>
+                        {ev.detail ? (
+                          <div className="text-ink-3 text-[10.5px] mt-0.5 truncate">
+                            {ev.detail}
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        onClick={() => prefillFromEvidence(ev)}
+                        className="shrink-0 inline-flex items-center h-7 px-2.5 rounded-md bg-council-strong text-white text-[11px] font-semibold"
+                      >
+                        {t("directive.threat.useInForm")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="text-[10.5px] text-ink-3 mt-2 leading-relaxed">
-                {t("directive.threat.contextHint")}
+                {t("directive.threat.evidenceHint")}
               </div>
             </div>
           ) : null}
