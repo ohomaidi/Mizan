@@ -20,7 +20,12 @@ import {
   ChevronUp,
   ExternalLink,
   Sparkles,
+  Pencil,
+  Trash2,
+  Plus,
+  Wand2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
@@ -225,6 +230,8 @@ export default function DirectivePage() {
       </Card>
 
       <BaselinesSection locale={locale} />
+
+      <CustomPoliciesSection fmtRelative={fmtRelative} />
 
       <BaselinesStatusSection locale={locale} fmtRelative={fmtRelative} />
 
@@ -947,6 +954,8 @@ function DetailBlock({ label, body }: { label: string; body: string }) {
 }
 
 function BaselinesRoadmapCard() {
+  // Retained export in case the roadmap card ever returns; the live
+  // custom-policies section now lives in <CustomPoliciesSection />.
   const { t } = useI18n();
   return (
     <div className="mt-3 rounded-md border border-dashed border-border bg-surface-2 p-3">
@@ -962,6 +971,171 @@ function BaselinesRoadmapCard() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CustomPoliciesSection({
+  fmtRelative,
+}: {
+  fmtRelative: (iso: string) => string;
+}) {
+  const { t } = useI18n();
+  const router = useRouter();
+  const [drafts, setDrafts] = useState<Awaited<
+    ReturnType<typeof api.directiveCustomPolicies>
+  > | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api
+      .directiveCustomPolicies()
+      .then(setDrafts)
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const newDraft = async () => {
+    setCreating(true);
+    try {
+      const r = await api.directiveCustomPolicyCreate({
+        name: "Untitled policy",
+      });
+      router.push(`/directive/custom-policies/${r.id}/edit`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const remove = async (id: number) => {
+    if (!window.confirm(t("custom.confirmDelete"))) return;
+    try {
+      await api.directiveCustomPolicyDelete(id);
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Wand2 size={14} className="text-council-strong" />
+            {t("custom.title")}
+          </span>
+        }
+        subtitle={t("custom.subtitle")}
+      />
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="text-[11px] text-ink-3">
+          {drafts ? `${drafts.policies.length} draft(s)` : ""}
+        </div>
+        <button
+          onClick={newDraft}
+          disabled={creating}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[12px] font-semibold disabled:opacity-60"
+        >
+          {creating ? (
+            <Loader2 size={11} className="animate-spin" />
+          ) : (
+            <Plus size={11} />
+          )}
+          {t("custom.newDraft")}
+        </button>
+      </div>
+      {error ? (
+        <div className="text-[12px] text-neg mb-2">{error}</div>
+      ) : null}
+      {!drafts ? (
+        <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+      ) : drafts.policies.length === 0 ? (
+        <div className="text-[12px] text-ink-3 rounded-md border border-border bg-surface-1 p-3">
+          {t("custom.noDrafts")}
+        </div>
+      ) : (
+        <div className="overflow-x-auto -mx-3 px-3">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr className="text-left text-[10.5px] uppercase tracking-[0.06em] text-ink-3 border-b border-border">
+                <th className="py-1.5 pr-2">{t("custom.col.name")}</th>
+                <th className="py-1.5 pr-2">{t("custom.col.risk")}</th>
+                <th className="py-1.5 pr-2">{t("custom.col.scope")}</th>
+                <th className="py-1.5 pr-2">{t("custom.col.state")}</th>
+                <th className="py-1.5 pr-2">{t("custom.col.updated")}</th>
+                <th className="py-1.5 pr-2 text-end">
+                  {t("custom.col.actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {drafts.policies.map((p) => (
+                <tr
+                  key={p.id}
+                  className="border-b border-border/50 align-middle"
+                >
+                  <td className="py-2 pr-2 text-ink-1 font-medium">
+                    {p.name}
+                  </td>
+                  <td className="py-2 pr-2">
+                    <RiskChip tier={p.riskTier} />
+                  </td>
+                  <td className="py-2 pr-2 text-ink-2">
+                    <span className="text-[11px]">
+                      {t(
+                        `custom.scopeUsers.${
+                          p.usersKind === "guestsOrExternalUsers"
+                            ? "guests"
+                            : p.usersKind
+                        }` as DictKey,
+                      )}
+                      {" · "}
+                      {t(`custom.scopeApps.${p.appsTarget}` as DictKey)}
+                      {" · "}
+                      {t(`custom.grantKind.${p.grantKind}` as DictKey)}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-2">
+                    <CaStateChip state={p.state} />
+                  </td>
+                  <td className="py-2 pr-2 text-ink-3 text-[11px]">
+                    {fmtRelative(p.updatedAt)}
+                  </td>
+                  <td className="py-2 pr-2 text-end">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() =>
+                          router.push(
+                            `/directive/custom-policies/${p.id}/edit`,
+                          )
+                        }
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-border bg-surface-1 text-ink-1 text-[11px] font-semibold hover:bg-surface-2"
+                      >
+                        <Pencil size={11} />
+                        {t("custom.edit")}
+                      </button>
+                      <button
+                        onClick={() => void remove(p.id)}
+                        className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-border bg-surface-1 text-neg text-[11px] font-semibold hover:bg-neg/10"
+                      >
+                        <Trash2 size={11} />
+                        {t("custom.delete")}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
   );
 }
 

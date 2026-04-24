@@ -847,6 +847,133 @@ export const api = {
       `/api/directive/baselines/status?tenantId=${encodeURIComponent(tenantId)}`,
     ),
 
+  // ----- Phase 4 custom CA policies -----
+
+  directiveCustomPolicies: () =>
+    jsonFetch<{
+      policies: Array<{
+        id: number;
+        ownerUserId: string | null;
+        name: string;
+        description: string | null;
+        status: "draft" | "archived";
+        createdAt: string;
+        updatedAt: string;
+        riskTier: "low" | "medium" | "high";
+        usersKind: "all" | "none" | "roles" | "guestsOrExternalUsers";
+        appsTarget:
+          | "all"
+          | "office365"
+          | "adminPortals"
+          | "azureManagement"
+          | "specific";
+        grantKind: "block" | "grantWithRequirements";
+        state:
+          | "enabled"
+          | "disabled"
+          | "enabledForReportingButNotEnforced";
+      }>;
+    }>("/api/directive/custom-policies"),
+
+  directiveCustomPolicyCreate: (body: {
+    name: string;
+    description?: string | null;
+  }) =>
+    jsonFetch<{ id: number }>("/api/directive/custom-policies", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  directiveCustomPolicyGet: (id: number) =>
+    jsonFetch<{
+      id: number;
+      ownerUserId: string | null;
+      name: string;
+      description: string | null;
+      status: "draft" | "archived";
+      createdAt: string;
+      updatedAt: string;
+      spec: unknown;
+      riskTier: "low" | "medium" | "high";
+      previewBody: unknown;
+    }>(`/api/directive/custom-policies/${id}`),
+
+  directiveCustomPolicyPatch: (
+    id: number,
+    body: {
+      name?: string;
+      description?: string | null;
+      spec?: unknown;
+      status?: "draft" | "archived";
+    },
+  ) =>
+    jsonFetch<{
+      id: number;
+      spec: unknown;
+      riskTier: "low" | "medium" | "high";
+      previewBody: unknown;
+      updatedAt: string;
+    }>(`/api/directive/custom-policies/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  directiveCustomPolicyDelete: (id: number) =>
+    jsonFetch<{ ok: boolean }>(`/api/directive/custom-policies/${id}`, {
+      method: "DELETE",
+    }),
+
+  directiveCustomPolicyPush: (
+    id: number,
+    body: {
+      targetTenantIds: string[];
+      overrideState?:
+        | "enabled"
+        | "disabled"
+        | "enabledForReportingButNotEnforced";
+    },
+  ) =>
+    jsonFetch<{
+      ok: boolean;
+      pushRequestId: number;
+      perTenant: Array<{
+        tenantId: string;
+        status:
+          | "success"
+          | "already_applied"
+          | "failed"
+          | "simulated"
+          | "skipped_observation";
+        policyId?: string | null;
+        currentState?: string | null;
+        error?: string | null;
+        auditId?: number;
+      }>;
+    }>(`/api/directive/custom-policies/${id}/push`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  directiveCustomPolicyReference: () =>
+    jsonFetch<{
+      roles: Array<{
+        id: string;
+        name: string;
+        tier: "critical" | "high" | "moderate" | "low";
+      }>;
+      apps: Array<{
+        id: string;
+        name: string;
+        category: "m365" | "azure" | "power-platform" | "other";
+      }>;
+      authStrengths: Array<{
+        id: string;
+        name: string;
+        description: string;
+      }>;
+      guestTypes: ReadonlyArray<{ value: string; label: string }>;
+    }>("/api/directive/custom-policies/reference"),
+
   directivePushRollback: (pushId: number) =>
     jsonFetch<{
       ok: boolean;

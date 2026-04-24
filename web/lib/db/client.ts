@@ -286,6 +286,34 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 10,
+    name: "add_custom_ca_policies",
+    run: (db) => {
+      // Phase 4 — custom Conditional Access policy drafts authored through
+      // the /directive/custom-policies wizard. One row per draft. spec_json
+      // carries the UI-oriented spec (users/apps/conditions/grant/session)
+      // which the server translates to a Graph CA body at preview + push
+      // time. Pushes reuse directive_push_requests / directive_push_actions
+      // — the baseline_id column stores "custom:<id>" for tracing.
+      db.exec(`CREATE TABLE IF NOT EXISTS custom_ca_policies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT,
+        name TEXT NOT NULL,
+        description TEXT,
+        spec_json TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('draft','archived')) DEFAULT 'draft',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_custom_ca_policies_updated ON custom_ca_policies(updated_at DESC)",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_custom_ca_policies_status ON custom_ca_policies(status, updated_at DESC)",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

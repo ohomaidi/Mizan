@@ -1367,6 +1367,165 @@ export const DICT = {
     "directive.status.stillReportOnly":
       "Still in report-only — entity hasn't enforced yet",
 
+    "custom.title": "Custom CA policies",
+    "custom.subtitle":
+      "Build a Conditional Access policy for your entities — no JSON required. Drafts are saved here; push when ready. All pushes are tagged for idempotency and rollback the same way baselines are.",
+    "custom.newDraft": "New custom policy",
+    "custom.noDrafts":
+      "No drafts yet. Click \"New custom policy\" to open the wizard.",
+    "custom.col.name": "Name",
+    "custom.col.risk": "Risk",
+    "custom.col.scope": "Scope",
+    "custom.col.state": "State",
+    "custom.col.updated": "Updated",
+    "custom.col.actions": "Actions",
+    "custom.edit": "Edit",
+    "custom.delete": "Delete",
+    "custom.confirmDelete":
+      "Delete this draft? This cannot be undone.",
+    "custom.scopeUsers.all": "All users",
+    "custom.scopeUsers.none": "No users",
+    "custom.scopeUsers.roles": "Directory roles",
+    "custom.scopeUsers.guests": "Guests & external",
+    "custom.scopeApps.all": "All apps",
+    "custom.scopeApps.office365": "Office 365",
+    "custom.scopeApps.adminPortals": "Admin portals",
+    "custom.scopeApps.azureManagement": "Azure mgmt",
+    "custom.scopeApps.specific": "Specific apps",
+    "custom.grantKind.block": "Block",
+    "custom.grantKind.grantWithRequirements": "Grant",
+
+    "wizard.title": "Custom CA policy wizard",
+    "wizard.subtitle":
+      "Autosaves as you go. Push only after review.",
+    "wizard.back": "Back to /directive",
+    "wizard.saving": "Saving…",
+    "wizard.saved": "Saved",
+    "wizard.pushCta": "Push to entities",
+    "wizard.step.identify": "Identify",
+    "wizard.step.users": "Users",
+    "wizard.step.apps": "Apps",
+    "wizard.step.conditions": "Conditions",
+    "wizard.step.grant": "Access",
+    "wizard.step.session": "Session",
+    "wizard.step.review": "Review",
+
+    "wizard.identify.name": "Policy name",
+    "wizard.identify.nameHint":
+      "Appears in Entra with [Custom] prefix. Use something descriptive — \"Block legacy auth for Finance\", \"Require phishing-resistant MFA on Billing Admins\", etc.",
+    "wizard.identify.description": "Internal description (Mizan only)",
+    "wizard.identify.state": "Initial state",
+    "wizard.identify.stateReportOnly":
+      "Report-only — recommended. Policy is logged but not enforced.",
+    "wizard.identify.stateDisabled":
+      "Disabled — policy is created but never applied. Useful for drafts.",
+    "wizard.identify.stateEnabled":
+      "Enabled — policy IS enforced immediately on every matching sign-in.",
+    "wizard.identify.enabledWarn":
+      "⚠ You've chosen to enforce this immediately. Make sure you've simulated against a demo entity first.",
+
+    "wizard.users.includeTitle": "Apply to",
+    "wizard.users.includeAll": "All users in the tenant",
+    "wizard.users.includeNone": "No users (disable)",
+    "wizard.users.includeRoles": "Specific directory roles",
+    "wizard.users.includeGuests": "Guests and external users only",
+    "wizard.users.rolesPickerLabel": "Pick one or more directory roles",
+    "wizard.users.rolesPickerHint":
+      "Role template IDs are the same in every tenant, so this policy will hit the matching role wherever it's pushed.",
+    "wizard.users.guestTypesLabel": "Include these guest types",
+    "wizard.users.externalTenantMembership":
+      "Apply to guests from any external tenant",
+    "wizard.users.excludeTitle": "Exclude",
+    "wizard.users.excludeGaLabel":
+      "Exclude Global Administrators (safety rail)",
+    "wizard.users.excludeGaHint":
+      "Keeps a recoverable path into every tenant. Disable only if you truly understand the lockout risk.",
+    "wizard.users.excludeRolesLabel":
+      "Also exclude these directory roles",
+
+    "wizard.apps.targetTitle": "Target cloud apps",
+    "wizard.apps.targetAll": "All cloud apps",
+    "wizard.apps.targetOffice365": "Office 365 (Exchange, SharePoint, Teams, Office)",
+    "wizard.apps.targetAdminPortals":
+      "Microsoft admin portals (Entra, Intune, Defender, Exchange, SharePoint, M365)",
+    "wizard.apps.targetAzureManagement":
+      "Azure Management (Azure portal, CLI, PowerShell, ARM)",
+    "wizard.apps.targetSpecific": "Specific applications",
+    "wizard.apps.specificHint":
+      "Pick from Microsoft-published apps below, or add a custom application by GUID. Custom GUIDs must exist in every target tenant.",
+    "wizard.apps.excludeTitle": "Exclude apps (optional)",
+    "wizard.apps.addCustomGuid": "Add custom app by GUID",
+    "wizard.apps.addCustomPlaceholder": "00000000-0000-0000-0000-000000000000",
+    "wizard.apps.add": "Add",
+
+    "wizard.conditions.title":
+      "Conditions (all optional — leave blank to match any)",
+    "wizard.conditions.userRisk": "User risk levels",
+    "wizard.conditions.signInRisk": "Sign-in risk levels",
+    "wizard.conditions.platforms": "Device platforms",
+    "wizard.conditions.clientAppTypes": "Client app types",
+    "wizard.conditions.locations": "Locations",
+    "wizard.conditions.locationsAny": "Any location",
+    "wizard.conditions.locationsTrusted":
+      "Trusted locations only (named locations marked trusted in the tenant)",
+
+    "wizard.grant.title": "What happens when the conditions match?",
+    "wizard.grant.block": "Block the sign-in",
+    "wizard.grant.grantWithRequirements":
+      "Grant the sign-in, but require the following",
+    "wizard.grant.operatorTitle": "Combine requirements with",
+    "wizard.grant.operatorAnd": "ALL of the selected (AND)",
+    "wizard.grant.operatorOr": "ANY of the selected (OR)",
+    "wizard.grant.requireMfa": "Require multi-factor authentication",
+    "wizard.grant.authStrengthLabel":
+      "Require a specific authentication strength (overrides plain MFA)",
+    "wizard.grant.authStrengthNone": "(none — use plain MFA)",
+    "wizard.grant.requireCompliantDevice": "Require Intune-compliant device",
+    "wizard.grant.requireHybridJoined":
+      "Require Entra hybrid-joined device",
+    "wizard.grant.requireApprovedApp":
+      "Require approved client app (iOS/Android)",
+    "wizard.grant.requireCompliantApp":
+      "Require app protection policy (Intune MAM)",
+    "wizard.grant.requirePasswordChange":
+      "Force password change (for risk-remediation policies)",
+
+    "wizard.session.title":
+      "Session controls (all optional)",
+    "wizard.session.signInFrequencyEnable":
+      "Force re-authentication on a cadence",
+    "wizard.session.signInFrequencyValue":
+      "Every",
+    "wizard.session.signInFrequencyTypeHours": "hours",
+    "wizard.session.signInFrequencyTypeDays": "days",
+    "wizard.session.persistentBrowser": "Persistent browser sessions",
+    "wizard.session.persistentDefault": "Leave unchanged",
+    "wizard.session.persistentNever": "Never persist (sign in every browser restart)",
+    "wizard.session.persistentAlways": "Always persist",
+    "wizard.session.appEnforced":
+      "Enable app-enforced restrictions (SharePoint/OneDrive partial access on unmanaged devices)",
+
+    "wizard.review.title": "Review and push",
+    "wizard.review.riskTier": "Computed risk tier",
+    "wizard.review.grant": "Access summary",
+    "wizard.review.previewBody": "Exact Graph body (preview)",
+    "wizard.review.showBody": "Show Graph body",
+    "wizard.review.hideBody": "Hide Graph body",
+    "wizard.review.targetPickerTitle": "Push to which entities?",
+    "wizard.review.pushCta": "Push policy to {count} entity(ies)",
+    "wizard.review.cannotPushYet":
+      "Fix validation errors on earlier steps before pushing.",
+
+    "wizard.validation.nameRequired": "A policy name is required.",
+    "wizard.validation.rolesRequired":
+      "Pick at least one directory role when targeting roles.",
+    "wizard.validation.guestsRequired":
+      "Pick at least one guest type when targeting guests.",
+    "wizard.validation.specificAppsRequired":
+      "Add at least one application when targeting specific apps.",
+    "wizard.validation.grantEmpty":
+      "Pick at least one requirement — or choose Block.",
+
     "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
     "baseline.requireMfaForAdmins.body":
       "Every privileged directory role (Global Admin, Security Admin, Exchange / SharePoint / User / App / Cloud App / Authentication / Helpdesk / Intune / Billing / Privileged Role / Conditional Access Administrator) must satisfy multi-factor authentication. Report-only by default.",
@@ -3080,6 +3239,165 @@ export const DICT = {
       "تختلف عن حالة التقارير التي دفعناها — الجهة فعّلت هذه السياسة",
     "directive.status.stillReportOnly":
       "لا تزال بوضع التقارير — لم تُفعّلها الجهة بعد",
+
+    "custom.title": "سياسات CA مخصّصة",
+    "custom.subtitle":
+      "أنشئ سياسة Conditional Access لجهاتك — بدون كتابة JSON. تُحفَظ المسوّدات هنا؛ ادفعها عند الجاهزية. كل الدفعات مُوسَمة للتحقّق من التكرار والتراجع مثل القواعد.",
+    "custom.newDraft": "سياسة مخصّصة جديدة",
+    "custom.noDrafts":
+      "لا توجد مسوّدات بعد. اضغط \"سياسة مخصّصة جديدة\" لفتح المعالج.",
+    "custom.col.name": "الاسم",
+    "custom.col.risk": "المخاطر",
+    "custom.col.scope": "النطاق",
+    "custom.col.state": "الحالة",
+    "custom.col.updated": "آخر تحديث",
+    "custom.col.actions": "الإجراءات",
+    "custom.edit": "تعديل",
+    "custom.delete": "حذف",
+    "custom.confirmDelete":
+      "هل تريد حذف هذه المسوّدة؟ لا يمكن التراجع.",
+    "custom.scopeUsers.all": "كل المستخدمين",
+    "custom.scopeUsers.none": "لا أحد",
+    "custom.scopeUsers.roles": "أدوار دليل",
+    "custom.scopeUsers.guests": "ضيوف وخارجيون",
+    "custom.scopeApps.all": "كل التطبيقات",
+    "custom.scopeApps.office365": "Office 365",
+    "custom.scopeApps.adminPortals": "بوابات الإدارة",
+    "custom.scopeApps.azureManagement": "إدارة Azure",
+    "custom.scopeApps.specific": "تطبيقات محدّدة",
+    "custom.grantKind.block": "حظر",
+    "custom.grantKind.grantWithRequirements": "منح",
+
+    "wizard.title": "معالج سياسة CA المخصّصة",
+    "wizard.subtitle":
+      "يُحفظ تلقائيًا. ادفع فقط بعد المراجعة.",
+    "wizard.back": "العودة إلى /directive",
+    "wizard.saving": "جارٍ الحفظ…",
+    "wizard.saved": "تم الحفظ",
+    "wizard.pushCta": "دفع إلى الجهات",
+    "wizard.step.identify": "تعريف",
+    "wizard.step.users": "المستخدمون",
+    "wizard.step.apps": "التطبيقات",
+    "wizard.step.conditions": "الشروط",
+    "wizard.step.grant": "الوصول",
+    "wizard.step.session": "الجلسة",
+    "wizard.step.review": "المراجعة",
+
+    "wizard.identify.name": "اسم السياسة",
+    "wizard.identify.nameHint":
+      "يظهر في Entra بالسابقة [Custom]. استخدم اسمًا واضحًا — \"حظر المصادقة القديمة للمالية\" أو \"MFA مقاومة للتصيد لمسؤولي الفواتير\" مثلًا.",
+    "wizard.identify.description": "وصف داخلي (Mizan فقط)",
+    "wizard.identify.state": "الحالة الأولية",
+    "wizard.identify.stateReportOnly":
+      "تقارير فقط — موصى به. تُسجَّل السياسة دون تنفيذها.",
+    "wizard.identify.stateDisabled":
+      "مُعطَّلة — تُنشأ السياسة ولكن لا تُطبَّق. مفيدة للمسوّدات.",
+    "wizard.identify.stateEnabled":
+      "مُفعَّلة — تُطبَّق السياسة فورًا على كل تسجيل دخول مطابق.",
+    "wizard.identify.enabledWarn":
+      "⚠ اخترتَ تنفيذ السياسة فورًا. تأكّد من محاكاتها ضد جهة عرض أولًا.",
+
+    "wizard.users.includeTitle": "تطبيق على",
+    "wizard.users.includeAll": "كل المستخدمين في المستأجر",
+    "wizard.users.includeNone": "لا أحد (تعطيل)",
+    "wizard.users.includeRoles": "أدوار دليل محدّدة",
+    "wizard.users.includeGuests": "الضيوف والمستخدمون الخارجيون فقط",
+    "wizard.users.rolesPickerLabel": "اختر دورًا أو أكثر",
+    "wizard.users.rolesPickerHint":
+      "معرّفات قوالب الأدوار واحدة في كل مستأجر، لذلك ستُطبَّق السياسة على الدور المطابق أينما دُفِعَت.",
+    "wizard.users.guestTypesLabel": "اشمل هذه الأنواع من الضيوف",
+    "wizard.users.externalTenantMembership":
+      "طبّق على الضيوف من أي مستأجر خارجي",
+    "wizard.users.excludeTitle": "استثناء",
+    "wizard.users.excludeGaLabel":
+      "استثنِ مسؤولي Global Administrators (قفل أمان)",
+    "wizard.users.excludeGaHint":
+      "يُبقي مسارًا للاسترداد في كل مستأجر. عطّلها فقط إن فهمتَ تمامًا خطر القفل.",
+    "wizard.users.excludeRolesLabel":
+      "واستثنِ أيضًا هذه الأدوار",
+
+    "wizard.apps.targetTitle": "التطبيقات السحابية المستهدفة",
+    "wizard.apps.targetAll": "كل التطبيقات السحابية",
+    "wizard.apps.targetOffice365": "Office 365 (Exchange وSharePoint وTeams وOffice)",
+    "wizard.apps.targetAdminPortals":
+      "بوابات إدارة Microsoft (Entra وIntune وDefender وExchange وSharePoint وM365)",
+    "wizard.apps.targetAzureManagement":
+      "إدارة Azure (Azure portal وCLI وPowerShell وARM)",
+    "wizard.apps.targetSpecific": "تطبيقات محدّدة",
+    "wizard.apps.specificHint":
+      "اختر من التطبيقات المنشورة من Microsoft أدناه، أو أضف تطبيقًا مخصّصًا بـ GUID. يجب أن تكون GUIDs المخصّصة موجودة في كل مستأجر مستهدَف.",
+    "wizard.apps.excludeTitle": "استثنِ تطبيقات (اختياري)",
+    "wizard.apps.addCustomGuid": "أضف تطبيقًا مخصّصًا بـ GUID",
+    "wizard.apps.addCustomPlaceholder": "00000000-0000-0000-0000-000000000000",
+    "wizard.apps.add": "إضافة",
+
+    "wizard.conditions.title":
+      "الشروط (كلها اختيارية — اتركها فارغة للمطابقة على أيّ قيمة)",
+    "wizard.conditions.userRisk": "مستويات خطورة المستخدم",
+    "wizard.conditions.signInRisk": "مستويات خطورة تسجيل الدخول",
+    "wizard.conditions.platforms": "منصّات الجهاز",
+    "wizard.conditions.clientAppTypes": "أنواع تطبيقات العميل",
+    "wizard.conditions.locations": "المواقع",
+    "wizard.conditions.locationsAny": "أي موقع",
+    "wizard.conditions.locationsTrusted":
+      "المواقع الموثوقة فقط (المواقع المسماة المحدَّدة كموثوقة)",
+
+    "wizard.grant.title": "ماذا يحدث عند مطابقة الشروط؟",
+    "wizard.grant.block": "حظر تسجيل الدخول",
+    "wizard.grant.grantWithRequirements":
+      "امنح تسجيل الدخول، ولكن اشترط التالي",
+    "wizard.grant.operatorTitle": "ادمج المتطلبات بـ",
+    "wizard.grant.operatorAnd": "كل المحدَّد (AND)",
+    "wizard.grant.operatorOr": "أيّ المحدَّد (OR)",
+    "wizard.grant.requireMfa": "اشترط مصادقة متعددة العوامل",
+    "wizard.grant.authStrengthLabel":
+      "اشترط قوة مصادقة محدَّدة (يتجاوز MFA العادية)",
+    "wizard.grant.authStrengthNone": "(بلا — استخدم MFA عادية)",
+    "wizard.grant.requireCompliantDevice": "اشترط جهازًا متوافقًا مع Intune",
+    "wizard.grant.requireHybridJoined":
+      "اشترط جهازًا هجين الانضمام",
+    "wizard.grant.requireApprovedApp":
+      "اشترط تطبيق عميل معتمد (iOS/Android)",
+    "wizard.grant.requireCompliantApp":
+      "اشترط سياسة حماية التطبيقات (Intune MAM)",
+    "wizard.grant.requirePasswordChange":
+      "افرض تغيير كلمة المرور (لسياسات معالجة المخاطر)",
+
+    "wizard.session.title":
+      "ضوابط الجلسة (كلها اختيارية)",
+    "wizard.session.signInFrequencyEnable":
+      "افرض إعادة المصادقة بفاصل زمني",
+    "wizard.session.signInFrequencyValue":
+      "كل",
+    "wizard.session.signInFrequencyTypeHours": "ساعات",
+    "wizard.session.signInFrequencyTypeDays": "أيام",
+    "wizard.session.persistentBrowser": "جلسات متصفّح دائمة",
+    "wizard.session.persistentDefault": "اترك كما هو",
+    "wizard.session.persistentNever": "لا تُديمها (تسجيل دخول عند كل إعادة فتح للمتصفّح)",
+    "wizard.session.persistentAlways": "دائمة دائمًا",
+    "wizard.session.appEnforced":
+      "فعّل قيود فرضها التطبيق (وصول جزئي لـ SharePoint/OneDrive على الأجهزة غير المُدارة)",
+
+    "wizard.review.title": "مراجعة ودفع",
+    "wizard.review.riskTier": "درجة المخاطر المحسوبة",
+    "wizard.review.grant": "ملخّص الوصول",
+    "wizard.review.previewBody": "نص Graph الدقيق (معاينة)",
+    "wizard.review.showBody": "إظهار نص Graph",
+    "wizard.review.hideBody": "إخفاء نص Graph",
+    "wizard.review.targetPickerTitle": "إلى أي جهات؟",
+    "wizard.review.pushCta": "ادفع السياسة إلى {count} جهة",
+    "wizard.review.cannotPushYet":
+      "عالج أخطاء التحقّق في الخطوات السابقة قبل الدفع.",
+
+    "wizard.validation.nameRequired": "اسم السياسة مطلوب.",
+    "wizard.validation.rolesRequired":
+      "اختر دورًا واحدًا على الأقل عند استهداف الأدوار.",
+    "wizard.validation.guestsRequired":
+      "اختر نوع ضيف واحدًا على الأقل عند استهداف الضيوف.",
+    "wizard.validation.specificAppsRequired":
+      "أضف تطبيقًا واحدًا على الأقل عند استهداف تطبيقات محدّدة.",
+    "wizard.validation.grantEmpty":
+      "اختر متطلّبًا واحدًا على الأقل — أو اختر الحظر.",
 
     "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
     "baseline.requireMfaForAdmins.body":
