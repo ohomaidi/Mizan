@@ -5,22 +5,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Phase 6 DLP catalog — PLACEHOLDER.
+ * Phase 6 DLP catalog — COMING SOON (waiting on Microsoft Graph).
  *
- * DLP policy CRUD has very limited Graph coverage: beta
- * /security/dataLossPreventionPolicies + /dataLossPreventionRules accept
- * a minimal schema, but most of the actually-useful surface (rule
- * exceptions, user notifications, incident reports, endpoint DLP,
- * specific sensitive-info-type conditions) is only reachable through
- * Security & Compliance PowerShell (`New-DlpCompliancePolicy`).
+ * Microsoft Graph does not yet expose the full DLP authoring API. The
+ * beta `/security/dataLossPreventionPolicies` + `/dataLossPreventionRules`
+ * endpoints accept a minimal schema only — rule exceptions, user
+ * notifications, incident reports, endpoint DLP, and most condition
+ * types are missing from public preview. Push stays disabled until
+ * Microsoft closes that gap.
  *
- * Until the user approves a PowerShell automation tier, this endpoint
- * returns the planned baseline catalog with `pushEnabled: false` so the
- * UI can render the same cards + Details as Phase 5, but with the push
- * button disabled and a clear red "Graph coverage insufficient" banner.
- *
- * When the PS tier lands, this route flips to real baselines and the UI
- * unlocks the push button automatically.
+ * The catalog below is ready: it describes the baselines Mizan will ship
+ * the day Graph coverage reaches production quality. UI renders every
+ * card as a disabled preview; flipping `pushEnabled` to true later is
+ * the only change needed to unlock push.
  */
 export async function GET() {
   const gate = await gateDirectiveRoute("viewer");
@@ -29,7 +26,7 @@ export async function GET() {
   return NextResponse.json({
     pushEnabled: false,
     coverageNote:
-      "Microsoft Graph exposes only a minimal subset of DLP policy authoring. Full control (endpoint DLP, rule exceptions, user notifications, incident reports, most condition types) requires Security & Compliance PowerShell (New-DlpCompliancePolicy / New-DlpComplianceRule). This catalog is read-only pending a PowerShell automation tier decision — see project_sharjah_council_backlog.md.",
+      "Microsoft Graph does not yet expose the full DLP authoring API. Public preview covers a minimal subset only — rule exceptions, user notifications, incident reports, endpoint DLP, and most condition types are missing. This catalog describes the baselines Mizan will ship the day Microsoft closes that gap; push unlocks automatically when it does.",
     baselines: [
       {
         id: "dlp-block-sensitive-external-share",

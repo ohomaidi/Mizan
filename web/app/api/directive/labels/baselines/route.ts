@@ -5,18 +5,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Phase 7 Sensitivity Labels catalog — PLACEHOLDER.
+ * Phase 7 Sensitivity Labels catalog — COMING SOON (waiting on Microsoft
+ * Graph).
  *
- * Graph can READ sensitivity labels (via
- * /security/informationProtection/sensitivityLabels) but CREATE is
- * limited: beta /policies/informationProtectionPolicy/labels accepts
- * basic label creation, but encryption settings, content marking,
- * protection settings, label publishing policies, and auto-labeling
- * rules all require Security & Compliance PowerShell (`New-Label`,
- * `New-LabelPolicy`, `New-AutoSensitivityLabelPolicy`).
+ * Graph READS sensitivity labels fine (via
+ * `/security/informationProtection/sensitivityLabels`). Graph CREATE is
+ * limited — beta `/policies/informationProtectionPolicy/labels` creates
+ * bare labels, but encryption settings, content marking, protection
+ * settings, label publishing policies, and auto-labeling rules are all
+ * missing from public preview.
  *
- * Same pattern as DLP: cards + Details render, push disabled, red
- * banner explains. Flips on when PS tier ships.
+ * Same pattern as DLP: cards render, push disabled, banner explains.
+ * Flips on when Microsoft exposes the full authoring API on Graph.
  */
 export async function GET() {
   const gate = await gateDirectiveRoute("viewer");
@@ -25,7 +25,7 @@ export async function GET() {
   return NextResponse.json({
     pushEnabled: false,
     coverageNote:
-      "Microsoft Graph can only create bare sensitivity labels in beta (/policies/informationProtectionPolicy/labels). Encryption, content marking, protection, publishing policies, and auto-labeling rules all require Security & Compliance PowerShell (New-Label / New-LabelPolicy / New-AutoSensitivityLabelPolicy). This catalog is read-only pending a PowerShell automation tier decision — see project_sharjah_council_backlog.md.",
+      "Microsoft Graph only creates bare sensitivity labels in public preview. Encryption, content marking, protection, label publishing policies, and auto-labeling rules are all missing. This catalog describes the baselines Mizan will ship the day Microsoft closes that gap on Graph; push unlocks automatically when it does.",
     baselines: [
       {
         id: "labels-hierarchy-4level",

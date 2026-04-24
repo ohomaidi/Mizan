@@ -1704,9 +1704,9 @@ function DlpBaselinesSection() {
         }
         subtitle={t("dlp.subtitle")}
       />
-      <div className="rounded-md border border-neg/40 bg-neg/10 p-3 mb-3">
-        <div className="text-[12px] font-semibold text-neg inline-flex items-center gap-1.5 mb-1">
-          <ShieldAlert size={12} />
+      <div className="rounded-md border border-accent/40 bg-accent/10 p-3 mb-3">
+        <div className="text-[12px] font-semibold text-accent inline-flex items-center gap-1.5 mb-1">
+          <Sparkles size={12} />
           {t("dlp.previewBanner.title")}
         </div>
         <div className="text-[11.5px] text-ink-1 leading-relaxed">
@@ -1788,9 +1788,9 @@ function LabelsBaselinesSection() {
         }
         subtitle={t("labels.subtitle")}
       />
-      <div className="rounded-md border border-neg/40 bg-neg/10 p-3 mb-3">
-        <div className="text-[12px] font-semibold text-neg inline-flex items-center gap-1.5 mb-1">
-          <ShieldAlert size={12} />
+      <div className="rounded-md border border-accent/40 bg-accent/10 p-3 mb-3">
+        <div className="text-[12px] font-semibold text-accent inline-flex items-center gap-1.5 mb-1">
+          <Sparkles size={12} />
           {t("labels.previewBanner.title")}
         </div>
         <div className="text-[11.5px] text-ink-1 leading-relaxed">

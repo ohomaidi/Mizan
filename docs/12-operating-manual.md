@@ -283,13 +283,15 @@ Policies ship **un-assigned by default** — the Intune equivalent of CA's repor
 
 License requirement: every target entity must have Intune P1 (Microsoft 365 E3+ / A3+ / standalone). Unlicensed tenants return 403 on push — the push modal surfaces this as `failed` with the Graph error.
 
-### B.8 DLP + Sensitivity Labels (Phases 6/7) — PREVIEW ONLY
+### B.8 DLP + Sensitivity Labels (Phases 6/7) — COMING SOON
 
-Both Phases 6 (Data Loss Prevention) and 7 (Sensitivity Labels) ship as **catalog + card UI with push disabled**. A prominent red *"Preview only — push disabled"* banner explains why.
+Both Phases 6 (Data Loss Prevention) and 7 (Sensitivity Labels) ship as **catalog + card UI with push disabled**. An accent *"Coming soon"* banner explains why.
 
-Reason: Microsoft Graph's write coverage for DLP and sensitivity-label authoring is too limited for production regulator use. Endpoint DLP, most DLP rule conditions, user notifications, incident reports, label encryption, content marking, publishing policies, and auto-labeling rules all live in Security & Compliance PowerShell (`New-DlpCompliancePolicy`, `New-Label`, `New-LabelPolicy`, `New-AutoSensitivityLabelPolicy`).
+Reason: Microsoft Graph doesn't yet expose the full DLP and sensitivity-label authoring API. Endpoint DLP, rule exceptions, user notifications, incident reports, label encryption, content marking, publishing policies, and auto-labeling rules are missing from Graph's public preview today.
 
-The **push buttons are disabled**, not hidden — the catalog demos the Phase 6/7 direction and previews the baseline copy for customer review. Flipping the push on requires a PowerShell automation tier (Phase 6.5), which needs a user architecture decision first. See the canonical backlog: [`project_sharjah_council_backlog.md §PS tier decision`](../../.claude/projects/-Users-zaatarlabs/memory/project_sharjah_council_backlog.md).
+**User decision 2026-04-24: no PowerShell workaround.** We wait for Microsoft to close the Graph gap instead of building a parallel PS execution tier. When the missing endpoints land on Graph, we flip `pushEnabled: true` in the relevant API route and push unlocks — no redeploy, no architectural change.
+
+The catalog is fully authored today and reviewable by customers. Use it to pre-brief entities on the direction of travel so they're not surprised when push lands.
 
 ### B.9 What directive mode still doesn't do (deferred)
 
@@ -298,7 +300,7 @@ These features appeared on the roadmap but are **not shipped**. Don't promise th
 | Feature | Status | Notes |
 |---|---|---|
 | Two-person approval workflow | Deferred | Every push today is single-click. Approval workflow is a future feature — user explicitly asked to defer it. No env var controls it. |
-| Phase 6.5 PowerShell automation tier | Awaiting decision | Unblocks Phase 6 (DLP), Phase 7 (Labels), Phase 8 (Retention policies), Phase 10 (Exchange transport). Architecture sketch in Claude memory. |
+| PowerShell automation tier | **Permanently out of scope** (2026-04-24) | Phases 6 / 7 / 8 / 10 wait on Microsoft to close the Graph authoring API gap rather than being built via PowerShell. |
 | Defender for Office presets / Safe Links / anti-phishing pushes | Later phase (Phase 9) | |
 | SharePoint / OneDrive / Teams governance pushes | Later phase (Phase 11) | |
 

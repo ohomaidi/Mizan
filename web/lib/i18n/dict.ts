@@ -1708,13 +1708,13 @@ export const DICT = {
     "intune.baseline.windowsBitlocker.rollout":
       "Test on an IT pilot machine first — validate the recovery-key escrow path works by deliberately triggering recovery. Then assign to IT fleet, then to general population. The removable-drive write block causes the most user friction; communicate before assigning.",
 
-    // ---- Phase 6 DLP (preview) ----
+    // ---- Phase 6 DLP (coming soon — waiting on Microsoft Graph) ----
     "dlp.title": "Data Loss Prevention baselines",
     "dlp.subtitle":
-      "Curated DLP policy catalog planned for Phase 6. Push is currently disabled — Microsoft Graph's DLP surface is too limited for production use. Full authoring (endpoint DLP, rule exceptions, user notifications, incident reports, most condition types) needs a PowerShell automation tier, pending user approval.",
-    "dlp.previewBanner.title": "Preview only — push disabled",
+      "Curated DLP policy catalog. Push unlocks the day Microsoft exposes the full DLP authoring API on Graph — today's beta endpoints cover a small subset only. The catalog below is ready: review it with your entities so they see the direction ahead of time.",
+    "dlp.previewBanner.title": "Coming soon",
     "dlp.previewBanner.body":
-      "These baselines describe the Phase 6 direction. Pushing DLP policies via Graph today would silently drop most of the rule grammar — we've chosen not to ship a push button that misbehaves on real tenants. PowerShell automation tier lands as Phase 6.5 once you approve the architecture.",
+      "Microsoft Graph doesn't yet expose the full DLP authoring API (rule exceptions, user notifications, incident reports, endpoint DLP, most condition types are missing from public preview). When Microsoft closes that gap, every card here unlocks automatically — no redeploy needed, just a catalog refresh.",
     "dlp.surface": "Surface",
     "dlp.baseline.blockSensitiveExternal.title":
       "Block external sharing of sensitive data",
@@ -1733,13 +1733,13 @@ export const DICT = {
     "dlp.baseline.regulatedDataLabels.body":
       "Block external sharing of anything labelled Confidential or Highly Confidential by the Phase 7 sensitivity-label hierarchy. Simplest and strongest DLP rule, but depends on labels being in place first.",
 
-    // ---- Phase 7 Sensitivity Labels (preview) ----
+    // ---- Phase 7 Sensitivity Labels (coming soon — waiting on Microsoft Graph) ----
     "labels.title": "Sensitivity labels",
     "labels.subtitle":
-      "Curated label hierarchy + auto-labeling baselines planned for Phase 7. Push is currently disabled — Graph can create bare labels but cannot configure encryption, content marking, or publishing policies. PowerShell automation tier required.",
-    "labels.previewBanner.title": "Preview only — push disabled",
+      "Curated label hierarchy + auto-labeling catalog. Push unlocks when Microsoft exposes the full label authoring API on Graph — today's beta endpoints create bare labels but can't configure encryption, content marking, publishing, or auto-labeling rules. The catalog below is ready for review.",
+    "labels.previewBanner.title": "Coming soon",
     "labels.previewBanner.body":
-      "Graph support for sensitivity-label authoring is incomplete: encryption, content marking, protection settings, label publishing policies, and auto-labeling rules all require Security & Compliance PowerShell. We've chosen not to ship a partial push path. PowerShell tier lands together with DLP as Phase 6.5 pending user approval.",
+      "Microsoft Graph creates basic labels today but can't yet configure the settings that matter in practice — encryption, content marking, protection, label publishing policies, auto-labeling rules. When Microsoft exposes those on Graph, every card here unlocks automatically.",
     "labels.baseline.hierarchy4.title":
       "4-level label hierarchy",
     "labels.baseline.hierarchy4.body":
@@ -3808,13 +3808,13 @@ export const DICT = {
     "intune.baseline.windowsBitlocker.rollout":
       "اختبر على جهاز IT تجريبي أولًا — تحقّق من مسار استرداد المفتاح بتحفيز الاسترداد عمدًا. ثم خصّص لأسطول IT، ثم للعموم. حظر كتابة الأقراص القابلة للإزالة الاحتكاك الأكبر؛ تواصل قبل التخصيص.",
 
-    // ---- Phase 6 DLP (preview) ----
+    // ---- Phase 6 DLP (coming soon — waiting on Microsoft Graph) ----
     "dlp.title": "قواعد منع تسرّب البيانات (DLP)",
     "dlp.subtitle":
-      "كتالوج DLP مخطّط للمرحلة 6. الدفع مُعطَّل حاليًا — سطح Graph لـ DLP محدود بحيث لا يصلح للإنتاج. التحكّم الكامل يتطلّب طبقة PowerShell معلَّقة على موافقتك.",
-    "dlp.previewBanner.title": "معاينة فقط — الدفع مُعطَّل",
+      "كتالوج DLP مُنسَّق. يُفتَح الدفع يوم تُتيح Microsoft واجهة تأليف DLP الكاملة على Graph — نقاط Beta الحالية تغطّي جزءًا صغيرًا فقط. الكتالوج أدناه جاهز: راجعه مع جهاتك حتى تعرف الاتجاه مسبقًا.",
+    "dlp.previewBanner.title": "قريبًا",
     "dlp.previewBanner.body":
-      "هذه القواعد تصف اتجاه المرحلة 6. الدفع عبر Graph اليوم يُسقط معظم قواعد DLP بصمت — اخترنا ألا نشحن زر دفع يتصرّف بشكل خاطئ على المستأجرين الحقيقيين. طبقة PowerShell ستهبط كمرحلة 6.5 بعد موافقتك.",
+      "Microsoft Graph لا تُتيح بعد واجهة تأليف DLP الكاملة (استثناءات القواعد، وإشعارات المستخدمين، وتقارير الحوادث، وDLP النقطة الطرفية، وأغلب أنواع الشروط). حين تُغلق Microsoft تلك الفجوة، تُفتَح كل البطاقات هنا تلقائيًا — بلا إعادة نشر.",
     "dlp.surface": "السطح",
     "dlp.baseline.blockSensitiveExternal.title":
       "حظر المشاركة الخارجية للبيانات الحسّاسة",
@@ -3833,13 +3833,13 @@ export const DICT = {
     "dlp.baseline.regulatedDataLabels.body":
       "احظر المشاركة الخارجية لأي محتوى مُوسَّم Confidential أو Highly Confidential في هرمية تصنيفات المرحلة 7. أبسط وأقوى قاعدة DLP، لكنها تعتمد على وجود التصنيفات أولًا.",
 
-    // ---- Phase 7 Sensitivity Labels (preview) ----
+    // ---- Phase 7 Sensitivity Labels (coming soon — waiting on Microsoft Graph) ----
     "labels.title": "تصنيفات الحساسية",
     "labels.subtitle":
-      "هرمية تصنيفات + تصنيف تلقائي مخطّطان للمرحلة 7. الدفع مُعطَّل حاليًا — Graph يُنشئ تصنيفات أساسية لكن لا يُهيّئ التشفير أو وضع العلامات أو سياسات النشر. طبقة PowerShell مطلوبة.",
-    "labels.previewBanner.title": "معاينة فقط — الدفع مُعطَّل",
+      "كتالوج هرمية تصنيفات + تصنيف تلقائي مُنسَّق. يُفتَح الدفع حين تُتيح Microsoft واجهة تأليف التصنيفات الكاملة على Graph — نقاط Beta الحالية تُنشئ تصنيفات أساسية لكن لا تُهيّئ التشفير ولا وضع العلامات ولا النشر ولا قواعد التصنيف التلقائي. الكتالوج أدناه جاهز للمراجعة.",
+    "labels.previewBanner.title": "قريبًا",
     "labels.previewBanner.body":
-      "دعم Graph لتأليف تصنيفات الحساسية ناقص: التشفير، علامات المحتوى، إعدادات الحماية، سياسات النشر، وقواعد التصنيف التلقائي كلها تتطلّب Security & Compliance PowerShell. اخترنا عدم شحن مسار دفع جزئي. طبقة PowerShell تنزل مع DLP كمرحلة 6.5 بانتظار موافقتك.",
+      "Microsoft Graph تُنشئ تصنيفات أساسية اليوم لكنها لا تُهيّئ بعد الإعدادات المهمّة عمليًا — التشفير، علامات المحتوى، الحماية، سياسات نشر التصنيفات، قواعد التصنيف التلقائي. حين تُتيح Microsoft تلك، تُفتَح كل البطاقات هنا تلقائيًا.",
     "labels.baseline.hierarchy4.title":
       "هرمية تصنيفات من 4 مستويات",
     "labels.baseline.hierarchy4.body":

@@ -174,9 +174,11 @@ Entity-side admin consent is mandatory before any directive route touches Graph 
 
 ---
 
-## 4. PowerShell automation tier — **still out of scope**
+## 4. PowerShell automation tier — permanently out of scope
 
-Preserved as a record of PS-only surfaces. None of this tier is in scope today — directive mode's shipped write coverage is **Graph-only**. The PS tier reopens only if a future phase (likely Phase 10 Exchange transport rules, or the long-term DLP policy CRUD) genuinely cannot be reached via Graph. Each such case requires a product-level decision before design.
+User decision 2026-04-24: **no PowerShell tier, ever.** Phases that would need one (Phase 6 DLP, Phase 7 Sensitivity Labels, portions of Phase 8 Retention, portions of Phase 10 Exchange) ship as **coming-soon catalog UIs** instead. The curated baselines render with an accent "Coming soon" banner and disabled push buttons; when Microsoft closes the Graph authoring API gap for each phase, we flip `pushEnabled: true` in the relevant API route and push unlocks — no architectural change required.
+
+Rationale: the PS tier would have meant a separate Azure Automation module, certificate-based tenant connection, credential vaulting, and a parallel execution path out of band from the directive engine. That's a big architecture surface to justify for phases that Microsoft is already moving into Graph. Waiting is cheaper than duplicating.
 
 The following domains have **no Graph CRUD** — they must be scripted via Security & Compliance PowerShell (`Connect-IPPSSession`) or Exchange Online PowerShell (`Connect-ExchangeOnline`):
 
@@ -208,7 +210,7 @@ Ordered by what the board must hear before approving the build.
 | # | Risk | Impact | Mitigation |
 |---|---|---|---|
 | 1 | Compliance Manager score has no Graph API. | UAE NESA maturity numbers on slide 6 can't be pulled directly. | Synthesize from Secure Score control mappings + audit records; name this explicitly in governance reporting. |
-| 2 | DLP / IRM / Comm Compliance / IB / auto-label / retention-policy CRUD is PowerShell-only. | Phases 6–10 will want some of these. Graph covers most of the DLP surface today; Exchange transport rules genuinely don't have a Graph CRUD in public preview yet. | Reopen the PS-tier decision before Phase 10 (Exchange) begins. Until then Graph-only is sufficient. |
+| 2 | DLP / sensitivity labels / retention / Comm Compliance / IB / auto-label / retention-policy CRUD has limited or no Graph coverage today. | Phases 6–10 want these; Microsoft's Graph authoring API is incomplete in public preview. | **User decision 2026-04-24: no PowerShell tier.** Ship coming-soon catalogs for affected phases (Phase 6 DLP + Phase 7 Labels already shipped that way). Flip `pushEnabled: true` when Microsoft exposes the missing endpoints. No architectural change required when they do. |
 | 3 | Device response actions (isolate, quarantine) not in Graph. | Analyst automation needs MDE direct API. | MTO (Pillar 3) handles UX; programmatic orchestration uses MDE API. |
 | 4 | Advanced Hunting 45 calls/min/tenant. | At 100 entities × hourly query pack, serialized — any bursty workload hits the wall. | Pre-aggregate into Sentinel, use advanced-hunting sparingly for drill-downs only. |
 | 5 | `alerts_v2` / `incidents` webhook support is beta / undocumented. | Can't rely on push for alerts in v1. | Poll with `lastUpdateDateTime` watermark + webhook subscription where available. |
