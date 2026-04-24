@@ -233,6 +233,59 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 9,
+    name: "add_directive_push_requests",
+    run: (db) => {
+      // Phase 3 — baseline push requests. One row per push attempt; each
+      // row fans out to N per-tenant rows in directive_push_actions. Never
+      // deleted. Powers /directive → Baselines → push history + rollback.
+      //
+      //   status        preview -> executing -> complete | failed | rolledback
+      //   target_tenant_ids_json  JSON array of tenant ids in scope for this push
+      //   options_json            per-baseline parameters (e.g. admin email to exclude)
+      //   summary_json            per-tenant outcome tally
+      //   pushed_by_user_id       Mizan user who triggered the push
+      db.exec(`CREATE TABLE IF NOT EXISTS directive_push_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        baseline_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('preview','executing','complete','failed','rolledback')),
+        pushed_by_user_id TEXT,
+        target_tenant_ids_json TEXT NOT NULL,
+        options_json TEXT,
+        summary_json TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        executed_at TEXT,
+        rolledback_at TEXT
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_push_requests_created ON directive_push_requests(created_at DESC)",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_push_requests_baseline ON directive_push_requests(baseline_id, created_at DESC)",
+      );
+
+      // One row per tenant per push. The graph_policy_id is what powers
+      // rollback — DELETE /identity/conditionalAccess/policies/{id} uses it.
+      db.exec(`CREATE TABLE IF NOT EXISTS directive_push_actions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        push_request_id INTEGER NOT NULL,
+        tenant_id TEXT NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('success','failed','simulated','rolledback')),
+        graph_policy_id TEXT,
+        error_message TEXT,
+        at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (push_request_id) REFERENCES directive_push_requests(id) ON DELETE CASCADE,
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_push_actions_request ON directive_push_actions(push_request_id)",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_push_actions_tenant_at ON directive_push_actions(tenant_id, at DESC)",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

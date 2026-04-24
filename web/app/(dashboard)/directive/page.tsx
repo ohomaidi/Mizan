@@ -14,10 +14,14 @@ import {
   Loader2,
   Send,
   RefreshCw,
+  Undo2,
+  Play,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useFmtRelative } from "@/lib/i18n/time";
+import { useFmtNum } from "@/lib/i18n/num";
 import { api } from "@/lib/api/client";
 import type { DictKey } from "@/lib/i18n/dict";
 
@@ -82,7 +86,7 @@ const CAPABILITIES: Capability[] = [
     titleKey: "directive.cap.caBaselines.title",
     bodyKey: "directive.cap.caBaselines.body",
     phase: 3,
-    status: "planned",
+    status: "available",
   },
   {
     icon: Package,
@@ -215,6 +219,10 @@ export default function DirectivePage() {
           })}
         </div>
       </Card>
+
+      <BaselinesSection locale={locale} />
+
+      <PushHistorySection fmtRelative={fmtRelative} />
 
       <ThreatSubmissionConsole locale={locale} />
 
@@ -739,6 +747,628 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
     </Card>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Baselines (Conditional Access policy push + rollback)
+// ---------------------------------------------------------------------------
+
+type Baseline = Awaited<
+  ReturnType<typeof api.directiveBaselines>
+>["baselines"][number];
+type PushRow = Awaited<
+  ReturnType<typeof api.directivePushes>
+>["pushes"][number];
+
+function BaselinesSection({ locale }: { locale: "en" | "ar" }) {
+  const { t } = useI18n();
+  const [baselines, setBaselines] = useState<Baseline[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Baseline | null>(null);
+
+  useEffect(() => {
+    api
+      .directiveBaselines()
+      .then((r) => setBaselines(r.baselines))
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Lock size={14} className="text-council-strong" />
+            {t("directive.baselines.title")}
+          </span>
+        }
+        subtitle={t("directive.baselines.subtitle")}
+      />
+      {error ? (
+        <div className="text-[12.5px] text-neg">{error}</div>
+      ) : !baselines ? (
+        <div className="text-[12.5px] text-ink-3">{t("state.loading")}</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {baselines.map((b) => (
+            <div
+              key={b.id}
+              className="rounded-md border border-border bg-surface-1 p-3"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="text-[13.5px] font-semibold text-ink-1">
+                  {t(b.titleKey as DictKey)}
+                </div>
+                <RiskChip tier={b.riskTier} />
+              </div>
+              <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
+                {t(b.bodyKey as DictKey)}
+              </div>
+              <div className="text-[11px] text-ink-3 mb-1 leading-relaxed">
+                <span className="font-semibold text-ink-2">
+                  {t("directive.baselines.target")}:
+                </span>{" "}
+                {b.targetSummary}
+              </div>
+              <div className="text-[11px] text-ink-3 mb-1 leading-relaxed">
+                <span className="font-semibold text-ink-2">
+                  {t("directive.baselines.grant")}:
+                </span>{" "}
+                {b.grantSummary}
+              </div>
+              <div className="text-[10.5px] text-ink-3 mb-3">
+                <span className="font-semibold text-ink-2">
+                  {t("directive.baselines.initialState")}:
+                </span>{" "}
+                {b.initialState === "enabledForReportingButNotEnforced"
+                  ? t("directive.baselines.reportOnly")
+                  : b.initialState}
+              </div>
+              <button
+                onClick={() => setSelected(b)}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold"
+              >
+                <Play size={11} />
+                {t("directive.baselines.pushCta")}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selected ? (
+        <BaselinePushModal
+          baseline={selected}
+          onClose={() => setSelected(null)}
+          locale={locale}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+function RiskChip({ tier }: { tier: "low" | "medium" | "high" }) {
+  const { t } = useI18n();
+  const tone =
+    tier === "high"
+      ? "text-neg border-neg/40 bg-neg/10"
+      : tier === "medium"
+        ? "text-warn border-warn/40 bg-warn/10"
+        : "text-pos border-pos/40 bg-pos/10";
+  const labelKey =
+    tier === "high"
+      ? "directive.baselines.risk.high"
+      : tier === "medium"
+        ? "directive.baselines.risk.medium"
+        : "directive.baselines.risk.low";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.08em] border ${tone}`}
+    >
+      {t(labelKey as DictKey)}
+    </span>
+  );
+}
+
+function BaselinePushModal({
+  baseline,
+  onClose,
+  locale,
+}: {
+  baseline: Baseline;
+  onClose: () => void;
+  locale: "en" | "ar";
+}) {
+  const { t } = useI18n();
+  const [tenants, setTenants] = useState<
+    Array<{
+      id: string;
+      nameEn: string;
+      nameAr: string;
+      consentMode: string;
+      isDemo: boolean;
+    }>
+  >([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [overrideState, setOverrideState] = useState<
+    "enabled" | "disabled" | "enabledForReportingButNotEnforced"
+  >(baseline.initialState);
+  const [preview, setPreview] = useState<null | {
+    displayName: string;
+    state: string;
+  }>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [result, setResult] = useState<null | Awaited<
+    ReturnType<typeof api.directiveBaselinePush>
+  >>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getEntities()
+      .then((r) =>
+        setTenants(
+          r.entities.filter((e) => e.consentMode === "directive"),
+        ),
+      )
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    setPreviewLoading(true);
+    api
+      .directiveBaselinePreview(baseline.id, { overrideState })
+      .then((r) => {
+        if (!alive) return;
+        setPreview({
+          displayName: r.preview.displayName,
+          state: r.preview.state,
+        });
+      })
+      .catch(() => {
+        if (alive) setPreview(null);
+      })
+      .finally(() => {
+        if (alive) setPreviewLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [baseline.id, overrideState]);
+
+  const toggleTenant = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(tenants.map((t) => t.id)));
+  const selectNone = () => setSelectedIds(new Set());
+
+  const onPush = async () => {
+    if (selectedIds.size === 0) return;
+    setPushing(true);
+    setError(null);
+    try {
+      const r = await api.directiveBaselinePush(baseline.id, {
+        targetTenantIds: Array.from(selectedIds),
+        overrideState,
+      });
+      setResult(r);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="wide"
+      title={t(baseline.titleKey as DictKey)}
+    >
+      <div className="flex flex-col gap-4">
+        {/* Preview block */}
+        <div className="rounded-md border border-border bg-surface-1 p-3 text-[12px]">
+          <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mb-1">
+            {t("directive.baselines.previewTitle")}
+          </div>
+          {previewLoading || !preview ? (
+            <div className="text-ink-3">{t("state.loading")}</div>
+          ) : (
+            <>
+              <div className="text-ink-1 font-mono text-[11.5px] break-all mb-1">
+                {preview.displayName}
+              </div>
+              <div className="text-ink-2">
+                <span className="text-ink-3">
+                  {t("directive.baselines.stateLabel")}:
+                </span>{" "}
+                {preview.state === "enabledForReportingButNotEnforced"
+                  ? t("directive.baselines.reportOnly")
+                  : preview.state}
+              </div>
+            </>
+          )}
+          <label className="inline-flex items-center gap-2 mt-3 text-[11.5px] text-ink-2">
+            <span>{t("directive.baselines.stateLabel")}</span>
+            <select
+              value={overrideState}
+              onChange={(e) =>
+                setOverrideState(
+                  e.target.value as
+                    | "enabled"
+                    | "disabled"
+                    | "enabledForReportingButNotEnforced",
+                )
+              }
+              className="h-7 px-2 rounded border border-border bg-surface-2 text-[11.5px] text-ink-1"
+            >
+              <option value="enabledForReportingButNotEnforced">
+                {t("directive.baselines.reportOnly")}
+              </option>
+              <option value="disabled">disabled</option>
+              <option value="enabled">enabled</option>
+            </select>
+          </label>
+        </div>
+
+        {/* Target tenants */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[12.5px] font-semibold text-ink-1">
+              {t("directive.baselines.targetsTitle")}
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <button
+                onClick={selectAll}
+                className="h-6 px-2 rounded border border-border bg-surface-2 text-ink-2 hover:text-ink-1"
+              >
+                {t("directive.baselines.selectAll")}
+              </button>
+              <button
+                onClick={selectNone}
+                className="h-6 px-2 rounded border border-border bg-surface-2 text-ink-2 hover:text-ink-1"
+              >
+                {t("directive.baselines.selectNone")}
+              </button>
+            </div>
+          </div>
+          {tenants.length === 0 ? (
+            <div className="text-[12px] text-ink-3 rounded-md border border-border bg-surface-1 p-3">
+              {t("directive.threat.noDirectiveEntities")}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[240px] overflow-y-auto">
+              {tenants.map((tenant) => {
+                const active = selectedIds.has(tenant.id);
+                return (
+                  <label
+                    key={tenant.id}
+                    className={`flex items-center gap-2 rounded-md border p-2 cursor-pointer ${
+                      active
+                        ? "border-council-strong bg-council-strong/5"
+                        : "border-border bg-surface-1 hover:border-council-strong/60"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggleTenant(tenant.id)}
+                      className="h-3.5 w-3.5 accent-council-strong"
+                    />
+                    <span className="text-[12px] text-ink-1 flex-1 min-w-0 truncate">
+                      {locale === "ar" ? tenant.nameAr : tenant.nameEn}
+                    </span>
+                    {tenant.isDemo ? (
+                      <span className="text-[9.5px] uppercase tracking-[0.06em] border border-accent/50 text-accent rounded px-1.5 py-px font-semibold">
+                        {t("demo.badge")}
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Result */}
+        {error ? (
+          <div className="rounded-md border border-neg/40 bg-neg/10 p-3 text-[12px] text-ink-1">
+            {error}
+          </div>
+        ) : null}
+        {result ? (
+          <div className="rounded-md border border-border bg-surface-1 p-3">
+            <div className="text-[12.5px] font-semibold text-ink-1 mb-2">
+              {t("directive.baselines.resultTitle", {
+                pushId: String(result.pushRequestId),
+              })}
+            </div>
+            <ul className="flex flex-col gap-1 text-[12px]">
+              {result.perTenant.map((r) => {
+                const tenant = tenants.find((t) => t.id === r.tenantId);
+                const name = tenant
+                  ? locale === "ar"
+                    ? tenant.nameAr
+                    : tenant.nameEn
+                  : r.tenantId;
+                return (
+                  <li
+                    key={r.tenantId}
+                    className="flex items-center gap-2 justify-between"
+                  >
+                    <span className="text-ink-1 truncate flex-1 min-w-0">
+                      {name}
+                    </span>
+                    <PushStatusChip status={r.status} />
+                    {r.error ? (
+                      <span className="text-[10.5px] text-neg max-w-[180px] truncate">
+                        {r.error}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        {/* Action bar */}
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+          {result ? (
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold"
+            >
+              {t("directive.baselines.close")}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                disabled={pushing}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-2 text-[12.5px] disabled:opacity-50"
+              >
+                {t("directive.baselines.cancel")}
+              </button>
+              <button
+                onClick={onPush}
+                disabled={pushing || selectedIds.size === 0}
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-council-strong text-white text-[12.5px] font-semibold disabled:opacity-50"
+              >
+                {pushing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Play size={12} />
+                )}
+                {t("directive.baselines.executeCta", {
+                  count: String(selectedIds.size),
+                })}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function PushHistorySection({
+  fmtRelative,
+}: {
+  fmtRelative: (s: string) => string;
+}) {
+  const { t } = useI18n();
+  const fmt = useFmtNum();
+  const [rows, setRows] = useState<PushRow[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [rollingBack, setRollingBack] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const r = await api.directivePushes(50);
+      setRows(r.pushes);
+    } catch {
+      /* ignore */
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const id = setInterval(() => void load(), 20000);
+    return () => clearInterval(id);
+  }, [load]);
+
+  const onRollback = async (pushId: number) => {
+    if (!window.confirm(t("directive.baselines.rollbackConfirm"))) return;
+    setRollingBack(pushId);
+    try {
+      await api.directivePushRollback(pushId);
+      await load();
+    } catch (e) {
+      window.alert((e as Error).message);
+    } finally {
+      setRollingBack(null);
+    }
+  };
+
+  return (
+    <Card className="p-0">
+      <div className="p-5 border-b border-border">
+        <CardHeader
+          title={t("directive.baselines.historyTitle")}
+          subtitle={t("directive.baselines.historySubtitle")}
+          right={
+            <button
+              onClick={() => void load()}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[11.5px] disabled:opacity-50"
+            >
+              {refreshing ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+              {t("directive.audit.refresh")}
+            </button>
+          }
+        />
+      </div>
+      {rows === null ? (
+        <div className="p-5 text-[12.5px] text-ink-3">
+          {t("state.loading")}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="p-5 text-[12.5px] text-ink-3">
+          {t("directive.baselines.historyEmpty")}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead>
+              <tr className="text-ink-3 text-[10.5px] uppercase tracking-[0.06em] border-t border-border">
+                <th className="py-2.5 ps-5 text-start font-semibold">
+                  {t("directive.audit.col.when")}
+                </th>
+                <th className="py-2.5 text-start font-semibold">
+                  {t("directive.baselines.col.baseline")}
+                </th>
+                <th className="py-2.5 text-start font-semibold">
+                  {t("directive.baselines.col.targets")}
+                </th>
+                <th className="py-2.5 text-start font-semibold">
+                  {t("directive.audit.col.status")}
+                </th>
+                <th className="py-2.5 pe-5 text-end font-semibold">
+                  {t("directive.baselines.col.actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.id}
+                  className="border-t border-border hover:bg-surface-3/40"
+                >
+                  <td className="py-2 ps-5 text-ink-2 tabular">
+                    {fmtRelative(r.createdAt)}
+                  </td>
+                  <td className="py-2 text-ink-1 keep-ltr tabular">
+                    {r.baselineId}
+                  </td>
+                  <td className="py-2 text-ink-3 text-[11.5px]">
+                    {r.targetTenantIds.length === 0
+                      ? "—"
+                      : r.targetTenantNames
+                          .slice(0, 3)
+                          .map((t) => t.nameEn)
+                          .join(", ") +
+                        (r.targetTenantNames.length > 3
+                          ? ` +${fmt(r.targetTenantNames.length - 3)}`
+                          : "")}
+                  </td>
+                  <td className="py-2">
+                    <PushRequestStatusChip status={r.status} />
+                  </td>
+                  <td className="py-2 pe-5 text-end">
+                    {r.status === "complete" || r.status === "failed" ? (
+                      <button
+                        onClick={() => void onRollback(r.id)}
+                        disabled={rollingBack !== null}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md border border-border bg-surface-2 text-ink-1 text-[11px] font-semibold disabled:opacity-50"
+                      >
+                        {rollingBack === r.id ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : (
+                          <Undo2 size={11} />
+                        )}
+                        {t("directive.baselines.rollback")}
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function PushStatusChip({
+  status,
+}: {
+  status: "success" | "failed" | "simulated" | "skipped_observation";
+}) {
+  const { t } = useI18n();
+  const tone =
+    status === "success"
+      ? "text-pos border-pos/40 bg-pos/10"
+      : status === "simulated"
+        ? "text-accent border-accent/40 bg-accent/10"
+        : status === "skipped_observation"
+          ? "text-ink-3 border-border bg-surface-3"
+          : "text-neg border-neg/40 bg-neg/10";
+  const labelKey =
+    status === "success"
+      ? "directive.audit.status.success"
+      : status === "simulated"
+        ? "directive.audit.status.simulated"
+        : status === "skipped_observation"
+          ? "directive.baselines.skippedObservation"
+          : "directive.audit.status.failed";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.08em] border ${tone}`}
+    >
+      {t(labelKey as DictKey)}
+    </span>
+  );
+}
+
+function PushRequestStatusChip({
+  status,
+}: {
+  status: "preview" | "executing" | "complete" | "failed" | "rolledback";
+}) {
+  const { t } = useI18n();
+  const tone =
+    status === "complete"
+      ? "text-pos border-pos/40 bg-pos/10"
+      : status === "failed"
+        ? "text-neg border-neg/40 bg-neg/10"
+        : status === "rolledback"
+          ? "text-ink-3 border-border bg-surface-3"
+          : "text-warn border-warn/40 bg-warn/10";
+  const labelKey =
+    status === "complete"
+      ? "directive.audit.status.success"
+      : status === "failed"
+        ? "directive.audit.status.failed"
+        : status === "rolledback"
+          ? "directive.baselines.rolledbackStatus"
+          : "directive.baselines.runningStatus";
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.08em] border ${tone}`}
+    >
+      {t(labelKey as DictKey)}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 function AuditLogSection({
   fmtRelative,

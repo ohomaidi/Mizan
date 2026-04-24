@@ -1280,6 +1280,51 @@ export const DICT = {
     "directive.threat.evidenceHint":
       "Each evidence item was pulled from the alerts attached to this incident. Click \u201CUse in form\u201D to pre-fill the submission below \u2014 no need to leave Mizan or open the entity's Defender XDR portal.",
 
+    "directive.baselines.title": "Conditional Access baselines",
+    "directive.baselines.subtitle":
+      "Center-authored Conditional Access policies. Pushed to every directive-consent entity in one action. Every push ships as report-only by default; the entity toggles enforcement from their own Entra admin center after they've verified the scope. Rollback is one click and deletes the pushed policies.",
+    "directive.baselines.target": "Targets",
+    "directive.baselines.grant": "Grant",
+    "directive.baselines.initialState": "Initial state",
+    "directive.baselines.reportOnly": "Report-only (not enforced)",
+    "directive.baselines.pushCta": "Push to entities",
+    "directive.baselines.risk.low": "Low risk",
+    "directive.baselines.risk.medium": "Medium risk",
+    "directive.baselines.risk.high": "High risk",
+    "directive.baselines.previewTitle": "Preview — this is what will be created",
+    "directive.baselines.stateLabel": "State",
+    "directive.baselines.targetsTitle": "Push to which entities?",
+    "directive.baselines.selectAll": "Select all",
+    "directive.baselines.selectNone": "Select none",
+    "directive.baselines.cancel": "Cancel",
+    "directive.baselines.close": "Close",
+    "directive.baselines.executeCta": "Push to {count} entity(ies)",
+    "directive.baselines.resultTitle": "Push #{pushId} complete",
+    "directive.baselines.skippedObservation": "Skipped (observation)",
+    "directive.baselines.historyTitle": "Push history",
+    "directive.baselines.historySubtitle":
+      "Every baseline push, newest first. Rollback deletes the created policies from each target tenant — audited as its own directive action.",
+    "directive.baselines.historyEmpty":
+      "No baseline pushes yet. Pick a baseline above, choose the target entities, and push.",
+    "directive.baselines.col.baseline": "Baseline",
+    "directive.baselines.col.targets": "Targets",
+    "directive.baselines.col.actions": "Actions",
+    "directive.baselines.rollback": "Roll back",
+    "directive.baselines.rollbackConfirm":
+      "Roll back this push? The Conditional Access policies it created will be deleted from every target tenant. This cannot be undone from inside Mizan — to re-apply, push the baseline again.",
+    "directive.baselines.rolledbackStatus": "Rolled back",
+    "directive.baselines.runningStatus": "Running",
+
+    "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
+    "baseline.requireMfaForAdmins.body":
+      "Every privileged directory role (Global Admin, Security Admin, Exchange / SharePoint / User / App / Cloud App / Authentication / Helpdesk / Intune / Billing / Privileged Role / Conditional Access Administrator) must satisfy multi-factor authentication. Report-only by default.",
+    "baseline.blockLegacyAuth.title": "Block legacy authentication",
+    "baseline.blockLegacyAuth.body":
+      "Block sign-ins using legacy auth protocols (IMAP, POP, SMTP basic, Exchange ActiveSync basic, other clients). Modern auth not affected. Report-only by default; Global Admins auto-excluded so a misconfigured legacy-auth client on an admin's device cannot cause a lockout.",
+    "baseline.requireCompliantDevice.title": "Require compliant device for Office 365",
+    "baseline.requireCompliantDevice.body":
+      "Office 365 apps (Exchange Online, SharePoint, Teams, Office web/desktop) require either an Intune-compliant device OR a Microsoft Entra hybrid-joined device. Blocks data exfiltration to personal / unmanaged endpoints. Report-only by default; Global Admins auto-excluded.",
+
     "directive.audit.title": "Audit log",
     "directive.audit.subtitle":
       "Every directive action, ever. Refreshes every 15 seconds. Simulated actions against demo tenants are marked so they cannot be confused with real Graph writes.",
@@ -2756,6 +2801,51 @@ export const DICT = {
     "directive.threat.submitToMicrosoft": "إرسال إلى Microsoft",
     "directive.threat.evidenceHint":
       "كل عنصر دليل مُستخرَج من التنبيهات المرتبطة بهذه الحادثة. اضغط «استخدم في النموذج» لتعبئة نموذج الإرسال أدناه — دون الحاجة لمغادرة Mizan أو فتح بوابة Defender XDR الخاصة بالجهة.",
+
+    "directive.baselines.title": "قواعد Conditional Access",
+    "directive.baselines.subtitle":
+      "سياسات Conditional Access يؤلّفها المركز ويدفعها إلى كل جهة موافقة على التوجيه في خطوة واحدة. كل دفعة تبدأ بوضع تقارير فقط افتراضيًا، وتُفعّل الجهة الإنفاذ من بوّابة Entra الخاصة بها بعد التحقق. التراجع بضغطة واحدة ويحذف السياسات المدفوعة.",
+    "directive.baselines.target": "الأهداف",
+    "directive.baselines.grant": "المنح",
+    "directive.baselines.initialState": "الحالة الأولية",
+    "directive.baselines.reportOnly": "تقارير فقط (غير مُنفَّذ)",
+    "directive.baselines.pushCta": "دفع إلى الجهات",
+    "directive.baselines.risk.low": "مخاطر منخفضة",
+    "directive.baselines.risk.medium": "مخاطر متوسطة",
+    "directive.baselines.risk.high": "مخاطر عالية",
+    "directive.baselines.previewTitle": "معاينة — هذا ما سيُنشَأ",
+    "directive.baselines.stateLabel": "الحالة",
+    "directive.baselines.targetsTitle": "إلى أي جهات؟",
+    "directive.baselines.selectAll": "تحديد الكل",
+    "directive.baselines.selectNone": "إلغاء التحديد",
+    "directive.baselines.cancel": "إلغاء",
+    "directive.baselines.close": "إغلاق",
+    "directive.baselines.executeCta": "دفع إلى {count} جهة",
+    "directive.baselines.resultTitle": "اكتملت الدفعة #{pushId}",
+    "directive.baselines.skippedObservation": "تخطّي (مراقبة)",
+    "directive.baselines.historyTitle": "سجل الدفعات",
+    "directive.baselines.historySubtitle":
+      "كل دفعة قاعدة، الأحدث أولًا. التراجع يحذف السياسات المُنشأة من كل جهة مستهدفة — ويُسجَّل كإجراء توجيهي منفصل.",
+    "directive.baselines.historyEmpty":
+      "لا توجد دفعات بعد. اختر قاعدة أعلاه، حدّد الجهات، وادفع.",
+    "directive.baselines.col.baseline": "القاعدة",
+    "directive.baselines.col.targets": "الجهات",
+    "directive.baselines.col.actions": "إجراءات",
+    "directive.baselines.rollback": "تراجع",
+    "directive.baselines.rollbackConfirm":
+      "تراجع عن هذه الدفعة؟ ستُحذف سياسات Conditional Access التي أُنشئت من كل جهة مستهدفة. لا يمكن التراجع عن هذا من داخل Mizan — لإعادة التطبيق، ادفع القاعدة مرة أخرى.",
+    "directive.baselines.rolledbackStatus": "تم التراجع",
+    "directive.baselines.runningStatus": "قيد التنفيذ",
+
+    "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
+    "baseline.requireMfaForAdmins.body":
+      "كل دور دليل ذي امتياز (Global Admin وSecurity Admin وExchange وSharePoint وUser وApp وCloud App وAuthentication وHelpdesk وIntune وBilling وPrivileged Role وConditional Access Administrator) يجب أن يُحقّق المصادقة متعددة العوامل. وضع التقارير فقط افتراضيًا.",
+    "baseline.blockLegacyAuth.title": "حظر المصادقة القديمة",
+    "baseline.blockLegacyAuth.body":
+      "حظر تسجيلات الدخول باستخدام بروتوكولات المصادقة القديمة (IMAP وPOP وSMTP basic وExchange ActiveSync basic وعملاء آخرون). المصادقة الحديثة غير متأثرة. وضع التقارير فقط افتراضيًا؛ يُستثنى مسؤولو Global Admin تلقائيًا حتى لا يتسبب عميل قديم يعمل على جهاز مسؤول في قفله.",
+    "baseline.requireCompliantDevice.title": "طلب جهاز متوافق لتطبيقات Office 365",
+    "baseline.requireCompliantDevice.body":
+      "تطبيقات Office 365 (Exchange Online وSharePoint وTeams وOffice web/desktop) تتطلب إما جهازًا متوافقًا مع Intune أو جهازًا هجينًا متصلًا بـ Entra. يمنع تسرّب البيانات إلى الأجهزة الشخصية / غير المُدارة. وضع التقارير فقط افتراضيًا؛ يُستثنى مسؤولو Global Admin تلقائيًا.",
 
     "directive.audit.title": "سجل التدقيق",
     "directive.audit.subtitle":

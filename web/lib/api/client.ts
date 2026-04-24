@@ -730,6 +730,109 @@ export const api = {
       `/api/directive/tenant-incidents?tenantId=${encodeURIComponent(tenantId)}`,
     ),
 
+  // ----- Phase 3 baseline pushes -----
+  directiveBaselines: () =>
+    jsonFetch<{
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        targetSummary: string;
+        grantSummary: string;
+        initialState: "enabledForReportingButNotEnforced" | "enabled";
+        excludesOwnAdmins: boolean;
+        idempotencyKey: string;
+      }>;
+    }>("/api/directive/baselines"),
+
+  directiveBaselinePreview: (
+    baselineId: string,
+    body: {
+      overrideState?:
+        | "enabled"
+        | "disabled"
+        | "enabledForReportingButNotEnforced";
+    } = {},
+  ) =>
+    jsonFetch<{
+      baselineId: string;
+      preview: {
+        displayName: string;
+        state: string;
+        descriptor: unknown;
+        body: unknown;
+      };
+    }>(
+      `/api/directive/baselines/${encodeURIComponent(baselineId)}/preview`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directiveBaselinePush: (
+    baselineId: string,
+    body: {
+      targetTenantIds: string[];
+      overrideState?:
+        | "enabled"
+        | "disabled"
+        | "enabledForReportingButNotEnforced";
+    },
+  ) =>
+    jsonFetch<{
+      ok: boolean;
+      pushRequestId: number;
+      perTenant: Array<{
+        tenantId: string;
+        status: "success" | "failed" | "simulated" | "skipped_observation";
+        policyId?: string | null;
+        error?: string | null;
+        auditId?: number;
+      }>;
+    }>(
+      `/api/directive/baselines/${encodeURIComponent(baselineId)}/push`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  directivePushes: (limit = 50) =>
+    jsonFetch<{
+      pushes: Array<{
+        id: number;
+        baselineId: string;
+        status:
+          | "preview"
+          | "executing"
+          | "complete"
+          | "failed"
+          | "rolledback";
+        pushedByUserId: string | null;
+        targetTenantIds: string[];
+        targetTenantNames: Array<{
+          id: string;
+          nameEn: string;
+          nameAr: string;
+        }>;
+        optionsJson: string | null;
+        summaryJson: string | null;
+        createdAt: string;
+        executedAt: string | null;
+        rolledbackAt: string | null;
+      }>;
+    }>(`/api/directive/pushes?limit=${limit}`),
+
+  directivePushRollback: (pushId: number) =>
+    jsonFetch<{
+      ok: boolean;
+      pushId: number;
+      results: Array<{
+        tenantId: string;
+        status: "rolledback" | "skipped" | "failed";
+        error?: string | null;
+      }>;
+    }>(
+      `/api/directive/pushes/${pushId}/rollback`,
+      { method: "POST" },
+    ),
+
   directiveAudit: (opts: { tenantId?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();
     if (opts.tenantId) q.set("tenantId", opts.tenantId);

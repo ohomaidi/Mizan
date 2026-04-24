@@ -195,3 +195,60 @@ export async function submitFileThreat(
     body,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Conditional Access — Phase 3
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a CA policy in the entity's tenant. Graph returns the policy
+ * with its server-assigned id, which we store on the push_action row so
+ * rollback knows what to DELETE.
+ */
+export async function createConditionalAccessPolicy(
+  tenant: Ids,
+  body: unknown,
+): Promise<{ id: string; displayName: string; state: string }> {
+  return graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "POST",
+    path: `/identity/conditionalAccess/policies`,
+    body: body as Record<string, unknown>,
+  });
+}
+
+/** Delete a CA policy by id. Used by rollback. */
+export async function deleteConditionalAccessPolicy(
+  tenant: Ids,
+  policyId: string,
+): Promise<void> {
+  await graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "DELETE",
+    path: `/identity/conditionalAccess/policies/${encodeURIComponent(policyId)}`,
+  });
+}
+
+/**
+ * Check whether the entity already has a CA policy whose displayName
+ * carries our idempotency tag. Used to make a repeat push a no-op rather
+ * than a duplicate. Reads via the Signals Graph app's delegated list
+ * permission (same token cache as every other read).
+ */
+export async function findCaPolicyByIdempotencyTag(
+  tenant: Ids,
+  idempotencyKey: string,
+): Promise<{ id: string; displayName: string; state: string } | null> {
+  const r = await graphFetch<{
+    value: Array<{ id: string; displayName: string; state: string }>;
+  }>({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "GET",
+    path: `/identity/conditionalAccess/policies?$select=id,displayName,state`,
+  });
+  const hit = r.value.find((p) => p.displayName.includes(idempotencyKey));
+  return hit ?? null;
+}

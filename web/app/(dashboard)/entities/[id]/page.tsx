@@ -1765,13 +1765,18 @@ function EntityDetailInner({
     value: React.ReactNode;
     mono?: boolean;
   }) {
+    // min-w-0 on the outer div is what lets the inner text actually wrap
+    // when it lives in a grid track — without it, a long email or tenant
+    // GUID stretches the track and bleeds outside the card border.
+    // `break-all` wraps long unbroken strings (emails, URLs, GUIDs) that
+    // normal whitespace-driven word-wrap leaves alone.
     return (
-      <div className="rounded-md border border-border bg-surface-1 p-3">
+      <div className="rounded-md border border-border bg-surface-1 p-3 min-w-0 overflow-hidden">
         <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mb-0.5">
           {label}
         </div>
         <div
-          className={`text-[13px] text-ink-1 ${mono ? "tabular keep-ltr" : ""}`}
+          className={`text-[13px] text-ink-1 break-all ${mono ? "tabular keep-ltr" : ""}`}
         >
           {value}
         </div>
