@@ -50,16 +50,44 @@ export const GuestOrExternalUserTypeSchema = z.enum([
   "serviceProvider",
 ]);
 
+/**
+ * Attribute + operator the device filter rule builder emits. Subset of
+ * the Entra rule grammar covering the four most common attributes
+ * (trustType, isCompliant, mdmAppId, operatingSystem) and three
+ * operators. At render time these are joined into the Kusto-like string
+ * Graph expects — e.g. `device.trustType -eq "ServerAD"`.
+ */
+export const DeviceFilterAttrSchema = z.enum([
+  "trustType",
+  "isCompliant",
+  "mdmAppId",
+  "operatingSystem",
+]);
+export const DeviceFilterOpSchema = z.enum(["-eq", "-ne", "-contains"]);
+
 export const CustomCaPolicySpecSchema = z
   .object({
     name: z.string().min(1).max(200),
     description: z.string().max(2000).optional(),
     state: PolicyStateSchema.default("enabledForReportingButNotEnforced"),
 
+    /**
+     * Reference tenant. When non-null, the spec may carry tenant-local
+     * IDs (specific users/groups, named location IDs, ToU IDs, custom
+     * auth strength IDs) that were picked from this tenant's Graph. At
+     * push time the target tenant MUST equal referenceTenantId — the
+     * push route rejects cross-tenant pushes of scoped drafts.
+     */
+    referenceTenantId: z.string().nullable().default(null),
+
     users: z.object({
       include: z.object({
         kind: UsersIncludeKindSchema.default("all"),
         roleIds: z.array(z.string()).default([]),
+        /** Tenant-local user IDs — requires referenceTenantId. */
+        userIds: z.array(z.string()).default([]),
+        /** Tenant-local group IDs — requires referenceTenantId. */
+        groupIds: z.array(z.string()).default([]),
         guestTypes: z.array(GuestOrExternalUserTypeSchema).default([]),
         externalTenantMembershipKind: z
           .enum(["all", "enumerated"])
@@ -67,6 +95,10 @@ export const CustomCaPolicySpecSchema = z
       }),
       exclude: z.object({
         roleIds: z.array(z.string()).default([]),
+        /** Tenant-local user IDs — requires referenceTenantId. */
+        userIds: z.array(z.string()).default([]),
+        /** Tenant-local group IDs — requires referenceTenantId. */
+        groupIds: z.array(z.string()).default([]),
         /** Mandatory safety rail — defaults true. */
         excludeGlobalAdmins: z.boolean().default(true),
       }),
@@ -107,7 +139,37 @@ export const CustomCaPolicySpecSchema = z
             ]),
           )
           .default([]),
-        locations: z.enum(["any", "trustedOnly"]).default("any"),
+        /**
+         * Locations mode:
+         *   - "any"          (default)  — no location condition
+         *   - "trustedOnly"  Only AllTrusted (cross-tenant safe)
+         *   - "specific"     includeLocations/excludeLocations are arrays
+         *                    of named-location IDs. Requires referenceTenantId.
+         */
+        locations: z.enum(["any", "trustedOnly", "specific"]).default("any"),
+        includeLocations: z.array(z.string()).default([]),
+        excludeLocations: z.array(z.string()).default([]),
+        /**
+         * Device filter. When enabled, the rules array is joined with
+         * logical AND into a single Graph `rule` string. Entra's grammar
+         * allows richer expressions (OR, parentheses) but the wizard
+         * scopes to AND of attribute-op-value triples for safety.
+         */
+        deviceFilter: z
+          .object({
+            enabled: z.boolean().default(false),
+            mode: z.enum(["include", "exclude"]).default("include"),
+            rules: z
+              .array(
+                z.object({
+                  attr: DeviceFilterAttrSchema,
+                  op: DeviceFilterOpSchema,
+                  value: z.string(),
+                }),
+              )
+              .default([]),
+          })
+          .default({ enabled: false, mode: "include", rules: [] }),
       })
       .default(() => ({
         userRiskLevels: [],
@@ -115,6 +177,13 @@ export const CustomCaPolicySpecSchema = z
         platforms: [],
         clientAppTypes: [],
         locations: "any" as const,
+        includeLocations: [],
+        excludeLocations: [],
+        deviceFilter: {
+          enabled: false,
+          mode: "include" as const,
+          rules: [],
+        },
       })),
 
     grant: z.object({
@@ -127,8 +196,18 @@ export const CustomCaPolicySpecSchema = z
       requireApprovedClientApp: z.boolean().default(false),
       requireCompliantApplication: z.boolean().default(false),
       requirePasswordChange: z.boolean().default(false),
-      /** When set, maps to grantControls.authenticationStrength.id. Overrides requireMfa. */
+      /**
+       * When set, maps to grantControls.authenticationStrength.id.
+       * Overrides requireMfa. May be a built-in strength GUID (3
+       * cross-tenant-safe values) OR a custom strength ID from the
+       * reference tenant — custom IDs require referenceTenantId.
+       */
       authenticationStrengthId: z.string().optional(),
+      /**
+       * Terms of Use IDs from the reference tenant. Each becomes an
+       * entry in grantControls.termsOfUse. Requires referenceTenantId.
+       */
+      termsOfUseIds: z.array(z.string()).default([]),
     }),
 
     session: z

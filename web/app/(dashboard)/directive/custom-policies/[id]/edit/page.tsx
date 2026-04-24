@@ -38,14 +38,22 @@ type Spec = {
   name: string;
   description?: string;
   state: "enabled" | "disabled" | "enabledForReportingButNotEnforced";
+  referenceTenantId: string | null;
   users: {
     include: {
       kind: "all" | "none" | "roles" | "guestsOrExternalUsers";
       roleIds: string[];
+      userIds: string[];
+      groupIds: string[];
       guestTypes: string[];
       externalTenantMembershipKind: "all" | "enumerated";
     };
-    exclude: { roleIds: string[]; excludeGlobalAdmins: boolean };
+    exclude: {
+      roleIds: string[];
+      userIds: string[];
+      groupIds: string[];
+      excludeGlobalAdmins: boolean;
+    };
   };
   apps: {
     target:
@@ -62,7 +70,18 @@ type Spec = {
     signInRiskLevels: string[];
     platforms: string[];
     clientAppTypes: string[];
-    locations: "any" | "trustedOnly";
+    locations: "any" | "trustedOnly" | "specific";
+    includeLocations: string[];
+    excludeLocations: string[];
+    deviceFilter: {
+      enabled: boolean;
+      mode: "include" | "exclude";
+      rules: Array<{
+        attr: "trustType" | "isCompliant" | "mdmAppId" | "operatingSystem";
+        op: "-eq" | "-ne" | "-contains";
+        value: string;
+      }>;
+    };
   };
   grant: {
     kind: "block" | "grantWithRequirements";
@@ -74,6 +93,7 @@ type Spec = {
     requireCompliantApplication: boolean;
     requirePasswordChange: boolean;
     authenticationStrengthId?: string;
+    termsOfUseIds: string[];
   };
   session: {
     signInFrequency: {
@@ -121,6 +141,38 @@ export default function CustomPolicyWizardPage() {
   );
   const [error, setError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Directive tenants the operator can pick as the reference tenant for
+  // tenant-local fields (users, groups, named locations, ToU, custom auth
+  // strengths). Loaded once — the full list rarely changes while a draft
+  // is being edited.
+  const [directiveTenants, setDirectiveTenants] = useState<
+    Array<{
+      id: string;
+      nameEn: string;
+      nameAr: string;
+      isDemo: boolean;
+    }>
+  >([]);
+  useEffect(() => {
+    api
+      .getEntities()
+      .then((r) =>
+        setDirectiveTenants(
+          r.entities
+            .filter((e) => e.consentMode === "directive")
+            .map((e) => ({
+              id: e.id,
+              nameEn: e.nameEn,
+              nameAr: e.nameAr,
+              isDemo: e.isDemo,
+            })),
+        ),
+      )
+      .catch(() => {
+        /* non-fatal */
+      });
+  }, []);
 
   // Initial load.
   useEffect(() => {
@@ -233,11 +285,18 @@ export default function CustomPolicyWizardPage() {
 
       <StepNav activeStep={activeStep} onSelect={setActiveStep} />
 
+      <ScopeBanner spec={spec} directiveTenants={directiveTenants} locale={locale} />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <Card>
             {activeStep === "identify" ? (
-              <IdentifyStep spec={spec} update={update} />
+              <IdentifyStep
+                spec={spec}
+                update={update}
+                directiveTenants={directiveTenants}
+                locale={locale}
+              />
             ) : activeStep === "users" ? (
               <UsersStep spec={spec} update={update} reference={reference} />
             ) : activeStep === "apps" ? (
@@ -335,12 +394,65 @@ function SaveIndicator({
 // Step 1: Identify
 // ========================================================================
 
+function ScopeBanner({
+  spec,
+  directiveTenants,
+  locale,
+}: {
+  spec: Spec;
+  directiveTenants: Array<{
+    id: string;
+    nameEn: string;
+    nameAr: string;
+    isDemo: boolean;
+  }>;
+  locale: "en" | "ar";
+}) {
+  const { t } = useI18n();
+  if (!spec.referenceTenantId) {
+    return (
+      <div className="rounded-md border border-border bg-surface-2 px-3 py-2 text-[11.5px] text-ink-2 inline-flex items-center gap-2">
+        <Check size={11} className="text-pos" />
+        {t("wizard.scope.crossTenant")}
+      </div>
+    );
+  }
+  const tenant = directiveTenants.find((x) => x.id === spec.referenceTenantId);
+  const name = tenant
+    ? locale === "ar"
+      ? tenant.nameAr
+      : tenant.nameEn
+    : spec.referenceTenantId;
+  return (
+    <div className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-[11.5px] text-ink-1 inline-flex items-start gap-2">
+      <ShieldAlert size={12} className="text-warn mt-0.5 shrink-0" />
+      <span>
+        <span className="font-semibold">
+          {t("wizard.scope.scopedTitle", { tenant: name })}
+        </span>
+        <span className="block text-[10.5px] text-ink-2 mt-0.5">
+          {t("wizard.scope.scopedBody")}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function IdentifyStep({
   spec,
   update,
+  directiveTenants,
+  locale,
 }: {
   spec: Spec;
   update: (mut: (s: Spec) => Spec) => void;
+  directiveTenants: Array<{
+    id: string;
+    nameEn: string;
+    nameAr: string;
+    isDemo: boolean;
+  }>;
+  locale: "en" | "ar";
 }) {
   const { t } = useI18n();
   return (
@@ -427,6 +539,92 @@ function IdentifyStep({
           </div>
         ) : null}
       </div>
+
+      <hr className="border-border" />
+
+      <div className="flex flex-col gap-2">
+        <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
+          {t("wizard.identify.scope")}
+        </span>
+        <p className="text-[10.5px] text-ink-3 leading-relaxed">
+          {t("wizard.identify.scopeHint")}
+        </p>
+        <div className="flex flex-col gap-2">
+          <label
+            className={`flex items-start gap-2 rounded-md border p-2.5 cursor-pointer ${
+              !spec.referenceTenantId
+                ? "border-council-strong bg-council-strong/5"
+                : "border-border hover:border-council-strong/60"
+            }`}
+          >
+            <input
+              type="radio"
+              name="scope"
+              checked={!spec.referenceTenantId}
+              onChange={() =>
+                update((s) => ({ ...s, referenceTenantId: null }))
+              }
+              className="mt-0.5 accent-council-strong"
+            />
+            <span className="text-[12.5px] text-ink-1 leading-snug">
+              <span className="font-semibold">
+                {t("wizard.identify.scopeCrossTenant")}
+              </span>
+              <span className="block text-[10.5px] text-ink-3 mt-0.5">
+                {t("wizard.identify.scopeCrossTenantHint")}
+              </span>
+            </span>
+          </label>
+          <label
+            className={`flex items-start gap-2 rounded-md border p-2.5 cursor-pointer ${
+              spec.referenceTenantId
+                ? "border-warn bg-warn/10"
+                : "border-border hover:border-council-strong/60"
+            }`}
+          >
+            <input
+              type="radio"
+              name="scope"
+              checked={!!spec.referenceTenantId}
+              onChange={() =>
+                update((s) => ({
+                  ...s,
+                  referenceTenantId:
+                    directiveTenants[0]?.id ?? null,
+                }))
+              }
+              className="mt-0.5 accent-council-strong"
+            />
+            <span className="text-[12.5px] text-ink-1 leading-snug flex-1">
+              <span className="font-semibold">
+                {t("wizard.identify.scopeTenantScoped")}
+              </span>
+              <span className="block text-[10.5px] text-ink-3 mt-0.5">
+                {t("wizard.identify.scopeTenantScopedHint")}
+              </span>
+              {spec.referenceTenantId ? (
+                <select
+                  value={spec.referenceTenantId}
+                  onChange={(e) =>
+                    update((s) => ({
+                      ...s,
+                      referenceTenantId: e.target.value,
+                    }))
+                  }
+                  className="mt-2 h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12px] px-2"
+                >
+                  {directiveTenants.map((tt) => (
+                    <option key={tt.id} value={tt.id}>
+                      {locale === "ar" ? tt.nameAr : tt.nameEn}
+                      {tt.isDemo ? " — demo" : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </span>
+          </label>
+        </div>
+      </div>
     </div>
   );
 }
@@ -445,6 +643,7 @@ function UsersStep({
   reference: Reference;
 }) {
   const { t } = useI18n();
+  const tenantScoped = !!spec.referenceTenantId;
   return (
     <div className="flex flex-col gap-4">
       <CardHeader title={t("wizard.step.users")} />
@@ -564,6 +763,52 @@ function UsersStep({
         </div>
       ) : null}
 
+      {tenantScoped ? (
+        <div className="flex flex-col gap-3 p-3 rounded-md border border-warn/40 bg-warn/5">
+          <div className="text-[11px] text-ink-2 leading-relaxed">
+            {t("wizard.users.tenantLocalHint")}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
+              {t("wizard.users.specificUsersLabel")}
+            </span>
+            <TenantTypeaheadPicker
+              referenceTenantId={spec.referenceTenantId!}
+              kind="users"
+              value={spec.users.include.userIds}
+              onChange={(ids) =>
+                update((s) => ({
+                  ...s,
+                  users: {
+                    ...s.users,
+                    include: { ...s.users.include, userIds: ids },
+                  },
+                }))
+              }
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
+              {t("wizard.users.specificGroupsLabel")}
+            </span>
+            <TenantTypeaheadPicker
+              referenceTenantId={spec.referenceTenantId!}
+              kind="groups"
+              value={spec.users.include.groupIds}
+              onChange={(ids) =>
+                update((s) => ({
+                  ...s,
+                  users: {
+                    ...s.users,
+                    include: { ...s.users.include, groupIds: ids },
+                  },
+                }))
+              }
+            />
+          </div>
+        </div>
+      ) : null}
+
       <hr className="border-border" />
 
       <div className="flex flex-col gap-2">
@@ -611,7 +856,179 @@ function UsersStep({
             }))
           }
         />
+        {tenantScoped ? (
+          <>
+            <div className="text-[11.5px] text-ink-2 mt-2">
+              {t("wizard.users.excludeSpecificUsersLabel")}
+            </div>
+            <TenantTypeaheadPicker
+              referenceTenantId={spec.referenceTenantId!}
+              kind="users"
+              value={spec.users.exclude.userIds}
+              onChange={(ids) =>
+                update((s) => ({
+                  ...s,
+                  users: {
+                    ...s.users,
+                    exclude: { ...s.users.exclude, userIds: ids },
+                  },
+                }))
+              }
+            />
+            <div className="text-[11.5px] text-ink-2 mt-2">
+              {t("wizard.users.excludeSpecificGroupsLabel")}
+            </div>
+            <TenantTypeaheadPicker
+              referenceTenantId={spec.referenceTenantId!}
+              kind="groups"
+              value={spec.users.exclude.groupIds}
+              onChange={(ids) =>
+                update((s) => ({
+                  ...s,
+                  users: {
+                    ...s.users,
+                    exclude: { ...s.users.exclude, groupIds: ids },
+                  },
+                }))
+              }
+            />
+          </>
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function TenantTypeaheadPicker({
+  referenceTenantId,
+  kind,
+  value,
+  onChange,
+}: {
+  referenceTenantId: string;
+  kind: "users" | "groups";
+  value: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<
+    Array<{ id: string; displayName: string; subtitle?: string }>
+  >([]);
+  const [loading, setLoading] = useState(false);
+  const [labels, setLabels] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    const t = setTimeout(() => {
+      api
+        .directiveCustomPolicyTenantRef(referenceTenantId, kind, query)
+        .then((r) => {
+          if (!alive) return;
+          const rows = (r.items as Array<Record<string, unknown>>).map(
+            (raw) => {
+              const id = String(raw.id);
+              const displayName = String(raw.displayName ?? "");
+              const subtitle =
+                kind === "users"
+                  ? String(raw.userPrincipalName ?? "")
+                  : raw.memberCount !== undefined
+                    ? `${raw.memberCount} members`
+                    : "";
+              return { id, displayName, subtitle };
+            },
+          );
+          setResults(rows);
+          // Cache display names for items already selected.
+          setLabels((prev) => {
+            const next = { ...prev };
+            for (const r of rows) next[r.id] = r.displayName;
+            return next;
+          });
+        })
+        .catch(() => {
+          if (!alive) return;
+          setResults([]);
+        })
+        .finally(() => {
+          if (!alive) return;
+          setLoading(false);
+        });
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [referenceTenantId, kind, query]);
+
+  const toggle = (id: string) => {
+    onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={
+            kind === "users" ? "Search users…" : "Search groups…"
+          }
+          className="flex-1 h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12px] px-2.5"
+        />
+        {loading ? (
+          <Loader2 size={12} className="text-ink-3 animate-spin" />
+        ) : null}
+      </div>
+      {value.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {value.map((id) => (
+            <span
+              key={id}
+              className="inline-flex items-center gap-1 h-6 px-2 rounded bg-council-strong/10 text-council-strong text-[11px]"
+            >
+              {labels[id] ?? id}
+              <button
+                onClick={() => toggle(id)}
+                className="hover:text-neg"
+                type="button"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {results.length > 0 ? (
+        <div className="max-h-[180px] overflow-y-auto rounded-md border border-border bg-surface-1">
+          {results.map((r) => {
+            const active = value.includes(r.id);
+            return (
+              <label
+                key={r.id}
+                className={`flex items-center gap-2 px-2.5 py-1.5 cursor-pointer border-b border-border/60 last:border-b-0 ${
+                  active ? "bg-council-strong/5" : "hover:bg-surface-2"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() => toggle(r.id)}
+                  className="accent-council-strong"
+                />
+                <span className="text-[12px] text-ink-1 flex-1">
+                  {r.displayName}
+                </span>
+                {r.subtitle ? (
+                  <span className="text-[10.5px] text-ink-3 truncate max-w-[180px]">
+                    {r.subtitle}
+                  </span>
+                ) : null}
+              </label>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -958,12 +1375,16 @@ function ConditionsStep({
         <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
           {t("wizard.conditions.locations")}
         </span>
-        {(["any", "trustedOnly"] as const).map((v) => {
+        {(
+          [
+            { v: "any", label: t("wizard.conditions.locationsAny") },
+            { v: "trustedOnly", label: t("wizard.conditions.locationsTrusted") },
+            ...(spec.referenceTenantId
+              ? [{ v: "specific" as const, label: t("wizard.conditions.locationsSpecific") }]
+              : []),
+          ] as Array<{ v: Spec["conditions"]["locations"]; label: string }>
+        ).map(({ v, label }) => {
           const active = spec.conditions.locations === v;
-          const label =
-            v === "any"
-              ? t("wizard.conditions.locationsAny")
-              : t("wizard.conditions.locationsTrusted");
           return (
             <label
               key={v}
@@ -989,6 +1410,284 @@ function ConditionsStep({
           );
         })}
       </div>
+
+      {spec.conditions.locations === "specific" && spec.referenceTenantId ? (
+        <NamedLocationsPicker
+          referenceTenantId={spec.referenceTenantId}
+          include={spec.conditions.includeLocations}
+          exclude={spec.conditions.excludeLocations}
+          onChangeInclude={(ids) =>
+            update((s) => ({
+              ...s,
+              conditions: { ...s.conditions, includeLocations: ids },
+            }))
+          }
+          onChangeExclude={(ids) =>
+            update((s) => ({
+              ...s,
+              conditions: { ...s.conditions, excludeLocations: ids },
+            }))
+          }
+        />
+      ) : null}
+
+      <hr className="border-border" />
+
+      <DeviceFilterSection
+        filter={spec.conditions.deviceFilter}
+        onChange={(df) =>
+          update((s) => ({
+            ...s,
+            conditions: { ...s.conditions, deviceFilter: df },
+          }))
+        }
+      />
+    </div>
+  );
+}
+
+function NamedLocationsPicker({
+  referenceTenantId,
+  include,
+  exclude,
+  onChangeInclude,
+  onChangeExclude,
+}: {
+  referenceTenantId: string;
+  include: string[];
+  exclude: string[];
+  onChangeInclude: (ids: string[]) => void;
+  onChangeExclude: (ids: string[]) => void;
+}) {
+  const { t } = useI18n();
+  const [locations, setLocations] = useState<
+    Array<{ id: string; displayName: string; isTrusted: boolean; kind: string }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    api
+      .directiveCustomPolicyTenantRef(referenceTenantId, "namedLocations")
+      .then((r) => {
+        if (!alive) return;
+        setLocations(
+          r.items.map((x) => ({
+            id: String(x.id),
+            displayName: String(x.displayName ?? ""),
+            isTrusted: !!x.isTrusted,
+            kind: String(x.kind ?? "other"),
+          })),
+        );
+      })
+      .catch(() => {
+        /* ignore */
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [referenceTenantId]);
+
+  const toggle = (
+    id: string,
+    current: string[],
+    setter: (ids: string[]) => void,
+  ) => {
+    setter(current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
+  };
+
+  return (
+    <div className="flex flex-col gap-2 p-3 rounded-md border border-warn/40 bg-warn/5">
+      <div className="text-[11px] text-ink-2">
+        {t("wizard.conditions.namedLocationsHint")}
+      </div>
+      {loading ? (
+        <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+      ) : locations.length === 0 ? (
+        <div className="text-[12px] text-ink-3">
+          {t("wizard.conditions.namedLocationsEmpty")}
+        </div>
+      ) : (
+        <div className="max-h-[200px] overflow-y-auto rounded-md border border-border bg-surface-1">
+          {locations.map((loc) => {
+            const incl = include.includes(loc.id);
+            const excl = exclude.includes(loc.id);
+            return (
+              <div
+                key={loc.id}
+                className="flex items-center gap-2 px-2.5 py-1.5 border-b border-border/60 last:border-b-0"
+              >
+                <span className="text-[12px] text-ink-1 flex-1">
+                  {loc.displayName}
+                  {loc.isTrusted ? (
+                    <span className="ms-1 text-[10px] text-pos">
+                      (trusted)
+                    </span>
+                  ) : null}
+                </span>
+                <label className="inline-flex items-center gap-1 text-[11px] text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={incl}
+                    onChange={() => toggle(loc.id, include, onChangeInclude)}
+                    className="accent-council-strong"
+                  />
+                  include
+                </label>
+                <label className="inline-flex items-center gap-1 text-[11px] text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={excl}
+                    onChange={() => toggle(loc.id, exclude, onChangeExclude)}
+                    className="accent-neg"
+                  />
+                  exclude
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeviceFilterSection({
+  filter,
+  onChange,
+}: {
+  filter: Spec["conditions"]["deviceFilter"];
+  onChange: (df: Spec["conditions"]["deviceFilter"]) => void;
+}) {
+  const { t } = useI18n();
+  const addRule = () =>
+    onChange({
+      ...filter,
+      rules: [
+        ...filter.rules,
+        { attr: "trustType", op: "-eq", value: "AzureAD" },
+      ],
+    });
+  const removeRule = (idx: number) =>
+    onChange({
+      ...filter,
+      rules: filter.rules.filter((_, i) => i !== idx),
+    });
+  const updateRule = (
+    idx: number,
+    patch: Partial<Spec["conditions"]["deviceFilter"]["rules"][number]>,
+  ) =>
+    onChange({
+      ...filter,
+      rules: filter.rules.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
+    });
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
+        {t("wizard.conditions.deviceFilter")}
+      </span>
+      <div className="text-[10.5px] text-ink-3">
+        {t("wizard.conditions.deviceFilterHint")}
+      </div>
+      <label className="inline-flex items-center gap-2 text-[12px]">
+        <input
+          type="checkbox"
+          checked={filter.enabled}
+          onChange={(e) =>
+            onChange({ ...filter, enabled: e.target.checked })
+          }
+          className="accent-council-strong"
+        />
+        <span className="text-ink-1">
+          {t("wizard.conditions.deviceFilterEnable")}
+        </span>
+      </label>
+      {filter.enabled ? (
+        <div className="flex flex-col gap-2 ms-6">
+          <div className="flex gap-2">
+            {(["include", "exclude"] as const).map((m) => (
+              <label
+                key={m}
+                className={`inline-flex items-center gap-1.5 h-7 px-2 rounded border text-[11px] cursor-pointer ${
+                  filter.mode === m
+                    ? "border-council-strong bg-council-strong/5 text-ink-1"
+                    : "border-border text-ink-2 hover:bg-surface-2"
+                }`}
+              >
+                <input
+                  type="radio"
+                  checked={filter.mode === m}
+                  onChange={() => onChange({ ...filter, mode: m })}
+                  className="accent-council-strong"
+                />
+                {m}
+              </label>
+            ))}
+          </div>
+          {filter.rules.map((rule, idx) => (
+            <div
+              key={idx}
+              className="flex items-center gap-1.5 flex-wrap"
+            >
+              <span className="text-[11px] text-ink-3">device.</span>
+              <select
+                value={rule.attr}
+                onChange={(e) =>
+                  updateRule(idx, { attr: e.target.value as typeof rule.attr })
+                }
+                className="h-7 rounded border border-border bg-surface-1 text-[11.5px] px-2"
+              >
+                <option value="trustType">trustType</option>
+                <option value="isCompliant">isCompliant</option>
+                <option value="mdmAppId">mdmAppId</option>
+                <option value="operatingSystem">operatingSystem</option>
+              </select>
+              <select
+                value={rule.op}
+                onChange={(e) =>
+                  updateRule(idx, { op: e.target.value as typeof rule.op })
+                }
+                className="h-7 rounded border border-border bg-surface-1 text-[11.5px] px-2"
+              >
+                <option value="-eq">-eq</option>
+                <option value="-ne">-ne</option>
+                <option value="-contains">-contains</option>
+              </select>
+              <input
+                value={rule.value}
+                onChange={(e) => updateRule(idx, { value: e.target.value })}
+                placeholder={
+                  rule.attr === "isCompliant"
+                    ? "true or false"
+                    : rule.attr === "trustType"
+                      ? 'AzureAD | ServerAD | Workplace'
+                      : rule.attr === "operatingSystem"
+                        ? 'Windows | iOS | Android | macOS | Linux'
+                        : ""
+                }
+                className="h-7 rounded border border-border bg-surface-1 text-[11.5px] px-2 flex-1 min-w-[160px]"
+              />
+              <button
+                onClick={() => removeRule(idx)}
+                className="text-ink-3 hover:text-neg"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+          <button
+            onClick={addRule}
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-border text-[11.5px] text-ink-1 hover:bg-surface-2 self-start"
+          >
+            <Plus size={11} />
+            {t("wizard.conditions.deviceFilterAdd")}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1143,41 +1842,24 @@ function GrantStep({
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
-              {t("wizard.grant.authStrengthLabel")}
-            </span>
-            <select
-              value={spec.grant.authenticationStrengthId ?? ""}
-              onChange={(e) =>
+          <AuthStrengthSelect
+            spec={spec}
+            update={update}
+            builtIn={reference.authStrengths}
+          />
+
+          {spec.referenceTenantId ? (
+            <TermsOfUsePicker
+              referenceTenantId={spec.referenceTenantId}
+              value={spec.grant.termsOfUseIds}
+              onChange={(ids) =>
                 update((s) => ({
                   ...s,
-                  grant: {
-                    ...s.grant,
-                    authenticationStrengthId:
-                      e.target.value === "" ? undefined : e.target.value,
-                  },
+                  grant: { ...s.grant, termsOfUseIds: ids },
                 }))
               }
-              className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
-            >
-              <option value="">{t("wizard.grant.authStrengthNone")}</option>
-              {reference.authStrengths.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-            {spec.grant.authenticationStrengthId ? (
-              <div className="text-[10.5px] text-ink-3">
-                {
-                  reference.authStrengths.find(
-                    (a) => a.id === spec.grant.authenticationStrengthId,
-                  )?.description
-                }
-              </div>
-            ) : null}
-          </div>
+            />
+          ) : null}
 
           <GrantCheckbox
             label={t("wizard.grant.requireMfa")}
@@ -1242,6 +1924,198 @@ function GrantStep({
           />
         </>
       ) : null}
+    </div>
+  );
+}
+
+function AuthStrengthSelect({
+  spec,
+  update,
+  builtIn,
+}: {
+  spec: Spec;
+  update: (mut: (s: Spec) => Spec) => void;
+  builtIn: Reference["authStrengths"];
+}) {
+  const { t } = useI18n();
+  const [customStrengths, setCustomStrengths] = useState<
+    Array<{ id: string; name: string; description: string }>
+  >([]);
+
+  useEffect(() => {
+    if (!spec.referenceTenantId) {
+      setCustomStrengths([]);
+      return;
+    }
+    let alive = true;
+    api
+      .directiveCustomPolicyTenantRef(spec.referenceTenantId, "authStrengths")
+      .then((r) => {
+        if (!alive) return;
+        setCustomStrengths(
+          r.items
+            .filter((x) => x.isBuiltIn === false)
+            .map((x) => ({
+              id: String(x.id),
+              name: String(x.displayName ?? ""),
+              description: String(x.description ?? ""),
+            })),
+        );
+      })
+      .catch(() => {
+        /* ignore */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [spec.referenceTenantId]);
+
+  const all = [
+    ...builtIn.map((x) => ({
+      id: x.id,
+      name: x.name,
+      description: x.description,
+      isBuiltIn: true,
+    })),
+    ...customStrengths.map((x) => ({ ...x, isBuiltIn: false })),
+  ];
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
+        {t("wizard.grant.authStrengthLabel")}
+      </span>
+      <select
+        value={spec.grant.authenticationStrengthId ?? ""}
+        onChange={(e) =>
+          update((s) => ({
+            ...s,
+            grant: {
+              ...s.grant,
+              authenticationStrengthId:
+                e.target.value === "" ? undefined : e.target.value,
+            },
+          }))
+        }
+        className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+      >
+        <option value="">{t("wizard.grant.authStrengthNone")}</option>
+        <optgroup label="Built-in">
+          {builtIn.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </optgroup>
+        {customStrengths.length > 0 ? (
+          <optgroup label="Custom (from reference tenant)">
+            {customStrengths.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </optgroup>
+        ) : null}
+      </select>
+      {spec.grant.authenticationStrengthId ? (
+        <div className="text-[10.5px] text-ink-3">
+          {
+            all.find((a) => a.id === spec.grant.authenticationStrengthId)
+              ?.description
+          }
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TermsOfUsePicker({
+  referenceTenantId,
+  value,
+  onChange,
+}: {
+  referenceTenantId: string;
+  value: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const { t } = useI18n();
+  const [tou, setTou] = useState<
+    Array<{ id: string; displayName: string; isEnabled: boolean }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    api
+      .directiveCustomPolicyTenantRef(referenceTenantId, "termsOfUse")
+      .then((r) => {
+        if (!alive) return;
+        setTou(
+          r.items.map((x) => ({
+            id: String(x.id),
+            displayName: String(x.displayName ?? ""),
+            isEnabled: !!x.isEnabled,
+          })),
+        );
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [referenceTenantId]);
+
+  return (
+    <div className="flex flex-col gap-1.5 p-3 rounded-md border border-warn/40 bg-warn/5">
+      <span className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em]">
+        {t("wizard.grant.touLabel")}
+      </span>
+      <p className="text-[10.5px] text-ink-3">{t("wizard.grant.touHint")}</p>
+      {loading ? (
+        <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+      ) : tou.length === 0 ? (
+        <div className="text-[12px] text-ink-3">
+          {t("wizard.grant.touEmpty")}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {tou.map((t1) => {
+            const active = value.includes(t1.id);
+            return (
+              <label
+                key={t1.id}
+                className={`flex items-center gap-2 rounded border p-1.5 px-2 cursor-pointer ${
+                  active
+                    ? "border-council-strong bg-council-strong/5"
+                    : "border-border hover:bg-surface-2"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() =>
+                    onChange(
+                      active
+                        ? value.filter((x) => x !== t1.id)
+                        : [...value, t1.id],
+                    )
+                  }
+                  className="accent-council-strong"
+                />
+                <span className="text-[12px] text-ink-1 flex-1">
+                  {t1.displayName}
+                </span>
+                {!t1.isEnabled ? (
+                  <span className="text-[10px] text-warn">disabled</span>
+                ) : null}
+              </label>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1462,7 +2336,11 @@ function ReviewStep({
       isDemo: boolean;
     }>
   >([]);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
+    // When tenant-scoped, pre-select the reference tenant so the push
+    // button is active immediately.
+    spec.referenceTenantId ? new Set([spec.referenceTenantId]) : new Set(),
+  );
   const [pushing, setPushing] = useState(false);
   const [result, setResult] = useState<null | Awaited<
     ReturnType<typeof api.directiveCustomPolicyPush>
@@ -1545,24 +2423,36 @@ function ReviewStep({
         <div className="text-[11.5px] font-semibold text-ink-2 uppercase tracking-[0.06em] mb-2">
           {t("wizard.review.targetPickerTitle")}
         </div>
+        {spec.referenceTenantId ? (
+          <div className="text-[11px] text-warn mb-2">
+            {t("wizard.review.scopedTargetOnly")}
+          </div>
+        ) : null}
         {tenants.length === 0 ? (
           <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[240px] overflow-y-auto">
             {tenants.map((tenant) => {
               const active = selectedIds.has(tenant.id);
+              // In tenant-scoped mode, only the reference tenant is selectable.
+              const blocked =
+                !!spec.referenceTenantId &&
+                tenant.id !== spec.referenceTenantId;
               return (
                 <label
                   key={tenant.id}
-                  className={`flex items-center gap-2 rounded-md border p-2 cursor-pointer ${
-                    active
-                      ? "border-council-strong bg-council-strong/5"
-                      : "border-border bg-surface-1 hover:border-council-strong/60"
+                  className={`flex items-center gap-2 rounded-md border p-2 ${
+                    blocked
+                      ? "border-border bg-surface-3 opacity-50 cursor-not-allowed"
+                      : active
+                        ? "border-council-strong bg-council-strong/5 cursor-pointer"
+                        : "border-border bg-surface-1 hover:border-council-strong/60 cursor-pointer"
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={active}
+                    disabled={blocked}
                     onChange={() => toggle(tenant.id)}
                     className="accent-council-strong"
                   />

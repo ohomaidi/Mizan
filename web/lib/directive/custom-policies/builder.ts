@@ -40,6 +40,20 @@ export function buildCaBodyFromSpec(
       externalTenants: { membershipKind: include.externalTenantMembershipKind },
     };
   }
+  // Tenant-local targeting additions — only emitted when the spec was
+  // authored against a reference tenant. Added on top of whatever
+  // include kind was chosen (Entra treats these as union-with, not replace).
+  if (spec.referenceTenantId) {
+    if (include.userIds.length > 0) {
+      users.includeUsers = [
+        ...(users.includeUsers ?? []),
+        ...include.userIds,
+      ];
+    }
+    if (include.groupIds.length > 0) {
+      users.includeGroups = include.groupIds;
+    }
+  }
   const excludeRoles = [...spec.users.exclude.roleIds];
   if (
     spec.users.exclude.excludeGlobalAdmins &&
@@ -49,6 +63,14 @@ export function buildCaBodyFromSpec(
   }
   if (excludeRoles.length > 0) {
     users.excludeRoles = excludeRoles;
+  }
+  if (spec.referenceTenantId) {
+    if (spec.users.exclude.userIds.length > 0) {
+      users.excludeUsers = spec.users.exclude.userIds;
+    }
+    if (spec.users.exclude.groupIds.length > 0) {
+      users.excludeGroups = spec.users.exclude.groupIds;
+    }
   }
   body.conditions.users = users;
 
@@ -89,6 +111,42 @@ export function buildCaBodyFromSpec(
   }
   if (spec.conditions.locations === "trustedOnly") {
     body.conditions.locations = { includeLocations: ["AllTrusted"] };
+  } else if (spec.conditions.locations === "specific") {
+    if (
+      spec.conditions.includeLocations.length > 0 ||
+      spec.conditions.excludeLocations.length > 0
+    ) {
+      body.conditions.locations = {};
+      if (spec.conditions.includeLocations.length > 0) {
+        body.conditions.locations.includeLocations =
+          spec.conditions.includeLocations;
+      }
+      if (spec.conditions.excludeLocations.length > 0) {
+        body.conditions.locations.excludeLocations =
+          spec.conditions.excludeLocations;
+      }
+    }
+  }
+
+  // Device filter — serialise AND-joined triples into Graph's rule string.
+  // Value quoting: strings get double-quoted, booleans get written bare.
+  const df = spec.conditions.deviceFilter;
+  if (df.enabled && df.rules.length > 0) {
+    const atoms = df.rules.map((r) => {
+      const value =
+        r.attr === "isCompliant"
+          ? r.value === "true"
+            ? "True"
+            : "False"
+          : `"${r.value.replace(/"/g, '\\"')}"`;
+      return `device.${r.attr} ${r.op} ${value}`;
+    });
+    body.conditions.devices = {
+      deviceFilter: {
+        mode: df.mode,
+        rule: atoms.join(" -and "),
+      },
+    };
   }
 
   // ----- Grant ----- //
@@ -121,6 +179,9 @@ export function buildCaBodyFromSpec(
       body.grantControls.authenticationStrength = {
         id: spec.grant.authenticationStrengthId,
       };
+    }
+    if (spec.referenceTenantId && spec.grant.termsOfUseIds.length > 0) {
+      body.grantControls.termsOfUse = spec.grant.termsOfUseIds;
     }
   }
 

@@ -966,6 +966,24 @@ export const api = {
       { method: "POST" },
     ),
 
+  directiveCustomPolicyTenantRef: (
+    tenantId: string,
+    kind:
+      | "namedLocations"
+      | "termsOfUse"
+      | "authStrengths"
+      | "users"
+      | "groups",
+    q = "",
+  ) =>
+    jsonFetch<{
+      items: Array<Record<string, unknown>>;
+    }>(
+      `/api/directive/custom-policies/tenant-ref?tenantId=${encodeURIComponent(
+        tenantId,
+      )}&kind=${encodeURIComponent(kind)}${q ? `&q=${encodeURIComponent(q)}` : ""}`,
+    ),
+
   directiveCustomPolicyReference: () =>
     jsonFetch<{
       roles: Array<{

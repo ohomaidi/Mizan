@@ -123,6 +123,7 @@ export function bodyToSpec(
     requireCompliantApplication: g.builtInControls.includes("compliantApplication"),
     requirePasswordChange: g.builtInControls.includes("passwordChange"),
     authenticationStrengthId: g.authenticationStrength?.id,
+    termsOfUseIds: [],
   };
 
   // ----- Session ----- //
@@ -144,15 +145,21 @@ export function bodyToSpec(
   const spec = {
     name,
     state: body.state,
+    // Baselines are always cross-tenant — null reference tenant.
+    referenceTenantId: null,
     users: {
       include: {
         kind: includeKind,
         roleIds,
+        userIds: [],
+        groupIds: [],
         guestTypes,
         externalTenantMembershipKind,
       },
       exclude: {
         roleIds: excludeRoleIds,
+        userIds: [],
+        groupIds: [],
         excludeGlobalAdmins,
       },
     },
@@ -167,8 +174,18 @@ export function bodyToSpec(
       platforms,
       clientAppTypes,
       locations,
+      includeLocations: [],
+      excludeLocations: [],
+      deviceFilter: {
+        enabled: false,
+        mode: "include",
+        rules: [],
+      },
     },
-    grant,
+    grant: {
+      ...grant,
+      termsOfUseIds: [],
+    },
     session,
   };
 

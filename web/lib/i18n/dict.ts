@@ -1425,6 +1425,22 @@ export const DICT = {
       "Enabled — policy IS enforced immediately on every matching sign-in.",
     "wizard.identify.enabledWarn":
       "⚠ You've chosen to enforce this immediately. Make sure you've simulated against a demo entity first.",
+    "wizard.identify.scope": "Policy scope",
+    "wizard.identify.scopeHint":
+      "Cross-tenant policies are built from values that mean the same thing in every Entra tenant (All users, directory roles, guests, Microsoft-published apps, built-in auth strengths). Tenant-scoped policies can additionally reference specific users, groups, named locations, Terms of Use, and custom auth strengths from one chosen entity — at the cost of only being pushable to that one entity.",
+    "wizard.identify.scopeCrossTenant": "Cross-tenant (default)",
+    "wizard.identify.scopeCrossTenantHint":
+      "Pushable to many entities at once. Tenant-local pickers stay hidden.",
+    "wizard.identify.scopeTenantScoped": "Tenant-scoped to one entity",
+    "wizard.identify.scopeTenantScopedHint":
+      "Unlocks specific users, groups, named locations, Terms of Use, and custom auth strengths from the chosen reference tenant. Push is restricted to that tenant.",
+
+    "wizard.scope.crossTenant":
+      "Cross-tenant policy — every field works in every entity's Entra tenant.",
+    "wizard.scope.scopedTitle":
+      "Tenant-scoped to {tenant}",
+    "wizard.scope.scopedBody":
+      "Tenant-local IDs (specific users, groups, named locations, ToU, custom auth strengths) are resolved against this entity. Push is restricted to it.",
 
     "wizard.users.includeTitle": "Apply to",
     "wizard.users.includeAll": "All users in the tenant",
@@ -1444,6 +1460,16 @@ export const DICT = {
       "Keeps a recoverable path into every tenant. Disable only if you truly understand the lockout risk.",
     "wizard.users.excludeRolesLabel":
       "Also exclude these directory roles",
+    "wizard.users.tenantLocalHint":
+      "These fields reference specific users and groups from the reference tenant. They are added on top of whatever Include kind you picked above — so \"All users + specific excluded users\" works the same way it does in Entra.",
+    "wizard.users.specificUsersLabel":
+      "Also include these specific users (typeahead against reference tenant)",
+    "wizard.users.specificGroupsLabel":
+      "Also include these specific groups",
+    "wizard.users.excludeSpecificUsersLabel":
+      "Also exclude these specific users",
+    "wizard.users.excludeSpecificGroupsLabel":
+      "Also exclude these specific groups",
 
     "wizard.apps.targetTitle": "Target cloud apps",
     "wizard.apps.targetAll": "All cloud apps",
@@ -1470,6 +1496,18 @@ export const DICT = {
     "wizard.conditions.locationsAny": "Any location",
     "wizard.conditions.locationsTrusted":
       "Trusted locations only (named locations marked trusted in the tenant)",
+    "wizard.conditions.locationsSpecific":
+      "Specific named locations (from reference tenant)",
+    "wizard.conditions.namedLocationsHint":
+      "Named locations are defined per tenant. Pick one or more to include or exclude. Trusted locations are tagged.",
+    "wizard.conditions.namedLocationsEmpty":
+      "No named locations found in this tenant.",
+    "wizard.conditions.deviceFilter": "Device filter",
+    "wizard.conditions.deviceFilterHint":
+      "Narrow by device attributes the sign-in reports. Rules are AND-joined and translated to Entra's rule grammar at render time (e.g. device.trustType -eq \"AzureAD\" -and device.isCompliant -eq True).",
+    "wizard.conditions.deviceFilterEnable":
+      "Enable device filter",
+    "wizard.conditions.deviceFilterAdd": "Add rule",
 
     "wizard.grant.title": "What happens when the conditions match?",
     "wizard.grant.block": "Block the sign-in",
@@ -1491,6 +1529,12 @@ export const DICT = {
       "Require app protection policy (Intune MAM)",
     "wizard.grant.requirePasswordChange":
       "Force password change (for risk-remediation policies)",
+    "wizard.grant.touLabel":
+      "Terms of Use (from reference tenant)",
+    "wizard.grant.touHint":
+      "User must accept each selected Terms of Use document to satisfy the grant. ToU must already exist in the reference tenant.",
+    "wizard.grant.touEmpty":
+      "No Terms of Use agreements found in this tenant.",
 
     "wizard.session.title":
       "Session controls (all optional)",
@@ -1517,6 +1561,8 @@ export const DICT = {
     "wizard.review.pushCta": "Push policy to {count} entity(ies)",
     "wizard.review.cannotPushYet":
       "Fix validation errors on earlier steps before pushing.",
+    "wizard.review.scopedTargetOnly":
+      "This policy is tenant-scoped — push is restricted to its reference tenant. Clone the draft if you need to push to a different entity.",
 
     "wizard.validation.nameRequired": "A policy name is required.",
     "wizard.validation.rolesRequired":
@@ -3331,6 +3377,22 @@ export const DICT = {
       "مُفعَّلة — تُطبَّق السياسة فورًا على كل تسجيل دخول مطابق.",
     "wizard.identify.enabledWarn":
       "⚠ اخترتَ تنفيذ السياسة فورًا. تأكّد من محاكاتها ضد جهة عرض أولًا.",
+    "wizard.identify.scope": "نطاق السياسة",
+    "wizard.identify.scopeHint":
+      "السياسات عبر المستأجرين تُبنى من قيم تعني الشيء نفسه في كل مستأجر Entra (كل المستخدمين، أدوار الدليل، الضيوف، تطبيقات Microsoft المنشورة، قوى المصادقة المدمجة). السياسات المُقيَّدة بمستأجر واحد يمكنها أيضًا الإشارة إلى مستخدمين ومجموعات ومواقع مسماة وTerms of Use وقوى مصادقة مخصّصة من جهة واحدة مختارة — مقابل أنها تُدفع إلى تلك الجهة فقط.",
+    "wizard.identify.scopeCrossTenant": "عبر المستأجرين (الافتراضي)",
+    "wizard.identify.scopeCrossTenantHint":
+      "قابلة للدفع إلى عدّة جهات. تبقى منتقيات الخصائص المحلّية للمستأجر مخفيّة.",
+    "wizard.identify.scopeTenantScoped": "مُقيَّدة بجهة واحدة",
+    "wizard.identify.scopeTenantScopedHint":
+      "تُفتح منتقيات المستخدمين والمجموعات والمواقع المسماة وToU وقوى المصادقة المخصّصة من المستأجر المرجعي المختار. الدفع مقصور على تلك الجهة.",
+
+    "wizard.scope.crossTenant":
+      "سياسة عبر المستأجرين — كل حقل يعمل في مستأجر Entra لأي جهة.",
+    "wizard.scope.scopedTitle":
+      "مُقيَّدة بـ {tenant}",
+    "wizard.scope.scopedBody":
+      "المعرّفات المحلّية (مستخدمون ومجموعات ومواقع مسماة وToU وقوى مصادقة مخصّصة) تُحلّ وفق هذه الجهة. الدفع مقصور عليها.",
 
     "wizard.users.includeTitle": "تطبيق على",
     "wizard.users.includeAll": "كل المستخدمين في المستأجر",
@@ -3350,6 +3412,16 @@ export const DICT = {
       "يُبقي مسارًا للاسترداد في كل مستأجر. عطّلها فقط إن فهمتَ تمامًا خطر القفل.",
     "wizard.users.excludeRolesLabel":
       "واستثنِ أيضًا هذه الأدوار",
+    "wizard.users.tenantLocalHint":
+      "هذه الحقول تشير إلى مستخدمين ومجموعات محدّدين من المستأجر المرجعي. تُضاف فوق نوع \"التطبيق على\" المُختار أعلاه — \"كل المستخدمين + مستخدمين محدّدين مستثنين\" يعمل مثل Entra تمامًا.",
+    "wizard.users.specificUsersLabel":
+      "واشمل أيضًا هؤلاء المستخدمين (بحث حي على المستأجر المرجعي)",
+    "wizard.users.specificGroupsLabel":
+      "واشمل أيضًا هذه المجموعات",
+    "wizard.users.excludeSpecificUsersLabel":
+      "واستثنِ أيضًا هؤلاء المستخدمين",
+    "wizard.users.excludeSpecificGroupsLabel":
+      "واستثنِ أيضًا هذه المجموعات",
 
     "wizard.apps.targetTitle": "التطبيقات السحابية المستهدفة",
     "wizard.apps.targetAll": "كل التطبيقات السحابية",
@@ -3376,6 +3448,18 @@ export const DICT = {
     "wizard.conditions.locationsAny": "أي موقع",
     "wizard.conditions.locationsTrusted":
       "المواقع الموثوقة فقط (المواقع المسماة المحدَّدة كموثوقة)",
+    "wizard.conditions.locationsSpecific":
+      "مواقع مسماة محدّدة (من المستأجر المرجعي)",
+    "wizard.conditions.namedLocationsHint":
+      "المواقع المسماة مُعرَّفة لكل مستأجر. اختر واحدًا أو أكثر لإدراجه أو استثنائه. المواقع الموثوقة مُوسومة.",
+    "wizard.conditions.namedLocationsEmpty":
+      "لا توجد مواقع مسماة في هذا المستأجر.",
+    "wizard.conditions.deviceFilter": "مُرشّح الجهاز",
+    "wizard.conditions.deviceFilterHint":
+      "ضيّق وفق خصائص الجهاز التي يُبلّغ بها تسجيل الدخول. تُربط القواعد بـ AND وتُترجم إلى نحو Entra عند الحفظ.",
+    "wizard.conditions.deviceFilterEnable":
+      "فعّل مُرشّح الجهاز",
+    "wizard.conditions.deviceFilterAdd": "أضف قاعدة",
 
     "wizard.grant.title": "ماذا يحدث عند مطابقة الشروط؟",
     "wizard.grant.block": "حظر تسجيل الدخول",
@@ -3397,6 +3481,12 @@ export const DICT = {
       "اشترط سياسة حماية التطبيقات (Intune MAM)",
     "wizard.grant.requirePasswordChange":
       "افرض تغيير كلمة المرور (لسياسات معالجة المخاطر)",
+    "wizard.grant.touLabel":
+      "اتفاقيات Terms of Use (من المستأجر المرجعي)",
+    "wizard.grant.touHint":
+      "يجب أن يقبل المستخدم كل اتفاقية محدّدة لاستيفاء المنح. يجب أن تكون الاتفاقيات موجودة في المستأجر المرجعي مسبقًا.",
+    "wizard.grant.touEmpty":
+      "لا توجد اتفاقيات Terms of Use في هذا المستأجر.",
 
     "wizard.session.title":
       "ضوابط الجلسة (كلها اختيارية)",
@@ -3423,6 +3513,8 @@ export const DICT = {
     "wizard.review.pushCta": "ادفع السياسة إلى {count} جهة",
     "wizard.review.cannotPushYet":
       "عالج أخطاء التحقّق في الخطوات السابقة قبل الدفع.",
+    "wizard.review.scopedTargetOnly":
+      "هذه السياسة مُقيَّدة بمستأجر واحد — الدفع مقصور على مستأجرها المرجعي. انسخ المسوّدة إن أردتَ الدفع إلى جهة أخرى.",
 
     "wizard.validation.nameRequired": "اسم السياسة مطلوب.",
     "wizard.validation.rolesRequired":

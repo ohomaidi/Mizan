@@ -84,6 +84,25 @@ export async function POST(
     );
   }
 
+  // Tenant-scoped drafts (reference-tenant set) may only be pushed to
+  // their reference tenant — the tenant-local IDs in the spec only exist
+  // there. Block any cross-tenant push up front with a clear error.
+  if (spec.referenceTenantId) {
+    const offenders = targetTenantIds.filter(
+      (id) => id !== spec.referenceTenantId,
+    );
+    if (offenders.length > 0) {
+      return NextResponse.json(
+        {
+          error: "scope_mismatch",
+          referenceTenantId: spec.referenceTenantId,
+          invalidTargets: offenders,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const idempotencyKey = idempotencyKeyForPolicy(numId);
   const policyBody = buildCaBodyFromSpec(
     overrideState ? { ...spec, state: overrideState } : spec,

@@ -95,6 +95,17 @@ export type CaPolicyBody = {
       includePlatforms?: string[];
       excludePlatforms?: string[];
     };
+    /**
+     * Device filter. Graph grammar: rule is a Kusto-like expression over
+     * device properties (trustType, isCompliant, mdmAppId, operatingSystem,
+     * extensionAttribute1…15). Builder emits AND-joined triples.
+     */
+    devices?: {
+      deviceFilter?: {
+        mode: "include" | "exclude";
+        rule: string;
+      };
+    };
   };
   grantControls?: {
     operator: "OR" | "AND";
@@ -109,6 +120,8 @@ export type CaPolicyBody = {
      *   Phishing-resistant MFA  00000000-0000-0000-0000-000000000003
      */
     authenticationStrength?: { id: string };
+    /** Terms of Use IDs the user must accept to satisfy the grant. */
+    termsOfUse?: string[];
   };
   sessionControls?: {
     signInFrequency?: {
