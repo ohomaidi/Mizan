@@ -1,8 +1,13 @@
-# Feature Catalog — Council Posture & Maturity Dashboard
+# Feature Catalog — Mizan
 
-**Purpose:** enumerate every feature the dashboard can deliver against Microsoft Graph (Defender + Purview + Entra + Intune + Compliance Manager), mapped to concrete endpoints, so the Council has thorough visibility across 100+ Sharjah government entities.
+**Purpose:** enumerate every Graph capability Mizan can deliver — what it reads (every deployment) and what it writes (directive deployments only), each mapped to concrete endpoints. This doc is the Graph-facing reference. For the step-by-step operator manual see [`12-operating-manual.md`](12-operating-manual.md).
 
-> **Scope as of 2026-04-19 — read-only, NESA-only.** The project closes in read-only posture. Write paths (Policy Deployment Service, PowerShell automation tier, cross-entity policy push) and multi-framework mapping (NCA / ISR) are deferred to a potential follow-on engagement. Sections below that reference those capabilities are preserved for continuity but marked **[deferred]**.
+> **Scope as of 2026-04-24 — two deployment modes.**
+>
+> - **Observation mode** (default, e.g. Sharjah Cybersecurity Center / SCSC) — the 18 read-only signals listed below. Never writes to an entity's tenant. Framework is configurable per customer (UAE NESA, KSA NCA, ISR/ISO, generic).
+> - **Directive mode** (e.g. Dubai Electronic Security Center / DESC) — observation + a write tier: reactive Graph writes (incident dispositions, threat submissions, user session revoke), Conditional Access baseline pushes (12 curated), custom CA policy wizard, idempotent push + rollback + per-entity status view.
+>
+> Earlier versions of this doc marked write paths as "[deferred]". Those have landed for directive-mode deployments; the marker is now kept only against capabilities still genuinely deferred (Intune / DLP / labels / Defender for Office / Exchange / SP-Teams / PIM / app consent / attack simulation / tenant-wide identity defaults). See the canonical phase roadmap in Claude memory `project_sharjah_council_backlog.md`.
 
 ---
 
@@ -10,8 +15,8 @@
 
 Before features: three realities that shape every design decision.
 
-1. **Auth model.** Single multi-tenant Entra app, admin-consent flow in each of the 100+ entity tenants, one app-only token per tenant, fan-out polling with per-tenant workers. GDAP requires CSP status; Lighthouse is Azure-only. Target ~5 concurrent workers (see `SCSC_SYNC_CONCURRENCY`), MSAL token cache, `Retry-After`-aware HTTP client.
-2. ~~**PowerShell worker pool is mandatory.**~~ **[deferred]** — The ~8 PowerShell-only compliance domains (DLP / IRM / Communication Compliance / Retention *policies* / Information Barriers / Auto-labeling / Audit retention / Compliance Manager) are intentionally **out of scope** for this read-only engagement. They remain policy-authoring surfaces the entities manage themselves.
+1. **Auth model.** Observation deployments use a single multi-tenant **Graph-Signals** Entra app, admin-consent flow in each of the 100+ entity tenants, one app-only token per tenant, fan-out polling with per-tenant workers. **Directive deployments add a second multi-tenant Entra app (the Directive app)** holding writable scopes; entities opt into directive mode with a separate admin-consent step. GDAP requires CSP status; Lighthouse is Azure-only. Target ~5 concurrent workers (see `SCSC_SYNC_CONCURRENCY`), MSAL token cache, `Retry-After`-aware HTTP client.
+2. **PowerShell worker pool remains out of scope.** The ~8 PowerShell-only compliance domains (DLP / IRM / Communication Compliance / Retention *policies* / Information Barriers / Auto-labeling / Audit retention / Compliance Manager) stay policy-authoring surfaces the entities manage themselves. Directive writes today target **Graph-only** endpoints. If future phases need PS (likely for Exchange transport rules + some retention), the architecture note in `04-architecture-and-risks.md §4` returns from deferred to a design decision the user must green-light.
 3. **Change notifications are thin.** Only `alerts_v2`, `incidents`, and Subject Rights Requests support webhooks. Everything else is polling — design the pipeline around that.
 
 ---
@@ -145,20 +150,23 @@ All of the above are **write paths** — creating or modifying policy objects in
 
 ## 6. Governance & Standards (the Council's distinctive tier)
 
-The Council is a federated **observability** layer. Read-only by design — entity SOCs retain full policy autonomy.
+Mizan is a federated **observability** layer for observation-mode customers (entity SOCs retain full policy autonomy). Directive-mode customers get the same observability layer plus a curated write tier — see [`12-operating-manual.md §B`](12-operating-manual.md) for the operator flow.
 
 | Feature | Mechanism | Status |
 |---|---|---|
-| **Control Benchmark** — every entity scored against Council baseline | Baseline = curated target per sub-score. Dashboard shows % aligned per entity. | ✅ In scope |
-| **Maturity Index ranking** | Composite 0–100 score, Council-tunable weights + target | ✅ In scope |
-| **UAE NESA framework alignment** | Map Secure Score controls + custom signals to NESA clauses. Synthesized, not from Compliance Manager API. | ✅ In scope |
-| **Unified Audit Search (read)** | `/security/auditLog/queries` across all tenants with workload-scoped least-privilege permissions. | 🟡 Planned (read-only) |
+| **Control Benchmark** — every entity scored against a baseline | Baseline = curated target per sub-score. Dashboard shows % aligned per entity. | ✅ Shipped |
+| **Maturity Index ranking** | Composite 0–100 score, tunable weights + target | ✅ Shipped |
+| **Multi-framework mapping** | UAE NESA / KSA NCA / ISR & ISO 27001 / generic — per-customer at install time, editable via Settings | ✅ Shipped |
+| **Unified Audit Search (read)** | `/security/auditLog/queries` across all tenants with workload-scoped least-privilege permissions. | 🟡 Shipped as label-adoption query; broader use planned |
 | **Cross-entity eDiscovery (read)** | Read existing cases via `/security/cases/ediscoveryCases`. Creation stays in each entity's own tenant. | 🟡 Planned (read-only) |
-| **Attack Simulation benchmark** | Phish click rate per entity from `/security/attackSimulation`. | 🟡 Planned (read-only) |
-| **Executive reporting pack** | Monthly PDF/PPT auto-generated from the maturity index, delivered to Council leadership. | 🟡 Planned |
-| ~~Policy Deployment Service (Graph side)~~ | CA / retention labels / custom detections push from Council | **[deferred]** |
-| ~~Policy Deployment Service (PS side)~~ | DLP / IRM / Comm Compliance / Info Barriers runbooks | **[deferred]** |
-| ~~NCA / ISR framework mapping~~ | Additional clause-tables for other frameworks | **[deferred]** |
+| **Attack Simulation benchmark** | Phish click rate per entity from `/security/attackSimulation`. | ✅ Shipped (read) |
+| **Executive reporting pack** | Monthly PDF/PPT auto-generated from the maturity index, delivered to leadership. | 🟡 Planned |
+| **Policy Deployment Service — Conditional Access (Graph)** | 12 curated CA baselines + custom CA wizard, idempotent push, per-entity status, pre-flight rollback preview, tenant-scoped wizard mode | ✅ Shipped — **directive deployments only** |
+| **Policy Deployment Service — Intune (Graph)** | Device compliance + app-protection / MAM + device configuration baselines | 🟡 Phase 5 — next |
+| **Policy Deployment Service — Purview DLP / labels / retention (Graph)** | DLP / sensitivity-label / retention-label / retention-policy push | 🟡 Phases 6–8 |
+| **Policy Deployment Service — Defender for Office / Exchange / SP-Teams / PIM / App consent / Attack sim / Tenant identity defaults** | See roadmap | 🟡 Phases 9–15 |
+| Two-person approval workflow before push | Reviewer/approver split | 🟡 Deferred by user 2026-04-24 |
+| ~~Policy Deployment Service (PS tier)~~ | DLP / IRM / Comm Compliance / Info Barriers PS runbooks | **[deferred]** — reopens only if Exchange transport rules force the question |
 
 ---
 
@@ -196,23 +204,42 @@ Quick reference, one line per feature, for design review:
 
 ---
 
-## Phasing (maps to slide 9 roadmap)
+## Phasing
 
-| Phase | Days | Scope |
+Phases 1–4.5 are the observation + directive ladder as actually shipped. Phases 5+ are forward-looking; the canonical ordered table lives in Claude memory `project_sharjah_council_backlog.md`.
+
+| Phase | Scope | Status |
 |---|---|---|
-| 1 — Foundation | 0–15 | Multi-tenant app, per-tenant onboarding runbook, token cache, fan-out framework. ✅ Shipped. |
-| 2 — Dashboard build | 15–45 | Maturity Index v1 (Secure Score + CA + Device compliance + Risky users + Incidents) + UI + polish. ✅ Shipped. |
-| 3 — Read-completeness | 45–75 | Purview reads (DLP + IRM + Comm Compliance + SRRs + retention labels + sensitivity labels + external sharing + label-adoption async), Defender depth (Advanced Hunting KQL packs + Threat Intel + Attack Simulation + DFI sensor health + PIM sprawl), UAE NESA clause mapping, App Registration settings panel. **All read-only.** ✅ Shipped. |
-| 4 — Cutover & launch | 75–90 | Full entity onboarding, executive reporting pack, handoff packaging (Azure App Service / Container Apps deployment runbook, cert-based MSAL). In progress. |
-| ~~5 — Write tier~~ | — | Policy Deployment Service, PowerShell automation runbooks, NCA / ISR mapping, MSAL user-auth for Council staff, change-notification webhooks. **[deferred]** — next-year engagement. |
+| 1 — Foundation | Multi-tenant Graph-Signals app, per-tenant onboarding, token cache, fan-out framework. | ✅ Shipped |
+| 2a — Dashboard build | Maturity Index v1 (Secure Score + CA + device compliance + risky users + incidents) + UI. | ✅ Shipped |
+| 2b — Read-completeness | Purview reads (DLP + IRM + Comm Compliance + SRRs + retention labels + sensitivity labels + external sharing + async label-adoption), Defender depth (Advanced Hunting packs + Threat Intel + Attack Simulation + DFI sensor health + PIM sprawl), multi-framework clause mapping, Settings → App Registration panel. | ✅ Shipped |
+| 2c — Directive reactive writes | Directive app provisioning, per-entity `consent_mode` chooser, incident/alert classification, threat submission (email/URL/file), risky user confirm/dismiss, session revoke. | ✅ Shipped (directive only) |
+| 3 — Conditional Access baselines | 12 curated baselines + idempotent push + per-entity status + pre-flight rollback preview + per-tenant rollback + baseline-wide "remove from all". | ✅ Shipped (directive only) |
+| 4 — Custom CA wizard (MVP) | 7-step cross-tenant wizard (cross-tenant-stable fields only), clone-from-baseline. | ✅ Shipped (directive only) |
+| 4.5 — CA wizard close-out | Tenant-scoped mode (reference tenant) unlocks specific users / groups / named locations / ToU / custom auth strengths. Device filter rule builder. Push scope gate. | ✅ Shipped (directive only) |
+| 5 — Intune writes | Device compliance baselines, app protection (MAM) baselines, device configuration profiles. | 🟡 Next |
+| 6 — Purview DLP writes | DLP policies across Exchange / SharePoint / OneDrive / Teams / endpoint. | 🟡 Future |
+| 7 — Sensitivity labels + auto-labeling | Label hierarchy push, encryption, auto-label rules. | 🟡 Future |
+| 8 — Retention + records | Retention baselines + records-management holds. | 🟡 Future |
+| 9 — Defender for Office | Anti-phishing, Safe Links, Safe Attachments, preset security policies, attack simulation scheduling. | 🟡 Future |
+| 10 — Exchange transport + email auth | Transport rules, DMARC/SPF/DKIM. Has Graph-coverage gap — may reopen PS tier. | 🟡 Future |
+| 11 — SharePoint / OneDrive / Teams governance | External sharing defaults, guest access, Teams policies. | 🟡 Future |
+| 12 — Identity governance + PIM | PIM activation settings, access reviews, entitlement mgmt, ToU creation. | 🟡 Future |
+| 13 — App consent policies | Restrict user consent to verified publishers, admin consent workflow. | 🟡 Future |
+| 14 — Attack simulation + ASR rules | Scheduled drills + endpoint Attack Surface Reduction baselines. | 🟡 Future |
+| 15 — Tenant-wide identity defaults | Authentication-methods policy, authorization policy, cross-tenant access settings. | 🟡 Future |
+| ∞ — Two-person approval workflow | Reviewer/approver split before every push. | 🟡 Deferred by user (2026-04-24) |
 
 ---
 
-## Open questions for the Council
+## Open questions for customers
 
-1. ~~**Framework priority** — is the maturity index primarily NCA-aligned, NESA-aligned, ISR-aligned, or a composite?~~ **Resolved 2026-04-19: UAE NESA.**
-2. **Entity clustering** — slide 6 shows Police / Health / Edu / Municip. / Utilities / Transport. Is this the final cluster set? Drives rollup views.
-3. **Data residency** — must the dashboard backend run in UAE-North / UAE-Central? Affects Azure region choice.
-4. **Target maturity threshold** — slide 6 shows target 75. Council-tunable via Settings → Maturity Index.
-5. ~~**Entity autonomy** — can the Council push policies directly?~~ **Resolved 2026-04-19: read-only. No policy push. Entities retain full autonomy.**
-6. **Credential bootstrap** — who performs admin consent in each entity? Centralized Council team, or entity CISO? Affects onboarding sequence.
+Customer-specific decisions that are *not* resolved at the code level.
+
+1. ~~**Framework priority**~~ **Resolved 2026-04-20: multi-framework via per-customer config (NESA / NCA / ISR / generic).**
+2. **Entity clustering** — current clusters: Police / Health / Edu / Municipality / Utilities / Transport / Other. Customer-editable.
+3. **Data residency** — must the dashboard backend run in-country? Drives Azure region (default `uaenorth`).
+4. **Target maturity threshold** — default 75, configurable per customer via Settings → Maturity Index.
+5. ~~**Entity autonomy** — can the regulator push policies directly?~~ **Resolved 2026-04-20: customer-dependent. SCSC = observation only. DESC = directive mode (reactive writes + CA baselines + custom CA wizard). Future customers decide at install via `MIZAN_DEPLOYMENT_MODE`.**
+6. **Credential bootstrap** — who performs admin consent in each entity? Centralized regulator team, or entity CISO? Affects onboarding sequence. No code impact.
+7. **Approval workflow** — deferred by user 2026-04-24; reopens when the first multi-admin regulator deployment asks for two-person rule.

@@ -268,3 +268,79 @@ This gives the Council a clickable, demo-able UI immediately. Real signals slot 
 - Live Entities list pulling real tenant data
 - Connection health for pilot entities
 - Cloudflare Access wired in front (handled by you in the CF dashboard)
+
+---
+
+## 9. Route: `/directive` (directive-mode deployments only)
+
+Mounted only when `MIZAN_DEPLOYMENT_MODE=directive`. Observation-mode builds do not register the route — 404 at the loader. Full operator flow in [`12-operating-manual.md §B`](12-operating-manual.md).
+
+### 9.1 Page structure
+
+Top-to-bottom stack of cards. Scrolls naturally, no tabs.
+
+1. **Capability cards** — a row of 5 icons representing Phase 2 + Phase 3 directive actions, each flipping from "Planned" chip to "Available" chip based on deployment state.
+2. **Conditional Access baselines** — grid of 12 baseline cards (see §9.2).
+3. **Custom CA policies** — drafts list + "+ New custom policy" button. Routes into the wizard at `/directive/custom-policies/[id]/edit`.
+4. **Baseline status per entity** — entity dropdown + 12-row matrix of current state per baseline.
+5. **Push history** — last 50 push_requests with per-row Roll back button.
+6. **Threat submission console** — in-line form for submitting email / URL / file threats.
+7. **Audit log** — last 500 directive_actions rows with filter + per-row "View details" drawer.
+8. **Guardrails panel** — inline reminder of the safety rails: report-only default, Global Admin exclusion, idempotency, rollback.
+
+### 9.2 Baseline card
+
+Each of the 12 baseline cards renders in a 2-column grid with:
+
+- Title + risk chip (`LOW` / `MEDIUM` / `HIGH` risk) in top-right
+- Body description
+- `Targets:` / `Grant:` / `Initial state:` one-liners
+- Prominent yellow **"Ships report-only"** chip + one-line explainer
+- Green **"Automatically excludes the entity's own Global Administrators"** chip when applicable
+- Three buttons at the bottom: **Push to entities** (primary), **Details** (expand), **Clone as custom draft** (secondary)
+- Red **Remove from ALL entities** button in the card's lower-right
+
+Expanded Details shows Why / User impact / Prerequisites / Rollout advice + a Microsoft Learn reference link.
+
+### 9.3 Push modal
+
+Opens on **Push to entities**. Contents:
+
+- Preview panel with the exact Graph body (collapsible)
+- State override dropdown (Report-only / Disabled / Enabled)
+- Tenant picker (multi-select checkboxes, grid layout, max-height scrolling)
+- Selection count chip — *"3 of 14 entities selected"*
+- **Push** button disabled until selection ≥ 1
+- Result rows render inline after push with per-tenant chip: Success / Already applied / Simulated / Failed / Skipped (observation)
+- "Already applied" rows also show a CaStateChip (Report-only / Enabled / Disabled)
+
+### 9.4 Rollback modal (pre-flight preview)
+
+Opens on **Roll back** in Push history. Contents:
+
+- Intro paragraph explaining what will happen
+- Table: per-tenant rows with checkbox + tenant name + current-state chip + action column
+- Action column shows **Will DELETE** (red) or **Skip** (grey) with reason
+- Yellow *"Entity has flipped this to Enabled — rollback will un-enforce"* below rows where `wouldUnprotect: true`
+- Pre-selects every eligible row; operator deselects to scope
+- Two buttons: **Cancel** + red **Roll back selected (N)**
+
+### 9.5 Wizard route
+
+`/directive/custom-policies/[id]/edit` — full-page replacement for the dashboard layout.
+
+- Header: back-link to `/directive`, policy name h1, Saving… / Saved indicator
+- 7-tab step nav (Identify / Users / Apps / Conditions / Access / Session / Review)
+- Scope banner below step nav — green ("Cross-tenant") or yellow ("Tenant-scoped to X")
+- 2-column layout below: active step on the left (2/3 width), always-visible Review panel on the right (1/3 width)
+- Review panel shows 5 one-line summaries of the other steps — clickable to jump
+- Large "Push to entities" button at the bottom of the Review panel
+
+### 9.6 Status view details
+
+`/directive → Baseline status per entity`:
+
+- Entity picker dropdown (directive entities only)
+- "Snapshot taken" timestamp + mode chip (accent "Simulated" for demo tenants, green "Live from Entra tenant" for real)
+- 12-row table: Baseline name / Present (green Yes or grey Not present) / Current state (chip) / Observed timestamp
+- Drift annotations inline under each row: yellow "flipped to Enabled" warning, grey "still in report-only" info

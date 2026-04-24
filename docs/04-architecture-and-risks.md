@@ -1,8 +1,10 @@
 # Architecture, Multi-Tenant Patterns, and Risk Register
 
-**Scope:** how Mizan reaches connected entity tenants, the throttling envelope it must live inside, and the risks to name in the board deck.
+**Scope:** how Mizan reaches connected entity tenants, the throttling envelope it must live inside, how directive writes are gated + audited + rollback-safe, and the risks to name in the board deck.
 
 > **Scope reversal (2026-04-20) — productization pivot.** The project is being white-labeled as **Mizan**. Multi-framework mapping (NESA / NCA / ISR / Generic) is back in scope; NESA-only is out. MSAL user-auth + RBAC are back in scope. Azure deploy is a single one-click template that uses NFS-mounted Azure Files so it works under any governance posture including MCA-managed tenants. See §7 below.
+>
+> **Scope update (2026-04-24) — directive mode shipped.** A second deployment mode (`MIZAN_DEPLOYMENT_MODE=directive`) adds a write tier: a second multi-tenant Entra app (the Directive app), per-entity consent mode, a directive engine that centralises gating/audit, and a full Conditional Access authoring surface (12 curated baselines + custom wizard with tenant-scoped mode). See new §8 below.
 
 ---
 
@@ -54,7 +56,39 @@ RoleManagement.Read.Directory
 RoleEligibilitySchedule.Read.Directory
 ```
 
-~~Write-scoped perms (`Policy.ReadWrite.ConditionalAccess`, `CustomDetection.ReadWrite.All`, `RecordsManagement.ReadWrite.All`)~~ — **[deferred]**, out of scope for this read-only engagement.
+### 1.2b Directive Graph app (directive-mode deployments only)
+
+Deployments with `MIZAN_DEPLOYMENT_MODE=directive` provision a **second** multi-tenant Entra app alongside Graph-Signals. The Directive app holds the write-scoped permissions each phase needs; entities opt into directive mode with a separate admin-consent step.
+
+Permissions currently requested (Phase 2c + 3 + 4 + 4.5 shipped):
+
+```
+# Phase 2c — reactive writes
+SecurityAlert.ReadWrite.All
+SecurityIncident.ReadWrite.All
+IdentityRiskyUser.ReadWrite.All
+ThreatSubmission.ReadWrite.All
+User.RevokeSessions.All
+
+# Phase 3 / 4 / 4.5 — Conditional Access
+Policy.ReadWrite.ConditionalAccess
+Policy.Read.All                 # already in Graph-Signals; duplicated here for CA read path when sharing tokens
+Application.Read.All            # app-picker typeahead in custom wizard
+
+# Phase 4.5 tenant-scoped pickers (reads only — same tenant the write lands in)
+User.Read.All
+Group.Read.All
+Agreement.Read.All              # Terms of Use list
+
+# Phase 5+ permissions land here as each phase ships. Add them at release time
+# so entities see the expanded scope when they re-consent during an upgrade.
+```
+
+Entity-side admin consent is mandatory before any directive route touches Graph — enforced by `consent_mode = 'directive'` on the `tenants` row (see §8).
+
+### 1.2c Permissions NOT requested
+
+~~Write-scoped perms for Intune (`DeviceManagementConfiguration.ReadWrite.All`), Defender (`CustomDetection.ReadWrite.All`), Records Management (`RecordsManagement.ReadWrite.All`)~~ — added only when the respective future phase ships. Early-adopter entities should re-consent when Mizan expands the scope; the directive-mode Onboarding Letter PDF warns them this will happen.
 
 ### 1.3 Patterns ruled out
 
@@ -140,9 +174,9 @@ RoleEligibilitySchedule.Read.Directory
 
 ---
 
-## 4. PowerShell automation tier — **[deferred, out of scope]**
+## 4. PowerShell automation tier — **still out of scope**
 
-Preserved here as a record of PS-only surfaces. None of this tier is in scope for the read-only project: Council does not author or deploy policies, so these cmdlet families are not orchestrated by the platform. Retained for continuity in case a future write-tier engagement is authorized.
+Preserved as a record of PS-only surfaces. None of this tier is in scope today — directive mode's shipped write coverage is **Graph-only**. The PS tier reopens only if a future phase (likely Phase 10 Exchange transport rules, or the long-term DLP policy CRUD) genuinely cannot be reached via Graph. Each such case requires a product-level decision before design.
 
 The following domains have **no Graph CRUD** — they must be scripted via Security & Compliance PowerShell (`Connect-IPPSSession`) or Exchange Online PowerShell (`Connect-ExchangeOnline`):
 
@@ -174,7 +208,7 @@ Ordered by what the board must hear before approving the build.
 | # | Risk | Impact | Mitigation |
 |---|---|---|---|
 | 1 | Compliance Manager score has no Graph API. | UAE NESA maturity numbers on slide 6 can't be pulled directly. | Synthesize from Secure Score control mappings + audit records; name this explicitly in governance reporting. |
-| 2 | ~~DLP / IRM / Comm Compliance / IB / auto-label / retention-policy CRUD is PowerShell-only.~~ | **[deferred]** — entities retain policy authorship in their own tenants. The Council does not push policies, so this isn't a risk against the current scope. | — |
+| 2 | DLP / IRM / Comm Compliance / IB / auto-label / retention-policy CRUD is PowerShell-only. | Phases 6–10 will want some of these. Graph covers most of the DLP surface today; Exchange transport rules genuinely don't have a Graph CRUD in public preview yet. | Reopen the PS-tier decision before Phase 10 (Exchange) begins. Until then Graph-only is sufficient. |
 | 3 | Device response actions (isolate, quarantine) not in Graph. | Analyst automation needs MDE direct API. | MTO (Pillar 3) handles UX; programmatic orchestration uses MDE API. |
 | 4 | Advanced Hunting 45 calls/min/tenant. | At 100 entities × hourly query pack, serialized — any bursty workload hits the wall. | Pre-aggregate into Sentinel, use advanced-hunting sparingly for drill-downs only. |
 | 5 | `alerts_v2` / `incidents` webhook support is beta / undocumented. | Can't rely on push for alerts in v1. | Poll with `lastUpdateDateTime` watermark + webhook subscription where available. |
@@ -189,19 +223,24 @@ Ordered by what the board must hear before approving the build.
 | 14 | Data residency for dashboard backend. | Gov customers typically require in-country. | Deploy in UAE-North / UAE-Central; Sentinel workspace in same region. |
 | 15 | Entity tenants may enforce device-auth Conditional Access on admin consent (AADSTS50097). | Global Admin on an unmanaged device can't grant consent via browser. | Documented in Installation Guide troubleshooting. Guide entities to consent from a managed/hybrid-joined device or from Edge signed into Windows PRT. |
 | 16 | @react-pdf/textkit bidi-reorder crashes when an Arabic Tatweel (U+0640) appears before whitespace+Latin. | AR PDFs fail rendering until the offending string is edited. | `lib/pdf/sanitize-ar.ts` — defensive sanitizer applied at every PDF template getter + layout component. Strips malformed Tatweels while preserving stylistically-correct ones between Arabic letters. |
+| 17 | Directive-mode push lands real CA policy in entity tenant. Bad baseline → entity lockout. | Business risk: regulator push breaks an entity's sign-in. | Every baseline ships in report-only (`enabledForReportingButNotEnforced`); the UI leads with a yellow warning chip; custom wizard default is report-only with a red banner on Enabled; every baseline that touches admin roles auto-excludes Global Administrator templates; per-tenant rollback + pre-flight preview + baseline-wide rollback always available. |
+| 18 | Approver can push their own policy (no two-person rule). | Single compromised admin could push a lockout policy. | User deferred the approval workflow. Mitigations until then: audit log captures every action with actor; RBAC gates pushes to admin role; real deployments should limit admin count. Reopen the two-person rule when multi-admin regulators deploy. |
+| 19 | Custom CA wizard may reference tenant-local IDs (users, groups, named locations) that don't exist in other tenants. | Push to wrong tenant → 400 from Graph + noisy audit row. | Tenant-scoped drafts are bound to their reference tenant at spec level; the push route rejects off-tenant targets with `scope_mismatch` before any Graph call. The Review step disables non-reference tenants in the picker. Clone-and-adapt is the cross-tenant workflow. |
+| 20 | Idempotent push + rollback could cascade delete a policy created by an earlier push. | Data-loss risk: rollback #2 deletes policy from push #1. | `push_actions.graph_policy_id` is set to `NULL` on idempotent rows; rollback skips null-policy rows with `no_policy_id` reason. See `04-architecture-and-risks.md §8.1`. |
 
 ---
 
 ## 6. Decisions still open
 
-Track these with the Council before Phase 1 kickoff. See also the open-questions list in [`01-feature-catalog.md`](01-feature-catalog.md).
+Per-customer + operational decisions. Code-level questions are resolved.
 
-- ~~Framework priority~~ **Resolved 2026-04-19: UAE NESA.**
-- **Entity clustering** final list (slide 6 shows Police / Health / Edu / Municip. / Utilities / Transport).
-- **Azure region** for dashboard backend + Sentinel workspace.
-- **Target maturity threshold** — Council-tunable at runtime via Settings → Maturity Index (default 75).
-- ~~Policy deployment authority~~ **Resolved 2026-04-19: no push. Read-only scope.**
-- **Credential bootstrap owner** — Council central team or per-entity CISO?
+- ~~Framework priority~~ **Resolved 2026-04-20: per-customer config (NESA / NCA / ISR / generic).**
+- **Entity clustering** — default clusters shipped; each customer edits via Settings.
+- **Azure region** for dashboard backend + Sentinel workspace. Default `uaenorth`.
+- **Target maturity threshold** — default 75, customer-tunable via Settings → Maturity Index.
+- ~~Policy deployment authority~~ **Resolved 2026-04-20/24: per-deployment via `MIZAN_DEPLOYMENT_MODE`. Observation = no push. Directive = reactive writes + CA baselines + custom CA wizard shipped; Intune + DLP + labels + retention + Defender for Office + Exchange + SP/Teams + PIM + App consent + Attack sim + Tenant identity defaults are sequenced in phases 5–15 (see `project_sharjah_council_backlog.md` in memory).**
+- **Credential bootstrap owner** — regulator central team or per-entity CISO? Affects onboarding comms.
+- **Two-person approval workflow** — deferred 2026-04-24; reopens with the first multi-admin regulator deployment.
 
 ---
 
@@ -253,3 +292,58 @@ ACA Managed Environments have **immutable `vnetConfiguration`** — Azure forbid
 - [ ] Enable diagnostic settings on the Container App → Log Analytics for 30-day audit retention.
 - [ ] Add a daily sync trigger: Azure Function or Logic App hitting `/api/sync` with the shared `X-Sync-Secret` header.
 - [ ] Rotate the user-auth client secret on a 90-day cycle; plan for cert-based MSAL + Key Vault at year one.
+
+---
+
+## 8. Directive engine (directive-mode deployments only)
+
+Every Graph WRITE that directive mode performs — incident classifications, threat submissions, Conditional Access policy creates, custom-policy pushes, rollbacks — passes through one function: `lib/directive/engine.ts :: executeDirective`. Five responsibilities, in order:
+
+1. **RBAC gate.** Minimum `admin` role on write actions (`analyst` on specific reactive actions, `viewer` on read-only directive status queries). Enforced via `gateDirectiveRoute()`.
+2. **Deployment-mode gate.** `/api/directive/*` routes check `isDirectiveDeployment()` at module load; observation builds return 404. This is belt-and-braces on top of RBAC.
+3. **Per-entity consent gate.** The target tenant's `consent_mode` column must equal `directive`. Entities that onboarded as observation (the default) reject every directive action with `tenant_not_directive`. This backs the "observation entities are never written to" promise at the code level, independent of who clicks what in the UI.
+4. **Demo simulation gate.** Tenants flagged `is_demo = 1` (the synthesized Sharjah / DESC demo entities whose Entra GUIDs are fake) short-circuit to a simulated success before any Graph call. Demo tenants are auto-seeded; real tenants onboarded to a demo-mode deployment (`MIZAN_DEMO_MODE=true`) still hit real Graph — `MIZAN_DEMO_MODE` controls the auth bypass only, not the write simulation.
+5. **Audit.** Every attempt — success, failure, or simulation — writes a row to `directive_actions` before the caller sees a result. Never deleted. Powers `/directive → Audit log`.
+
+### 8.1 Push + rollback idempotency model
+
+Both Conditional Access baselines and wizard-authored custom policies use the same idempotency pattern:
+
+- Every policy's `displayName` embeds a tag: `[Mizan] <title> (mizan:<baseline-id>:v1)` or `[Custom] <name> (mizan:custom:<id>:v1)`.
+- Before a push, `findCaPolicyByIdempotencyTag()` reads the tenant's CA policy list and greps for the tag. If a match exists, no new policy is created; the existing policy is returned with `idempotent: true` and surfaced as **Already applied** in the UI. The push_action row's `graph_policy_id` is set to `NULL` in this case — critical safety.
+- Rollback `DELETE`s by `graph_policy_id`. Because idempotent rows store `NULL`, a rollback of push #2 against a policy that was actually created by push #1 is a **no-op**. Prevents cross-push rollback hazard.
+- Baseline-wide rollback (*Remove from ALL entities*) does not trust stored `graph_policy_id` — it re-resolves the current policy id from Graph by tag match, then DELETEs. Handles the case where the entity rotated the policy after our push.
+
+### 8.2 Pre-flight rollback preview
+
+The UI never fires a rollback blind. Opening the rollback modal first calls `GET /api/directive/pushes/{id}/rollback-preview`, which:
+
+- Reads each target policy's **current state live from Graph** (real tenants) or from the stored state (demo tenants).
+- Flags `wouldUnprotect: true` when the entity has flipped the policy from `enabledForReportingButNotEnforced` to `enabled`. A yellow *"Entity has flipped this to Enabled — rollback will un-enforce"* warning appears next to that row.
+- Returns `alreadyGone: true` when a policy has already been deleted upstream, and specific `skipReason` values for ineligible rows (`already_rolledback`, `failed`, `no_policy_id`).
+
+Operator deselects any row they don't want to touch. Scoped rollbacks leave the push_request in its prior status until every eligible action has actually been reversed.
+
+### 8.3 Cross-tenant vs tenant-scoped custom policies
+
+The custom CA wizard builds specs in one of two modes (see `lib/directive/custom-policies/types.ts`):
+
+- **Cross-tenant** (default) — uses only values that mean the same thing in every Entra tenant: role template GUIDs (58), Microsoft-published app GUIDs, built-in auth strengths, `All`/`AllTrusted` locations, risk levels, platforms, client app types. Pushable to many entities at once.
+- **Tenant-scoped** — binds to one reference tenant; enables specific users/groups (Graph typeahead), named locations, Terms of Use, custom authentication strengths from that tenant. The `/api/directive/custom-policies/[id]/push` route rejects any off-tenant target with `scope_mismatch`.
+
+All tenant-local reference data is read through `lib/directive/custom-policies/ref-data.ts`, which handles both live Graph reads and demo-mode synthesis (5 users, 4 groups, 3 named locations, 2 ToU, 1 custom auth strength per demo tenant).
+
+### 8.4 Database schema supporting all of the above
+
+Two migrations (v9, v10; v11 was reserved for approval workflow and is intentionally unused):
+
+- `directive_push_requests` — one row per push attempt. Columns include `baseline_id` (or `custom:<id>`), `status` (preview / executing / complete / failed / rolledback), `target_tenant_ids_json`, `summary_json`, actor + timestamps.
+- `directive_push_actions` — one row per tenant per push. Stores `graph_policy_id` (null when idempotent or failed), `status`, `error_message`. Rollback walks these.
+- `custom_ca_policies` — wizard drafts. `spec_json` carries the UI-oriented spec; `status` is `draft` / `archived`. Never holds a Graph body directly — the body is rebuilt from the spec by `builder.ts` at preview + push time.
+- `directive_actions` — audit row per attempt. Never deleted.
+
+### 8.5 What directive mode does **not** have
+
+- **No two-person approval workflow.** Any admin can push. Deferred by user 2026-04-24; design sketched but not shipped. When it lands: push creates a pending request; a separate admin approves; only then does the fan-out run.
+- **No PowerShell execution tier.** Everything shipped today targets Graph. Future phases that require PS (Exchange transport, DLP CRUD) must be explicitly approved before design.
+- **No cross-tenant user/group ID resolution.** Tenant-scoped policies are genuinely bound to one tenant. To push the same logical policy to a different entity, clone the draft and re-pick user/group IDs. This is a deliberate simplification — full cross-tenant resolution (Phase 4 "scope mode v2") would need a per-tenant name-matching heuristic and push-time validation.

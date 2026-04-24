@@ -1,7 +1,7 @@
 # Mizan — Security Posture, Measured.
 
 <p align="center">
-  <strong>A read-only observability layer over Microsoft Graph that scores every entity's security posture against a target, continuously.</strong>
+  <strong>A federated security-posture platform over Microsoft Graph. Ships in two modes: <em>observation</em> (read-only scoring across every entity) and <em>directive</em> (observation + curated Conditional Access policy pushes with rollback).</strong>
 </p>
 
 <p align="center">
@@ -28,17 +28,31 @@
 
 ## What it does
 
-Mizan pulls **19 read-only security signals** from every entity's Microsoft 365 tenant via Microsoft Graph, computes a per-entity **Maturity Index** (0–100), and ranks every entity against a target score you define. It's the one pane of glass for a holding company, ministry, or council that oversees dozens to hundreds of sub-organizations — each running their own tenant.
+Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 tenant via Microsoft Graph, computes a per-entity **Maturity Index** (0–100), and ranks every entity against a target score you define. It's the one pane of glass for a holding company, ministry, or regulator that oversees dozens to hundreds of sub-organizations — each running their own tenant.
 
 - **Federated visibility** across every consented Microsoft 365 tenant
-- **19 Graph signals** — Secure Score, Conditional Access, Identity Protection, Intune compliance, Defender incidents, **Defender Vulnerability Management (CVE posture per device + cross-tenant CVE correlation)**, Purview DLP/IRM/Comm Compliance, Subject Rights Requests, retention/sensitivity labels, SharePoint tenant settings, PIM sprawl, Defender for Identity sensor health, Attack Simulation, Threat Intelligence, label adoption
+- **18 Graph signals** — Secure Score, Conditional Access, Identity Protection, Intune compliance, Defender incidents, **Defender Vulnerability Management (CVE posture per device + cross-tenant CVE correlation)**, Purview DLP/IRM/Comm Compliance, Subject Rights Requests, retention/sensitivity labels, SharePoint tenant settings, PIM sprawl, Defender for Identity sensor health, Attack Simulation, Threat Intelligence, label adoption
 - **Cross-tenant CVE correlation** — surfaces CVEs present in 2+ consented entities with exposed/remediated device rollups; a federated view no individual CISO can produce
 - **Maturity trending** — per-entity daily snapshots with 30/90/180-day chart on the Overview tab
 - **Pluggable frameworks** — UAE NESA, KSA NCA, ISR / ISO 27001, or generic
 - **Entra ID sign-in + RBAC** — Admin / Analyst / Viewer, 7-day sliding-window session (configurable 8h / 24h / 7d / 30d) with silent Microsoft SSO re-auth on expiry
 - **White-label** — organization name, logo (auto background-strip, 100% local), colors, tagline, framework — all in Settings
 - **Bilingual** — full English + Arabic, RTL-native
-- **Read-only, always** — never writes to an entity's tenant; no configuration push, no policy deployment
+
+### Directive mode — regulator write tier (optional)
+
+Deploy with `MIZAN_DEPLOYMENT_MODE=directive` and you also get a second Entra app (provisioned through the setup wizard) holding writable Graph scopes, plus a `/directive` surface for regulators who have authority to harden consented entities:
+
+- **Per-entity consent mode** — each entity opts in or stays in observation. Observation entities are never written to, regardless of role.
+- **12 curated Conditional Access baselines** — identity hardening, legacy auth block, risk-based enforcement, session hygiene, device posture. Every baseline ships in report-only; the operator explicitly flips to enforce.
+- **Custom CA wizard** — 7 steps, no JSON. Cross-tenant mode uses only fields that mean the same thing in every Entra tenant. Tenant-scoped mode unlocks specific users / groups / named locations / Terms of Use / custom auth strengths against one reference tenant. Device filter rule builder included.
+- **Idempotent push** — repeat pushes match the existing policy by tag and no-op instead of duplicating.
+- **Rollback safety** — pre-flight preview reads each policy's current state, warns if the entity has flipped it to Enabled, per-row deselect for scoped rollback, baseline-wide "Remove from ALL entities" action.
+- **Per-entity baseline status** — live or demo-synthesized view of which baselines are currently deployed in each entity's tenant and what state each is in.
+- **Reactive writes** — incident classification, alert comments, risky-user confirm/dismiss, session revoke, threat submission (email / URL / file).
+- **Audit log** — every directive action captured in `directive_actions` with actor, timestamp, Graph response. Never deleted.
+
+See [`docs/12-operating-manual.md`](docs/12-operating-manual.md) for the step-by-step operator flow. Observation-mode deployments render none of the above — the `/directive` route returns 404 at the route-loader level.
 
 ---
 
@@ -439,7 +453,10 @@ Azure Container Apps (the one-click deploy):
                          │  └─────────┼─────────┘      │   data" (100GB)  ││
                          │            │                └──────────────────┘│
                          └────────────┼──────────────────────────────────┬─┘
-                                      │ Microsoft Graph (read-only, daily)
+                                      │ Microsoft Graph
+                                      │   - daily reads (always)
+                                      │   - directive writes (directive mode only,
+                                      │     via a second Entra app)
                                       ▼
                         ┌─────────────────────────────────────────┐
                         │  Each connected entity's M365 tenant    │
@@ -451,7 +468,7 @@ Azure Container Apps (the one-click deploy):
 - **NFS for persistence** — `Premium_LRS` FileStorage mounted at `/data`. SQLite (signals, users, config) + the uploaded logo live here. Survives container restarts and revision swaps.
 - **Why NFS and not SMB** — many Azure tenants enforce `StorageAccount_DisableLocalAuth_Modify` policy that silently disables shared-key auth. SMB needs shared-key; NFS uses network-level auth via the private endpoint, so the deploy works under any governance posture.
 - **Daily sync** — one `POST /api/sync` per day pulls all 18 Graph signals from every consented entity with a 5-worker pool.
-- **No write path ever** — all Graph permissions are `.Read` scopes.
+- **Two deployment modes** — `observation` uses only `.Read` Graph scopes. `directive` provisions a second Entra app with write scopes for the shipped directive surfaces (reactive actions + Conditional Access policy push + rollback). Mode is fixed at install time via `MIZAN_DEPLOYMENT_MODE` and cannot be toggled at runtime — switching modes is a redeploy.
 
 **On the Mac/Windows installers**: same Next.js app + SQLite, but `DATA_DIR` points at `~/Library/Application Support/mizan/` or `%ProgramData%\Mizan\data\` respectively. No VNet, no NFS — local filesystem directly.
 
@@ -461,12 +478,14 @@ See [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) for t
 
 ## Documentation
 
+- [docs/12-operating-manual.md](docs/12-operating-manual.md) — **day-to-day operator manual**, split into Part A (observation / read) and Part B (directive / readwrite)
 - [docs/10-deployment.md](docs/10-deployment.md) — end-to-end deployment runbook (all three targets)
 - [docs/11-branding-and-rbac.md](docs/11-branding-and-rbac.md) — branding config, RBAC model, session management
-- [docs/08-phase2-setup.md](docs/08-phase2-setup.md) — Entra app registrations (both apps), app roles, lockout recovery
-- [docs/01-feature-catalog.md](docs/01-feature-catalog.md) — full feature inventory
-- [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) — multi-tenant auth, sync orchestrator, throttling, failure modes
+- [docs/08-phase2-setup.md](docs/08-phase2-setup.md) — Entra app registrations (Graph-Signals + Directive), app roles, lockout recovery
+- [docs/01-feature-catalog.md](docs/01-feature-catalog.md) — full feature + Graph endpoint inventory, phase roadmap
+- [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) — multi-tenant auth, sync orchestrator, directive engine, throttling, failure modes, risk register
 - [docs/09-runtime-configuration.md](docs/09-runtime-configuration.md) — every editable config surface in Settings
+- [docs/13-desc-rollout-plan.md](docs/13-desc-rollout-plan.md) — DESC-specific rollout + directive phase log
 - [CHANGELOG.md](CHANGELOG.md) — build log
 
 ---

@@ -235,6 +235,30 @@ Clauses cover: Identification & Authentication, Access Control, Information Clas
 ## Packaging notes
 - Config is in SQLite — no separate config file on disk, no environment variable for content.
 - A fresh customer install starts with **defaults baked into source** (`DEFAULT_MATURITY` / `DEFAULT_PDF_TEMPLATE` / `DEFAULT_DISCOVERY` / `DEFAULT_NESA_MAPPING`). First Settings edit persists the override.
-- Azure app credentials are the one exception — they are a **secret** and live in `app_config.key = 'azure.app'` with the same SQLite-at-rest encryption posture as the rest. Backups should be encrypted or the credential column redacted before archival. Prefer cert-based MSAL (production hardening) when moving off the demo environment — swap the `client_secret` for a `.pfx` reference resolved via Azure Key Vault.
+- Azure app credentials are the one exception — they are a **secret** and live in `app_config.key = 'azure.app'` (observation) / `app_config.key = 'azure.directive'` (directive mode second app) with the same SQLite-at-rest encryption posture as the rest. Backups should be encrypted or the credential column redacted before archival. Prefer cert-based MSAL (production hardening) when moving off the demo environment — swap the `client_secret` for a `.pfx` reference resolved via Azure Key Vault.
 - Exporting / migrating a customer's config = backing up the `app_config` table (one SQL dump).
 - **AR template strings** pass through `sanitizeArabic` on every getter — stylistic Tatweels (U+0640) that precede whitespace+Latin are stripped to avoid a bidi-reorder crash in `@react-pdf/textkit`. Safe to write Arabic freely in the UI editors; the sanitizer keeps the renderer happy.
+
+---
+
+## Environment variables (install-time, not Settings-editable)
+
+These are set on the container / LaunchAgent / Windows Service at install time. They are **intentionally not in the SQLite config** — each requires a restart to take effect, and flipping them at runtime would be dangerous (e.g. a directive deployment suddenly becoming observation mid-push).
+
+| Variable | Values | Purpose |
+|---|---|---|
+| `MIZAN_DEPLOYMENT_MODE` | `observation` (default) / `directive` | Controls the whole directive stack. Observation builds don't register `/directive/*` routes at all. Changing it = redeploy. |
+| `MIZAN_DEMO_MODE` | `true` / `false` (default) | Enables the auth bypass for demo deployments + synthesized demo tenants. `tenant.is_demo=1` tenants short-circuit directive writes to a simulated success. |
+| `DATA_DIR` | any absolute path | Where SQLite + uploaded logo live. Defaults to `web/data/` in dev, `/data` in Azure, `~/Library/Application Support/mizan/` on macOS, `%ProgramData%\Mizan\data\` on Windows. |
+| `APP_BASE_URL` | any HTTPS URL | Forces outbound URLs (OIDC callback, consent-URL generation, PDF links) to a specific origin. Use when behind a reverse proxy that doesn't forward `Host` cleanly. |
+| `SCSC_SYNC_CONCURRENCY` | integer 1–20 (default 5) | Number of tenants synced in parallel by the per-tenant worker pool. |
+| `SCSC_SEED_DEMO` | `true` / `false` (default false in packaged releases) | If true + DB is empty, seeds demo tenants + signal snapshots. Each of the Mac Mini demos sets this true. |
+| `NODE_ENV` | `production` / `development` | Standard Next.js. |
+
+### Intentionally not wired
+
+Don't add the following env vars without the user's approval — the absence is deliberate.
+
+| Var | Why not |
+|---|---|
+| `DIRECTIVE_APPROVAL_DISABLED` / `DIRECTIVE_APPROVAL_ALLOW_SELF` | Two-person approval workflow is deferred (2026-04-24). No env vars today — the code path doesn't exist. |

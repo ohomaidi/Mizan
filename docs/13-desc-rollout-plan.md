@@ -209,87 +209,129 @@ Prefer A — less duplication, easier to evolve the signal-generation logic once
 
 (Observation-mode SCSC demo is unaffected by every Directive phase. Directive-mode DESC demo picks up each phase as it ships.)
 
-### Phase 1 — Foundation (week 1)
-
-Goal: stand up the plumbing, ship what is safe to ship before the DESC presentation.
+### Phase 1 — Foundation ✅ shipped
 
 - `MIZAN_DEPLOYMENT_MODE` env check at module load; conditionally-mounted routes.
 - Schema migration: `tenants.consent_mode`, `tenants.directive_app_consented_at`, `tenants.directive_app_consent_error`. Audit table `consent_history`.
-- New config key `azure.directive` for the Directive Graph app (writes app registration).
-- Setup wizard extension: conditional step that provisions the Directive Graph app via device-code flow when the deployment is `directive`.
-- Entity onboarding wizard: conditional mode-chooser step when the deployment is `directive`.
-- Dual Onboarding Letter PDF templates: `pdf.onboarding.observation` and `pdf.onboarding.directive`.
-- UI: `/directive` top-level page shell (empty dashboard, roadmap-style cards listing upcoming phases). Visible in DESC demo, absent in SCSC demo by env gate.
-- Per-entity consent-mode badge on the tenant list + entity detail header.
+- Config key `azure.directive` for the Directive Graph app.
+- Setup wizard extension: directive step provisions the Directive Graph app via device-code flow when deployment is `directive`.
+- Entity onboarding wizard: consent-mode chooser step on directive deployments.
+- Dual Onboarding Letter PDF templates (`pdf.onboarding.observation` + `pdf.onboarding.directive`).
+- `/directive` top-level page shell visible in DESC demo, absent in SCSC.
+- Per-entity consent-mode badge on tenant list + entity detail header.
 
-**No writes actually happen in Phase 1.** The app exists, the consent flow exists, but the Directive engine is not built yet. This is deliberate — it lets the compliance story land cleanly before any `.ReadWrite` scope fires.
+### Phase 2 — Low-risk reactive writes ✅ shipped
 
-### Phase 2 — Low-risk writes (week 2-3, post-presentation)
+- Incident operations (classify, assign, comment) — `PATCH /security/incidents/{id}`
+- Alert operations (same) — `PATCH /security/alerts_v2/{id}`
+- Risky user dispositions (confirm compromised / dismiss) — `/identityProtection/riskyUsers/*`
+- Force sign-out — `POST /users/{id}/revokeSignInSessions`
+- Threat submissions (email / URL / file) — `POST /security/threatSubmission/*`
+- Audit log for every write in `directive_actions`
+- Single-person approval today; two-person rule deferred (see §6 "deferred items")
+- Evidence surface: `/api/directive/tenant-incident-evidence` (synthesised for demo tenants, real Graph for live tenants) — DESC uses this to review incidents without opening the Defender portal
 
-- Incident operations (classify, assign, comment)
-- Alert operations (same)
-- Risky user dispositions (confirm compromised, dismiss)
-- Force sign-out (`POST /users/{id}/revokeSignInSessions`)
-- Threat submissions (email, URL, file to Microsoft)
-- Audit log for every write
-- Approval UX (single-person for these low-risk actions)
+### Phase 3 — Conditional Access baselines ✅ shipped
 
-### Phase 3 — Conditional Access baselines (3-4 weeks)
+12 curated baselines covering identity hardening, legacy-surface reduction, risk-based enforcement, session hygiene, and device posture. Every baseline is validated against the Graph CA schema; full list + rationale in `/directive → Baselines` (Details expand).
 
-The big one. Separate doc once scoped. Report-only default, two-person approval, preview, rollback, entity-admin exclusion.
+Safety rails:
 
-### Phase 4 — Intune compliance baselines (2-3 weeks)
+- Every baseline ships in `enabledForReportingButNotEnforced`. The operator must explicitly override to `enabled`.
+- Card UI leads with a yellow "Ships report-only" chip.
+- Baselines touching admin roles auto-exclude the Global Administrator role template.
+- Idempotency via `mizan:<baseline-id>:v1` tag in the policy displayName — repeat pushes are no-ops.
+- Per-entity status view (`/directive → Baseline status per entity`) reads the tenant's CA policies live, maps each of the 12 baselines to present / absent / current-state, and flags drift (entity flipped to Enabled, or still in report-only).
+- Rollback: pre-flight preview modal, per-tenant scoping (tick which rows to roll back), "Remove from ALL entities" baseline-wide action, warning when the entity has flipped a policy to Enabled.
+- Two-person approval deferred (see §6).
 
-### Phase 5 — MDE writes (IOC push, device isolation) — 3+ weeks
+### Phase 4 — Custom CA policy wizard (MVP) ✅ shipped
 
-Requires the third Entra app (Defender for Endpoint API scopes — `Ti.ReadWrite`, `Machine.Isolate`). Per-entity consent model may need extending to "observation / directive-graph / directive-full" tiering at this point.
+7-step wizard at `/directive/custom-policies/[id]/edit`:
 
-### Phase 6 — Sentinel analytics rule baselines (optional — depends on DESC Sentinel footprint)
+1. Identify (name, description, initial state)
+2. Users (All / roles / guests + mandatory Global Admin exclusion)
+3. Apps (All / Office 365 / Admin portals / Azure Mgmt / specific)
+4. Conditions (risk, platforms, client-app types, locations)
+5. Access (Block or Grant + built-in controls + authentication strength dropdown)
+6. Session (sign-in frequency, persistent browser, app-enforced restrictions)
+7. Review (risk tier, grant summary, exact Graph body, push)
+
+Always-visible right-hand Review panel. 600ms-debounced autosave. "Clone as custom draft" shortcut on every baseline card pre-populates the wizard via a `body-to-spec` reverse mapper.
+
+### Phase 4.5 — Close the CA chapter ✅ shipped
+
+Tenant-scoped wizard mode unlocks specific users, specific groups, named locations, Terms of Use, and custom authentication strengths from a chosen reference tenant. Device filter rule builder (4 attributes × 3 operators, AND-joined). Push route enforces scope (`scope_mismatch` 409 on off-tenant target).
+
+Clone-a-draft shortcut + baseline-wide rollback + per-tenant rollback within a push batch + pre-flight preview all shipped in this phase.
+
+### Phase 5 — Intune writes (next)
+
+**Not yet shipped.** Three baselines to validate the plumbing:
+
+- Device compliance: min OS + passcode + encryption + jailbreak detection per platform
+- App protection (MAM): copy/paste restrictions, Save-As block, require PIN, wipe on jailbreak
+- Device configuration profile: Wi-Fi / VPN / disk encryption forcing (minor)
+
+Architecture is copy-paste from Phase 3 — `executeDirective` + idempotency-tag pattern + rollback + status view all reused. The only new work is the Graph endpoints (`/deviceManagement/deviceCompliancePolicies`, `/deviceAppManagement/iosManagedAppProtections`, etc.) and the Intune baseline catalog.
+
+### Phase 6+ — DLP, labels, retention, Defender for Office, Exchange, SP/Teams, PIM, app consent, attack sim, tenant identity defaults
+
+Full ordered list in `project_sharjah_council_backlog.md` (Claude memory). Each phase is comparable in scope to Phase 3 or Phase 4.
+
+### Former Phase 5 — MDE direct API writes
+
+~~Requires the third Entra app (Defender for Endpoint API scopes — `Ti.ReadWrite`, `Machine.Isolate`).~~ Retained as a future direction but not on the current roadmap. Intune covers device response in most of the regulator's target scenarios.
+
+### Phase ∞ — Two-person approval workflow
+
+Deferred by user 2026-04-24. Design sketch preserved in session notes; reopens when a multi-admin regulator deployment needs segregation of duties.
 
 ---
 
-## 5. Timeline to DESC presentation
+## 5. Timeline — status as of 2026-04-24
 
-Assuming presentation is roughly 7 days out:
+Phases 1 through 4.5 are all shipped. Demo at `desc.zaatarlabs.com` is live with:
 
-| Day | Work |
-|---|---|
-| 1 | Plan approved. DESC branding + seed parameters confirmed with user. DNS for `desc.zaatarlabs.com` provisioned in Cloudflare. |
-| 2 | DESC demo live locally. DB seeded, LaunchAgent running, cloudflared routing, Zero Trust Access in place. DESC-branded UI verified end to end. |
-| 3 | SCSC DATA_DIR migration (`web/data/` → `web/data/scsc/`), plist edit, re-verify SCSC demo still green. |
-| 3-4 | Phase 1 foundation code: env mode gate, schema migration, `/directive` roadmap page, deployment-mode assertion on boot. |
-| 4-5 | Phase 1 continued: onboarding wizard mode chooser wired (UI only, consent flow built but second app not yet provisioned), Directive Onboarding Letter PDF template. |
-| 6 | Rehearsal run-through of the DESC presentation on `desc.zaatarlabs.com` with the user. Polish. |
-| 7 | DESC presentation. |
-| 8+ | Post-presentation: Phase 2 work. |
+- DESC-branded directive dashboard
+- `/directive` page fully wired: reactive actions on incidents/alerts/users, 12 CA baselines, custom CA wizard, tenant-scoped wizard mode, rollback (per-tenant + baseline-wide), per-entity baseline status view, audit log
+- Onboarding flow with consent-mode chooser, directive-variant Onboarding Letter PDF
 
-The DESC demo for the presentation does **not** need Phase 1 foundation fully built. A viable presentation can be delivered with:
+### What the DESC presentation can now show
 
-- DESC-branded observation dashboard (like SCSC but with DESC entities + ISR)
-- A clean `/directive` roadmap page showing what is coming
-- A walkthrough of the planned onboarding flow (can be mock screens)
+- **Live directive push** to Dubai Police (the demo directive-mode tenant) via any of the 12 baselines — simulated, but shows the full UI + audit + rollback flow.
+- **Wizard authoring** with both cross-tenant and tenant-scoped modes. The tenant-scoped mode surfaces the typeahead pickers against Dubai Police's synthesized users/groups/locations/ToU/custom auth strengths, which is a strong "regulator-authors-bespoke-policies" demo.
+- **Rollback safety** — pre-flight preview modal showing current state per tenant, per-row deselect, baseline-wide "remove from all" action.
 
-Phase 1 real wiring is a nice-to-have, not a blocker.
+### Before going to a real tenant
+
+Every feature above is either simulated (demo tenants) or passes its typecheck + build but hasn't hit a real Graph write endpoint yet. Real-tenant validation is the remaining step before DESC uses this in production; see `project_sharjah_council_backlog.md §A — user-blocked items`.
 
 ---
 
 ## 6. Release and deployment cadence going forward
 
-- Every merge to `main` → tag (`v1.1.x` or `v1.2.0` once Phase 1 lands) → GHCR release workflow → image on `ghcr.io/ohomaidi/mizan:x.y.z`.
-- On the Mac Mini: `bash deploy/restart-demos.sh` picks up the code change and restarts both LaunchAgents. Both demos stay current.
-- On customer Azure deployments: `bash web/deploy/update-azure.sh --tag x.y.z` pulls the new image. SCSC customers stay on observation behaviour; DESC (when they deploy) runs directive.
+**Rule (feedback_mizan_release_cadence.md):** commits to `main` during dev are fine; **tag + GHCR build + Azure redeploy happen only when the user signs off a full feature cluster and explicitly says "publish"**. Mac Mini demos are the test surface.
+
+- Mac Mini: `bash web/deploy/restart-demos.sh --no-pull` after any commit to pick up the change in both demos.
+- Release: when the user approves, tag `v1.x.y`, GHCR builds multi-arch image, Azure redeploy via `bash web/deploy/update-azure.sh --tag x.y.z`.
+- SCSC customers stay on observation behaviour; DESC (when they deploy) runs directive.
+
+### Deferred items
+
+- **Two-person approval workflow.** User deferred 2026-04-24. No env var controls it today. When it lands: push creates a pending request; a separate admin approves; fan-out only runs at approval time. Demo-safe self-approve lets single-operator demos still walk the flow.
+- **Per-tenant scope resolution across multiple target tenants.** Custom wizard's tenant-scoped mode today binds to one reference tenant. Cross-tenant push with ID-mapping would require name-matching heuristics + push-time validation — worth building only when a regulator wants one logical policy applied to N tenants with per-tenant user IDs.
 
 ---
 
-## 7. Open items needing user input before execution
+## 7. Open items needing user input
 
-1. **DESC logo** — PNG with background that the app's auto-strip can clean up.
-2. **DESC name EN + AR** — confirm exact spelling and short form.
-3. **DESC primary color** — hex or a reference image.
-4. **DESC demo entity list** — accept proposed 14 or specify replacements.
-5. **DNS access for `zaatarlabs.com`** — I assume user will add the CNAME record themselves in the Cloudflare dashboard. Will paste the target as soon as tunnel UUID is confirmed.
-6. **Presentation date** — exact day so the timeline aligns.
-7. **Maturity target for DESC** — 80, or stick with 75?
+Original pre-presentation items (DNS, logos, colours, entity list) are resolved. Remaining items apply once DESC moves from demo to real tenants.
+
+1. **Real Entra app registration in DESC's tenant** — Directive app + Graph-Signals app. Manual device-code flow through the setup wizard.
+2. **Real entity consent onboarding** — each Dubai entity's Global Admin must consent to both apps (for directive) or just Graph-Signals (for observation).
+3. **Cloudflare Zero Trust Access** on any URL that will hold real data.
+4. **Approval workflow decision** — if DESC eventually wants two-person rule, that reopens the deferred item.
 
 ---
 
