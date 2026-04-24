@@ -18,6 +18,8 @@ import { useFmtNum } from "@/lib/i18n/num";
 import { CLUSTERS, type ClusterId } from "@/lib/data/clusters";
 import { api } from "@/lib/api/client";
 
+type ConsentMode = "observation" | "directive";
+
 type Draft = {
   nameEn: string;
   nameAr: string;
@@ -27,6 +29,8 @@ type Draft = {
   domain: string;
   tenantId: string;
   licenseConfirmed: boolean;
+  /** Per-entity consent mode. Only editable on directive-mode deployments. */
+  consentMode: ConsentMode;
 };
 
 const EMPTY: Draft = {
@@ -38,6 +42,7 @@ const EMPTY: Draft = {
   domain: "",
   tenantId: "",
   licenseConfirmed: false,
+  consentMode: "observation",
 };
 
 type Generated = {
@@ -60,6 +65,23 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
 
   const [step, setStep] = useState<StepId>(1);
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  const [deploymentMode, setDeploymentMode] = useState<ConsentMode>("observation");
+  const [directiveReady, setDirectiveReady] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .whoami()
+      .then((r) => {
+        if (!alive) return;
+        setDeploymentMode(r.deploymentMode);
+        setDirectiveReady(r.directiveReady);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [resolvedMessage, setResolvedMessage] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -115,6 +137,13 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
         domain: draft.domain.trim(),
         ciso: draft.ciso.trim(),
         cisoEmail: draft.cisoEmail.trim(),
+        // Only send directive when the deployment is directive AND the Directive
+        // app is provisioned. Observation-mode deployments never reach the
+        // chooser, so draft.consentMode stays the "observation" default.
+        consentMode:
+          deploymentMode === "directive" && directiveReady
+            ? draft.consentMode
+            : "observation",
       });
       setGenerated({
         tenantLocalId: res.tenant.id,
@@ -282,7 +311,12 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
             validTenant={validTenant}
           />
         ) : step === 3 ? (
-          <Step3 draft={draft} />
+          <Step3
+            draft={draft}
+            set={set}
+            deploymentMode={deploymentMode}
+            directiveReady={directiveReady}
+          />
         ) : step === 4 ? (
           <Step4
             generated={generated}
@@ -511,9 +545,20 @@ function Step2({
   );
 }
 
-function Step3({ draft }: { draft: Draft }) {
+function Step3({
+  draft,
+  set,
+  deploymentMode,
+  directiveReady,
+}: {
+  draft: Draft;
+  set: <K extends keyof Draft>(k: K, v: Draft[K]) => void;
+  deploymentMode: ConsentMode;
+  directiveReady: boolean;
+}) {
   const { t, locale } = useI18n();
   const cluster = CLUSTERS.find((c) => c.id === draft.cluster);
+  const showModeChooser = deploymentMode === "directive";
   return (
     <div className="flex flex-col gap-4 max-w-[640px] text-[13px] text-ink-2">
       <p>{t("wizard.step3.subtitle")}</p>
@@ -535,7 +580,90 @@ function Step3({ draft }: { draft: Draft }) {
           value={draft.cisoEmail || "—"}
         />
       </div>
+
+      {showModeChooser ? (
+        <div className="rounded-md border border-border bg-surface-2 p-4">
+          <div className="text-[12px] font-semibold text-ink-1 mb-3">
+            {t("wizard.mode.title")}
+          </div>
+          <div className="flex flex-col gap-2">
+            <ModeOption
+              active={draft.consentMode === "observation"}
+              onSelect={() => set("consentMode", "observation")}
+              titleKey="wizard.mode.observation.title"
+              bodyKey="wizard.mode.observation.body"
+            />
+            <ModeOption
+              active={draft.consentMode === "directive"}
+              onSelect={() => set("consentMode", "directive")}
+              titleKey="wizard.mode.directive.title"
+              bodyKey="wizard.mode.directive.body"
+              disabled={!directiveReady}
+              disabledReasonKey="wizard.mode.directive.notReady"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function ModeOption({
+  active,
+  onSelect,
+  titleKey,
+  bodyKey,
+  disabled,
+  disabledReasonKey,
+}: {
+  active: boolean;
+  onSelect: () => void;
+  titleKey:
+    | "wizard.mode.observation.title"
+    | "wizard.mode.directive.title";
+  bodyKey: "wizard.mode.observation.body" | "wizard.mode.directive.body";
+  disabled?: boolean;
+  disabledReasonKey?: "wizard.mode.directive.notReady";
+}) {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onSelect}
+      disabled={disabled}
+      className={`text-start rounded-md border p-3 transition-colors ${
+        disabled
+          ? "border-border bg-surface-1/60 opacity-60 cursor-not-allowed"
+          : active
+            ? "border-council-strong bg-council-strong/5"
+            : "border-border bg-surface-1 hover:border-council-strong/60"
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        <div
+          className={`shrink-0 h-4 w-4 rounded-full border-2 mt-0.5 ${
+            active ? "border-council-strong bg-council-strong" : "border-border"
+          }`}
+        >
+          {active ? (
+            <div className="h-full w-full rounded-full bg-surface-2 scale-50" />
+          ) : null}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-ink-1">
+            {t(titleKey)}
+          </div>
+          <div className="text-[12px] text-ink-2 mt-0.5 leading-relaxed">
+            {t(bodyKey)}
+          </div>
+          {disabled && disabledReasonKey ? (
+            <div className="text-[11.5px] text-warn mt-1">
+              {t(disabledReasonKey)}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </button>
   );
 }
 

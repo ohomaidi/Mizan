@@ -4,6 +4,17 @@ import type { ClusterId } from "@/lib/data/clusters";
 
 export type ConsentStatus = "pending" | "consented" | "revoked" | "failed";
 
+/**
+ * Per-entity directive posture.
+ *   observation — entity consented only to the read-only Graph Signals app.
+ *                  This is the default, and is the ONLY value ever written in
+ *                  observation-mode deployments (SCSC-style).
+ *   directive    — entity additionally consented to the Directive app that
+ *                  holds .ReadWrite scopes. Only meaningful in directive-mode
+ *                  deployments (DESC-style regulators).
+ */
+export type ConsentMode = "observation" | "directive";
+
 export type TenantRow = {
   id: string;
   tenant_id: string;
@@ -16,6 +27,14 @@ export type TenantRow = {
   consent_status: ConsentStatus;
   consented_at: string | null;
   consent_state: string | null;
+  /** Per-entity directive posture. See ConsentMode. */
+  consent_mode: ConsentMode;
+  /** Timestamp the entity granted consent to the Directive write app, if ever. */
+  directive_app_consented_at: string | null;
+  /** OAuth `state` value stashed for the Directive-app consent round-trip. */
+  directive_app_consent_state: string | null;
+  /** Last error captured on the Directive-app consent round-trip, if any. */
+  directive_app_consent_error: string | null;
   last_sync_at: string | null;
   last_sync_ok: 0 | 1;
   last_sync_error: string | null;
@@ -36,6 +55,31 @@ export type TenantDraft = {
   domain: string;
   ciso?: string;
   ciso_email?: string;
+  /**
+   * Chosen at onboarding time. Observation-mode deployments MUST leave this
+   * unset (or explicitly pass "observation"); directive-mode deployments may
+   * pass "directive" to request a Directive-app consent URL. Immutable at the
+   * entity level past insert — upgrades and downgrades are a separate flow.
+   */
+  consent_mode?: ConsentMode;
+};
+
+export type ConsentHistoryAction =
+  | "onboarded"
+  | "directive_consented"
+  | "directive_revoked"
+  | "upgraded"
+  | "downgraded";
+
+export type ConsentHistoryRow = {
+  id: number;
+  tenant_id: string;
+  action: ConsentHistoryAction;
+  from_mode: ConsentMode | null;
+  to_mode: ConsentMode | null;
+  actor_user_id: string | null;
+  note: string | null;
+  at: string;
 };
 
 function slugify(s: string): string {
@@ -81,10 +125,11 @@ export function insertTenant(
   consentState: string,
 ): TenantRow {
   const id = d.id ?? (slugify(d.name_en) || `tenant-${Date.now()}`);
+  const mode: ConsentMode = d.consent_mode === "directive" ? "directive" : "observation";
   getDb()
     .prepare(
-      `INSERT INTO tenants (id, tenant_id, name_en, name_ar, cluster, domain, ciso, ciso_email, consent_state)
-       VALUES (@id, @tenant_id, @name_en, @name_ar, @cluster, @domain, @ciso, @ciso_email, @consent_state)`,
+      `INSERT INTO tenants (id, tenant_id, name_en, name_ar, cluster, domain, ciso, ciso_email, consent_state, consent_mode)
+       VALUES (@id, @tenant_id, @name_en, @name_ar, @cluster, @domain, @ciso, @ciso_email, @consent_state, @consent_mode)`,
     )
     .run({
       id,
@@ -96,7 +141,16 @@ export function insertTenant(
       ciso: d.ciso ?? "",
       ciso_email: d.ciso_email ?? "",
       consent_state: consentState,
+      consent_mode: mode,
     });
+  // Audit the onboarding in consent_history so the tenant's mode lineage is
+  // queryable from day one.
+  getDb()
+    .prepare(
+      `INSERT INTO consent_history (tenant_id, action, from_mode, to_mode, note)
+       VALUES (?, 'onboarded', NULL, ?, NULL)`,
+    )
+    .run(id, mode);
   return getTenant(id)!;
 }
 
@@ -182,4 +236,98 @@ export function markConsentRevoked(id: string, reason?: string): void {
        WHERE id = ?`,
     )
     .run(reason ?? null, id);
+}
+
+/**
+ * Stamp a Directive-app `state` token for the OAuth round-trip. Called when
+ * the Center generates a consent URL for this tenant to upgrade to directive
+ * mode. The token is verified on the callback just like the Graph-signals
+ * flow. Clears any previous error from a retry.
+ */
+export function setDirectiveConsentState(id: string, state: string): void {
+  getDb()
+    .prepare(
+      `UPDATE tenants
+         SET directive_app_consent_state = ?,
+             directive_app_consent_error = NULL,
+             updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .run(state, id);
+}
+
+export function getTenantByDirectiveState(state: string): TenantRow | null {
+  return (
+    (getDb()
+      .prepare("SELECT * FROM tenants WHERE directive_app_consent_state = ?")
+      .get(state) as TenantRow | undefined) ?? null
+  );
+}
+
+/**
+ * Flip a tenant to directive mode on successful Directive-app consent. Writes
+ * the consented-at timestamp, clears the state token, and appends a history
+ * row so the upgrade is auditable.
+ */
+export function markDirectiveConsented(id: string, actorUserId?: string | null): void {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT consent_mode FROM tenants WHERE id = ?")
+    .get(id) as { consent_mode: ConsentMode } | undefined;
+  const fromMode: ConsentMode = row?.consent_mode ?? "observation";
+  db.prepare(
+    `UPDATE tenants
+        SET consent_mode = 'directive',
+            directive_app_consented_at = datetime('now'),
+            directive_app_consent_state = NULL,
+            directive_app_consent_error = NULL,
+            updated_at = datetime('now')
+      WHERE id = ?`,
+  ).run(id);
+  if (fromMode !== "directive") {
+    db.prepare(
+      `INSERT INTO consent_history (tenant_id, action, from_mode, to_mode, actor_user_id, note)
+       VALUES (?, 'upgraded', ?, 'directive', ?, NULL)`,
+    ).run(id, fromMode, actorUserId ?? null);
+  }
+}
+
+export function markDirectiveConsentFailed(id: string, reason: string): void {
+  getDb()
+    .prepare(
+      `UPDATE tenants
+         SET directive_app_consent_error = ?,
+             updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .run(reason, id);
+}
+
+/**
+ * Downgrade: the entity revoked Directive-app consent in their own Entra
+ * admin center, we detected it on the next sync, now we drop them back to
+ * observation and audit the change. The Signals (read) consent is untouched.
+ */
+export function markDirectiveRevoked(id: string, reason?: string): void {
+  const db = getDb();
+  db.prepare(
+    `UPDATE tenants
+        SET consent_mode = 'observation',
+            directive_app_consented_at = NULL,
+            directive_app_consent_error = ?,
+            updated_at = datetime('now')
+      WHERE id = ?`,
+  ).run(reason ?? null, id);
+  db.prepare(
+    `INSERT INTO consent_history (tenant_id, action, from_mode, to_mode, note)
+     VALUES (?, 'downgraded', 'directive', 'observation', ?)`,
+  ).run(id, reason ?? null);
+}
+
+export function listConsentHistory(tenantId: string): ConsentHistoryRow[] {
+  return getDb()
+    .prepare(
+      "SELECT * FROM consent_history WHERE tenant_id = ? ORDER BY at DESC, id DESC",
+    )
+    .all(tenantId) as ConsentHistoryRow[];
 }

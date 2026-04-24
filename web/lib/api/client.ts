@@ -43,6 +43,8 @@ export const api = {
     domain: string;
     ciso?: string;
     cisoEmail?: string;
+    /** Observation (default) or directive. Honored only in directive-mode deployments. */
+    consentMode?: "observation" | "directive";
   }) =>
     jsonFetch<{ tenant: { id: string }; consentUrl: string | null; azureConfigured: boolean }>(
       "/api/tenants",
@@ -167,6 +169,8 @@ export const api = {
       authenticated: boolean;
       configured: boolean;
       demoMode: boolean;
+      deploymentMode: "observation" | "directive";
+      directiveReady: boolean;
       user: {
         id: string;
         email: string;
@@ -254,6 +258,36 @@ export const api = {
 
   clearAzureConfig: () =>
     jsonFetch<{ config: unknown }>("/api/config/azure", {
+      method: "PUT",
+      body: JSON.stringify({ clear: true }),
+    }),
+
+  // ----- Directive app (only reachable on directive-mode deployments) -----
+  getDirectiveConfig: () =>
+    jsonFetch<{
+      config: {
+        clientId: string;
+        clientSecretSet: boolean;
+        authorityHost: string;
+        consentRedirectUri: string;
+        updatedAt: string | null;
+        source: { clientId: "db" | "env" | "none"; clientSecret: "db" | "env" | "none" };
+      };
+    }>("/api/config/directive"),
+
+  saveDirectiveConfig: (patch: {
+    clientId?: string;
+    clientSecret?: string;
+    authorityHost?: string;
+    consentRedirectUri?: string;
+  }) =>
+    jsonFetch<{ config: unknown }>("/api/config/directive", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  clearDirectiveConfig: () =>
+    jsonFetch<{ config: unknown }>("/api/config/directive", {
       method: "PUT",
       body: JSON.stringify({ clear: true }),
     }),

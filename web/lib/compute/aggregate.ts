@@ -15,6 +15,8 @@ export type EntityRow = {
   ciso: string;
   cisoEmail: string;
   consentStatus: string;
+  /** Per-entity directive posture — "observation" or "directive". */
+  consentMode: "observation" | "directive";
   lastSyncAt: string | null;
   lastSyncOk: boolean;
   isDemo: boolean;
@@ -97,6 +99,7 @@ export function loadEntities(): EntityRow[] {
       ciso: t.ciso,
       cisoEmail: t.ciso_email,
       consentStatus: t.consent_status,
+      consentMode: t.consent_mode,
       lastSyncAt: t.last_sync_at,
       lastSyncOk: t.last_sync_ok === 1,
       isDemo: t.is_demo === 1,

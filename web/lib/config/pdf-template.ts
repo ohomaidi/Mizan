@@ -132,13 +132,57 @@ export const DEFAULT_PDF_TEMPLATE: PdfTemplate = {
 };
 
 const KEY = "pdf.onboarding";
+const KEY_DIRECTIVE = "pdf.onboarding.directive";
+
+/**
+ * Pick which onboarding PDF template to render based on the entity's consent
+ * mode. Observation tenants get the classic template. Directive tenants get
+ * a variant with a prominent "DIRECTIVE CONSENT" banner in the header and
+ * the `.ReadWrite` scopes listed explicitly in the consent section — so the
+ * entity's Global Admin cannot claim they did not know what they were
+ * granting.
+ *
+ * Phase 1: if the directive template has never been customized, we fall back
+ * to the observation template and Section 1 of directive-variant defaults
+ * gets inlined. A Phase 2 commit will ship richer defaults + a dedicated
+ * Settings panel to edit them.
+ */
+export function getPdfTemplateForMode(
+  mode: "observation" | "directive",
+): PdfTemplate {
+  if (mode === "directive") {
+    const stored = readConfig<PdfTemplate>(KEY_DIRECTIVE);
+    if (stored) {
+      return applyBrandHeader(mergeWithDefaults(stored));
+    }
+    // No directive-specific template saved yet — fall back to observation
+    // template with a warning stripe so the PDF still renders and the Center
+    // admin gets a prompt to customize it.
+    return applyBrandHeader(
+      mergeWithDefaults({
+        ...DEFAULT_PDF_TEMPLATE,
+        taglineEn: `${DEFAULT_PDF_TEMPLATE.taglineEn} · DIRECTIVE CONSENT`,
+        taglineAr: `${DEFAULT_PDF_TEMPLATE.taglineAr} · موافقة توجيهية`,
+      }),
+    );
+  }
+  const stored = readConfig<PdfTemplate>(KEY);
+  const base = stored ? mergeWithDefaults(stored) : DEFAULT_PDF_TEMPLATE;
+  return applyBrandHeader(base);
+}
 
 export function getPdfTemplate(): PdfTemplate {
   const stored = readConfig<PdfTemplate>(KEY);
   const base = stored ? mergeWithDefaults(stored) : DEFAULT_PDF_TEMPLATE;
-  // If the operator has not customized the header fields away from defaults
-  // yet, pull the customer's org identity from branding so a fresh install
-  // renders a branded PDF out of the box.
+  return applyBrandHeader(base);
+}
+
+/**
+ * Shared header-branding + Arabic-sanitizing pass used by both the
+ * observation and directive template getters. Pulls the customer's name /
+ * tagline from branding if the operator hasn't customized the defaults.
+ */
+function applyBrandHeader(base: PdfTemplate): PdfTemplate {
   const b = getBranding();
   const brandedHeader: Pick<
     PdfTemplate,

@@ -95,6 +95,15 @@ export const DICT = {
       "We'll create the tenant record, mint a unique admin-consent URL, and prepare the bilingual onboarding PDF. Nothing is sent — you review the preview below before forwarding to the entity's Global Admin.",
     "wizard.step3.generate": "Generate",
     "wizard.step3.done": "Generated. Consent URL + PDFs ready below.",
+    "wizard.mode.title": "Consent mode",
+    "wizard.mode.observation.title": "Observation only",
+    "wizard.mode.observation.body":
+      "Read-only access to this entity's security posture. The Center can see but cannot write, push policies, or remediate. This is the default.",
+    "wizard.mode.directive.title": "Observation + Directive",
+    "wizard.mode.directive.body":
+      "Observation plus the ability to push Center-approved baselines (Conditional Access, Intune, named locations) and directive actions (classify incidents, force sign-out, block IOCs). The entity's Global Admin consents to a second Entra app with .ReadWrite scopes at onboarding.",
+    "wizard.mode.directive.notReady":
+      "The Directive app is not yet provisioned. Finish Settings \u2192 Authentication \u2192 Directive app first.",
     "wizard.step4.title": "Await admin consent",
     "wizard.step4.subtitle":
       "Forward the onboarding letter to the entity's Global Administrator. This page live-polls consent status every 5 seconds. You can close the window — consent continues to be captured by the redirect handler.",
@@ -263,6 +272,27 @@ export const DICT = {
     "login.error.missing_params": "The sign-in URL was malformed.",
 
     "settings.tab.auth": "Authentication",
+    "directiveCfg.title": "Directive app",
+    "directiveCfg.subtitle":
+      "Second Entra app registration with .ReadWrite scopes. Required before any entity can be onboarded in directive mode. Create it in the Entra admin center, paste the credentials below, and grant admin consent on every Entra app permission.",
+    "directiveCfg.field.clientId": "Directive app client ID",
+    "directiveCfg.field.clientSecret": "Directive app client secret",
+    "directiveCfg.field.authorityHost": "Authority host",
+    "directiveCfg.clientIdHelper":
+      "Distinct from the Graph Signals read-only app. Entra portal \u2192 App registrations \u2192 New registration.",
+    "directiveCfg.secretSet": "Secret stored",
+    "directiveCfg.secretUnset": "Not set",
+    "directiveCfg.secretSetPlaceholder": "(already stored \u2014 leave blank to keep)",
+    "directiveCfg.secretUnsetPlaceholder": "Paste the secret value from Entra",
+    "directiveCfg.save": "Save",
+    "directiveCfg.saved": "Saved. Phase 2 write endpoints will use these credentials.",
+    "directiveCfg.clear": "Clear",
+    "directiveCfg.clearConfirm":
+      "Clear the Directive app credentials? Any in-flight directive work will stop. Active entities stay in directive mode but no further writes can be issued until credentials are restored.",
+    "directiveCfg.warningTitle": "Compliance note",
+    "directiveCfg.warningBody":
+      "The Directive app's permissions include Policy.ReadWrite.ConditionalAccess, DeviceManagementConfiguration.ReadWrite.All, SecurityIncident.ReadWrite.All, IdentityRiskyUser.ReadWrite.All. Any entity that consents to this app is granting the Center the ability to write to their tenant. Treat the admin consent step with the weight it deserves.",
+
     "authCfg.title": "User authentication",
     "authCfg.subtitle":
       "Sign-in for operators and analysts. Uses a second Entra app registration (separate from the one that reads entity posture). Sign-in is always required — first-run sign-in is handled automatically by the setup wizard.",
@@ -1136,6 +1166,63 @@ export const DICT = {
     "tab.connection.col.callCount": "Calls (24h)",
     "tab.connection.col.throttled": "Throttled (24h)",
 
+    "directive.eyebrow": "Directive",
+    "directive.title": "Baselines and directive actions",
+    "directive.subtitle":
+      "Center-authored baselines and directive actions that push to consented entities. Every action is previewed, approved, and auditable. Entities decide whether to accept directive consent alongside observation; nothing is pushed without it.",
+    "directive.phase": "Phase {n}",
+    "directive.status.available": "Available",
+    "directive.status.inProgress": "In progress",
+    "directive.status.planned": "Planned",
+    "directive.setup.title": "Directive app not yet provisioned",
+    "directive.setup.body":
+      "Directive-mode deployments require a second Entra app with .ReadWrite scopes, separate from the Graph Signals read-only app. Provision it from Settings \u2192 Authentication and grant admin consent before onboarding any entity in directive mode.",
+    "directive.setup.cta": "Go to Settings",
+    "directive.setup.helper": "One-time setup. Takes about 5 minutes.",
+    "directive.roadmap.title": "Capability roadmap",
+    "directive.roadmap.subtitle":
+      "What this deployment will be able to do as directive phases land. Phase numbering maps to the product plan in docs/13.",
+    "directive.cap.incidentOps.title": "Incident operations",
+    "directive.cap.incidentOps.body":
+      "Classify, assign, comment on Defender XDR incidents and alerts across every directive-consented entity. Low risk, daily-use value.",
+    "directive.cap.riskyUsers.title": "Risky user dispositions",
+    "directive.cap.riskyUsers.body":
+      "Confirm-compromised or dismiss risk detections on Entra ID Protection; force sign-out via revokeSignInSessions.",
+    "directive.cap.threatSubmissions.title": "Threat submissions",
+    "directive.cap.threatSubmissions.body":
+      "Submit phishing emails, malicious URLs, and file hashes to Microsoft for analysis.",
+    "directive.cap.caBaselines.title": "Conditional Access baselines",
+    "directive.cap.caBaselines.body":
+      "Push Center-authored CA policy baselines to every consented entity. Report-only default, two-person approval, per-entity admin exclusion, one-click rollback.",
+    "directive.cap.intuneBaselines.title": "Intune compliance baselines",
+    "directive.cap.intuneBaselines.body":
+      "Push minimum OS, encryption, and passcode policies to every entity's Intune tenant.",
+    "directive.cap.iocPush.title": "Indicator push (Defender)",
+    "directive.cap.iocPush.body":
+      "Block an IP, URL, or file hash across every entity's Defender for Endpoint fleet in one action.",
+    "directive.cap.deviceIsolation.title": "Device isolation",
+    "directive.cap.deviceIsolation.body":
+      "Request isolation of a compromised endpoint. Entity on-call approves; MDE executes. Never unilateral.",
+    "directive.cap.namedLocations.title": "Named locations",
+    "directive.cap.namedLocations.body":
+      "Push Center-mandated trusted IP ranges to every entity's Conditional Access named locations.",
+    "directive.guardrails.title": "Safety rails",
+    "directive.guardrails.subtitle":
+      "These protections are baked into the Directive engine from day one, not opt-in.",
+    "directive.guardrails.reportOnly":
+      "Every Conditional Access policy lands as report-only. The entity admin (not the Center) toggles enforcement.",
+    "directive.guardrails.twoPerson":
+      "High-risk baselines require two-person approval. The Center user who pushes is not the user who approves.",
+    "directive.guardrails.adminExclusion":
+      "Every Center-authored CA policy excludes the entity's own Global Administrators. A bad push cannot lock the entity out of their own tenant.",
+    "directive.guardrails.rollback":
+      "Every push is recorded with its rollback plan. One click reverses the last N actions.",
+    "directive.guardrails.consentGated":
+      "Nothing writes to an entity tenant that has not explicitly consented to the Directive app. Observation-only entities are never touched.",
+
+    "mode.observation": "Observation",
+    "mode.directive": "Directive",
+
     "vuln.eyebrow": "Vulnerability management",
     "vuln.title": "Vulnerabilities across the federation",
     "vuln.subtitle":
@@ -1317,6 +1404,7 @@ export const DICT = {
     "nav.data": "Data protection",
     "nav.devices": "Devices",
     "nav.governance": "Governance",
+    "nav.directive": "Directive",
     "nav.settings": "Settings",
     "nav.faq": "FAQ",
     "sidebar.dataSources": "Data sources",
@@ -1395,6 +1483,15 @@ export const DICT = {
       "سننشئ سجل المستأجر، ونصنع رابط موافقة مخصصًا، ونُجهّز ملف PDF ثنائي اللغة. لا يُرسل شيء — راجع المعاينة أدناه قبل إعادة التوجيه إلى المسؤول العام للجهة.",
     "wizard.step3.generate": "إنشاء",
     "wizard.step3.done": "تم الإنشاء. رابط الموافقة وملفات PDF جاهزة أدناه.",
+    "wizard.mode.title": "وضع الموافقة",
+    "wizard.mode.observation.title": "مراقبة فقط",
+    "wizard.mode.observation.body":
+      "وصول للقراءة فقط إلى وضع الأمن لهذه الجهة. يمكن للمركز الرؤية فقط ولا يمكنه الكتابة أو دفع السياسات أو المعالجة. هذا هو الافتراضي.",
+    "wizard.mode.directive.title": "مراقبة + توجيه",
+    "wizard.mode.directive.body":
+      "المراقبة إضافةً إلى القدرة على دفع القواعد التي يعتمدها المركز (Conditional Access، Intune، المواقع المُسمّاة) والإجراءات التوجيهية (تصنيف الحوادث، فرض تسجيل الخروج، حجب المؤشرات). يوافق مسؤول Global Admin في الجهة على تطبيق Entra ثانٍ بصلاحيات .ReadWrite عند الإدراج.",
+    "wizard.mode.directive.notReady":
+      "لم يتم إعداد تطبيق التوجيهات بعد. أكمل الإعدادات ← المصادقة ← تطبيق التوجيهات أولًا.",
     "wizard.step4.title": "انتظار الموافقة",
     "wizard.step4.subtitle":
       "أعد توجيه خطاب الإعداد إلى المسؤول العام لمستأجر الجهة. تتم مراجعة حالة الموافقة كل ٥ ثوانٍ. يمكنك إغلاق النافذة — سيبقى التقاط الموافقة عبر معالج إعادة التوجيه.",
@@ -1561,6 +1658,27 @@ export const DICT = {
     "login.error.missing_params": "عنوان تسجيل الدخول غير مكتمل.",
 
     "settings.tab.auth": "المصادقة",
+    "directiveCfg.title": "تطبيق التوجيهات",
+    "directiveCfg.subtitle":
+      "تسجيل تطبيق Entra ثانٍ بصلاحيات .ReadWrite. مطلوب قبل إدراج أي جهة في وضع التوجيهات. أنشئه في مركز إدارة Entra، ألصق بيانات الاعتماد أدناه، وامنح موافقة المسؤول على كل صلاحية.",
+    "directiveCfg.field.clientId": "معرّف عميل تطبيق التوجيهات",
+    "directiveCfg.field.clientSecret": "سر تطبيق التوجيهات",
+    "directiveCfg.field.authorityHost": "مضيف الصلاحيات",
+    "directiveCfg.clientIdHelper":
+      "متميّز عن تطبيق Graph للقراءة فقط. بوابة Entra ← تسجيلات التطبيقات ← تسجيل جديد.",
+    "directiveCfg.secretSet": "تم تخزين السر",
+    "directiveCfg.secretUnset": "غير محدد",
+    "directiveCfg.secretSetPlaceholder": "(مخزّن بالفعل — اتركه فارغًا للإبقاء عليه)",
+    "directiveCfg.secretUnsetPlaceholder": "ألصق قيمة السر من Entra",
+    "directiveCfg.save": "حفظ",
+    "directiveCfg.saved": "تم الحفظ. ستستخدم نهايات الكتابة في المرحلة الثانية هذه البيانات.",
+    "directiveCfg.clear": "مسح",
+    "directiveCfg.clearConfirm":
+      "مسح بيانات اعتماد تطبيق التوجيهات؟ سيتوقف أي عمل توجيهي قيد التنفيذ. تبقى الجهات النشطة في وضع التوجيهات ولكن لا يمكن إصدار المزيد من عمليات الكتابة حتى تُستعاد بيانات الاعتماد.",
+    "directiveCfg.warningTitle": "ملاحظة امتثال",
+    "directiveCfg.warningBody":
+      "تتضمن صلاحيات تطبيق التوجيهات: Policy.ReadWrite.ConditionalAccess و DeviceManagementConfiguration.ReadWrite.All و SecurityIncident.ReadWrite.All و IdentityRiskyUser.ReadWrite.All. أي جهة توافق على هذا التطبيق تمنح المركز القدرة على الكتابة في مستأجرها. تعامل مع خطوة موافقة المسؤول بالجدية التي تستحقها.",
+
     "authCfg.title": "مصادقة المستخدمين",
     "authCfg.subtitle":
       "تسجيل الدخول للمشغّلين والمحللين. يستخدم تسجيل تطبيق Entra ثانيًا (مستقل عن تطبيق قراءة وضع الجهات). تسجيل الدخول مطلوب دائمًا — يتولى معالج الإعداد الأولي تسجيل الدخول تلقائيًا.",
@@ -2453,6 +2571,63 @@ export const DICT = {
     "tab.connection.col.callCount": "الاستدعاءات (٢٤س)",
     "tab.connection.col.throttled": "محدودة (٢٤س)",
 
+    "directive.eyebrow": "التوجيهات",
+    "directive.title": "القواعد الأساسية والإجراءات التوجيهية",
+    "directive.subtitle":
+      "قواعد أساسية وإجراءات توجيهية يُؤلّفها المركز ويطبّقها على الجهات المُصرِّحة. كل إجراء يمر بمعاينة وموافقة وقابل للتدقيق. لا يُطبَّق شيء على جهة إلا بموافقتها الصريحة على تطبيق التوجيهات.",
+    "directive.phase": "المرحلة {n}",
+    "directive.status.available": "متاح",
+    "directive.status.inProgress": "قيد التنفيذ",
+    "directive.status.planned": "مخطَّط",
+    "directive.setup.title": "لم يتم إعداد تطبيق التوجيهات بعد",
+    "directive.setup.body":
+      "تتطلب عمليات النشر بوضع التوجيهات تطبيق Entra ثانيًا بصلاحيات .ReadWrite، منفصل عن تطبيق قراءة Graph. أعِدّه من الإعدادات ← المصادقة وامنح موافقة المسؤول قبل إدراج أي جهة في وضع التوجيهات.",
+    "directive.setup.cta": "الانتقال إلى الإعدادات",
+    "directive.setup.helper": "إعداد لمرة واحدة، يستغرق نحو ٥ دقائق.",
+    "directive.roadmap.title": "خارطة القدرات",
+    "directive.roadmap.subtitle":
+      "ما سيتمكن هذا النشر من فعله مع إطلاق مراحل التوجيهات. ترقيم المراحل يتبع خطة المنتج في docs/13.",
+    "directive.cap.incidentOps.title": "عمليات الحوادث",
+    "directive.cap.incidentOps.body":
+      "تصنيف وتعيين وتعليق على حوادث وتنبيهات Defender XDR عبر كل جهة مُصرِّحة بالتوجيهات. مخاطرة منخفضة، قيمة يومية عالية.",
+    "directive.cap.riskyUsers.title": "إجراءات المستخدمين ذوي المخاطر",
+    "directive.cap.riskyUsers.body":
+      "تأكيد التسريب أو تجاهل اكتشافات المخاطر في Entra ID Protection؛ فرض تسجيل الخروج عبر revokeSignInSessions.",
+    "directive.cap.threatSubmissions.title": "تقديم التهديدات",
+    "directive.cap.threatSubmissions.body":
+      "إرسال رسائل التصيد وعناوين URL الضارة وقيم hash الملفات إلى Microsoft للتحليل.",
+    "directive.cap.caBaselines.title": "قواعد Conditional Access",
+    "directive.cap.caBaselines.body":
+      "نشر سياسات CA موحَّدة يؤلّفها المركز على كل جهة مُصرِّحة. الوضع الافتراضي للتقارير فقط، مع موافقة شخصَيْن، واستثناء مسؤول الجهة، وتراجع بنقرة واحدة.",
+    "directive.cap.intuneBaselines.title": "قواعد امتثال Intune",
+    "directive.cap.intuneBaselines.body":
+      "نشر سياسات الحد الأدنى لنظام التشغيل والتشفير ورمز المرور على Intune لكل جهة.",
+    "directive.cap.iocPush.title": "دفع المؤشرات (Defender)",
+    "directive.cap.iocPush.body":
+      "حظر عنوان IP أو URL أو hash ملف على كل أسطول Defender for Endpoint للجهات في خطوة واحدة.",
+    "directive.cap.deviceIsolation.title": "عزل الجهاز",
+    "directive.cap.deviceIsolation.body":
+      "طلب عزل جهاز مخترق. يوافق المناوب لدى الجهة؛ يُنفِّذ MDE. لا يتم انفراديًا أبدًا.",
+    "directive.cap.namedLocations.title": "المواقع المُسمّاة",
+    "directive.cap.namedLocations.body":
+      "دفع نطاقات IP الموثوقة التي يحدّدها المركز إلى المواقع المُسمّاة في CA لكل جهة.",
+    "directive.guardrails.title": "ضوابط السلامة",
+    "directive.guardrails.subtitle":
+      "هذه الحمايات مدمجة في محرك التوجيهات من اليوم الأول، وليست اختيارية.",
+    "directive.guardrails.reportOnly":
+      "كل سياسة Conditional Access تُنشَر بوضع التقارير فقط. مسؤول الجهة (وليس المركز) يُفعّل الإنفاذ.",
+    "directive.guardrails.twoPerson":
+      "القواعد عالية المخاطر تتطلب موافقة شخصَيْن. مستخدم المركز الذي يدفع ليس نفسه مستخدم المركز الذي يوافق.",
+    "directive.guardrails.adminExclusion":
+      "كل سياسة CA يؤلّفها المركز تستثني مسؤولي Global Admin الخاصين بالجهة. لا يمكن أن يقفل الدفع الخاطئ الجهة خارج نطاق مستأجرها.",
+    "directive.guardrails.rollback":
+      "كل دفع يُسجَّل مع خطة التراجع. نقرة واحدة لعكس آخر N إجراء.",
+    "directive.guardrails.consentGated":
+      "لا يُكتب شيء على جهة لم توافق صراحةً على تطبيق التوجيهات. الجهات في وضع المراقبة فقط لا تُمَس.",
+
+    "mode.observation": "مراقبة",
+    "mode.directive": "توجيه",
+
     "vuln.eyebrow": "إدارة الثغرات",
     "vuln.title": "الثغرات الأمنية عبر الجهات",
     "vuln.subtitle":
@@ -2633,6 +2808,7 @@ export const DICT = {
     "nav.data": "حماية البيانات",
     "nav.devices": "الأجهزة",
     "nav.governance": "الحوكمة",
+    "nav.directive": "التوجيهات",
     "nav.settings": "الإعدادات",
     "nav.faq": "الأسئلة الشائعة",
     "sidebar.dataSources": "مصادر البيانات",

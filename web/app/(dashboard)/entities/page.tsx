@@ -228,11 +228,16 @@ export default function EntitiesPage({
                         href={`/entities/${e.id}`}
                         className="block text-ink-1 hover:text-council-strong"
                       >
-                        <div className="font-medium leading-tight inline-flex items-center gap-2">
+                        <div className="font-medium leading-tight inline-flex items-center gap-2 flex-wrap">
                           <span>{locale === "ar" ? e.nameAr : e.nameEn}</span>
                           {e.isDemo ? (
                             <span className="text-[9.5px] uppercase tracking-[0.08em] border border-accent/50 text-accent rounded px-1.5 py-px font-semibold">
                               {t("demo.badge")}
+                            </span>
+                          ) : null}
+                          {e.consentMode === "directive" ? (
+                            <span className="text-[9.5px] uppercase tracking-[0.08em] border border-council-strong/60 text-council-strong rounded px-1.5 py-px font-semibold">
+                              {t("mode.directive")}
                             </span>
                           ) : null}
                         </div>

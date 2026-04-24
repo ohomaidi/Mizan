@@ -145,6 +145,54 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 7,
+    name: "add_directive_consent_mode",
+    run: (db) => {
+      // Per-entity consent mode. Only meaningful in directive-mode deployments
+      // (DESC-style regulators); observation-mode deployments (SCSC-style)
+      // never read or write this column — every entity is observation by
+      // default. Value stays `observation` until an entity explicitly consents
+      // to the Directive app, at which point it flips to `directive`.
+      //
+      // We use defensive PRAGMA checks because older demo DBs may already have
+      // the column from manual fixups; `ALTER TABLE ADD COLUMN` throws on
+      // duplicate.
+      const cols = db.prepare("PRAGMA table_info(tenants)").all() as Array<{ name: string }>;
+      const have = (c: string) => cols.some((col) => col.name === c);
+      if (!have("consent_mode")) {
+        db.exec(
+          "ALTER TABLE tenants ADD COLUMN consent_mode TEXT NOT NULL DEFAULT 'observation'",
+        );
+      }
+      if (!have("directive_app_consented_at")) {
+        db.exec("ALTER TABLE tenants ADD COLUMN directive_app_consented_at TEXT");
+      }
+      if (!have("directive_app_consent_state")) {
+        db.exec("ALTER TABLE tenants ADD COLUMN directive_app_consent_state TEXT");
+      }
+      if (!have("directive_app_consent_error")) {
+        db.exec("ALTER TABLE tenants ADD COLUMN directive_app_consent_error TEXT");
+      }
+
+      // Audit trail for every mode change — upgrade, downgrade, or revocation.
+      // Never deleted. Rolled into the tenant's history view in Settings later.
+      db.exec(`CREATE TABLE IF NOT EXISTS consent_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        from_mode TEXT,
+        to_mode TEXT,
+        actor_user_id TEXT,
+        note TEXT,
+        at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_consent_history_tenant_at ON consent_history(tenant_id, at DESC)",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

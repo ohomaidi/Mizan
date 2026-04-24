@@ -325,8 +325,13 @@ function EntityDetailInner({
                 : t("sync.never")}
             </span>
           </div>
-          <h1 className="mt-2 text-[26px] font-semibold text-ink-1 tracking-tight leading-tight">
-            {locale === "ar" ? tenant.name_ar : tenant.name_en}
+          <h1 className="mt-2 text-[26px] font-semibold text-ink-1 tracking-tight leading-tight inline-flex items-center gap-3 flex-wrap">
+            <span>{locale === "ar" ? tenant.name_ar : tenant.name_en}</span>
+            {tenant.consent_mode === "directive" ? (
+              <span className="text-[10px] uppercase tracking-[0.08em] border border-council-strong/60 text-council-strong rounded px-1.5 py-0.5 font-semibold">
+                {t("mode.directive")}
+              </span>
+            ) : null}
           </h1>
           <div className="text-ink-2 text-[13px] mt-0.5" dir={locale === "ar" ? "ltr" : "rtl"}>
             {locale === "ar" ? tenant.name_en : tenant.name_ar}

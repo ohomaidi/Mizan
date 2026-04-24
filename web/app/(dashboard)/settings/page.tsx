@@ -22,6 +22,7 @@ import { DocumentationPanel } from "@/components/settings/DocumentationPanel";
 import { OnboardingWizard } from "@/components/settings/OnboardingWizard";
 import { BrandingPanel } from "@/components/settings/BrandingPanel";
 import { AuthConfigPanel } from "@/components/settings/AuthConfigPanel";
+import { DirectiveConfigPanel } from "@/components/settings/DirectiveConfigPanel";
 import { UsersPanel } from "@/components/settings/UsersPanel";
 import { AboutPanel } from "@/components/settings/AboutPanel";
 import type { DictKey } from "@/lib/i18n/dict";
@@ -127,6 +128,22 @@ function SettingsPageInner() {
   const [entities, setEntities] = useState<EntityRow[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [useWizard, setUseWizard] = useState<boolean>(true);
+  const [deploymentMode, setDeploymentMode] = useState<"observation" | "directive">(
+    "observation",
+  );
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .whoami()
+      .then((r) => {
+        if (alive) setDeploymentMode(r.deploymentMode);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const consentBanner = searchParams.get("consent");
   const consentTenant = searchParams.get("tenant");
@@ -235,6 +252,7 @@ function SettingsPageInner() {
       {activeTab === "auth" ? (
         <div className="flex flex-col gap-5">
           <AuthConfigPanel />
+          {deploymentMode === "directive" ? <DirectiveConfigPanel /> : null}
           <UsersPanel />
         </div>
       ) : null}

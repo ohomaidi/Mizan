@@ -3,7 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { getTenant } from "@/lib/db/tenants";
 import { config } from "@/lib/config";
 import { OnboardingLetter } from "@/lib/pdf/OnboardingLetter";
-import { getPdfTemplate } from "@/lib/config/pdf-template";
+import { getPdfTemplateForMode } from "@/lib/config/pdf-template";
 import { buildConsentUrl } from "@/lib/config/consent-url";
 import { resolveAppBaseUrl } from "@/lib/config/base-url";
 
@@ -24,7 +24,11 @@ export async function GET(
   const lang = url.searchParams.get("lang") === "ar" ? "ar" : "en";
 
   const consentUrl = await buildConsentUrl(tenant.tenant_id, tenant.consent_state);
-  const template = getPdfTemplate();
+  // Pick the template variant based on the tenant's consent mode. Observation
+  // tenants get the classic onboarding letter. Directive tenants get the
+  // directive-variant with the .ReadWrite scope listing so the entity's
+  // Global Admin cannot claim they did not know what they were granting.
+  const template = getPdfTemplateForMode(tenant.consent_mode);
   const dashboardUrl = await resolveAppBaseUrl();
 
   const doc = (

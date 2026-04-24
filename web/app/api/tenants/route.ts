@@ -4,6 +4,7 @@ import { z } from "zod";
 import { insertTenant, listTenants, getTenantByTenantId } from "@/lib/db/tenants";
 import { config } from "@/lib/config";
 import { buildConsentUrl } from "@/lib/config/consent-url";
+import { isDirectiveDeployment } from "@/lib/config/deployment-mode";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +27,12 @@ const DraftSchema = z.object({
   domain: z.string().trim().min(3).max(253).regex(/\./),
   ciso: z.string().trim().max(120).optional().default(""),
   cisoEmail: z.string().trim().email().optional().or(z.literal("")).default(""),
+  /**
+   * Per-entity consent mode picked by the Center admin at onboarding.
+   * Only honored in directive-mode deployments; server-side guard below
+   * forces observation if the deployment isn't directive-mode.
+   */
+  consentMode: z.enum(["observation", "directive"]).optional().default("observation"),
 });
 
 export async function GET() {
@@ -74,6 +81,10 @@ export async function POST(req: NextRequest) {
   }
 
   const consentState = crypto.randomBytes(16).toString("hex");
+  // Server-side guard: directive mode is only meaningful in directive-mode
+  // deployments. Observation-mode deployments (SCSC) silently coerce every
+  // incoming onboarding to observation even if the client sent directive.
+  const mode = isDirectiveDeployment() ? draft.consentMode : "observation";
   const tenant = insertTenant(
     {
       tenant_id: draft.tenantId,
@@ -83,6 +94,7 @@ export async function POST(req: NextRequest) {
       domain: draft.domain,
       ciso: draft.ciso,
       ciso_email: draft.cisoEmail,
+      consent_mode: mode,
     },
     consentState,
   );
