@@ -153,25 +153,11 @@ export default function DirectivePage() {
         </p>
       </div>
 
-      {me && !me.directiveReady ? (
-        <Card className="border-warn/40">
-          <CardHeader
-            title={t("directive.setup.title")}
-            subtitle={t("directive.setup.body")}
-          />
-          <div className="flex items-center gap-2 mt-3">
-            <a
-              href="/settings?tab=auth"
-              className="inline-flex items-center h-8 px-3 rounded-md bg-council-strong text-white text-[12.5px] font-semibold"
-            >
-              {t("directive.setup.cta")}
-            </a>
-            <span className="text-[12px] text-ink-3">
-              {t("directive.setup.helper")}
-            </span>
-          </div>
-        </Card>
-      ) : null}
+      {/* No "Directive app not provisioned" banner — this deployment uses a
+          single Graph app registration whose scope list was set at /setup
+          based on deployment mode. If we're on this page at all, the
+          deployment already chose read+write and the app has the right
+          scopes. */}
 
       <Card>
         <CardHeader

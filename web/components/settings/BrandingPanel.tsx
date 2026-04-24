@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { api } from "@/lib/api/client";
 
-type FrameworkId = "nesa" | "nca" | "isr" | "generic";
+type FrameworkId = "nesa" | "dubai-isr" | "nca" | "isr" | "generic";
 
 type Form = {
   nameEn: string;
@@ -342,6 +342,9 @@ export function BrandingPanel() {
             >
               <option value="generic">{t("branding.framework.generic")}</option>
               <option value="nesa">{t("branding.framework.nesa")}</option>
+              <option value="dubai-isr">
+                {t("branding.framework.dubai-isr")}
+              </option>
               <option value="nca">{t("branding.framework.nca")}</option>
               <option value="isr">{t("branding.framework.isr")}</option>
             </select>

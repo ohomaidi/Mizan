@@ -53,6 +53,48 @@ const GRAPH_APP_PERMISSIONS: Array<{ name: string; id: string }> = [
   { name: "SubjectRightsRequest.Read.All", id: "ee1460f0-368b-4153-870a-4e1ca7e72c42" },
 ];
 
+/**
+ * Write-side permissions added to the Graph app ON TOP OF the read-only set
+ * when the deployment is in `directive` (read+write) mode. Scoped to what
+ * Phase 2+ directive work will actually call:
+ *   - Conditional Access policy baselines
+ *   - Intune compliance policy baselines
+ *   - Incident / alert operations
+ *   - Risky user dispositions + force sign-out
+ *   - Threat submissions
+ *
+ * Permission IDs are stable + documented under
+ * https://learn.microsoft.com/en-us/graph/permissions-reference.
+ */
+const GRAPH_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [
+  { name: "Policy.ReadWrite.ConditionalAccess", id: "01c0a623-fc9b-48e9-b794-0756f8e8f067" },
+  { name: "Application.Read.All", id: "9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30" },
+  { name: "DeviceManagementConfiguration.ReadWrite.All", id: "9241abd9-d0e6-425a-bd4f-47ba86e767a4" },
+  { name: "DeviceManagementManagedDevices.ReadWrite.All", id: "243333ab-4d21-40cb-a475-36241daa0842" },
+  { name: "DeviceManagementManagedDevices.PrivilegedOperations.All", id: "5b07b0dd-2377-4e44-a38d-703f09a0dc3c" },
+  { name: "SecurityIncident.ReadWrite.All", id: "34bf0e97-1971-4929-b999-9e2442d941d7" },
+  { name: "SecurityAlert.ReadWrite.All", id: "ed4fca05-be46-441f-9803-1873825f8fdd" },
+  { name: "IdentityRiskyUser.ReadWrite.All", id: "656f6061-f9fe-4807-9708-6a2e0934df76" },
+  { name: "User.RevokeSessions.All", id: "62a82d76-70ea-41e2-9197-370581804d09" },
+  { name: "ThreatSubmission.ReadWrite.All", id: "d72bdbf4-a59b-405c-8b04-5995895819ac" },
+];
+
+/**
+ * Pick the permission set to register on the Graph app based on deployment
+ * mode. Read-only deployments get the classic 18-scope read set. Read+write
+ * deployments get that set PLUS the directive write scopes above. The choice
+ * is baked into the app at creation time and cannot be narrowed later without
+ * re-consenting every entity — admin consent is scope-wide, tenant-wide.
+ */
+function graphPermissionsForMode(
+  mode: "observation" | "directive",
+): Array<{ name: string; id: string }> {
+  if (mode === "directive") {
+    return [...GRAPH_APP_PERMISSIONS, ...GRAPH_APP_WRITE_PERMISSIONS];
+  }
+  return GRAPH_APP_PERMISSIONS;
+}
+
 /** Delegated OIDC scopes the user-auth app needs. */
 const USER_AUTH_DELEGATED_SCOPES: Array<{ name: string; id: string }> = [
   { name: "User.Read", id: "e1fe6dd8-ba31-4d61-89e7-88639da4683d" },
@@ -142,9 +184,20 @@ async function addSecret(
  */
 export async function provisionGraphSignalsApp(
   accessToken: string,
-  opts: { displayName: string; dashboardBaseUrl: string },
+  opts: {
+    displayName: string;
+    dashboardBaseUrl: string;
+    /**
+     * `observation` gets the classic read-only scope set. `directive` gets
+     * the read set PLUS the directive write scopes. Baked into the Entra app
+     * at creation time — admin consent is scope-wide, so entities cannot
+     * partially consent afterward.
+     */
+    deploymentMode?: "observation" | "directive";
+  },
 ): Promise<ProvisionResult> {
   const redirectUri = `${opts.dashboardBaseUrl.replace(/\/+$/, "")}/api/auth/consent-callback`;
+  const permissions = graphPermissionsForMode(opts.deploymentMode ?? "observation");
 
   const app = await createApp(accessToken, {
     displayName: opts.displayName,
@@ -155,7 +208,7 @@ export async function provisionGraphSignalsApp(
     requiredResourceAccess: [
       {
         resourceAppId: MS_GRAPH,
-        resourceAccess: GRAPH_APP_PERMISSIONS.map((p) => ({
+        resourceAccess: permissions.map((p) => ({
           id: p.id,
           type: "Role", // application-level, not delegated
         })),

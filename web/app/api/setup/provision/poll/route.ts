@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/graph-app-provisioner";
 import { resolveAppBaseUrl } from "@/lib/config/base-url";
 import { getBranding } from "@/lib/config/branding";
+import { getDeploymentMode } from "@/lib/config/deployment-mode";
 import { countAdmins, upsertUser } from "@/lib/db/users";
 import { openSession, writeSessionCookie } from "@/lib/auth/session";
 
@@ -104,9 +105,14 @@ export async function POST(req: NextRequest) {
 
     let provisionResult: { clientId: string; displayName: string };
     if (flow.kind === "graph") {
+      // Pick the scope set to stamp on the new app by the DB-stored
+      // deployment mode. The /setup wizard wrote it to app_config on Step 1,
+      // before this Graph-app step ran. Falls back to env var, then
+      // observation.
       const p = await provisionGraphSignalsApp(result.accessToken, {
         displayName: `${branding.shortEn || "Mizan"} — Graph signals`,
         dashboardBaseUrl,
+        deploymentMode: getDeploymentMode(),
       });
       provisionResult = { clientId: p.clientId, displayName: p.displayName };
     } else {

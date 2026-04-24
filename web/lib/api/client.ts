@@ -93,7 +93,7 @@ export const api = {
         accentColorStrong: string;
         logoPath: string | null;
         logoBgRemoved: boolean;
-        frameworkId: "nesa" | "nca" | "isr" | "generic";
+        frameworkId: "nesa" | "dubai-isr" | "nca" | "isr" | "generic";
         updatedAt?: string;
       };
       defaults: {
@@ -107,7 +107,7 @@ export const api = {
         accentColorStrong: string;
         logoPath: string | null;
         logoBgRemoved: boolean;
-        frameworkId: "nesa" | "nca" | "isr" | "generic";
+        frameworkId: "nesa" | "dubai-isr" | "nca" | "isr" | "generic";
       };
     }>("/api/config/branding"),
 
@@ -120,7 +120,7 @@ export const api = {
     taglineAr?: string;
     accentColor?: string;
     accentColorStrong?: string;
-    frameworkId?: "nesa" | "nca" | "isr" | "generic";
+    frameworkId?: "nesa" | "dubai-isr" | "nca" | "isr" | "generic";
   }) =>
     jsonFetch<{ branding: unknown }>("/api/config/branding", {
       method: "PUT",
@@ -170,7 +170,7 @@ export const api = {
       configured: boolean;
       demoMode: boolean;
       deploymentMode: "observation" | "directive";
-      directiveReady: boolean;
+      graphAppReady: boolean;
       user: {
         id: string;
         email: string;
@@ -262,35 +262,19 @@ export const api = {
       body: JSON.stringify({ clear: true }),
     }),
 
-  // ----- Directive app (only reachable on directive-mode deployments) -----
-  getDirectiveConfig: () =>
+  // ----- Deployment mode (chosen once at /setup wizard) -----
+  getDeploymentMode: () =>
     jsonFetch<{
-      config: {
-        clientId: string;
-        clientSecretSet: boolean;
-        authorityHost: string;
-        consentRedirectUri: string;
-        updatedAt: string | null;
-        source: { clientId: "db" | "env" | "none"; clientSecret: "db" | "env" | "none" };
-      };
-    }>("/api/config/directive"),
+      mode: "observation" | "directive";
+      locked: boolean;
+    }>("/api/config/deployment-mode"),
 
-  saveDirectiveConfig: (patch: {
-    clientId?: string;
-    clientSecret?: string;
-    authorityHost?: string;
-    consentRedirectUri?: string;
-  }) =>
-    jsonFetch<{ config: unknown }>("/api/config/directive", {
-      method: "PUT",
-      body: JSON.stringify(patch),
-    }),
+  setDeploymentMode: (mode: "observation" | "directive") =>
+    jsonFetch<{ mode: "observation" | "directive"; locked: boolean }>(
+      "/api/config/deployment-mode",
+      { method: "POST", body: JSON.stringify({ mode }) },
+    ),
 
-  clearDirectiveConfig: () =>
-    jsonFetch<{ config: unknown }>("/api/config/directive", {
-      method: "PUT",
-      body: JSON.stringify({ clear: true }),
-    }),
 
   getNesaMapping: () =>
     jsonFetch<{

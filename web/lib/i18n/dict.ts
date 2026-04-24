@@ -95,15 +95,13 @@ export const DICT = {
       "We'll create the tenant record, mint a unique admin-consent URL, and prepare the bilingual onboarding PDF. Nothing is sent — you review the preview below before forwarding to the entity's Global Admin.",
     "wizard.step3.generate": "Generate",
     "wizard.step3.done": "Generated. Consent URL + PDFs ready below.",
-    "wizard.mode.title": "Consent mode",
-    "wizard.mode.observation.title": "Observation only",
+    "wizard.mode.title": "Directive on this entity",
+    "wizard.mode.observation.title": "No \u2014 observation only",
     "wizard.mode.observation.body":
-      "Read-only access to this entity's security posture. The Center can see but cannot write, push policies, or remediate. This is the default.",
-    "wizard.mode.directive.title": "Observation + Directive",
+      "This entity is read-only for this Center. No policy pushes, no incident writes, no remediation actions. The Center can see everything but cannot change anything.",
+    "wizard.mode.directive.title": "Yes \u2014 directive enabled",
     "wizard.mode.directive.body":
-      "Observation plus the ability to push Center-approved baselines (Conditional Access, Intune, named locations) and directive actions (classify incidents, force sign-out, block IOCs). The entity's Global Admin consents to a second Entra app with .ReadWrite scopes at onboarding.",
-    "wizard.mode.directive.notReady":
-      "The Directive app is not yet provisioned. Finish Settings \u2192 Authentication \u2192 Directive app first.",
+      "This entity is subject to Center directive actions: baseline Conditional Access policies, Intune compliance pushes, named locations, incident classification, forced sign-out, and indicator blocks. Every write is previewed, approved, and auditable on both sides.",
     "wizard.step4.title": "Await admin consent",
     "wizard.step4.subtitle":
       "Forward the onboarding letter to the entity's Global Administrator. This page live-polls consent status every 5 seconds. You can close the window — consent continues to be captured by the redirect handler.",
@@ -350,6 +348,19 @@ export const DICT = {
     "setup.next": "Next",
     "setup.skipHint":
       "You can skip this step and configure it later from Settings.",
+    "setup.deployment.title": "Deployment mode",
+    "setup.deployment.subtitle":
+      "Pick once, permanent. Drives the Graph app's permission set and whether directive actions are available across the product.",
+    "setup.deployment.observation.title": "Read-only",
+    "setup.deployment.observation.body":
+      "The Graph app is provisioned with .Read.All scopes only. The Center can observe every consented entity's posture but cannot push any policy or take any directive action. Choose this for oversight councils and audit-only deployments.",
+    "setup.deployment.directive.title": "Read / write",
+    "setup.deployment.directive.body":
+      "The Graph app is provisioned with .Read.All + .ReadWrite.All scopes. The Center can push Center-approved baselines and directive actions to entities that explicitly consent to directive at onboarding. Choose this for regulators.",
+    "setup.deployment.lockedHint":
+      "Deployment mode is already set and cannot be changed. Redeploy to change it.",
+    "setup.deployment.unlockedWarning":
+      "Choose carefully. This decision is permanent once you click Next.",
     "setup.s1.title": "1. Your organization",
     "setup.s1.subtitle":
       "This is the name that appears everywhere — dashboard chrome, PDFs, letters, the sign-in page.",
@@ -1483,15 +1494,13 @@ export const DICT = {
       "سننشئ سجل المستأجر، ونصنع رابط موافقة مخصصًا، ونُجهّز ملف PDF ثنائي اللغة. لا يُرسل شيء — راجع المعاينة أدناه قبل إعادة التوجيه إلى المسؤول العام للجهة.",
     "wizard.step3.generate": "إنشاء",
     "wizard.step3.done": "تم الإنشاء. رابط الموافقة وملفات PDF جاهزة أدناه.",
-    "wizard.mode.title": "وضع الموافقة",
-    "wizard.mode.observation.title": "مراقبة فقط",
+    "wizard.mode.title": "التوجيه على هذه الجهة",
+    "wizard.mode.observation.title": "لا — مراقبة فقط",
     "wizard.mode.observation.body":
-      "وصول للقراءة فقط إلى وضع الأمن لهذه الجهة. يمكن للمركز الرؤية فقط ولا يمكنه الكتابة أو دفع السياسات أو المعالجة. هذا هو الافتراضي.",
-    "wizard.mode.directive.title": "مراقبة + توجيه",
+      "هذه الجهة للقراءة فقط بالنسبة لهذا المركز. لا دفع للسياسات، ولا كتابة للحوادث، ولا إجراءات معالجة. يستطيع المركز رؤية كل شيء ولكن لا يغيّر أي شيء.",
+    "wizard.mode.directive.title": "نعم — التوجيه مفعّل",
     "wizard.mode.directive.body":
-      "المراقبة إضافةً إلى القدرة على دفع القواعد التي يعتمدها المركز (Conditional Access، Intune، المواقع المُسمّاة) والإجراءات التوجيهية (تصنيف الحوادث، فرض تسجيل الخروج، حجب المؤشرات). يوافق مسؤول Global Admin في الجهة على تطبيق Entra ثانٍ بصلاحيات .ReadWrite عند الإدراج.",
-    "wizard.mode.directive.notReady":
-      "لم يتم إعداد تطبيق التوجيهات بعد. أكمل الإعدادات ← المصادقة ← تطبيق التوجيهات أولًا.",
+      "تخضع هذه الجهة لإجراءات المركز التوجيهية: قواعد Conditional Access، وقواعد امتثال Intune، والمواقع المُسمّاة، وتصنيف الحوادث، وفرض تسجيل الخروج، وحجب المؤشرات. كل كتابة تمر بمعاينة وموافقة وقابلة للتدقيق من الطرفين.",
     "wizard.step4.title": "انتظار الموافقة",
     "wizard.step4.subtitle":
       "أعد توجيه خطاب الإعداد إلى المسؤول العام لمستأجر الجهة. تتم مراجعة حالة الموافقة كل ٥ ثوانٍ. يمكنك إغلاق النافذة — سيبقى التقاط الموافقة عبر معالج إعادة التوجيه.",
@@ -1738,6 +1747,19 @@ export const DICT = {
     "setup.next": "التالي",
     "setup.skipHint":
       "يمكنك تخطي هذه الخطوة وإعدادها لاحقًا من الإعدادات.",
+    "setup.deployment.title": "وضع النشر",
+    "setup.deployment.subtitle":
+      "يُختار مرة واحدة ودائم. يحدّد مجموعة صلاحيات تطبيق Graph، وما إذا كانت الإجراءات التوجيهية متاحة في المنتج.",
+    "setup.deployment.observation.title": "قراءة فقط",
+    "setup.deployment.observation.body":
+      "يُنشَأ تطبيق Graph بصلاحيات .Read.All فقط. يستطيع المركز مراقبة وضع كل جهة مُصرِّحة ولا يستطيع دفع أي سياسة أو اتخاذ أي إجراء توجيهي. مناسب للمجالس الرقابية وعمليات التدقيق فقط.",
+    "setup.deployment.directive.title": "قراءة / كتابة",
+    "setup.deployment.directive.body":
+      "يُنشَأ تطبيق Graph بصلاحيات .Read.All و .ReadWrite.All. يستطيع المركز دفع القواعد المعتمَدة والإجراءات التوجيهية على الجهات التي توافق صراحةً على التوجيه عند الإدراج. مناسب للجهات التنظيمية.",
+    "setup.deployment.lockedHint":
+      "تم تحديد وضع النشر ولا يمكن تغييره. لتغييره يلزم إعادة النشر.",
+    "setup.deployment.unlockedWarning":
+      "اختر بعناية. هذا القرار دائم بمجرد الضغط على التالي.",
     "setup.s1.title": "١. اسم الجهة",
     "setup.s1.subtitle":
       "هذا الاسم يظهر في كل مكان — واجهة اللوحة، ملفات PDF، الرسائل، صفحة تسجيل الدخول.",

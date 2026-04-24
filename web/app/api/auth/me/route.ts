@@ -2,30 +2,33 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/session";
 import { getAuthConfig, isDemoMode } from "@/lib/config/auth-config";
 import { getDeploymentMode } from "@/lib/config/deployment-mode";
-import { isDirectiveConfigured } from "@/lib/config/directive-config";
+import { config } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Returns who the current request is authenticated as, plus four booleans/enums
- * the UI uses to decide what CTA to show:
- *   - `configured`:      Entra user-auth app creds are stored — sign-in can work.
- *   - `demoMode`:        MIZAN_DEMO_MODE=true. UI shows a "Demo mode" pill.
- *   - `deploymentMode`:  "observation" (default) or "directive". Env-gated.
- *                        Drives conditional UI: /directive nav item, onboarding
- *                        wizard mode chooser, per-entity consent-mode badge.
- *   - `directiveReady`:  deployment is `directive` AND the Directive Graph app
- *                        has creds stored. If false in a directive deployment,
- *                        the Center admin still needs to provision the second
- *                        Entra app via Settings.
+ * Returns who the current request is authenticated as, plus three flags the
+ * UI uses to decide what to show:
+ *
+ *   - `configured`:      Entra user-auth app creds are stored — sign-in works.
+ *   - `demoMode`:        MIZAN_DEMO_MODE=true. Auth is bypassed; UI shows a
+ *                        "Demo mode" pill.
+ *   - `deploymentMode`:  "observation" (read-only deployment) or "directive"
+ *                        (read + write). Set once at /setup, stored in DB,
+ *                        immutable after. Env var MIZAN_DEPLOYMENT_MODE is a
+ *                        bootstrap fallback before setup completes.
+ *   - `graphAppReady`:   the Graph app registration (Signals / observation
+ *                        reads on both deployment modes; Signals + writes
+ *                        on directive) has credentials stored. False before
+ *                        the /setup wizard's Graph-app step finishes.
  */
 export async function GET() {
   const cfg = getAuthConfig();
   const configured = cfg.clientId.length > 0 && cfg.clientSecret.length > 0;
   const demoMode = isDemoMode();
   const deploymentMode = getDeploymentMode();
-  const directiveReady = deploymentMode === "directive" && isDirectiveConfigured();
+  const graphAppReady = config.isAzureConfigured;
   const current = await currentUser();
   if (!current) {
     return NextResponse.json({
@@ -33,7 +36,7 @@ export async function GET() {
       configured,
       demoMode,
       deploymentMode,
-      directiveReady,
+      graphAppReady,
       user: null,
     });
   }
@@ -42,7 +45,7 @@ export async function GET() {
     configured,
     demoMode,
     deploymentMode,
-    directiveReady,
+    graphAppReady,
     user: {
       id: current.user.id,
       email: current.user.email,

@@ -25,14 +25,31 @@ export default function SetupPage() {
   const { t, locale } = useI18n();
   const [step, setStep] = useState<Step>(1);
 
-  // Step 1 — branding
+  // Step 1 — branding + deployment mode
   const [nameEn, setNameEn] = useState("");
   const [nameAr, setNameAr] = useState("");
   const [shortEn, setShortEn] = useState("");
   const [shortAr, setShortAr] = useState("");
   const [framework, setFramework] = useState<
-    "generic" | "nesa" | "nca" | "isr"
+    "generic" | "nesa" | "dubai-isr" | "nca" | "isr"
   >("generic");
+  const [deploymentMode, setDeploymentMode] = useState<"observation" | "directive">(
+    "observation",
+  );
+  const [deploymentModeLocked, setDeploymentModeLocked] = useState(false);
+
+  // Load the current deployment mode on mount. Once locked the wizard shows
+  // the value read-only so a re-run of /setup after the first install can't
+  // accidentally flip it.
+  useEffect(() => {
+    api
+      .getDeploymentMode()
+      .then((r) => {
+        setDeploymentMode(r.mode);
+        setDeploymentModeLocked(r.locked);
+      })
+      .catch(() => {});
+  }, []);
 
   // Step 2 — logo
   const [logoUploaded, setLogoUploaded] = useState(false);
@@ -111,6 +128,17 @@ export default function SetupPage() {
           shortAr: shortAr.trim() || nameAr.trim().split(" ")[0],
           frameworkId: framework,
         });
+        // Lock deployment mode. Fails silently if already set — the /setup
+        // page can be re-opened to edit branding, but the mode stays pinned
+        // to whatever was chosen on the first install.
+        if (!deploymentModeLocked) {
+          try {
+            await api.setDeploymentMode(deploymentMode);
+            setDeploymentModeLocked(true);
+          } catch {
+            /* already locked — harmless */
+          }
+        }
       }
       if (step === 3 && graphClientId.trim().length > 0) {
         // The "auto-provisioned" path already persisted the secret server-side
@@ -241,6 +269,9 @@ export default function SetupPage() {
               setShortAr={setShortAr}
               framework={framework}
               setFramework={setFramework}
+              deploymentMode={deploymentMode}
+              setDeploymentMode={setDeploymentMode}
+              deploymentModeLocked={deploymentModeLocked}
             />
           ) : null}
           {step === 2 ? (
@@ -382,8 +413,13 @@ function Step1(props: {
   setShortEn: (v: string) => void;
   shortAr: string;
   setShortAr: (v: string) => void;
-  framework: "generic" | "nesa" | "nca" | "isr";
-  setFramework: (v: "generic" | "nesa" | "nca" | "isr") => void;
+  framework: "generic" | "nesa" | "dubai-isr" | "nca" | "isr";
+  setFramework: (
+    v: "generic" | "nesa" | "dubai-isr" | "nca" | "isr",
+  ) => void;
+  deploymentMode: "observation" | "directive";
+  setDeploymentMode: (v: "observation" | "directive") => void;
+  deploymentModeLocked: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -432,19 +468,119 @@ function Step1(props: {
             value={props.framework}
             onChange={(e) =>
               props.setFramework(
-                e.target.value as "generic" | "nesa" | "nca" | "isr",
+                e.target.value as
+                  | "generic"
+                  | "nesa"
+                  | "dubai-isr"
+                  | "nca"
+                  | "isr",
               )
             }
             className={inputClass}
           >
             <option value="generic">{t("branding.framework.generic")}</option>
             <option value="nesa">{t("branding.framework.nesa")}</option>
+            <option value="dubai-isr">
+              {t("branding.framework.dubai-isr")}
+            </option>
             <option value="nca">{t("branding.framework.nca")}</option>
             <option value="isr">{t("branding.framework.isr")}</option>
           </select>
         </Field>
       </div>
+
+      {/* Deployment mode — picked once, locked after first-save. Drives
+          whether the Graph app requests .ReadWrite scopes and whether the
+          Directive UI surfaces light up. */}
+      <div className="rounded-md border border-border bg-surface-2 p-4 mt-2">
+        <div className="text-[13px] font-semibold text-ink-1 mb-1">
+          {t("setup.deployment.title")}
+        </div>
+        <div className="text-[12px] text-ink-2 mb-3 leading-relaxed">
+          {t("setup.deployment.subtitle")}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <DeploymentModeOption
+            active={props.deploymentMode === "observation"}
+            locked={props.deploymentModeLocked}
+            onSelect={() => props.setDeploymentMode("observation")}
+            titleKey="setup.deployment.observation.title"
+            bodyKey="setup.deployment.observation.body"
+          />
+          <DeploymentModeOption
+            active={props.deploymentMode === "directive"}
+            locked={props.deploymentModeLocked}
+            onSelect={() => props.setDeploymentMode("directive")}
+            titleKey="setup.deployment.directive.title"
+            bodyKey="setup.deployment.directive.body"
+          />
+        </div>
+        {props.deploymentModeLocked ? (
+          <div className="text-[11.5px] text-ink-3 mt-2">
+            {t("setup.deployment.lockedHint")}
+          </div>
+        ) : (
+          <div className="text-[11.5px] text-warn mt-2">
+            {t("setup.deployment.unlockedWarning")}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function DeploymentModeOption({
+  active,
+  locked,
+  onSelect,
+  titleKey,
+  bodyKey,
+}: {
+  active: boolean;
+  locked: boolean;
+  onSelect: () => void;
+  titleKey:
+    | "setup.deployment.observation.title"
+    | "setup.deployment.directive.title";
+  bodyKey:
+    | "setup.deployment.observation.body"
+    | "setup.deployment.directive.body";
+}) {
+  const { t } = useI18n();
+  const disabled = locked && !active;
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onSelect}
+      disabled={disabled}
+      className={`text-start rounded-md border p-3 transition-colors ${
+        disabled
+          ? "border-border bg-surface-1/60 opacity-60 cursor-not-allowed"
+          : active
+            ? "border-council-strong bg-council-strong/5"
+            : "border-border bg-surface-1 hover:border-council-strong/60"
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        <div
+          className={`shrink-0 h-4 w-4 rounded-full border-2 mt-0.5 ${
+            active ? "border-council-strong bg-council-strong" : "border-border"
+          }`}
+        >
+          {active ? (
+            <div className="h-full w-full rounded-full bg-surface-2 scale-50" />
+          ) : null}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-ink-1">
+            {t(titleKey)}
+          </div>
+          <div className="text-[12px] text-ink-2 mt-0.5 leading-relaxed">
+            {t(bodyKey)}
+          </div>
+        </div>
+      </div>
+    </button>
   );
 }
 

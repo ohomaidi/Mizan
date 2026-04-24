@@ -566,6 +566,25 @@ function seedDemoBrandingIfAbsent(
   ).run(JSON.stringify(brandingForCustomer(customer)));
 }
 
+/**
+ * Seed the deployment mode that matches each demo customer so the demo lands
+ * with the right Directive surfaces lit (or dark). SCSC = observation. DESC =
+ * directive. Idempotent: won't clobber a mode already set by /setup wizard.
+ */
+function seedDeploymentModeIfAbsent(
+  db: Database.Database,
+  customer: SeedCustomer,
+): void {
+  const existing = db
+    .prepare("SELECT 1 FROM app_config WHERE key = 'deployment.mode'")
+    .get() as { 1: number } | undefined;
+  if (existing) return;
+  const mode = customer === "desc" ? "directive" : "observation";
+  db.prepare(
+    "INSERT INTO app_config (key, value_json) VALUES ('deployment.mode', ?)",
+  ).run(JSON.stringify({ mode, setAt: new Date().toISOString() }));
+}
+
 export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   // Seeding is **off by default** so a clean customer install stays clean.
   // Set SCSC_SEED_DEMO=true in `.env.local` (dev / demo) to opt in.
@@ -580,6 +599,7 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   // on first boot. A user who edits branding via Settings won't have it
   // reverted — the check below is idempotent.
   seedDemoBrandingIfAbsent(db, customer);
+  seedDeploymentModeIfAbsent(db, customer);
   markSetupCompletedIfAbsent(db);
 
   // Only check for existing DEMO tenants. If real tenants have been onboarded but
