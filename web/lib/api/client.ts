@@ -689,6 +689,27 @@ export const api = {
       { method: "POST", body: JSON.stringify(body) },
     ),
 
+  directiveTenantIncidents: (tenantId: string) =>
+    jsonFetch<{
+      tenantId: string;
+      tenantNameEn: string;
+      incidents: Array<{
+        id: string;
+        displayName: string;
+        severity: string;
+        status: string;
+        classification: string | null;
+        determination: string | null;
+        createdDateTime: string;
+        lastUpdateDateTime: string;
+        alertCount: number | null;
+        incidentWebUrl: string | null;
+        tags: string[];
+      }>;
+    }>(
+      `/api/directive/tenant-incidents?tenantId=${encodeURIComponent(tenantId)}`,
+    ),
+
   directiveAudit: (opts: { tenantId?: string; limit?: number } = {}) => {
     const q = new URLSearchParams();
     if (opts.tenantId) q.set("tenantId", opts.tenantId);

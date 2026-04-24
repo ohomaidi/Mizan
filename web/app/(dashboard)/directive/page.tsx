@@ -271,6 +271,16 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
   const [toast, setToast] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Incident context — pulls recent incidents for the selected tenant.
+  // Lets the analyst pick an incident they're working on and see its details
+  // inline, without leaving the page to go look up a URI in Defender XDR.
+  type IncidentRow = Awaited<
+    ReturnType<typeof api.directiveTenantIncidents>
+  >["incidents"][number];
+  const [incidents, setIncidents] = useState<IncidentRow[]>([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string>("");
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
+
   useEffect(() => {
     api
       .getEntities()
@@ -282,6 +292,36 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reload incidents whenever the selected tenant changes. Empty tenantId
+  // clears the list.
+  useEffect(() => {
+    if (!tenantId) {
+      setIncidents([]);
+      setSelectedIncidentId("");
+      return;
+    }
+    setIncidentsLoading(true);
+    let alive = true;
+    api
+      .directiveTenantIncidents(tenantId)
+      .then((r) => {
+        if (!alive) return;
+        setIncidents(r.incidents);
+        setSelectedIncidentId("");
+      })
+      .catch(() => {
+        if (alive) setIncidents([]);
+      })
+      .finally(() => {
+        if (alive) setIncidentsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
+  const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
 
   const show = (msg: string, isError?: boolean) => {
     if (isError) {
@@ -387,6 +427,66 @@ function ThreatSubmissionConsole({ locale }: { locale: "en" | "ar" }) {
               ))}
             </select>
           </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
+              {t("directive.threat.relatedIncident")}
+            </span>
+            <select
+              value={selectedIncidentId}
+              onChange={(e) => setSelectedIncidentId(e.target.value)}
+              disabled={incidentsLoading || incidents.length === 0}
+              className="h-9 px-2 rounded border border-border bg-surface-1 text-[13px] text-ink-1 disabled:opacity-50"
+            >
+              <option value="">
+                {incidentsLoading
+                  ? t("state.loading")
+                  : incidents.length === 0
+                    ? t("directive.threat.noIncidents")
+                    : t("directive.threat.pickIncident")}
+              </option>
+              {incidents.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {`[${i.severity}] ${i.displayName.slice(0, 60)}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          {selectedIncident ? (
+            <div className="sm:col-span-2 rounded-md border border-border bg-surface-1 p-3 text-[12px]">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-ink-1 font-semibold">
+                  {selectedIncident.displayName}
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.06em] border border-border rounded px-1.5 py-0.5 text-ink-2">
+                  {selectedIncident.severity}
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.06em] border border-border rounded px-1.5 py-0.5 text-ink-2">
+                  {selectedIncident.status}
+                </span>
+                <span className="text-ink-3 ms-auto keep-ltr tabular text-[11px]">
+                  ID {selectedIncident.id}
+                </span>
+              </div>
+              <div className="text-ink-3 text-[11.5px]">
+                {t("directive.threat.alertsCount", {
+                  count: String(selectedIncident.alertCount ?? 0),
+                })}
+              </div>
+              {selectedIncident.incidentWebUrl ? (
+                <a
+                  href={selectedIncident.incidentWebUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-[11.5px] text-council-strong hover:underline"
+                >
+                  {t("directive.threat.openInDefender")} →
+                </a>
+              ) : null}
+              <div className="text-[10.5px] text-ink-3 mt-2 leading-relaxed">
+                {t("directive.threat.contextHint")}
+              </div>
+            </div>
+          ) : null}
           <label className="flex flex-col gap-1">
             <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
               {t("directive.threat.kind")}

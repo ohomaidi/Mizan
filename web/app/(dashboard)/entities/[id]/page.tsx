@@ -1192,10 +1192,29 @@ function EntityDetailInner({
     incident: Incident;
     onClose: () => void;
   }) {
-    // Directive actions only render when (a) this deployment is directive-
-    // mode AND (b) this specific entity consented to directive. Second check
-    // is the policy-level guard that keeps observation-only entities clean.
-    const canDirect = tenant.consent_mode === "directive";
+    // The panel is visible to every directive-deployment user so the UI is
+    // discoverable. Actions are ENABLED only when this entity consented to
+    // directive mode; observation-mode entities see the same controls but
+    // disabled with an inline hint. This is more intuitive than hiding the
+    // panel — users can see what directive actions exist and why they're
+    // unavailable on a given entity.
+    const [deploymentMode, setDeploymentMode] = useState<"observation" | "directive">(
+      "observation",
+    );
+    useEffect(() => {
+      let alive = true;
+      api
+        .whoami()
+        .then((r) => {
+          if (alive) setDeploymentMode(r.deploymentMode);
+        })
+        .catch(() => {});
+      return () => {
+        alive = false;
+      };
+    }, []);
+    const showPanel = deploymentMode === "directive";
+    const enabled = tenant.consent_mode === "directive";
     return (
       <Modal open onClose={onClose} size="wide" title={incident.displayName}>
         <div className="flex flex-col gap-4">
@@ -1276,11 +1295,14 @@ function EntityDetailInner({
             </div>
           ) : null}
 
-          {/* Directive actions — only available on directive-mode entities */}
-          {canDirect ? (
+          {/* Directive actions panel. Rendered on every directive-mode
+              deployment so the capability is visible; enabled only when
+              this entity explicitly consented to directive mode. */}
+          {showPanel ? (
             <IncidentDirectiveActions
               tenantId={tenant.id}
               incident={incident}
+              enabled={enabled}
             />
           ) : null}
 
@@ -1309,9 +1331,11 @@ function EntityDetailInner({
   function IncidentDirectiveActions({
     tenantId,
     incident,
+    enabled,
   }: {
     tenantId: string;
     incident: Incident;
+    enabled: boolean;
   }) {
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
@@ -1387,7 +1411,13 @@ function EntityDetailInner({
     };
 
     return (
-      <div className="rounded-md border border-council-strong/40 bg-council-strong/5 p-3">
+      <div
+        className={`rounded-md border p-3 ${
+          enabled
+            ? "border-council-strong/40 bg-council-strong/5"
+            : "border-border bg-surface-1/60"
+        }`}
+      >
         <div className="flex items-center justify-between mb-3">
           <div className="text-[12.5px] font-semibold text-ink-1">
             {t("directive.action.title")}
@@ -1399,20 +1429,32 @@ function EntityDetailInner({
               {errorMsg}
             </span>
           ) : (
-            <span className="text-[10.5px] uppercase tracking-[0.06em] text-council-strong border border-council-strong/40 rounded px-1.5 py-0.5 font-semibold">
-              {t("mode.directive")}
+            <span
+              className={`text-[10.5px] uppercase tracking-[0.06em] rounded px-1.5 py-0.5 font-semibold border ${
+                enabled
+                  ? "text-council-strong border-council-strong/40"
+                  : "text-ink-3 border-border"
+              }`}
+            >
+              {enabled ? t("mode.directive") : t("mode.observation")}
             </span>
           )}
         </div>
+        {!enabled ? (
+          <div className="text-[11.5px] text-ink-3 mb-3 leading-relaxed">
+            {t("directive.action.observationHint")}
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
             <span className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3">
               {t("tab.incidents.drill.classification")}
             </span>
             <select
+              disabled={!enabled}
               value={classification}
               onChange={(e) => setClassification(e.target.value)}
-              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1 disabled:opacity-50"
             >
               <option value="">—</option>
               <option value="truePositive">True positive</option>
@@ -1427,9 +1469,10 @@ function EntityDetailInner({
               {t("tab.incidents.drill.determination")}
             </span>
             <select
+              disabled={!enabled}
               value={determination}
               onChange={(e) => setDetermination(e.target.value)}
-              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1 disabled:opacity-50"
             >
               <option value="">—</option>
               <option value="apt">APT</option>
@@ -1449,9 +1492,10 @@ function EntityDetailInner({
               {t("tab.incidents.col.status")}
             </span>
             <select
+              disabled={!enabled}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1 disabled:opacity-50"
             >
               <option value="">—</option>
               <option value="active">Active</option>
@@ -1465,19 +1509,20 @@ function EntityDetailInner({
               {t("tab.incidents.drill.assignedTo")}
             </span>
             <input
+              disabled={!enabled}
               type="email"
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
               dir="ltr"
               placeholder="analyst@entity.gov.ae"
-              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+              className="h-8 px-2 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1 disabled:opacity-50"
             />
           </label>
         </div>
         <div className="mt-3 flex justify-end">
           <button
             onClick={onSaveClassification}
-            disabled={saving}
+            disabled={!enabled || saving}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold disabled:opacity-50"
           >
             {saving ? (
@@ -1493,17 +1538,18 @@ function EntityDetailInner({
               {t("directive.action.commentLabel")}
             </span>
             <textarea
+              disabled={!enabled}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={2}
-              className="px-2 py-1 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1"
+              className="px-2 py-1 rounded border border-border bg-surface-1 text-[12.5px] text-ink-1 disabled:opacity-50"
               placeholder={t("directive.action.commentPlaceholder")}
             />
           </label>
           <div className="mt-2 flex justify-end">
             <button
               onClick={onAddComment}
-              disabled={saving || !comment.trim()}
+              disabled={!enabled || saving || !comment.trim()}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[11.5px] font-semibold disabled:opacity-50"
             >
               {t("directive.action.comment")}
@@ -1781,6 +1827,23 @@ function EntityDetailInner({
     user: RiskyUser;
     onClose: () => void;
   }) {
+    const [deploymentMode, setDeploymentMode] = useState<
+      "observation" | "directive"
+    >("observation");
+    useEffect(() => {
+      let alive = true;
+      api
+        .whoami()
+        .then((r) => {
+          if (alive) setDeploymentMode(r.deploymentMode);
+        })
+        .catch(() => {});
+      return () => {
+        alive = false;
+      };
+    }, []);
+    const showPanel = deploymentMode === "directive";
+    const enabled = tenant.consent_mode === "directive";
     return (
       <Modal
         open
@@ -1877,8 +1940,12 @@ function EntityDetailInner({
             </div>
           )}
 
-          {tenant.consent_mode === "directive" ? (
-            <RiskyUserDirectiveActions tenantId={tenant.id} user={user} />
+          {showPanel ? (
+            <RiskyUserDirectiveActions
+              tenantId={tenant.id}
+              user={user}
+              enabled={enabled}
+            />
           ) : null}
         </div>
       </Modal>
@@ -1888,9 +1955,11 @@ function EntityDetailInner({
   function RiskyUserDirectiveActions({
     tenantId,
     user,
+    enabled,
   }: {
     tenantId: string;
     user: RiskyUser;
+    enabled: boolean;
   }) {
     const [saving, setSaving] = useState<string | null>(null);
     const [toast, setToast] = useState<string | null>(null);
@@ -1930,7 +1999,13 @@ function EntityDetailInner({
     };
 
     return (
-      <div className="rounded-md border border-council-strong/40 bg-council-strong/5 p-3">
+      <div
+        className={`rounded-md border p-3 ${
+          enabled
+            ? "border-council-strong/40 bg-council-strong/5"
+            : "border-border bg-surface-1/60"
+        }`}
+      >
         <div className="flex items-center justify-between mb-3">
           <div className="text-[12.5px] font-semibold text-ink-1">
             {t("directive.action.title")}
@@ -1941,11 +2016,26 @@ function EntityDetailInner({
             <span className="text-[11.5px] text-neg truncate max-w-[50%]">
               {errorMsg}
             </span>
-          ) : null}
+          ) : (
+            <span
+              className={`text-[10.5px] uppercase tracking-[0.06em] rounded px-1.5 py-0.5 font-semibold border ${
+                enabled
+                  ? "text-council-strong border-council-strong/40"
+                  : "text-ink-3 border-border"
+              }`}
+            >
+              {enabled ? t("mode.directive") : t("mode.observation")}
+            </span>
+          )}
         </div>
+        {!enabled ? (
+          <div className="text-[11.5px] text-ink-3 mb-3 leading-relaxed">
+            {t("directive.action.observationHint")}
+          </div>
+        ) : null}
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            disabled={!!saving}
+            disabled={!enabled || !!saving}
             onClick={() =>
               run("confirm", () =>
                 api.directiveConfirmCompromised({
@@ -1962,7 +2052,7 @@ function EntityDetailInner({
             {t("directive.action.confirmCompromised")}
           </button>
           <button
-            disabled={!!saving}
+            disabled={!enabled || !!saving}
             onClick={() =>
               run("dismiss", () =>
                 api.directiveDismissRiskyUsers({
@@ -1979,7 +2069,7 @@ function EntityDetailInner({
             {t("directive.action.dismiss")}
           </button>
           <button
-            disabled={!!saving}
+            disabled={!enabled || !!saving}
             onClick={() =>
               run("revoke", () =>
                 api.directiveRevokeSessions(user.id, { tenantId }),

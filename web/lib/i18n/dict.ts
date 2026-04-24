@@ -1245,6 +1245,8 @@ export const DICT = {
     "directive.action.revokeSessions": "Force sign-out",
     "directive.action.riskyHelper":
       "Confirm-compromised flags the user as a genuine threat in Entra ID Protection. Dismiss clears the flag. Force sign-out invalidates every active session for that user.",
+    "directive.action.observationHint":
+      "This entity was onboarded in observation mode. Directive actions are disabled \u2014 the Center cannot write to this tenant. Upgrade the entity's consent to directive at onboarding to enable.",
     "directive.toast.success": "Sent \u2014 audit #{auditId}",
     "directive.toast.simulated": "Simulated \u2014 audit #{auditId}",
 
@@ -1262,6 +1264,13 @@ export const DICT = {
     "directive.threat.fileName": "File name",
     "directive.threat.fileContent": "Base64 file content",
     "directive.threat.submit": "Submit",
+    "directive.threat.relatedIncident": "Related incident (optional)",
+    "directive.threat.pickIncident": "Pick an incident for context…",
+    "directive.threat.noIncidents": "No incidents on this entity yet.",
+    "directive.threat.alertsCount": "{count} alerts · use the Defender XDR link below to copy the exact URL, message URI, or file hash from the alert evidence.",
+    "directive.threat.openInDefender": "Open incident in Defender XDR",
+    "directive.threat.contextHint":
+      "Pasting the URL / message URI / file from the alert evidence into the form below makes the submission precise. The incident details above stay on screen while you fill the form.",
 
     "directive.audit.title": "Audit log",
     "directive.audit.subtitle":
@@ -2705,6 +2714,8 @@ export const DICT = {
     "directive.action.revokeSessions": "فرض تسجيل الخروج",
     "directive.action.riskyHelper":
       "تأكيد الاختراق يُعلّم المستخدم تهديدًا فعليًا في Entra ID Protection. تجاهل يُزيل الإشارة. فرض تسجيل الخروج يُبطل كل جلسة نشطة للمستخدم.",
+    "directive.action.observationHint":
+      "أُدرجت هذه الجهة في وضع المراقبة. الإجراءات التوجيهية معطَّلة — لا يستطيع المركز الكتابة على مستأجر هذه الجهة. لتفعيل الإجراءات، يلزم إعادة إدراج الجهة بموافقة توجيهية.",
     "directive.toast.success": "تم الإرسال — تدقيق #{auditId}",
     "directive.toast.simulated": "محاكاة — تدقيق #{auditId}",
 
@@ -2722,6 +2733,13 @@ export const DICT = {
     "directive.threat.fileName": "اسم الملف",
     "directive.threat.fileContent": "محتوى الملف Base64",
     "directive.threat.submit": "إرسال",
+    "directive.threat.relatedIncident": "حادثة ذات صلة (اختياري)",
+    "directive.threat.pickIncident": "اختر حادثة للسياق…",
+    "directive.threat.noIncidents": "لا توجد حوادث لهذه الجهة بعد.",
+    "directive.threat.alertsCount": "{count} تنبيه · استخدم رابط Defender XDR أدناه لنسخ الرابط أو URI الرسالة أو تجزئة الملف من أدلة التنبيه.",
+    "directive.threat.openInDefender": "فتح الحادثة في Defender XDR",
+    "directive.threat.contextHint":
+      "لصق الرابط / URI الرسالة / الملف من أدلة التنبيه في النموذج أدناه يجعل الإرسال دقيقًا. تبقى تفاصيل الحادثة أعلاه على الشاشة أثناء ملء النموذج.",
 
     "directive.audit.title": "سجل التدقيق",
     "directive.audit.subtitle":
