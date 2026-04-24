@@ -3,7 +3,12 @@ import { readConfig, writeConfig } from "@/lib/db/config-store";
 
 const KEY = "branding";
 
-export type FrameworkId = "nesa" | "nca" | "isr" | "generic";
+export type FrameworkId =
+  | "nesa" // UAE NESA (Sharjah, other UAE federal entities)
+  | "dubai-isr" // Dubai Information Security Regulation — DESC
+  | "nca" // KSA NCA
+  | "isr" // ISR / ISO 27001 generic
+  | "generic";
 
 export type BrandingConfig = {
   /** Full organization name, English. Used in PDF letterheads, page titles, TopBar. */

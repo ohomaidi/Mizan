@@ -30,6 +30,13 @@ export type BrandingShape = {
   taglineAr: string;
   accentColor?: string;
   accentColorStrong?: string;
+  /** Active maturity framework — drives Governance page labels + PDF titles. */
+  frameworkId?:
+    | "nesa"
+    | "dubai-isr"
+    | "nca"
+    | "isr"
+    | "generic";
 };
 
 const FALLBACK_BRANDING: BrandingShape = {
@@ -39,6 +46,7 @@ const FALLBACK_BRANDING: BrandingShape = {
   shortAr: "لوحة",
   taglineEn: "Unified security oversight across your government entities",
   taglineAr: "إشراف أمني موحّد عبر جهاتك الحكومية",
+  frameworkId: "generic",
 };
 
 type Ctx = {

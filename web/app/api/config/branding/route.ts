@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const FRAMEWORKS: FrameworkId[] = ["nesa", "nca", "isr", "generic"];
+const FRAMEWORKS: FrameworkId[] = ["nesa", "dubai-isr", "nca", "isr", "generic"];
 
 const Schema = z
   .object({

@@ -238,6 +238,302 @@ const DEMO: DemoEntity[] = [
 ];
 
 /**
+ * DESC (Dubai Electronic Security Center) demo entities — 14 Dubai Government
+ * bodies the regulator would oversee. Tenant GUIDs are synthesized and flagged
+ * is_demo = 1 so the sync orchestrator never tries to reach them.
+ *
+ * Deliberately spread across clusters to match the DESC scope, with 3 high
+ * performers, ~8 near target, 3 below — so the dashboard shows a realistic
+ * regulator view on first load.
+ */
+const DESC_DEMO: DemoEntity[] = [
+  {
+    id: "dubai-police",
+    tenant_id: "b2d8f5c1-1001-4b20-9c23-1f3gb5ad1001",
+    name_en: "Dubai Police",
+    name_ar: "شرطة دبي",
+    cluster: "police",
+    domain: "dubaipolice.gov.ae",
+    ciso: "Maj. Gen. Abdullah Al Marri",
+    ciso_email: "ciso@dubaipolice.gov.ae",
+    index: 89,
+    openIncidents: 4,
+    riskyUsers: 6,
+    deviceCompliancePct: 96,
+    controlsPassingPct: 93,
+    syncMinsAgo: 3,
+    connectionHealth: "green",
+  },
+  {
+    id: "dubai-civil-defence",
+    tenant_id: "b2d8f5c1-1002-4b20-9c23-1f3gb5ad1002",
+    name_en: "General Directorate of Civil Defence",
+    name_ar: "الإدارة العامة للدفاع المدني بدبي",
+    cluster: "police",
+    domain: "dcd.gov.ae",
+    ciso: "Brig. Ali Hassan Al Mutawa",
+    ciso_email: "security@dcd.gov.ae",
+    index: 82,
+    openIncidents: 5,
+    riskyUsers: 8,
+    deviceCompliancePct: 91,
+    controlsPassingPct: 86,
+    syncMinsAgo: 7,
+    connectionHealth: "green",
+  },
+  {
+    id: "dha",
+    tenant_id: "b2d8f5c1-1003-4b20-9c23-1f3gb5ad1003",
+    name_en: "Dubai Health Authority",
+    name_ar: "هيئة الصحة بدبي",
+    cluster: "health",
+    domain: "dha.gov.ae",
+    ciso: "Dr. Mariam Al Jalahma",
+    ciso_email: "ciso@dha.gov.ae",
+    index: 78,
+    openIncidents: 9,
+    riskyUsers: 15,
+    deviceCompliancePct: 84,
+    controlsPassingPct: 81,
+    syncMinsAgo: 12,
+    connectionHealth: "green",
+  },
+  {
+    id: "mbru",
+    tenant_id: "b2d8f5c1-1004-4b20-9c23-1f3gb5ad1004",
+    name_en: "Mohammed Bin Rashid University of Medicine",
+    name_ar: "جامعة محمد بن راشد للطب والعلوم الصحية",
+    cluster: "health",
+    domain: "mbru.ac.ae",
+    ciso: "Prof. Samir Banerjee",
+    ciso_email: "security@mbru.ac.ae",
+    index: 72,
+    openIncidents: 7,
+    riskyUsers: 11,
+    deviceCompliancePct: 82,
+    controlsPassingPct: 77,
+    syncMinsAgo: 19,
+    connectionHealth: "green",
+  },
+  {
+    id: "khda",
+    tenant_id: "b2d8f5c1-1005-4b20-9c23-1f3gb5ad1005",
+    name_en: "Knowledge and Human Development Authority",
+    name_ar: "هيئة المعرفة والتنمية البشرية",
+    cluster: "education",
+    domain: "khda.gov.ae",
+    ciso: "Dr. Abdulla Al Karam",
+    ciso_email: "ciso@khda.gov.ae",
+    index: 75,
+    openIncidents: 6,
+    riskyUsers: 9,
+    deviceCompliancePct: 85,
+    controlsPassingPct: 79,
+    syncMinsAgo: 15,
+    connectionHealth: "green",
+  },
+  {
+    id: "dubai-municipality",
+    tenant_id: "b2d8f5c1-1006-4b20-9c23-1f3gb5ad1006",
+    name_en: "Dubai Municipality",
+    name_ar: "بلدية دبي",
+    cluster: "municipality",
+    domain: "dm.gov.ae",
+    ciso: "Eng. Dawoud Al Hajri",
+    ciso_email: "ciso@dm.gov.ae",
+    index: 71,
+    openIncidents: 11,
+    riskyUsers: 16,
+    deviceCompliancePct: 80,
+    controlsPassingPct: 74,
+    syncMinsAgo: 21,
+    connectionHealth: "green",
+  },
+  {
+    id: "dld",
+    tenant_id: "b2d8f5c1-1007-4b20-9c23-1f3gb5ad1007",
+    name_en: "Dubai Land Department",
+    name_ar: "دائرة الأراضي والأملاك",
+    cluster: "municipality",
+    domain: "dubailand.gov.ae",
+    ciso: "Mr. Marwan Ahmed Bin Ghalita",
+    ciso_email: "security@dubailand.gov.ae",
+    index: 74,
+    openIncidents: 6,
+    riskyUsers: 10,
+    deviceCompliancePct: 86,
+    controlsPassingPct: 78,
+    syncMinsAgo: 13,
+    connectionHealth: "green",
+  },
+  {
+    id: "dewa",
+    tenant_id: "b2d8f5c1-1008-4b20-9c23-1f3gb5ad1008",
+    name_en: "Dubai Electricity and Water Authority",
+    name_ar: "هيئة كهرباء ومياه دبي",
+    cluster: "utilities",
+    domain: "dewa.gov.ae",
+    ciso: "Mr. Saeed Mohammed Al Tayer",
+    ciso_email: "ciso@dewa.gov.ae",
+    index: 88,
+    openIncidents: 3,
+    riskyUsers: 5,
+    deviceCompliancePct: 95,
+    controlsPassingPct: 91,
+    syncMinsAgo: 4,
+    connectionHealth: "green",
+  },
+  {
+    id: "rta",
+    tenant_id: "b2d8f5c1-1009-4b20-9c23-1f3gb5ad1009",
+    name_en: "Roads and Transport Authority",
+    name_ar: "هيئة الطرق والمواصلات",
+    cluster: "transport",
+    domain: "rta.ae",
+    ciso: "Eng. Mattar Al Tayer",
+    ciso_email: "ciso@rta.ae",
+    index: 84,
+    openIncidents: 5,
+    riskyUsers: 8,
+    deviceCompliancePct: 92,
+    controlsPassingPct: 87,
+    syncMinsAgo: 6,
+    connectionHealth: "green",
+  },
+  {
+    id: "dubai-airports",
+    tenant_id: "b2d8f5c1-1010-4b20-9c23-1f3gb5ad1010",
+    name_en: "Dubai Airports",
+    name_ar: "مطارات دبي",
+    cluster: "transport",
+    domain: "dubaiairports.ae",
+    ciso: "Mr. Paul Griffiths",
+    ciso_email: "security@dubaiairports.ae",
+    index: 80,
+    openIncidents: 6,
+    riskyUsers: 9,
+    deviceCompliancePct: 90,
+    controlsPassingPct: 85,
+    syncMinsAgo: 9,
+    connectionHealth: "green",
+  },
+  {
+    id: "dubai-customs",
+    tenant_id: "b2d8f5c1-1011-4b20-9c23-1f3gb5ad1011",
+    name_en: "Dubai Customs",
+    name_ar: "جمارك دبي",
+    cluster: "other",
+    domain: "dubaicustoms.gov.ae",
+    ciso: "Mr. Ahmed Mahboob Musabih",
+    ciso_email: "ciso@dubaicustoms.gov.ae",
+    index: 77,
+    openIncidents: 7,
+    riskyUsers: 12,
+    deviceCompliancePct: 87,
+    controlsPassingPct: 80,
+    syncMinsAgo: 14,
+    connectionHealth: "green",
+  },
+  {
+    id: "dubai-courts",
+    tenant_id: "b2d8f5c1-1012-4b20-9c23-1f3gb5ad1012",
+    name_en: "Dubai Courts",
+    name_ar: "محاكم دبي",
+    cluster: "other",
+    domain: "dc.gov.ae",
+    ciso: "Judge Dr. Saif Ghanem Al Suwaidi",
+    ciso_email: "security@dc.gov.ae",
+    index: 68,
+    openIncidents: 12,
+    riskyUsers: 19,
+    deviceCompliancePct: 78,
+    controlsPassingPct: 71,
+    syncMinsAgo: 27,
+    connectionHealth: "amber",
+  },
+  {
+    id: "dsc",
+    tenant_id: "b2d8f5c1-1013-4b20-9c23-1f3gb5ad1013",
+    name_en: "Dubai Statistics Center",
+    name_ar: "مركز دبي للإحصاء",
+    cluster: "other",
+    domain: "dsc.gov.ae",
+    ciso: "Mr. Arif Obaid Al Muhairi",
+    ciso_email: "ciso@dsc.gov.ae",
+    index: 66,
+    openIncidents: 9,
+    riskyUsers: 14,
+    deviceCompliancePct: 76,
+    controlsPassingPct: 69,
+    syncMinsAgo: 32,
+    connectionHealth: "amber",
+  },
+  {
+    id: "dff",
+    tenant_id: "b2d8f5c1-1014-4b20-9c23-1f3gb5ad1014",
+    name_en: "Dubai Future Foundation",
+    name_ar: "مؤسسة دبي للمستقبل",
+    cluster: "other",
+    domain: "dubaifuture.gov.ae",
+    ciso: "Mr. Khalfan Belhoul",
+    ciso_email: "security@dubaifuture.gov.ae",
+    index: 64,
+    openIncidents: 8,
+    riskyUsers: 13,
+    deviceCompliancePct: 74,
+    controlsPassingPct: 68,
+    syncMinsAgo: 22,
+    connectionHealth: "green",
+  },
+];
+
+/** Customer variant for the demo seed. Selected via `SCSC_SEED_CUSTOMER`. */
+type SeedCustomer = "sharjah" | "desc";
+
+function resolveSeedCustomer(): SeedCustomer {
+  const raw = (process.env.SCSC_SEED_CUSTOMER ?? "sharjah").toLowerCase().trim();
+  return raw === "desc" ? "desc" : "sharjah";
+}
+
+function entitiesForCustomer(c: SeedCustomer): DemoEntity[] {
+  return c === "desc" ? DESC_DEMO : DEMO;
+}
+
+function brandingForCustomer(c: SeedCustomer) {
+  if (c === "desc") {
+    return {
+      nameEn: "Dubai Electronic Security Center",
+      nameAr: "مركز دبي للأمن الإلكتروني",
+      shortEn: "DESC",
+      shortAr: "مركز دبي",
+      taglineEn: "Cybersecurity regulation and oversight across Dubai Government",
+      taglineAr: "تنظيم الأمن السيبراني والإشراف عليه في حكومة دبي",
+      // Dubai government red identity (close to the DESC shield red).
+      accentColor: "#B8192F",
+      accentColorStrong: "#D41F38",
+      logoPath: null,
+      logoBgRemoved: true,
+      frameworkId: "dubai-isr",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  return {
+    nameEn: "Sharjah Cybersecurity Council",
+    nameAr: "مجلس الأمن السيبراني - الشارقة",
+    shortEn: "SCSC",
+    shortAr: "المجلس",
+    taglineEn: "Unified security oversight across Sharjah government entities",
+    taglineAr: "إشراف أمني موحّد عبر جهات حكومة الشارقة",
+    accentColor: "#0d6b63",
+    accentColorStrong: "#0d9488",
+    logoPath: null,
+    logoBgRemoved: true,
+    frameworkId: "nesa",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
  * Stamps setup.completed=true so the first-run wizard stays out of the demo's
  * way. Idempotent — an operator who's already run the wizard won't be reset.
  */
@@ -257,28 +553,17 @@ function markSetupCompletedIfAbsent(db: Database.Database): void {
  * from lib/config/branding.ts) to avoid a client<->seed<->branding<->config-store
  * require cycle.
  */
-function seedDemoBrandingIfAbsent(db: Database.Database): void {
+function seedDemoBrandingIfAbsent(
+  db: Database.Database,
+  customer: SeedCustomer,
+): void {
   const existing = db
     .prepare("SELECT 1 FROM app_config WHERE key = 'branding'")
     .get() as { 1: number } | undefined;
   if (existing) return;
-  const demo = {
-    nameEn: "Sharjah Cybersecurity Council",
-    nameAr: "مجلس الأمن السيبراني - الشارقة",
-    shortEn: "SCSC",
-    shortAr: "المجلس",
-    taglineEn: "Unified security oversight across Sharjah government entities",
-    taglineAr: "إشراف أمني موحّد عبر جهات حكومة الشارقة",
-    accentColor: "#0d6b63",
-    accentColorStrong: "#0d9488",
-    logoPath: null,
-    logoBgRemoved: true,
-    frameworkId: "nesa",
-    updatedAt: new Date().toISOString(),
-  };
   db.prepare(
     "INSERT INTO app_config (key, value_json) VALUES ('branding', ?)",
-  ).run(JSON.stringify(demo));
+  ).run(JSON.stringify(brandingForCustomer(customer)));
 }
 
 export function seedDemoTenantsIfEmpty(db: Database.Database): void {
@@ -286,11 +571,15 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   // Set SCSC_SEED_DEMO=true in `.env.local` (dev / demo) to opt in.
   if ((process.env.SCSC_SEED_DEMO ?? "false").toLowerCase() !== "true") return;
 
-  // Demo installs also default to Sharjah Cybersecurity Council branding so the
-  // dashboard looks unchanged from its old pre-productization baseline. A user
-  // who edits branding via Settings won't have it reverted here.
-  // Written inline to avoid a client<-seed<-branding<-config-store<-client cycle.
-  seedDemoBrandingIfAbsent(db);
+  // Customer variant — `SCSC_SEED_CUSTOMER=sharjah` (default) or `desc`. Each
+  // demo deployment (scscdemo vs descdemo) sets its own env and seeds the
+  // matching brand + entity list.
+  const customer = resolveSeedCustomer();
+
+  // Demo installs default to the variant's brand so the dashboard looks right
+  // on first boot. A user who edits branding via Settings won't have it
+  // reverted — the check below is idempotent.
+  seedDemoBrandingIfAbsent(db, customer);
   markSetupCompletedIfAbsent(db);
 
   // Only check for existing DEMO tenants. If real tenants have been onboarded but
@@ -750,7 +1039,7 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
     }
   });
 
-  tx(DEMO);
+  tx(entitiesForCustomer(customer));
 
   // Also backfill 90 days of maturity snapshots so the trend chart on
   // Entity Detail lands populated on fresh installs.
@@ -1586,9 +1875,12 @@ export function seedDemoMaturityTrend(db: Database.Database): number {
     for (const t of demoTenants) {
       if (hasAny.get(t.id)) continue;
 
-      // Find this tenant's baseline index. If the demo catalog changed and
-      // a tenant isn't in DEMO anymore we still skip gracefully.
-      const meta = DEMO.find((d) => d.id === t.id);
+      // Find this tenant's baseline index. Try both demo catalogs (Sharjah
+      // and DESC) since the same function runs in either customer variant.
+      // If a tenant isn't in either catalog we skip gracefully.
+      const meta =
+        DEMO.find((d) => d.id === t.id) ??
+        DESC_DEMO.find((d) => d.id === t.id);
       if (!meta) continue;
       const latest = meta.index;
       const earliest = Math.max(0, latest - RAMP);

@@ -16,8 +16,17 @@ type EntRes = Awaited<ReturnType<typeof api.getEntities>>;
 type NesaRes = Awaited<ReturnType<typeof api.getNesaMapping>>;
 
 export default function GovernancePage() {
-  const { t, locale } = useI18n();
+  const { t, locale, branding } = useI18n();
   const fmt = useFmtNum();
+  // Framework label follows the active brand (Sharjah = NESA, DESC = Dubai ISR,
+  // etc.). Falls back to the NESA label if the key is missing, since that's the
+  // historical default.
+  const frameworkKey = `gov.framework.${branding.frameworkId}` as
+    | "gov.framework.nesa"
+    | "gov.framework.dubai-isr"
+    | "gov.framework.nca"
+    | "gov.framework.isr"
+    | "gov.framework.generic";
   const [kpis, setKpis] = useState<KpiRes | null>(null);
   const [entities, setEntities] = useState<EntRes | null>(null);
   const [nesa, setNesa] = useState<NesaRes | null>(null);
@@ -79,7 +88,7 @@ export default function GovernancePage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiTile
-          label={t("gov.framework.nesa")}
+          label={t(frameworkKey)}
           value={fmt(complAvg)}
           suffix="%"
           accent={complAvg >= target ? "council" : "warn"}

@@ -234,6 +234,7 @@ export const DICT = {
     "branding.field.framework": "Maturity framework",
     "branding.framework.generic": "Generic (no framework)",
     "branding.framework.nesa": "UAE NESA",
+    "branding.framework.dubai-isr": "Dubai ISR",
     "branding.framework.nca": "KSA NCA",
     "branding.framework.isr": "ISR / ISO 27001",
     "branding.field.logo": "Organization logo",
@@ -577,6 +578,10 @@ export const DICT = {
     "gov.subtitle":
       "{orgShort}-wide alignment to the UAE NESA framework, computed from Secure Score control mappings and {orgShort} baseline enforcement.",
     "gov.framework.nesa": "NESA alignment",
+    "gov.framework.dubai-isr": "Dubai ISR alignment",
+    "gov.framework.nca": "KSA NCA alignment",
+    "gov.framework.isr": "ISR / ISO 27001 alignment",
+    "gov.framework.generic": "Framework alignment",
     "gov.baseline.title": "{orgShort} baseline",
     "gov.baseline.body":
       "Percentage of entities scoring above the {orgShort} target across all sub-scores. Drives the standards-tier ranking.",
@@ -1528,6 +1533,7 @@ export const DICT = {
     "branding.field.framework": "إطار النضج",
     "branding.framework.generic": "عام (بدون إطار)",
     "branding.framework.nesa": "NESA الإمارات",
+    "branding.framework.dubai-isr": "ISR دبي",
     "branding.framework.nca": "NCA السعودية",
     "branding.framework.isr": "ISR / ISO 27001",
     "branding.field.logo": "شعار الجهة",
@@ -1873,6 +1879,10 @@ export const DICT = {
     "gov.subtitle":
       "مواءمة {orgShort} مع إطار NESA الإماراتي، محسوبة من ارتباط ضوابط Secure Score وتطبيق خط الأساس للمجلس.",
     "gov.framework.nesa": "مواءمة NESA",
+    "gov.framework.dubai-isr": "مواءمة ISR دبي",
+    "gov.framework.nca": "مواءمة NCA السعودية",
+    "gov.framework.isr": "مواءمة ISR / ISO 27001",
+    "gov.framework.generic": "مواءمة الإطار",
     "gov.baseline.title": "خط أساس {orgShort}",
     "gov.baseline.body":
       "نسبة الجهات المتفوّقة على هدف {orgShort} في جميع المؤشرات الفرعية. تقود ترتيب طبقة المعايير.",
