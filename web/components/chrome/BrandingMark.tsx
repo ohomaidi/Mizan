@@ -32,14 +32,25 @@ export function BrandingMark({
       </div>
     );
   }
+  // Logo tile — the customer's logo renders on a small white rounded card in
+  // every theme. This is deliberate: many government emblems (DESC's red
+  // shield, Sharjah's dark emblem, etc.) are designed to sit on a light
+  // background and contain their own interior fill. Presenting them on a
+  // white card in dark mode looks intentional rather than "the logo has a
+  // bug." The card picks up a subtle border in light mode so it doesn't
+  // disappear into the light surface.
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      alt={branding.nameEn}
-      src="/api/config/branding/logo"
-      onError={() => setFailed(true)}
-      className={`shrink-0 object-contain ${className}`}
-      style={{ height: containerPx, width: containerPx }}
-    />
+    <div
+      className={`shrink-0 bg-white rounded-md overflow-hidden dark:border-0 border border-border/60 ${className}`}
+      style={{ height: containerPx, width: containerPx, padding: Math.max(2, Math.round(size / 4)) }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        alt={branding.nameEn}
+        src="/api/config/branding/logo"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-contain"
+      />
+    </div>
   );
 }
