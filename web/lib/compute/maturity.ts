@@ -8,6 +8,7 @@ import type {
 } from "@/lib/graph/signals";
 import { getLatestSnapshotsForTenant } from "@/lib/db/signals";
 import { getMaturityConfig } from "@/lib/config/maturity-config";
+import { computeTenantFrameworkScore } from "@/lib/config/compliance-framework";
 
 /**
  * Per-entity Maturity Index breakdown.
@@ -118,10 +119,36 @@ export function computeFromSnapshots(snapshots: {
     threatSub = clamp(100 * resolvedRatio);
   }
 
-  // Data protection + compliance — placeholders until Phase 3 (Purview signals).
+  // Data protection — placeholder until Phase 3 (Purview signals).
   // Synthesize from secure score to at least move with real data.
   const dataSub = ss ? clamp(ss.percent * 0.9) : 65;
-  const complianceSub = ss ? clamp(ss.percent * 0.95) : 65;
+
+  // Compliance sub-score (v2.2.4+) — driven by the active compliance
+  // framework (NESA / Dubai ISR / etc.) selected via `branding
+  // .frameworkId`. Each clause's coverage is the average of its
+  // mapped Microsoft Secure Score pass-rates + operator-managed
+  // custom evidence (manualPassRate). The clause-level coverages
+  // are weighted by `clause.weight` to produce a 0–100 score.
+  // Clauses with no observable evidence on this tenant are excluded
+  // from both numerator and denominator (a tenant with no on-prem AD
+  // shouldn't be penalised on MDI clauses where Microsoft has
+  // nothing to report). Falls back to the legacy
+  // `secureScore × 0.95` heuristic only when the framework returns
+  // null (no clauses scored at all — typically a brand-new entity
+  // with zero data).
+  let complianceSub = 65;
+  if (ss) {
+    const ssMap = new Map<
+      string,
+      { score: number | null; maxScore: number | null }
+    >();
+    for (const c of ss.controls) {
+      ssMap.set(c.id, { score: c.score ?? null, maxScore: c.maxScore ?? null });
+    }
+    const fw = computeTenantFrameworkScore(ssMap);
+    complianceSub =
+      fw.percent !== null ? clamp(fw.percent) : clamp(ss.percent * 0.95);
+  }
 
   const subScores: SubScores = {
     secureScore: round1(secureScoreSub),

@@ -188,3 +188,84 @@ export function resetActiveComplianceMapping(): ComplianceMapping {
 export function getActiveComplianceDefaults(): ComplianceMapping {
   return getActiveFramework().entry.default;
 }
+
+/**
+ * Per-clause coverage for one tenant — averages Microsoft Secure Score
+ * pass-rates of mapped controls + custom-evidence manual ratings into
+ * a single 0..1 number per clause. Used by the framework-driven
+ * compliance sub-score in `lib/compute/maturity.ts`.
+ *
+ * Each evidence anchor (Microsoft control or custom anchor) contributes
+ * one equal-weight sample to the average. Microsoft controls without a
+ * maxScore (informational) are skipped; custom anchors always count.
+ * If a clause has no observable evidence on this tenant the function
+ * returns null, signalling "data gap" — the caller decides whether to
+ * treat that as a clause skip or a 0%.
+ */
+export function computeClauseCoverageForTenant(
+  clause: ComplianceClause,
+  ssControls: Map<string, { score: number | null; maxScore: number | null }>,
+): { coverage: number | null; samples: number } {
+  let weighted = 0;
+  let samples = 0;
+
+  for (const id of clause.secureScoreControls) {
+    const c = ssControls.get(id);
+    if (!c) continue;
+    if (c.score === null || c.maxScore === null || c.maxScore === 0) continue;
+    weighted += c.score / c.maxScore;
+    samples += 1;
+  }
+
+  for (const ev of clause.customEvidence ?? []) {
+    weighted += Math.max(0, Math.min(100, ev.manualPassRate ?? 0)) / 100;
+    samples += 1;
+  }
+
+  if (samples === 0) return { coverage: null, samples: 0 };
+  return { coverage: weighted / samples, samples };
+}
+
+/**
+ * Tenant-level compliance score against the active framework.
+ *
+ * Sums (clause coverage × clause weight) across every clause that has
+ * evidence on the tenant. Clauses with no evidence are excluded from
+ * BOTH the numerator and denominator — this is intentional: an entity
+ * that genuinely doesn't have on-prem AD shouldn't be penalised on
+ * MDI-related clauses where Microsoft has nothing to report. The
+ * denominator is the sum of weights of clauses that DID contribute.
+ *
+ * Returns 0..100. Returns null when no clause had evidence (entity has
+ * literally no Secure Score data + no operator-managed evidence yet).
+ */
+export function computeTenantFrameworkScore(
+  ssControls: Map<string, { score: number | null; maxScore: number | null }>,
+): { percent: number | null; clausesScored: number; clausesTotal: number } {
+  const mapping = getActiveComplianceMapping();
+  let weightedSum = 0;
+  let weightTotal = 0;
+  let clausesScored = 0;
+
+  for (const clause of mapping.clauses) {
+    const r = computeClauseCoverageForTenant(clause, ssControls);
+    if (r.coverage === null) continue;
+    const w = Math.max(0, clause.weight || 0);
+    weightedSum += r.coverage * w;
+    weightTotal += w;
+    clausesScored += 1;
+  }
+
+  if (weightTotal === 0) {
+    return {
+      percent: null,
+      clausesScored: 0,
+      clausesTotal: mapping.clauses.length,
+    };
+  }
+  return {
+    percent: (weightedSum / weightTotal) * 100,
+    clausesScored,
+    clausesTotal: mapping.clauses.length,
+  };
+}
