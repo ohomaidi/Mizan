@@ -45,11 +45,19 @@ export const api = {
     cisoEmail?: string;
     /** Observation (default) or directive. Honored only in directive-mode deployments. */
     consentMode?: "observation" | "directive";
+    /**
+     * Mark as a demo / simulated tenant. Honoured only when the
+     * deployment has `MIZAN_DEMO_MODE=true`; production deployments
+     * silently coerce to false. Default false.
+     */
+    isDemo?: boolean;
   }) =>
-    jsonFetch<{ tenant: { id: string }; consentUrl: string | null; azureConfigured: boolean }>(
-      "/api/tenants",
-      { method: "POST", body: JSON.stringify(draft) },
-    ),
+    jsonFetch<{
+      tenant: { id: string };
+      consentUrl: string | null;
+      azureConfigured: boolean;
+      demoBypass?: boolean;
+    }>("/api/tenants", { method: "POST", body: JSON.stringify(draft) }),
 
   deleteTenant: (id: string) =>
     jsonFetch<{ ok: true }>(`/api/tenants/${id}`, { method: "DELETE" }),

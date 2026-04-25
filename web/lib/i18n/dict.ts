@@ -102,6 +102,9 @@ export const DICT = {
     "wizard.mode.directive.title": "Yes \u2014 directive enabled",
     "wizard.mode.directive.body":
       "This entity is subject to Center directive actions: baseline Conditional Access policies, Intune compliance pushes, named locations, incident classification, forced sign-out, and indicator blocks. Every write is previewed, approved, and auditable on both sides.",
+    "wizard.step3.demoToggle.title": "Onboard as a demo / simulated entity",
+    "wizard.step3.demoToggle.body":
+      "Marks this entity as a demo tenant. The Microsoft Entra consent flow is bypassed and every directive write against the row is simulated. Use this to walk through the wizard end-to-end without a real Entra app. Untick to onboard a real tenant — that requires the Center's Entra app credentials to be configured in Settings → Azure first.",
     "wizard.step4.title": "Await admin consent",
     "wizard.step4.subtitle":
       "Forward the onboarding letter to the entity's Global Administrator. This page live-polls consent status every 5 seconds. You can close the window — consent continues to be captured by the redirect handler.",
@@ -2601,6 +2604,9 @@ export const DICT = {
       "سننشئ سجل المستأجر، ونصنع رابط موافقة مخصصًا، ونُجهّز ملف PDF ثنائي اللغة. لا يُرسل شيء — راجع المعاينة أدناه قبل إعادة التوجيه إلى المسؤول العام للجهة.",
     "wizard.step3.generate": "إنشاء",
     "wizard.step3.done": "تم الإنشاء. رابط الموافقة وملفات PDF جاهزة أدناه.",
+    "wizard.step3.demoToggle.title": "تسجيل كجهة تجريبية / محاكاة",
+    "wizard.step3.demoToggle.body":
+      "يعلّم هذه الجهة كجهة تجريبية. يُتجاوز مسار موافقة Microsoft Entra، وتُحاكى كل عمليات الكتابة التوجيهية على هذه الجهة. استخدمه للسير عبر المعالج بالكامل بدون تطبيق Entra حقيقي. أزِل التحديد لتسجيل جهة حقيقية — وذلك يتطلّب تهيئة بيانات تطبيق Entra الخاص بالمركز من الإعدادات → Azure أولاً.",
     "wizard.mode.title": "التوجيه على هذه الجهة",
     "wizard.mode.observation.title": "لا — مراقبة فقط",
     "wizard.mode.observation.body":

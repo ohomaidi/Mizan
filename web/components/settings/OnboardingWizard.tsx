@@ -31,6 +31,15 @@ type Draft = {
   licenseConfirmed: boolean;
   /** Per-entity consent mode. Only editable on directive-mode deployments. */
   consentMode: ConsentMode;
+  /**
+   * Operator opt-in: mark this entity as a demo / simulated tenant.
+   * Hidden in production deployments (MIZAN_DEMO_MODE=false). Defaults
+   * to true on demo deployments because most onboardings on a demo
+   * install ARE demo entities, but the operator can untoggle it to
+   * onboard a real tenant against the same install (Center Entra app
+   * must be configured for the real path to succeed).
+   */
+  isDemo: boolean;
 };
 
 const EMPTY: Draft = {
@@ -43,6 +52,7 @@ const EMPTY: Draft = {
   tenantId: "",
   licenseConfirmed: false,
   consentMode: "observation",
+  isDemo: false,
 };
 
 type Generated = {
@@ -74,6 +84,7 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
   const [step, setStep] = useState<StepId>(1);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [deploymentMode, setDeploymentMode] = useState<ConsentMode>("observation");
+  const [demoMode, setDemoMode] = useState<boolean>(false);
 
   useEffect(() => {
     let alive = true;
@@ -82,6 +93,13 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
       .then((r) => {
         if (!alive) return;
         setDeploymentMode(r.deploymentMode);
+        setDemoMode(r.demoMode);
+        // Demo deployments default the toggle ON because most onboardings
+        // are simulated; operator unticks it to onboard a real tenant.
+        // Production deployments leave it OFF and never show the toggle.
+        if (r.demoMode) {
+          setDraft((d) => ({ ...d, isDemo: true }));
+        }
       })
       .catch(() => {});
     return () => {
@@ -148,6 +166,9 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
         // "observation" by default.
         consentMode:
           deploymentMode === "directive" ? draft.consentMode : "observation",
+        // Operator's "Demo entity" toggle. Server-side guard rejects
+        // this on production deployments — see DraftSchema.isDemo.
+        isDemo: demoMode && draft.isDemo,
       });
       setGenerated({
         tenantLocalId: res.tenant.id,
@@ -320,6 +341,7 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
             draft={draft}
             set={set}
             deploymentMode={deploymentMode}
+            demoMode={demoMode}
           />
         ) : step === 4 ? (
           <Step4
@@ -553,10 +575,12 @@ function Step3({
   draft,
   set,
   deploymentMode,
+  demoMode,
 }: {
   draft: Draft;
   set: <K extends keyof Draft>(k: K, v: Draft[K]) => void;
   deploymentMode: ConsentMode;
+  demoMode: boolean;
 }) {
   const { t, locale } = useI18n();
   const cluster = CLUSTERS.find((c) => c.id === draft.cluster);
@@ -602,6 +626,33 @@ function Step3({
               bodyKey="wizard.mode.directive.body"
             />
           </div>
+        </div>
+      ) : null}
+
+      {/* Demo-entity toggle — visible only on deployments with
+          MIZAN_DEMO_MODE=true. Defaults ON because most onboardings on
+          a demo install ARE simulated; operator unticks it to onboard
+          a real tenant against the same install. The server-side guard
+          on /api/tenants ensures production deployments cannot accept
+          isDemo=true even via a forged request. */}
+      {demoMode ? (
+        <div className="rounded-md border border-accent/40 bg-accent/10 p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.isDemo}
+              onChange={(e) => set("isDemo", e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-council-strong shrink-0"
+            />
+            <div className="flex-1">
+              <div className="text-[12.5px] font-semibold text-ink-1">
+                {t("wizard.step3.demoToggle.title")}
+              </div>
+              <div className="text-[11.5px] text-ink-2 mt-0.5 leading-relaxed">
+                {t("wizard.step3.demoToggle.body")}
+              </div>
+            </div>
+          </label>
         </div>
       ) : null}
     </div>

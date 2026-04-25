@@ -40,6 +40,15 @@ const DraftSchema = z.object({
    * forces observation if the deployment isn't directive-mode.
    */
   consentMode: z.enum(["observation", "directive"]).optional().default("observation"),
+  /**
+   * Operator opt-in: mark this tenant as a demo / simulated entity, skip
+   * the real Entra consent flow, auto-mark consented. Server-side
+   * guard: only honoured when the deployment has `MIZAN_DEMO_MODE=true`
+   * — production deployments silently coerce to false even if a forged
+   * request sends true. Observation/directive writes against the row
+   * are simulated by the existing executeDirective gate.
+   */
+  isDemo: z.boolean().optional().default(false),
 });
 
 export async function GET() {
@@ -93,15 +102,15 @@ export async function POST(req: NextRequest) {
   // incoming onboarding to observation even if the client sent directive.
   const mode = isDirectiveDeployment() ? draft.consentMode : "observation";
 
-  // Demo-mode bypass: when MIZAN_DEMO_MODE=true (the Mac demos, the
-  // hosted scscdemo / descdemo, any deployment with seed data on), the
-  // onboarding wizard's "Await admin consent" step would otherwise
-  // demand a real Entra app registration the operator never set up. We
-  // mark every wizard-onboarded tenant as is_demo=1 + immediately
-  // consented so the wizard's poll advances to step 5 without a real
-  // Graph round-trip. All directive writes against the row stay
-  // simulated by the executeDirective gate.
-  const demo = isDemoMode();
+  // Demo flag — explicit operator opt-in via the wizard's "Demo entity"
+  // toggle. Server-side guard: production deployments (no
+  // MIZAN_DEMO_MODE env) silently coerce to false even if a forged
+  // request sets isDemo=true, so a hijacked client cannot create
+  // simulated entities on a real install. When honoured, the new row
+  // gets is_demo=1 + an immediate markConsented(), bypassing the live
+  // Entra consent flow. Real onboarding stays available alongside —
+  // operator just leaves the toggle off.
+  const demo = draft.isDemo && isDemoMode();
 
   const tenant = insertTenant(
     {
