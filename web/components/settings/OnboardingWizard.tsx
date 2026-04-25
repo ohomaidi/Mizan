@@ -49,6 +49,14 @@ type Generated = {
   tenantLocalId: string;
   consentUrl: string | null;
   azureConfigured: boolean;
+  /**
+   * True when MIZAN_DEMO_MODE=true on the server — the new tenant was
+   * marked is_demo=1 + auto-consented inline, so step 4's "Await admin
+   * consent" pseudo-step renders a green "demo simulated" line rather
+   * than the orange "Entra not configured" warning. The wizard still
+   * advances normally; this is purely a UI signal.
+   */
+  demoBypass?: boolean;
 };
 
 type StepId = 1 | 2 | 3 | 4 | 5;
@@ -145,6 +153,7 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
         tenantLocalId: res.tenant.id,
         consentUrl: res.consentUrl,
         azureConfigured: res.azureConfigured,
+        demoBypass: (res as { demoBypass?: boolean }).demoBypass ?? false,
       });
       setStep(4);
     } catch (err) {
@@ -684,7 +693,11 @@ function Step4({
           )}
         </span>
       </div>
-      {generated.consentUrl ? (
+      {generated.demoBypass ? (
+        <div className="rounded-md border border-pos/40 bg-pos/10 p-3 text-[12.5px] text-pos">
+          {t("wizard.step4.demoBypass")}
+        </div>
+      ) : generated.consentUrl ? (
         <div className="rounded-md border border-border bg-surface-2 p-4 flex flex-col gap-2">
           <div className="text-[12px] text-ink-3">Consent URL</div>
           <div className="text-[12.5px] text-ink-1 font-mono break-all keep-ltr">

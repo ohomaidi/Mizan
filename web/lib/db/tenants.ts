@@ -62,6 +62,14 @@ export type TenantDraft = {
    * entity level past insert — upgrades and downgrades are a separate flow.
    */
   consent_mode?: ConsentMode;
+  /**
+   * Marks the tenant as a demo / simulated tenant. All directive writes are
+   * simulated, the consent flow is bypassed (real Azure config not required),
+   * and the row is gated by every demo-aware code path. Set true by the
+   * onboarding API when `MIZAN_DEMO_MODE=true`, by the seed for SCSC/DESC
+   * fixture entities, and explicitly by tests. Defaults to false.
+   */
+  is_demo?: boolean;
 };
 
 export type ConsentHistoryAction =
@@ -128,8 +136,8 @@ export function insertTenant(
   const mode: ConsentMode = d.consent_mode === "directive" ? "directive" : "observation";
   getDb()
     .prepare(
-      `INSERT INTO tenants (id, tenant_id, name_en, name_ar, cluster, domain, ciso, ciso_email, consent_state, consent_mode)
-       VALUES (@id, @tenant_id, @name_en, @name_ar, @cluster, @domain, @ciso, @ciso_email, @consent_state, @consent_mode)`,
+      `INSERT INTO tenants (id, tenant_id, name_en, name_ar, cluster, domain, ciso, ciso_email, consent_state, consent_mode, is_demo)
+       VALUES (@id, @tenant_id, @name_en, @name_ar, @cluster, @domain, @ciso, @ciso_email, @consent_state, @consent_mode, @is_demo)`,
     )
     .run({
       id,
@@ -142,6 +150,7 @@ export function insertTenant(
       ciso_email: d.ciso_email ?? "",
       consent_state: consentState,
       consent_mode: mode,
+      is_demo: d.is_demo ? 1 : 0,
     });
   // Audit the onboarding in consent_history so the tenant's mode lineage is
   // queryable from day one.

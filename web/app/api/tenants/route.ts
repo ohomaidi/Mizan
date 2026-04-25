@@ -1,10 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { z } from "zod";
-import { insertTenant, listTenants, getTenantByTenantId } from "@/lib/db/tenants";
+import {
+  insertTenant,
+  listTenants,
+  getTenantByTenantId,
+  markConsented,
+  getTenant,
+} from "@/lib/db/tenants";
 import { config } from "@/lib/config";
 import { buildConsentUrl } from "@/lib/config/consent-url";
 import { isDirectiveDeployment } from "@/lib/config/deployment-mode";
+import { isDemoMode } from "@/lib/config/auth-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,6 +92,17 @@ export async function POST(req: NextRequest) {
   // deployments. Observation-mode deployments (SCSC) silently coerce every
   // incoming onboarding to observation even if the client sent directive.
   const mode = isDirectiveDeployment() ? draft.consentMode : "observation";
+
+  // Demo-mode bypass: when MIZAN_DEMO_MODE=true (the Mac demos, the
+  // hosted scscdemo / descdemo, any deployment with seed data on), the
+  // onboarding wizard's "Await admin consent" step would otherwise
+  // demand a real Entra app registration the operator never set up. We
+  // mark every wizard-onboarded tenant as is_demo=1 + immediately
+  // consented so the wizard's poll advances to step 5 without a real
+  // Graph round-trip. All directive writes against the row stay
+  // simulated by the executeDirective gate.
+  const demo = isDemoMode();
+
   const tenant = insertTenant(
     {
       tenant_id: draft.tenantId,
@@ -95,14 +113,27 @@ export async function POST(req: NextRequest) {
       ciso: draft.ciso,
       ciso_email: draft.cisoEmail,
       consent_mode: mode,
+      is_demo: demo,
     },
     consentState,
   );
 
-  const consentUrl = await buildConsentUrl(tenant.tenant_id, consentState);
+  if (demo) {
+    markConsented(tenant.id);
+  }
+
+  const consentUrl = demo
+    ? null
+    : await buildConsentUrl(tenant.tenant_id, consentState);
 
   return NextResponse.json(
-    { tenant, consentUrl, azureConfigured: config.isAzureConfigured },
+    {
+      // Re-read so the caller sees the updated consent_status when demo=true.
+      tenant: demo ? getTenant(tenant.id) ?? tenant : tenant,
+      consentUrl,
+      azureConfigured: config.isAzureConfigured,
+      demoBypass: demo || undefined,
+    },
     { status: 201 },
   );
 }

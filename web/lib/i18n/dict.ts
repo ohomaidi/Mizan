@@ -110,6 +110,8 @@ export const DICT = {
     "wizard.step4.status.consented": "Consent received",
     "wizard.step4.status.revoked": "Consent revoked",
     "wizard.step4.status.failed": "Consent flow failed",
+    "wizard.step4.demoBypass":
+      "Demo mode — consent simulated. The new entity has been marked as a demo tenant and auto-consented; no real Microsoft Entra registration was attempted. Continue to the final step.",
     "wizard.step5.title": "First sync + verify",
     "wizard.step5.subtitle":
       "Trigger an initial Graph pull to prove the pipeline. Once Secure Score returns a value, the entity moves into the live dashboard.",
@@ -2614,6 +2616,8 @@ export const DICT = {
     "wizard.step4.status.consented": "تم استلام الموافقة",
     "wizard.step4.status.revoked": "تم سحب الموافقة",
     "wizard.step4.status.failed": "فشل مسار الموافقة",
+    "wizard.step4.demoBypass":
+      "وضع العرض التجريبي — الموافقة محاكاة. تم تعليم الجهة الجديدة كجهة تجريبية والموافقة عليها تلقائياً؛ لم تُجرَ أي عملية تسجيل تطبيق Entra حقيقية. تابع إلى الخطوة الأخيرة.",
     "wizard.step5.title": "المزامنة الأولى والتحقق",
     "wizard.step5.subtitle":
       "شغّل سحبًا أوليًا من Graph لإثبات جاهزية خط الأنابيب. بمجرد رجوع قيمة Secure Score، تظهر الجهة في اللوحة الحيّة.",
