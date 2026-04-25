@@ -246,17 +246,23 @@ For on-prem labs, airgapped review stations, and demos.
 
 ```sh
 git clone https://github.com/ohomaidi/Mizan.git
-cd mizan
-bash web/deploy/mac-build.sh
-# Output: web/deploy/dist/mizan-<version>.pkg
+cd Mizan
+VERSION=2.0.0 bash web/deploy/mac-build.sh
+# Output: web/deploy/dist/posture-dashboard-2.0.0.pkg
+#
+# Note: the build artefact + install path still use the legacy
+# "posture-dashboard" identifier from before the Mizan rebrand. The
+# UI is fully Mizan-branded; only the file/path names are legacy.
+# Renaming would break the in-place upgrade path for existing installs;
+# planned in a future release alongside a migration script.
 ```
 
 Double-clicking the `.pkg` on the target Mac:
 
-- Drops the app at `/usr/local/mizan/`
+- Drops the app at `/usr/local/posture-dashboard/`
 - Installs a LaunchAgent that starts it on login (http://localhost:8787)
-- Creates `~/Library/Application Support/mizan/` for the SQLite DB + uploaded logos
-- Writes `~/Desktop/mizan-CREDENTIALS.txt` with first-run instructions — auto-opens when the installer finishes
+- Creates `~/Library/Application Support/posture-dashboard/` for the SQLite DB + uploaded logos
+- Writes `~/Desktop/posture-dashboard-CREDENTIALS.txt` with first-run instructions — auto-opens when the installer finishes
 
 ---
 
@@ -264,11 +270,18 @@ Double-clicking the `.pkg` on the target Mac:
 
 For on-prem government desktops.
 
+**Build prerequisite:** WiX Toolset v4 — `dotnet tool install --global wix` on the build machine.
+
+The Windows installer is built on Windows (cross-compile from macOS isn't supported because WiX is Windows-only). Run on a Windows machine with Node 22 + WiX:
+
 ```powershell
 git clone https://github.com/ohomaidi/Mizan.git
-cd mizan
-powershell -File web/deploy/windows-build.ps1
-# Output: web\deploy\dist\mizan-<version>.msi
+cd Mizan
+powershell -File web/deploy/windows-build.ps1 -Version 2.0.0
+# Output: web\deploy\dist\posture-dashboard-2.0.0.msi
+#
+# Note: same legacy-name caveat as the Mac .pkg. The UI is Mizan-branded,
+# the .msi internals carry the pre-rebrand "Posture Dashboard" name.
 ```
 
 Double-clicking the `.msi`:
