@@ -23,10 +23,19 @@ export const config = {
    */
   appBaseUrl: opt("APP_BASE_URL", ""),
 
-  /** Azure AD app registration — DB-backed with env fallback. Safe to call from server-only code. */
+  /**
+   * Azure AD app registration — DB-backed with env fallback. Safe to call
+   * from server-only code. Either `clientSecret` OR the cert triple
+   * (`clientCertThumbprint` + `clientCertPrivateKeyPem` + optional
+   * `clientCertChainPem`) must be set; cert wins when both are present.
+   * `getAzureAuthMethod()` reports which one will be used.
+   */
   get azure(): {
     clientId: string;
     clientSecret: string;
+    clientCertThumbprint: string;
+    clientCertPrivateKeyPem: string;
+    clientCertChainPem: string;
     authorityHost: string;
   } {
     // Lazy-require to keep this module usable in edge runtimes where `server-only` can't load.
@@ -35,6 +44,9 @@ export const config = {
     const cfg = getAzureConfig() as {
       clientId: string;
       clientSecret: string;
+      clientCertThumbprint: string;
+      clientCertPrivateKeyPem: string;
+      clientCertChainPem: string;
       authorityHost: string;
     };
     return cfg;
@@ -57,10 +69,15 @@ export const config = {
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 90;
   })(),
 
-  /** True when the MSAL client is ready to issue tokens. */
+  /** True when the MSAL client is ready to issue tokens (secret OR cert). */
   get isAzureConfigured(): boolean {
     const a = this.azure;
-    return Boolean(a.clientId && a.clientSecret);
+    if (!a.clientId) return false;
+    const hasSecret = Boolean(a.clientSecret);
+    const hasCert = Boolean(
+      a.clientCertThumbprint && a.clientCertPrivateKeyPem,
+    );
+    return hasSecret || hasCert;
   },
 
   /** Redirect URI registered on the Entra app for admin consent callbacks. */
@@ -81,7 +98,7 @@ export const config = {
 export function assertAzureConfigured(): void {
   if (!config.isAzureConfigured) {
     throw new Error(
-      "Azure app registration is not configured. Set credentials in Settings → App Registration (or AZURE_CLIENT_ID / AZURE_CLIENT_SECRET in .env.local) — see docs/08-phase2-setup.md.",
+      "Azure app registration is not configured. Set credentials in Settings → App Registration (clientId + clientSecret, OR clientId + a certificate). Env-var fallback: AZURE_CLIENT_ID + AZURE_CLIENT_SECRET (or AZURE_CLIENT_CERT_THUMBPRINT + AZURE_CLIENT_CERT_PRIVATE_KEY_PEM). See docs/08-phase2-setup.md.",
     );
   }
 }

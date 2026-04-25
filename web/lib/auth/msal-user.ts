@@ -17,14 +17,34 @@ let _signature = "";
 
 function getClient(): ConfidentialClientApplication {
   const cfg = getAuthConfig();
-  const sig = `${cfg.clientId}|${cfg.clientSecret}|${cfg.tenantId}`;
+  // Signature includes whichever credential is active so a switch from
+  // secret to cert (or rotation of either) invalidates the cached client.
+  const credSig =
+    cfg.clientCertThumbprint && cfg.clientCertPrivateKeyPem
+      ? `cert:${cfg.clientCertThumbprint}:${cfg.clientCertPrivateKeyPem.length}`
+      : `secret:${cfg.clientSecret}`;
+  const sig = `${cfg.clientId}|${credSig}|${cfg.tenantId}`;
   if (_cca && sig === _signature) return _cca;
+  const authority = `https://login.microsoftonline.com/${cfg.tenantId || "common"}`;
+  const useCert = Boolean(
+    cfg.clientCertThumbprint && cfg.clientCertPrivateKeyPem,
+  );
   _cca = new ConfidentialClientApplication({
-    auth: {
-      clientId: cfg.clientId,
-      clientSecret: cfg.clientSecret,
-      authority: `https://login.microsoftonline.com/${cfg.tenantId || "common"}`,
-    },
+    auth: useCert
+      ? {
+          clientId: cfg.clientId,
+          clientCertificate: {
+            thumbprint: cfg.clientCertThumbprint,
+            privateKey: cfg.clientCertPrivateKeyPem,
+            x5c: cfg.clientCertChainPem || undefined,
+          },
+          authority,
+        }
+      : {
+          clientId: cfg.clientId,
+          clientSecret: cfg.clientSecret,
+          authority,
+        },
   });
   _signature = sig;
   return _cca;

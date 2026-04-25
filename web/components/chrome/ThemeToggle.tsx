@@ -14,7 +14,11 @@ export function ThemeToggle() {
       onClick={toggle}
       className="h-8 w-8 grid place-items-center rounded-md hover:bg-surface-3 text-ink-2 transition-colors"
     >
-      {isDark ? <Sun size={16} /> : <Moon size={16} />}
+      {isDark ? (
+        <Sun size={16} aria-hidden="true" />
+      ) : (
+        <Moon size={16} aria-hidden="true" />
+      )}
     </button>
   );
 }

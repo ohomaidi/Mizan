@@ -366,26 +366,31 @@ function SaveIndicator({
   state: "idle" | "saving" | "saved";
 }) {
   const { t } = useI18n();
-  if (state === "saving") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3">
-        <Loader2 size={12} className="animate-spin" />
-        {t("wizard.saving")}
-      </span>
-    );
-  }
-  if (state === "saved") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-[11.5px] text-pos">
-        <Check size={12} />
-        {t("wizard.saved")}
-      </span>
-    );
-  }
+  // role="status" + aria-live="polite" → screen readers announce the
+  // "Saved" / "Saving" transitions without interrupting whatever the user
+  // is typing. Critical for keyboard + AT users in the wizard.
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-3">
-      <Save size={12} />
-      &nbsp;
+    <span
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      className={`inline-flex items-center gap-1.5 text-[11.5px] ${
+        state === "saved" ? "text-pos" : "text-ink-3"
+      }`}
+    >
+      {state === "saving" ? (
+        <>
+          <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+          {t("wizard.saving")}
+        </>
+      ) : state === "saved" ? (
+        <>
+          <Check size={12} aria-hidden="true" />
+          {t("wizard.saved")}
+        </>
+      ) : (
+        <Save size={12} aria-hidden="true" />
+      )}
     </span>
   );
 }

@@ -28,8 +28,18 @@ export const SESSION_PRESETS_MIN = [
 export type UserAuthConfig = {
   /** Entra app registration used for user sign-in. Separate from the Graph-signals app. */
   clientId: string;
-  /** Client secret for the confidential-client auth code flow. */
+  /** Client secret for the confidential-client auth code flow. Empty when using cert. */
   clientSecret: string;
+  /**
+   * SHA-1 thumbprint of the public certificate uploaded to the user-auth Entra
+   * app. Empty when using secret-based auth. When both cert + secret are set,
+   * cert wins.
+   */
+  clientCertThumbprint: string;
+  /** PEM-encoded private key for the cert. Empty when using secret-based auth. */
+  clientCertPrivateKeyPem: string;
+  /** Optional PEM cert chain for x5c validation. */
+  clientCertChainPem: string;
   /** Tenant GUID or "common" / "organizations". Operator tenant is the default. */
   tenantId: string;
   /**
@@ -43,9 +53,14 @@ export type UserAuthConfig = {
   updatedAt?: string;
 };
 
+export type UserAuthMethod = "certificate" | "secret" | "none";
+
 export const DEFAULT_AUTH_CONFIG: UserAuthConfig = {
   clientId: "",
   clientSecret: "",
+  clientCertThumbprint: "",
+  clientCertPrivateKeyPem: "",
+  clientCertChainPem: "",
   tenantId: "",
   sessionTimeoutMinutes: 60 * 24 * 7, // 7 days — sliding window
   defaultRole: "viewer",
@@ -66,10 +81,29 @@ export function getAuthConfig(): UserAuthConfig {
 /**
  * True when sign-in is technically possible — credentials are present. Used
  * by the login page + whoami to decide whether to surface a Sign-in button.
+ * Either secret OR cert is enough.
  */
 export function isAuthConfigured(): boolean {
   const cfg = getAuthConfig();
-  return cfg.clientId.length > 0 && cfg.clientSecret.length > 0;
+  if (cfg.clientId.length === 0) return false;
+  const hasSecret = cfg.clientSecret.length > 0;
+  const hasCert =
+    cfg.clientCertThumbprint.length > 0 &&
+    cfg.clientCertPrivateKeyPem.length > 0;
+  return hasSecret || hasCert;
+}
+
+/** Active user-auth method, derived from the stored config. Cert wins. */
+export function getUserAuthMethod(): UserAuthMethod {
+  const cfg = getAuthConfig();
+  if (
+    cfg.clientCertThumbprint.length > 0 &&
+    cfg.clientCertPrivateKeyPem.length > 0
+  ) {
+    return "certificate";
+  }
+  if (cfg.clientSecret.length > 0) return "secret";
+  return "none";
 }
 
 /**

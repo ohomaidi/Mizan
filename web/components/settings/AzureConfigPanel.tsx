@@ -18,13 +18,17 @@ import { useFmtRelative } from "@/lib/i18n/time";
 import { api } from "@/lib/api/client";
 
 type Source = "db" | "env" | "none";
+type AuthMethod = "certificate" | "secret" | "none";
 type Loaded = {
   clientId: string;
   clientSecretSet: boolean;
+  clientCertSet: boolean;
+  clientCertThumbprint: string;
+  authMethod: AuthMethod;
   authorityHost: string;
   consentRedirectUri: string;
   updatedAt: string | null;
-  source: { clientId: Source; clientSecret: Source };
+  source: { clientId: Source; clientSecret: Source; clientCert: Source };
 };
 
 type State =
@@ -44,6 +48,11 @@ export function AzureConfigPanel() {
   const [clientSecret, setClientSecret] = useState("");
   const [authorityHost, setAuthorityHost] = useState("");
   const [consentRedirectUri, setConsentRedirectUri] = useState("");
+  // Cert-based auth fields. Either secret OR these is enough.
+  const [authMethodChoice, setAuthMethodChoice] = useState<"secret" | "certificate">("secret");
+  const [clientCertThumbprint, setClientCertThumbprint] = useState("");
+  const [clientCertPrivateKeyPem, setClientCertPrivateKeyPem] = useState("");
+  const [clientCertChainPem, setClientCertChainPem] = useState("");
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [banner, setBanner] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
@@ -58,6 +67,12 @@ export function AzureConfigPanel() {
       setClientSecret("");
       setAuthorityHost(r.config.authorityHost);
       setConsentRedirectUri(r.config.consentRedirectUri);
+      setAuthMethodChoice(
+        r.config.authMethod === "certificate" ? "certificate" : "secret",
+      );
+      setClientCertThumbprint(r.config.clientCertThumbprint);
+      setClientCertPrivateKeyPem("");
+      setClientCertChainPem("");
     } catch (err) {
       setState({ kind: "error", message: (err as Error).message });
     }
@@ -75,14 +90,36 @@ export function AzureConfigPanel() {
       const patch: {
         clientId?: string;
         clientSecret?: string;
+        clientCertThumbprint?: string;
+        clientCertPrivateKeyPem?: string;
+        clientCertChainPem?: string;
         authorityHost?: string;
         consentRedirectUri?: string;
       } = {};
       if (clientId !== state.config.clientId) patch.clientId = clientId;
-      if (clientSecret.length > 0) patch.clientSecret = clientSecret;
       if (authorityHost !== state.config.authorityHost) patch.authorityHost = authorityHost;
       if (consentRedirectUri !== state.config.consentRedirectUri)
         patch.consentRedirectUri = consentRedirectUri;
+      // Switching auth method: clear the OTHER credential by sending empty
+      // strings so the server forgets it. Otherwise the user could end up
+      // with both secret and cert stored, with cert silently winning —
+      // confusing for ops.
+      if (authMethodChoice === "secret") {
+        if (clientSecret.length > 0) patch.clientSecret = clientSecret;
+        if (state.config.clientCertSet) {
+          patch.clientCertThumbprint = "";
+          patch.clientCertPrivateKeyPem = "";
+          patch.clientCertChainPem = "";
+        }
+      } else {
+        if (clientCertThumbprint !== state.config.clientCertThumbprint)
+          patch.clientCertThumbprint = clientCertThumbprint;
+        if (clientCertPrivateKeyPem.length > 0)
+          patch.clientCertPrivateKeyPem = clientCertPrivateKeyPem;
+        if (clientCertChainPem.length > 0)
+          patch.clientCertChainPem = clientCertChainPem;
+        if (state.config.clientSecretSet) patch.clientSecret = "";
+      }
       if (Object.keys(patch).length === 0) {
         setSaving(false);
         return;
@@ -90,6 +127,8 @@ export function AzureConfigPanel() {
       const r = await api.saveAzureConfig(patch);
       setState({ kind: "ready", config: r.config });
       setClientSecret("");
+      setClientCertPrivateKeyPem("");
+      setClientCertChainPem("");
       setBanner({ tone: "ok", text: t("azureCfg.saved") });
     } catch (err) {
       setBanner({ tone: "err", text: (err as Error).message });
@@ -115,12 +154,20 @@ export function AzureConfigPanel() {
   if (state.kind === "loading") return <LoadingState />;
   if (state.kind === "error") return <ErrorState message={state.message} onRetry={load} />;
 
-  const ready = state.config.clientId.length > 0 && state.config.clientSecretSet;
+  const ready =
+    state.config.clientId.length > 0 &&
+    (state.config.clientSecretSet || state.config.clientCertSet);
   const dirty =
     clientId !== state.config.clientId ||
     clientSecret.length > 0 ||
     authorityHost !== state.config.authorityHost ||
-    consentRedirectUri !== state.config.consentRedirectUri;
+    consentRedirectUri !== state.config.consentRedirectUri ||
+    (authMethodChoice === "certificate" &&
+      (clientCertThumbprint !== state.config.clientCertThumbprint ||
+        clientCertPrivateKeyPem.length > 0 ||
+        clientCertChainPem.length > 0)) ||
+    (authMethodChoice === "secret" && state.config.authMethod === "certificate") ||
+    (authMethodChoice === "certificate" && state.config.authMethod === "secret");
 
   const redirectUri =
     typeof window !== "undefined"
@@ -189,29 +236,134 @@ export function AzureConfigPanel() {
             />
           </Field>
 
-          <Field
-            label={t("azureCfg.field.clientSecret")}
-            source={state.config.source.clientSecret}
-          >
-            <input
-              type="password"
-              value={clientSecret}
-              onChange={(e) => setClientSecret(e.target.value)}
-              placeholder={
-                state.config.clientSecretSet
-                  ? t("azureCfg.secret.placeholderReplace")
-                  : t("azureCfg.secret.placeholderNew")
-              }
-              className={inputClass}
-              dir="ltr"
-              autoComplete="off"
-            />
-            <p className="text-[11.5px] text-ink-3 mt-1">
-              {state.config.clientSecretSet
-                ? t("azureCfg.secret.hasValue")
-                : t("azureCfg.secret.never")}
-            </p>
-          </Field>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-[11.5px] text-ink-3 mb-1">
+              {t("azureCfg.field.authMethod")}
+            </legend>
+            <div className="flex gap-2">
+              {(["secret", "certificate"] as const).map((m) => {
+                const active = authMethodChoice === m;
+                return (
+                  <label
+                    key={m}
+                    className={`flex-1 flex items-start gap-2 rounded-md border p-2.5 cursor-pointer ${
+                      active
+                        ? "border-council-strong bg-council-strong/5"
+                        : "border-border bg-surface-1 hover:border-council-strong/60"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="auth-method"
+                      checked={active}
+                      onChange={() => setAuthMethodChoice(m)}
+                      className="mt-0.5 accent-council-strong"
+                    />
+                    <span className="text-[12.5px] text-ink-1 leading-snug">
+                      <span className="font-semibold">
+                        {t(
+                          m === "secret"
+                            ? "azureCfg.authMethod.secret"
+                            : "azureCfg.authMethod.cert",
+                        )}
+                      </span>
+                      <span className="block text-[10.5px] text-ink-3 mt-0.5">
+                        {t(
+                          m === "secret"
+                            ? "azureCfg.authMethod.secretHint"
+                            : "azureCfg.authMethod.certHint",
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {authMethodChoice === "secret" ? (
+            <Field
+              label={t("azureCfg.field.clientSecret")}
+              source={state.config.source.clientSecret}
+            >
+              <input
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                placeholder={
+                  state.config.clientSecretSet
+                    ? t("azureCfg.secret.placeholderReplace")
+                    : t("azureCfg.secret.placeholderNew")
+                }
+                className={inputClass}
+                dir="ltr"
+                autoComplete="off"
+              />
+              <p className="text-[11.5px] text-ink-3 mt-1">
+                {state.config.clientSecretSet
+                  ? t("azureCfg.secret.hasValue")
+                  : t("azureCfg.secret.never")}
+              </p>
+            </Field>
+          ) : (
+            <>
+              <Field
+                label={t("azureCfg.field.clientCertThumbprint")}
+                source={state.config.source.clientCert}
+              >
+                <input
+                  value={clientCertThumbprint}
+                  onChange={(e) =>
+                    setClientCertThumbprint(
+                      e.target.value.replace(/[^0-9a-fA-F]/g, "").toUpperCase(),
+                    )
+                  }
+                  placeholder="A1B2C3D4E5F6...   (40 hex chars, no colons)"
+                  className={inputClass}
+                  dir="ltr"
+                  maxLength={40}
+                />
+                <p className="text-[11.5px] text-ink-3 mt-1">
+                  {t("azureCfg.cert.thumbprintHint")}
+                </p>
+              </Field>
+              <Field
+                label={t("azureCfg.field.clientCertPrivateKeyPem")}
+              >
+                <textarea
+                  value={clientCertPrivateKeyPem}
+                  onChange={(e) => setClientCertPrivateKeyPem(e.target.value)}
+                  placeholder={
+                    state.config.clientCertSet
+                      ? t("azureCfg.cert.privateKeyPlaceholderReplace")
+                      : "-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----"
+                  }
+                  className="w-full min-h-[160px] px-3 py-2 rounded-md border border-border bg-surface-1 text-ink-1 placeholder:text-ink-3 text-[11.5px] outline-none focus:border-council-strong keep-ltr font-mono"
+                  dir="ltr"
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <p className="text-[11.5px] text-ink-3 mt-1">
+                  {state.config.clientCertSet
+                    ? t("azureCfg.cert.hasValue")
+                    : t("azureCfg.cert.never")}
+                </p>
+              </Field>
+              <Field label={t("azureCfg.field.clientCertChainPem")}>
+                <textarea
+                  value={clientCertChainPem}
+                  onChange={(e) => setClientCertChainPem(e.target.value)}
+                  placeholder="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+                  className="w-full min-h-[100px] px-3 py-2 rounded-md border border-border bg-surface-1 text-ink-1 placeholder:text-ink-3 text-[11.5px] outline-none focus:border-council-strong keep-ltr font-mono"
+                  dir="ltr"
+                  spellCheck={false}
+                />
+                <p className="text-[11.5px] text-ink-3 mt-1">
+                  {t("azureCfg.cert.chainHint")}
+                </p>
+              </Field>
+            </>
+          )}
 
           <Field label={t("azureCfg.field.authorityHost")}>
             <input

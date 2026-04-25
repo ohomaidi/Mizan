@@ -296,6 +296,25 @@ Lives in its own section between Intune and Coming-soon. Four baselines: strict 
 
 The push modal renders the exact JSON patch that will be PATCHed before the operator confirms.
 
+### B.7c Cert-based MSAL (production hardening)
+
+By default the Settings → App Registration panel asks for a client secret string. For production deployments where audit policy requires "no shared secrets in app config", switch the auth method to **Certificate**:
+
+1. Generate a key pair (`openssl req -new -x509 -days 730 -keyout key.pem -out cert.pem -nodes`).
+2. Upload `cert.pem` (the public cert) to your Entra app: Entra admin centre → App registrations → your app → **Certificates & secrets** → **Certificates** tab → **Upload certificate**.
+3. Copy the **Thumbprint** Entra shows (40 hex chars; Mizan upper-cases on save).
+4. In Mizan → Settings → App Registration → **Authentication method** → **Certificate**:
+   - Paste the thumbprint
+   - Paste the contents of `key.pem` (entire `-----BEGIN PRIVATE KEY-----`…`-----END PRIVATE KEY-----` block) into Private key
+   - Optional: paste your full cert chain into Certificate chain (for x5c validation)
+5. **Save**. The MSAL client cache is invalidated; the next Graph call uses the cert.
+
+When both secret + cert are stored, **cert wins**. Switching auth methods in the UI clears the OTHER credential on save so you don't end up with both stored.
+
+Same pattern works for the user-auth Entra app on Settings → Authentication.
+
+For Azure Container Apps deployments wanting Key Vault: store the PEM block as a Container App secret referencing a Key Vault secret URI, expose it as `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM` in env, set `AZURE_CLIENT_CERT_THUMBPRINT` alongside, and leave the DB-side cert fields empty — the env-fallback path picks both up.
+
 ### B.7b Threat Intelligence — IOC push (Phase 14b)
 
 Operator console between SharePoint and the Coming-soon roadmap. Form-based: pick indicator type (file hash / URL / domain / IPv4 / IPv6), enter the value, choose action (alert / alertAndBlock recommended / block / allow), severity, free-text description, expiration in days, target entities. **Push** fans out to each entity's Defender for Endpoint as a `tiIndicator`.

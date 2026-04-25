@@ -3,14 +3,51 @@ import { readConfig, writeConfig } from "@/lib/db/config-store";
 
 const KEY = "azure.app";
 
+/**
+ * Two equivalent ways to authenticate to Microsoft Entra:
+ *
+ * - **Secret-based** — `clientSecret` is a Microsoft-generated string. Set it
+ *   in Settings or the setup wizard. Easy to provision but rotates every 6–24
+ *   months and lives in the SQLite config_store as plaintext at rest.
+ *
+ * - **Certificate-based** (production hardening) — operator uploads a
+ *   PFX-or-PEM private key + records the matching cert thumbprint. Used
+ *   when the Council wants to satisfy "no shared secrets in app config"
+ *   audit requirements. The cert lifetime is whatever they sign it with
+ *   (years, typically) and the public cert is uploaded to the Entra app's
+ *   "Certificates & secrets" blade.
+ *
+ * `getAzureAuthMethod()` reports which one is active so callers can render
+ * the right Settings UI. The MSAL builder in `lib/graph/msal.ts` prefers
+ * cert when both are present.
+ */
 export type AzureAppConfig = {
   clientId: string;
   clientSecret: string;
+  /**
+   * SHA-1 thumbprint of the public certificate uploaded to the Entra app,
+   * upper-case hex without colons (e.g. "F5A6B0...").
+   */
+  clientCertThumbprint: string;
+  /**
+   * PEM-encoded private key matching the cert. Stored at rest in
+   * `app_config`; treated as a secret. Empty string when unset.
+   */
+  clientCertPrivateKeyPem: string;
+  /**
+   * Optional PEM-encoded full certificate chain. When set, MSAL sends it
+   * via x5c so Entra can validate without separately trusting the cert.
+   * Helpful for tenants that scope cert acceptance by chain.
+   */
+  clientCertChainPem: string;
   authorityHost: string;
   /** Optional override — if set, replaces APP_BASE_URL-derived consent redirect URI. */
   consentRedirectUri: string;
   updatedAt?: string;
 };
+
+/** Active auth method, derived from the stored config. */
+export type AzureAuthMethod = "certificate" | "secret" | "none";
 
 const DEFAULT_AUTHORITY_HOST = "https://login.microsoftonline.com";
 
@@ -30,6 +67,19 @@ export function getAzureConfig(): AzureAppConfig {
       stored?.clientSecret && stored.clientSecret.length > 0
         ? stored.clientSecret
         : (process.env.AZURE_CLIENT_SECRET ?? ""),
+    clientCertThumbprint:
+      stored?.clientCertThumbprint && stored.clientCertThumbprint.length > 0
+        ? stored.clientCertThumbprint
+        : (process.env.AZURE_CLIENT_CERT_THUMBPRINT ?? ""),
+    clientCertPrivateKeyPem:
+      stored?.clientCertPrivateKeyPem &&
+      stored.clientCertPrivateKeyPem.length > 0
+        ? stored.clientCertPrivateKeyPem
+        : (process.env.AZURE_CLIENT_CERT_PRIVATE_KEY_PEM ?? ""),
+    clientCertChainPem:
+      stored?.clientCertChainPem && stored.clientCertChainPem.length > 0
+        ? stored.clientCertChainPem
+        : (process.env.AZURE_CLIENT_CERT_CHAIN_PEM ?? ""),
     authorityHost:
       stored?.authorityHost && stored.authorityHost.length > 0
         ? stored.authorityHost
@@ -42,11 +92,35 @@ export function getAzureConfig(): AzureAppConfig {
   };
 }
 
+/**
+ * Decide which auth method is active based on what's configured. Cert wins
+ * when both are present — that's the production-hardening default. If only
+ * `clientSecret` is set, fall back to it. If neither, "none" (the app is
+ * unconfigured and `assertAzureConfigured()` will throw).
+ */
+export function getAzureAuthMethod(): AzureAuthMethod {
+  const cfg = getAzureConfig();
+  if (
+    cfg.clientCertThumbprint.length > 0 &&
+    cfg.clientCertPrivateKeyPem.length > 0
+  ) {
+    return "certificate";
+  }
+  if (cfg.clientSecret.length > 0) return "secret";
+  return "none";
+}
+
 export function setAzureConfig(input: Partial<AzureAppConfig>): AzureAppConfig {
   const existing = readConfig<AzureAppConfig>(KEY) ?? ({} as AzureAppConfig);
   const next: AzureAppConfig = {
     clientId: input.clientId ?? existing.clientId ?? "",
     clientSecret: input.clientSecret ?? existing.clientSecret ?? "",
+    clientCertThumbprint:
+      input.clientCertThumbprint ?? existing.clientCertThumbprint ?? "",
+    clientCertPrivateKeyPem:
+      input.clientCertPrivateKeyPem ?? existing.clientCertPrivateKeyPem ?? "",
+    clientCertChainPem:
+      input.clientCertChainPem ?? existing.clientCertChainPem ?? "",
     authorityHost:
       input.authorityHost ?? existing.authorityHost ?? DEFAULT_AUTHORITY_HOST,
     consentRedirectUri:
@@ -61,6 +135,9 @@ export function clearAzureConfig(): void {
   writeConfig(KEY, {
     clientId: "",
     clientSecret: "",
+    clientCertThumbprint: "",
+    clientCertPrivateKeyPem: "",
+    clientCertChainPem: "",
     authorityHost: DEFAULT_AUTHORITY_HOST,
     consentRedirectUri: "",
     updatedAt: new Date().toISOString(),
@@ -71,6 +148,7 @@ export function clearAzureConfig(): void {
 export function getAzureConfigSource(): {
   clientId: "db" | "env" | "none";
   clientSecret: "db" | "env" | "none";
+  clientCert: "db" | "env" | "none";
 } {
   const stored = readConfig<AzureAppConfig>(KEY);
   return {
@@ -84,5 +162,12 @@ export function getAzureConfigSource(): {
       : process.env.AZURE_CLIENT_SECRET
         ? "env"
         : "none",
+    clientCert:
+      stored?.clientCertThumbprint && stored?.clientCertPrivateKeyPem
+        ? "db"
+        : process.env.AZURE_CLIENT_CERT_THUMBPRINT &&
+            process.env.AZURE_CLIENT_CERT_PRIVATE_KEY_PEM
+          ? "env"
+          : "none",
   };
 }

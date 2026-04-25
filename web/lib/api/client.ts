@@ -232,16 +232,26 @@ export const api = {
       config: {
         clientId: string;
         clientSecretSet: boolean;
+        clientCertSet: boolean;
+        clientCertThumbprint: string;
+        authMethod: "certificate" | "secret" | "none";
         authorityHost: string;
         consentRedirectUri: string;
         updatedAt: string | null;
-        source: { clientId: "db" | "env" | "none"; clientSecret: "db" | "env" | "none" };
+        source: {
+          clientId: "db" | "env" | "none";
+          clientSecret: "db" | "env" | "none";
+          clientCert: "db" | "env" | "none";
+        };
       };
     }>("/api/config/azure"),
 
   saveAzureConfig: (patch: {
     clientId?: string;
     clientSecret?: string;
+    clientCertThumbprint?: string;
+    clientCertPrivateKeyPem?: string;
+    clientCertChainPem?: string;
     authorityHost?: string;
     consentRedirectUri?: string;
   }) =>
@@ -249,10 +259,17 @@ export const api = {
       config: {
         clientId: string;
         clientSecretSet: boolean;
+        clientCertSet: boolean;
+        clientCertThumbprint: string;
+        authMethod: "certificate" | "secret" | "none";
         authorityHost: string;
         consentRedirectUri: string;
         updatedAt: string | null;
-        source: { clientId: "db" | "env" | "none"; clientSecret: "db" | "env" | "none" };
+        source: {
+          clientId: "db" | "env" | "none";
+          clientSecret: "db" | "env" | "none";
+          clientCert: "db" | "env" | "none";
+        };
       };
     }>("/api/config/azure", { method: "PUT", body: JSON.stringify(patch) }),
 

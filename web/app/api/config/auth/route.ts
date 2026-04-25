@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   clearAuthConfig,
   getAuthConfig,
+  getUserAuthMethod,
   setAuthConfig,
   ROLES,
   MAX_SESSION_MINUTES,
@@ -16,11 +17,20 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const GUID_OR_COMMON = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|common|organizations)$/i;
+const SHA1_THUMBPRINT_RE = /^[0-9A-Fa-f]{40}$/;
 
 const Schema = z
   .object({
     clientId: z.string().trim().optional(),
     clientSecret: z.string().trim().optional(),
+    clientCertThumbprint: z
+      .string()
+      .trim()
+      .regex(SHA1_THUMBPRINT_RE)
+      .optional()
+      .or(z.literal("")),
+    clientCertPrivateKeyPem: z.string().trim().optional().or(z.literal("")),
+    clientCertChainPem: z.string().trim().optional().or(z.literal("")),
     tenantId: z.string().trim().regex(GUID_OR_COMMON).optional(),
     sessionTimeoutMinutes: z
       .number()
@@ -43,6 +53,11 @@ async function maskForClient() {
   return {
     clientId: cfg.clientId,
     clientSecretSet: Boolean(cfg.clientSecret),
+    clientCertSet: Boolean(
+      cfg.clientCertThumbprint && cfg.clientCertPrivateKeyPem,
+    ),
+    clientCertThumbprint: cfg.clientCertThumbprint,
+    authMethod: getUserAuthMethod(),
     tenantId: cfg.tenantId,
     sessionTimeoutMinutes: cfg.sessionTimeoutMinutes,
     defaultRole: cfg.defaultRole,
@@ -80,6 +95,12 @@ export async function PUT(req: NextRequest) {
     if (parsed.data.clientId !== undefined) patch.clientId = parsed.data.clientId;
     if (parsed.data.clientSecret !== undefined && parsed.data.clientSecret.length > 0)
       patch.clientSecret = parsed.data.clientSecret;
+    if (parsed.data.clientCertThumbprint !== undefined)
+      patch.clientCertThumbprint = parsed.data.clientCertThumbprint.toUpperCase();
+    if (parsed.data.clientCertPrivateKeyPem !== undefined)
+      patch.clientCertPrivateKeyPem = parsed.data.clientCertPrivateKeyPem;
+    if (parsed.data.clientCertChainPem !== undefined)
+      patch.clientCertChainPem = parsed.data.clientCertChainPem;
     if (parsed.data.tenantId !== undefined) patch.tenantId = parsed.data.tenantId;
     if (parsed.data.sessionTimeoutMinutes !== undefined)
       patch.sessionTimeoutMinutes = parsed.data.sessionTimeoutMinutes;

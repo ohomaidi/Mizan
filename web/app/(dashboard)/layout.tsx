@@ -27,10 +27,25 @@ export default async function DashboardLayout({
   if (result.kind === "redirect") redirect(result.to);
   return (
     <div className="flex flex-col h-screen">
+      {/*
+        Skip-to-content link for keyboard / screen-reader users. WCAG 2.4.1
+        Bypass Blocks. Visually hidden until focused; first focus stop on
+        every page. Pressing Enter scrolls + focuses the main element.
+      */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-council-strong focus:text-white focus:px-3 focus:py-2 focus:rounded-md focus:text-[12px] focus:font-semibold"
+      >
+        Skip to content
+      </a>
       <TopBar />
       <div className="flex flex-1 min-h-0">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto">
+        <main
+          id="main"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto focus:outline-none"
+        >
           <div className="mx-auto max-w-[1440px] px-8 py-7">{children}</div>
         </main>
       </div>

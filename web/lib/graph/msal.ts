@@ -1,5 +1,9 @@
 import "server-only";
-import { ConfidentialClientApplication, type AuthenticationResult } from "@azure/msal-node";
+import {
+  ConfidentialClientApplication,
+  type AuthenticationResult,
+  type Configuration as MsalConfiguration,
+} from "@azure/msal-node";
 import { assertAzureConfigured, config } from "@/lib/config";
 
 /** Lazily-built MSAL client per customer tenant, keyed by Entra tenant GUID. */
@@ -9,16 +13,44 @@ const clientCache = new Map<string, ConfidentialClientApplication>();
 type CachedToken = { token: string; expiresAt: number };
 const tokenCache = new Map<string, CachedToken>();
 
+/**
+ * Build the MSAL `auth` block from the active config. Prefers cert when both
+ * cert + secret are configured (production-hardening default). Public so the
+ * user-auth client builder can reuse exactly the same logic.
+ */
+export function buildMsalAuthBlock(
+  authority: string,
+): MsalConfiguration["auth"] {
+  const a = config.azure;
+  const hasCert = Boolean(
+    a.clientCertThumbprint && a.clientCertPrivateKeyPem,
+  );
+  if (hasCert) {
+    return {
+      clientId: a.clientId,
+      clientCertificate: {
+        thumbprint: a.clientCertThumbprint,
+        privateKey: a.clientCertPrivateKeyPem,
+        // x5c is optional but helps Entra validate the cert chain when set.
+        x5c: a.clientCertChainPem || undefined,
+      },
+      authority,
+    };
+  }
+  return {
+    clientId: a.clientId,
+    clientSecret: a.clientSecret,
+    authority,
+  };
+}
+
 function getClientForTenant(tenantGuid: string): ConfidentialClientApplication {
   assertAzureConfigured();
   const existing = clientCache.get(tenantGuid);
   if (existing) return existing;
+  const authority = `${config.azure.authorityHost.replace(/\/+$/, "")}/${tenantGuid}`;
   const cca = new ConfidentialClientApplication({
-    auth: {
-      clientId: config.azure.clientId,
-      clientSecret: config.azure.clientSecret,
-      authority: `${config.azure.authorityHost.replace(/\/+$/, "")}/${tenantGuid}`,
-    },
+    auth: buildMsalAuthBlock(authority),
   });
   clientCache.set(tenantGuid, cca);
   return cca;

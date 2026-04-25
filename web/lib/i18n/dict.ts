@@ -469,6 +469,25 @@ export const DICT = {
     "azureCfg.secret.placeholderReplace": "••••••••  (hidden — type to replace)",
     "azureCfg.secret.placeholderNew": "Paste the client secret value",
     "azureCfg.secret.never": "No secret stored yet.",
+    "azureCfg.field.authMethod": "Authentication method",
+    "azureCfg.authMethod.secret": "Client secret",
+    "azureCfg.authMethod.secretHint":
+      "Paste a client secret string from Entra → Certificates & secrets. Easy to provision; rotates every 6–24 months.",
+    "azureCfg.authMethod.cert": "Certificate (production-hardening)",
+    "azureCfg.authMethod.certHint":
+      "Upload a private key + record the matching public-cert thumbprint. Recommended for production. No shared-secret rotation; cert lifetime is whatever you sign it with.",
+    "azureCfg.field.clientCertThumbprint": "Certificate thumbprint (SHA-1)",
+    "azureCfg.field.clientCertPrivateKeyPem": "Private key (PEM)",
+    "azureCfg.field.clientCertChainPem": "Certificate chain (PEM, optional)",
+    "azureCfg.cert.thumbprintHint":
+      "From Entra → Certificates & secrets → Certificates tab → the Thumbprint column on the row for your uploaded cert. Hex only, no colons. Mizan upper-cases on save.",
+    "azureCfg.cert.privateKeyPlaceholderReplace":
+      "-----BEGIN PRIVATE KEY-----\\n…   (key already stored — paste a new one to replace)",
+    "azureCfg.cert.hasValue":
+      "A private key is stored. Paste a new PEM block to replace it.",
+    "azureCfg.cert.never": "No private key stored yet.",
+    "azureCfg.cert.chainHint":
+      "Optional. Sends the public cert (and any intermediates) via x5c on each token request so Entra can validate against a chain. Leave blank if you uploaded the public cert directly to the Entra app.",
     "azureCfg.source.db": "from database",
     "azureCfg.source.env": "from environment variable (fallback)",
     "azureCfg.source.none": "not set",
@@ -2839,6 +2858,25 @@ export const DICT = {
     "azureCfg.secret.placeholderReplace": "••••••••  (مخفي — اكتب للاستبدال)",
     "azureCfg.secret.placeholderNew": "الصق قيمة سر العميل",
     "azureCfg.secret.never": "لا يوجد سر مخزَّن بعد.",
+    "azureCfg.field.authMethod": "طريقة المصادقة",
+    "azureCfg.authMethod.secret": "سر العميل",
+    "azureCfg.authMethod.secretHint":
+      "ألصق سرّ عميل من Entra → Certificates & secrets. سهل التزويد؛ يحتاج تدوير كل 6–24 شهرًا.",
+    "azureCfg.authMethod.cert": "شهادة (تشديد إنتاج)",
+    "azureCfg.authMethod.certHint":
+      "حمّل مفتاحًا خاصًا + سجّل بصمة الشهادة العامة المطابقة. موصى به للإنتاج. لا تدوير سرّ مشترك؛ عمر الشهادة يساوي ما وقّعتها به.",
+    "azureCfg.field.clientCertThumbprint": "بصمة الشهادة (SHA-1)",
+    "azureCfg.field.clientCertPrivateKeyPem": "المفتاح الخاص (PEM)",
+    "azureCfg.field.clientCertChainPem": "سلسلة الشهادة (PEM، اختيارية)",
+    "azureCfg.cert.thumbprintHint":
+      "من Entra → Certificates & secrets → تبويب Certificates → عمود Thumbprint للصفّ الخاص بشهادتك المُحمَّلة. ست عشرية فقط، بلا نقاط. Mizan يرفع الحالة عند الحفظ.",
+    "azureCfg.cert.privateKeyPlaceholderReplace":
+      "-----BEGIN PRIVATE KEY-----\\n…   (المفتاح مخزَّن — ألصق مفتاحًا جديدًا للاستبدال)",
+    "azureCfg.cert.hasValue":
+      "يوجد مفتاح خاص مخزَّن. ألصق كتلة PEM جديدة لاستبداله.",
+    "azureCfg.cert.never": "لا يوجد مفتاح خاص مخزَّن بعد.",
+    "azureCfg.cert.chainHint":
+      "اختياري. يُرسل الشهادة العامة (وأي وسطاء) عبر x5c في كل طلب رمز ليتسنّى لـ Entra التحقّق مقابل سلسلة. اتركه فارغًا إن رفعتَ الشهادة العامة مباشرةً إلى تطبيق Entra.",
     "azureCfg.source.db": "من قاعدة البيانات",
     "azureCfg.source.env": "من متغير البيئة (احتياطي)",
     "azureCfg.source.none": "غير مضبوط",

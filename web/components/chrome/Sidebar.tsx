@@ -77,7 +77,7 @@ export function Sidebar() {
 
   return (
     <aside className="w-[260px] shrink-0 flex flex-col border-e border-border bg-surface-2">
-      <nav className="flex-1 p-3">
+      <nav className="flex-1 p-3" aria-label={t("nav.eyebrow")}>
         <div className="eyebrow px-2 pt-2 pb-1">{t("nav.eyebrow")}</div>
         <ul className="flex flex-col gap-0.5 mt-1">
           {items.map(({ href, labelKey, icon: Icon }) => {
@@ -87,6 +87,7 @@ export function Sidebar() {
               <li key={href}>
                 <Link
                   href={href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-2.5 h-9 px-2.5 rounded-md text-[13px] transition-colors",
                     active
@@ -94,7 +95,7 @@ export function Sidebar() {
                       : "text-ink-2 hover:text-ink-1 hover:bg-surface-3/60",
                   )}
                 >
-                  <Icon size={15} strokeWidth={1.9} />
+                  <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
                   <span>{t(labelKey)}</span>
                 </Link>
               </li>
