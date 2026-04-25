@@ -1226,21 +1226,27 @@ export const DICT = {
     "directive.cap.threatSubmissions.title": "Threat submissions",
     "directive.cap.threatSubmissions.body":
       "Submit phishing emails, malicious URLs, and file hashes to Microsoft for analysis.",
-    "directive.cap.caBaselines.title": "Conditional Access baselines",
+    "directive.cap.caBaselines.title": "Conditional Access baselines + custom wizard",
     "directive.cap.caBaselines.body":
-      "Push Center-authored CA policy baselines to every consented entity. Report-only default, two-person approval, per-entity admin exclusion, one-click rollback.",
-    "directive.cap.intuneBaselines.title": "Intune compliance baselines",
+      "Push the 12 curated CA baselines (identity hardening, legacy auth block, risk-based, session hygiene, device posture). Report-only default, idempotent push, per-row rollback with pre-flight preview, baseline-wide \"Remove from all\". Custom CA wizard adds tenant-scoped mode (specific users/groups/named locations/ToU/custom auth strengths) + device filter rule builder.",
+    "directive.cap.intuneBaselines.title": "Intune device-posture baselines",
     "directive.cap.intuneBaselines.body":
-      "Push minimum OS, encryption, and passcode policies to every entity's Intune tenant.",
-    "directive.cap.iocPush.title": "Indicator push (Defender)",
+      "13 baselines pushed via Graph: iOS / Android / Windows / macOS compliance, iOS / Android app protection (MAM, no enrolment needed), Windows BitLocker enforcement. Policies ship un-assigned; entity admin assigns from Intune.",
+    "directive.cap.sharepointSharing.title": "SharePoint tenant external-sharing",
+    "directive.cap.sharepointSharing.body":
+      "Tenant-level SharePoint sharing-defaults baselines: strict external sharing (guests only, no anonymous), default link Internal+View, domain allow-list, anonymous links off. Singleton model — push only, audit captures the before/after diff.",
+    "directive.cap.iocPush.title": "Threat Intelligence — IOC push",
     "directive.cap.iocPush.body":
-      "Block an IP, URL, or file hash across every entity's Defender for Endpoint fleet in one action.",
-    "directive.cap.deviceIsolation.title": "Device isolation",
+      "Block (or alert on) a file hash, URL, domain, IPv4, or IPv6 indicator across every consented entity's Defender for Endpoint fleet. Per-IOC expiration, idempotency by description tag, full rollback by indicator id.",
+    "directive.cap.asrRules.title": "Defender for Endpoint ASR rules",
+    "directive.cap.asrRules.body":
+      "6 Attack Surface Reduction baselines: Office child processes, executable email content, LSASS credential theft, JS/VBS launching downloaded executables, PSExec + WMI, untrusted USB processes. All ship in audit mode; flip to Block in the Defender portal once telemetry is reviewed.",
+    "directive.cap.deviceIsolation.title": "Device isolation (MDE direct)",
     "directive.cap.deviceIsolation.body":
-      "Request isolation of a compromised endpoint. Entity on-call approves; MDE executes. Never unilateral.",
+      "Request isolation of a compromised endpoint. Requires the Defender for Endpoint direct API (separate Entra app), not in scope for v2.0.",
     "directive.cap.namedLocations.title": "Named locations",
     "directive.cap.namedLocations.body":
-      "Push Center-mandated trusted IP ranges to every entity's Conditional Access named locations.",
+      "Already shipped as part of Phase 4.5 — the custom CA wizard's tenant-scoped mode lets the operator pick named locations from the reference tenant. No separate console.",
     "directive.guardrails.title": "Safety rails",
     "directive.guardrails.subtitle":
       "These protections are baked into the Directive engine from day one, not opt-in.",
@@ -1254,6 +1260,21 @@ export const DICT = {
       "Every push is recorded with its rollback plan. One click reverses the last N actions.",
     "directive.guardrails.consentGated":
       "Nothing writes to an entity tenant that has not explicitly consented to the Directive app. Observation-only entities are never touched.",
+
+    "directive.tabs.label": "Directive sections",
+    "directive.tab.overview": "Overview",
+    "directive.tab.ca": "Conditional Access",
+    "directive.tab.intune": "Intune",
+    "directive.tab.sharepoint": "SharePoint",
+    "directive.tab.ioc": "Threat indicators",
+    "directive.tab.roadmap": "Roadmap",
+    "directive.tab.history": "History & audit",
+    "directive.tab.overview.title": "Capability matrix",
+    "directive.tab.overview.subtitle":
+      "What the Directive engine can push today, what is on deck, and the safety rails that ride along on every action.",
+    "directive.tab.roadmap.title": "On the roadmap",
+    "directive.tab.roadmap.subtitle":
+      "Authoring scaffolds for capabilities that need a Microsoft Graph write surface or are pending Center sign-off. Pushes are disabled until each catalog flips to GA.",
 
     "mode.observation": "Observation",
     "mode.directive": "Directive",
@@ -3630,21 +3651,27 @@ export const DICT = {
     "directive.cap.threatSubmissions.title": "تقديم التهديدات",
     "directive.cap.threatSubmissions.body":
       "إرسال رسائل التصيد وعناوين URL الضارة وقيم hash الملفات إلى Microsoft للتحليل.",
-    "directive.cap.caBaselines.title": "قواعد Conditional Access",
+    "directive.cap.caBaselines.title": "قواعد Conditional Access + معالج مخصّص",
     "directive.cap.caBaselines.body":
-      "نشر سياسات CA موحَّدة يؤلّفها المركز على كل جهة مُصرِّحة. الوضع الافتراضي للتقارير فقط، مع موافقة شخصَيْن، واستثناء مسؤول الجهة، وتراجع بنقرة واحدة.",
-    "directive.cap.intuneBaselines.title": "قواعد امتثال Intune",
+      "ادفع 12 قاعدة CA منسَّقة (تقوية الهوية، حظر المصادقة القديمة، إنفاذ مبني على المخاطر، نظافة الجلسة، وضع الأجهزة). افتراضي تقارير فقط، دفع idempotent، تراجع بصفّ مع معاينة استباقية، \"إزالة من كل الجهات\". يضيف معالج CA المخصّص الوضع المُقيَّد بمستأجر (مستخدمون/مجموعات/مواقع مسماة/ToU/قوى مصادقة مخصّصة) + باني قواعد مُرشّح الجهاز.",
+    "directive.cap.intuneBaselines.title": "قواعد وضع الأجهزة عبر Intune",
     "directive.cap.intuneBaselines.body":
-      "نشر سياسات الحد الأدنى لنظام التشغيل والتشفير ورمز المرور على Intune لكل جهة.",
-    "directive.cap.iocPush.title": "دفع المؤشرات (Defender)",
+      "13 قاعدة تُدفَع عبر Graph: امتثال iOS / Android / Windows / macOS، حماية تطبيقات iOS / Android (MAM، بلا تسجيل)، إنفاذ BitLocker على Windows. تُشحَن بدون تخصيص؛ يخصّصها مسؤول الجهة من Intune.",
+    "directive.cap.sharepointSharing.title": "إعدادات SharePoint للمشاركة الخارجية",
+    "directive.cap.sharepointSharing.body":
+      "قواعد على مستوى المستأجر: مشاركة خارجية صارمة (ضيوف فقط، بلا روابط مجهولة)، الافتراضي 'داخلي + View'، قائمة سماح بالنطاقات، إيقاف الروابط المجهولة. نموذج singleton — دفع فقط، يلتقط السجلّ الفرق before/after.",
+    "directive.cap.iocPush.title": "دفع مؤشّرات التهديد (IOC)",
     "directive.cap.iocPush.body":
-      "حظر عنوان IP أو URL أو hash ملف على كل أسطول Defender for Endpoint للجهات في خطوة واحدة.",
-    "directive.cap.deviceIsolation.title": "عزل الجهاز",
+      "احظر (أو نبّه على) hash ملف أو URL أو نطاق أو IPv4 أو IPv6 على كل أسطول Defender for Endpoint لدى الجهات الموافقة. صلاحية لكل IOC، idempotency بوسم الوصف، تراجع كامل بمعرّف المؤشّر.",
+    "directive.cap.asrRules.title": "قواعد ASR لـ Defender for Endpoint",
+    "directive.cap.asrRules.body":
+      "6 قواعد Attack Surface Reduction: العمليات الفرعية لـ Office، المحتوى التنفيذي من البريد، سرقة الاعتمادات من LSASS، JS/VBS تُشغّل التنفيذيات المُنزَّلة، PSExec + WMI، عمليات USB غير الموثوقة. كلّها بوضع التدقيق؛ تُحوَّل إلى Block في بوّابة Defender بعد مراجعة التيليمتري.",
+    "directive.cap.deviceIsolation.title": "عزل الجهاز (MDE مباشر)",
     "directive.cap.deviceIsolation.body":
-      "طلب عزل جهاز مخترق. يوافق المناوب لدى الجهة؛ يُنفِّذ MDE. لا يتم انفراديًا أبدًا.",
+      "طلب عزل جهاز مخترق. يتطلّب واجهة Defender for Endpoint المباشرة (تطبيق Entra منفصل)، خارج نطاق v2.0.",
     "directive.cap.namedLocations.title": "المواقع المُسمّاة",
     "directive.cap.namedLocations.body":
-      "دفع نطاقات IP الموثوقة التي يحدّدها المركز إلى المواقع المُسمّاة في CA لكل جهة.",
+      "تم شحنها كجزء من المرحلة 4.5 — يُتيح وضع المعالج المُقيَّد بمستأجر اختيار المواقع المسماة من المستأجر المرجعي. لا حاجة لمنصّة منفصلة.",
     "directive.guardrails.title": "ضوابط السلامة",
     "directive.guardrails.subtitle":
       "هذه الحمايات مدمجة في محرك التوجيهات من اليوم الأول، وليست اختيارية.",
@@ -3658,6 +3685,21 @@ export const DICT = {
       "كل دفع يُسجَّل مع خطة التراجع. نقرة واحدة لعكس آخر N إجراء.",
     "directive.guardrails.consentGated":
       "لا يُكتب شيء على جهة لم توافق صراحةً على تطبيق التوجيهات. الجهات في وضع المراقبة فقط لا تُمَس.",
+
+    "directive.tabs.label": "أقسام التوجيهات",
+    "directive.tab.overview": "نظرة عامة",
+    "directive.tab.ca": "الوصول المشروط",
+    "directive.tab.intune": "Intune",
+    "directive.tab.sharepoint": "SharePoint",
+    "directive.tab.ioc": "مؤشّرات التهديد",
+    "directive.tab.roadmap": "خارطة الطريق",
+    "directive.tab.history": "السجلّ والتدقيق",
+    "directive.tab.overview.title": "مصفوفة القدرات",
+    "directive.tab.overview.subtitle":
+      "ما يستطيع محرك التوجيهات دفعه اليوم، وما هو قادم، والضوابط التي ترافق كل إجراء.",
+    "directive.tab.roadmap.title": "في خارطة الطريق",
+    "directive.tab.roadmap.subtitle":
+      "هياكل تأليف للقدرات التي تنتظر واجهة كتابة في Microsoft Graph أو موافقة المركز. الدفع مُعطَّل حتى تُفعَّل كل قائمة.",
 
     "mode.observation": "مراقبة",
     "mode.directive": "توجيه",

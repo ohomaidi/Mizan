@@ -53,83 +53,87 @@ type Status = "available" | "in_progress" | "planned";
 
 type Capability = {
   icon: typeof Gavel;
-  titleKey:
-    | "directive.cap.incidentOps.title"
-    | "directive.cap.riskyUsers.title"
-    | "directive.cap.threatSubmissions.title"
-    | "directive.cap.caBaselines.title"
-    | "directive.cap.intuneBaselines.title"
-    | "directive.cap.iocPush.title"
-    | "directive.cap.deviceIsolation.title"
-    | "directive.cap.namedLocations.title";
-  bodyKey:
-    | "directive.cap.incidentOps.body"
-    | "directive.cap.riskyUsers.body"
-    | "directive.cap.threatSubmissions.body"
-    | "directive.cap.caBaselines.body"
-    | "directive.cap.intuneBaselines.body"
-    | "directive.cap.iocPush.body"
-    | "directive.cap.deviceIsolation.body"
-    | "directive.cap.namedLocations.body";
-  phase: 2 | 3 | 4 | 5;
+  titleKey: DictKey;
+  bodyKey: DictKey;
+  /**
+   * Phase number aligned to the canonical roadmap in
+   * project_sharjah_council_backlog.md. Renders as the chip on the card.
+   */
+  phaseLabel: string;
   status: Status;
 };
 
 const CAPABILITIES: Capability[] = [
+  // Phase 2 — reactive directive actions
   {
     icon: ShieldAlert,
     titleKey: "directive.cap.incidentOps.title",
     bodyKey: "directive.cap.incidentOps.body",
-    phase: 2,
+    phaseLabel: "Phase 2",
     status: "available",
   },
   {
     icon: UserX,
     titleKey: "directive.cap.riskyUsers.title",
     bodyKey: "directive.cap.riskyUsers.body",
-    phase: 2,
+    phaseLabel: "Phase 2",
     status: "available",
   },
   {
     icon: Radar,
     titleKey: "directive.cap.threatSubmissions.title",
     bodyKey: "directive.cap.threatSubmissions.body",
-    phase: 2,
+    phaseLabel: "Phase 2",
     status: "available",
   },
+  // Phase 3 + 4 + 4.5 — Conditional Access (12 baselines + custom wizard +
+  // tenant-scoped wizard with named-locations / ToU / custom auth strengths)
   {
     icon: Lock,
     titleKey: "directive.cap.caBaselines.title",
     bodyKey: "directive.cap.caBaselines.body",
-    phase: 3,
+    phaseLabel: "Phase 3 / 4 / 4.5",
     status: "available",
   },
+  // Phase 5 — Intune device posture (compliance + MAM + BitLocker config + ASR rules)
   {
     icon: Package,
     titleKey: "directive.cap.intuneBaselines.title",
     bodyKey: "directive.cap.intuneBaselines.body",
-    phase: 4,
-    status: "planned",
+    phaseLabel: "Phase 5",
+    status: "available",
   },
+  // Phase 11a — SharePoint tenant external-sharing
+  {
+    icon: Gavel,
+    titleKey: "directive.cap.sharepointSharing.title",
+    bodyKey: "directive.cap.sharepointSharing.body",
+    phaseLabel: "Phase 11a",
+    status: "available",
+  },
+  // Phase 14b — IOC push (Defender for Endpoint TI Indicators)
   {
     icon: ShieldCheck,
     titleKey: "directive.cap.iocPush.title",
     bodyKey: "directive.cap.iocPush.body",
-    phase: 5,
-    status: "planned",
+    phaseLabel: "Phase 14b",
+    status: "available",
   },
+  // Phase 5 (extension) — ASR rules ride on Intune endpoint protection profiles
+  {
+    icon: ShieldAlert,
+    titleKey: "directive.cap.asrRules.title",
+    bodyKey: "directive.cap.asrRules.body",
+    phaseLabel: "Phase 14",
+    status: "available",
+  },
+  // Future — device isolation requires the MDE direct API (separate Entra app),
+  // not in scope for v2.0. Stays Planned until that decision is reopened.
   {
     icon: Network,
     titleKey: "directive.cap.deviceIsolation.title",
     bodyKey: "directive.cap.deviceIsolation.body",
-    phase: 5,
-    status: "planned",
-  },
-  {
-    icon: Gavel,
-    titleKey: "directive.cap.namedLocations.title",
-    bodyKey: "directive.cap.namedLocations.body",
-    phase: 3,
+    phaseLabel: "Future",
     status: "planned",
   },
 ];
@@ -196,36 +200,146 @@ export default function DirectivePage() {
         </div>
       ) : null}
 
+      <DirectiveTabs locale={locale} fmtRelative={fmtRelative} />
+    </div>
+  );
+}
+
+// ============================================================================
+// Tab nav — splits /directive's many sections into seven coherent surfaces.
+// Tab state is kept in the URL hash so deep links + browser back/forward work
+// without a Next.js route migration. Each tab owns ONE concern; everything
+// shared (capability roadmap, guardrails, push history, audit log) lives in
+// the Overview / History tabs.
+// ============================================================================
+
+const TABS = [
+  "overview",
+  "ca",
+  "intune",
+  "sharepoint",
+  "ioc",
+  "roadmap",
+  "history",
+] as const;
+type TabKey = (typeof TABS)[number];
+
+function isTabKey(s: string): s is TabKey {
+  return (TABS as readonly string[]).includes(s);
+}
+
+function DirectiveTabs({
+  locale,
+  fmtRelative,
+}: {
+  locale: "en" | "ar";
+  fmtRelative: (s: string) => string;
+}) {
+  const { t } = useI18n();
+  const [active, setActive] = useState<TabKey>("overview");
+
+  // URL-hash sync — pick up the tab from #ca / #intune / etc. on first
+  // render, and update the hash whenever the active tab changes. Keeps
+  // browser back-button + sharable links working without spawning a
+  // Next.js route per tab.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromHash = window.location.hash.replace(/^#/, "");
+    if (isTabKey(fromHash)) setActive(fromHash);
+    const onHash = () => {
+      const h = window.location.hash.replace(/^#/, "");
+      if (isTabKey(h)) setActive(h);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const select = (k: TabKey) => {
+    setActive(k);
+    if (typeof window !== "undefined") {
+      // Replace history rather than push so back-button doesn't trap users
+      // in a long undo chain just from clicking through tabs.
+      window.history.replaceState(null, "", `#${k}`);
+    }
+  };
+
+  return (
+    <>
+      <nav
+        aria-label={t("directive.tabs.label")}
+        className="flex flex-wrap gap-1 border-b border-border"
+      >
+        {TABS.map((k) => {
+          const isActive = active === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => select(k)}
+              aria-current={isActive ? "page" : undefined}
+              className={`relative inline-flex items-center gap-1.5 h-9 px-3 text-[12.5px] font-semibold transition-colors ${
+                isActive
+                  ? "text-ink-1 after:absolute after:left-0 after:right-0 after:-bottom-px after:h-0.5 after:bg-council-strong"
+                  : "text-ink-3 hover:text-ink-1"
+              }`}
+            >
+              {t(`directive.tab.${k}` as DictKey)}
+            </button>
+          );
+        })}
+      </nav>
+
+      {active === "overview" ? (
+        <OverviewTab locale={locale} />
+      ) : null}
+      {active === "ca" ? (
+        <CaTab locale={locale} fmtRelative={fmtRelative} />
+      ) : null}
+      {active === "intune" ? <IntuneTab locale={locale} /> : null}
+      {active === "sharepoint" ? <SharepointTab locale={locale} /> : null}
+      {active === "ioc" ? <IocTab locale={locale} /> : null}
+      {active === "roadmap" ? <RoadmapTab /> : null}
+      {active === "history" ? <HistoryTab fmtRelative={fmtRelative} /> : null}
+    </>
+  );
+}
+
+// ----- Per-tab content -------------------------------------------------------
+
+function OverviewTab({ locale }: { locale: "en" | "ar" }) {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col gap-6">
       <Card>
         <CardHeader
-          title={t("directive.roadmap.title")}
-          subtitle={t("directive.roadmap.subtitle")}
+          title={t("directive.tab.overview.title")}
+          subtitle={t("directive.tab.overview.subtitle")}
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
           {CAPABILITIES.map((c, i) => {
             const Icon = c.icon;
             return (
               <div
                 key={i}
-                className="rounded-md border border-border bg-surface-1 p-4"
+                className="rounded-md border border-border bg-surface-1 p-3"
               >
-                <div className="flex items-start gap-3">
-                  <div className="shrink-0 h-9 w-9 grid place-items-center rounded-md bg-surface-3 text-ink-1">
-                    <Icon size={16} strokeWidth={1.9} />
+                <div className="flex items-start gap-2.5">
+                  <div className="shrink-0 h-8 w-8 grid place-items-center rounded-md bg-surface-3 text-ink-1">
+                    <Icon size={14} strokeWidth={1.9} aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-[13.5px] font-semibold text-ink-1">
+                      <h3 className="text-[13px] font-semibold text-ink-1">
                         {t(c.titleKey)}
                       </h3>
-                      <span className="text-[10px] uppercase tracking-[0.08em] font-semibold text-accent border border-accent/40 rounded px-1.5 py-px">
-                        {t("directive.phase", { n: String(c.phase) })}
+                      <span className="text-[9.5px] uppercase tracking-[0.08em] font-semibold text-accent border border-accent/40 rounded px-1.5 py-px whitespace-nowrap">
+                        {c.phaseLabel}
                       </span>
                     </div>
-                    <p className="text-[12.5px] text-ink-2 mt-1 leading-relaxed">
+                    <p className="text-[11.5px] text-ink-2 mt-1 leading-relaxed">
                       {t(c.bodyKey)}
                     </p>
-                    <div className="mt-2">
+                    <div className="mt-1.5">
                       <StatusChip status={c.status} />
                     </div>
                   </div>
@@ -236,35 +350,7 @@ export default function DirectivePage() {
         </div>
       </Card>
 
-      <BaselinesSection locale={locale} />
-
-      <IntuneBaselinesSection locale={locale} />
-
-      <SharepointBaselinesSection locale={locale} />
-
-      <IocConsole locale={locale} />
-
-      <DlpBaselinesSection />
-
-      <LabelsBaselinesSection />
-
-      <AttackSimBaselinesSection />
-
-      <PimBaselinesSection />
-
-      <AppConsentBaselinesSection />
-
-      <TenantIdentityBaselinesSection />
-
-      <CustomPoliciesSection fmtRelative={fmtRelative} />
-
-      <BaselinesStatusSection locale={locale} fmtRelative={fmtRelative} />
-
-      <PushHistorySection fmtRelative={fmtRelative} />
-
       <ThreatSubmissionConsole locale={locale} />
-
-      <AuditLogSection fmtRelative={fmtRelative} />
 
       <Card>
         <CardHeader
@@ -272,48 +358,98 @@ export default function DirectivePage() {
           subtitle={t("directive.guardrails.subtitle")}
         />
         <ul className="flex flex-col gap-2 mt-2 text-[12.5px] text-ink-2 leading-relaxed">
-          <li className="flex items-start gap-2">
-            <ShieldCheck
-              size={14}
-              className="text-pos mt-0.5 shrink-0"
-              strokeWidth={2}
-            />
-            <span>{t("directive.guardrails.reportOnly")}</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <ShieldCheck
-              size={14}
-              className="text-pos mt-0.5 shrink-0"
-              strokeWidth={2}
-            />
-            <span>{t("directive.guardrails.twoPerson")}</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <ShieldCheck
-              size={14}
-              className="text-pos mt-0.5 shrink-0"
-              strokeWidth={2}
-            />
-            <span>{t("directive.guardrails.adminExclusion")}</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <ShieldCheck
-              size={14}
-              className="text-pos mt-0.5 shrink-0"
-              strokeWidth={2}
-            />
-            <span>{t("directive.guardrails.rollback")}</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <ShieldCheck
-              size={14}
-              className="text-pos mt-0.5 shrink-0"
-              strokeWidth={2}
-            />
-            <span>{t("directive.guardrails.consentGated")}</span>
-          </li>
+          {[
+            "directive.guardrails.reportOnly",
+            "directive.guardrails.twoPerson",
+            "directive.guardrails.adminExclusion",
+            "directive.guardrails.rollback",
+            "directive.guardrails.consentGated",
+          ].map((k) => (
+            <li key={k} className="flex items-start gap-2">
+              <ShieldCheck
+                size={14}
+                className="text-pos mt-0.5 shrink-0"
+                strokeWidth={2}
+                aria-hidden="true"
+              />
+              <span>{t(k as DictKey)}</span>
+            </li>
+          ))}
         </ul>
       </Card>
+    </div>
+  );
+}
+
+function CaTab({
+  locale,
+  fmtRelative,
+}: {
+  locale: "en" | "ar";
+  fmtRelative: (s: string) => string;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <BaselinesSection locale={locale} />
+      <CustomPoliciesSection fmtRelative={fmtRelative} />
+      <BaselinesStatusSection locale={locale} fmtRelative={fmtRelative} />
+    </div>
+  );
+}
+
+function IntuneTab({ locale }: { locale: "en" | "ar" }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <IntuneBaselinesSection locale={locale} />
+    </div>
+  );
+}
+
+function SharepointTab({ locale }: { locale: "en" | "ar" }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <SharepointBaselinesSection locale={locale} />
+    </div>
+  );
+}
+
+function IocTab({ locale }: { locale: "en" | "ar" }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <IocConsole locale={locale} />
+    </div>
+  );
+}
+
+function RoadmapTab() {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader
+          title={t("directive.tab.roadmap.title")}
+          subtitle={t("directive.tab.roadmap.subtitle")}
+        />
+      </Card>
+      <DlpBaselinesSection />
+      <LabelsBaselinesSection />
+      <AttackSimBaselinesSection />
+      <PimBaselinesSection />
+      <AppConsentBaselinesSection />
+      <TenantIdentityBaselinesSection />
+    </div>
+  );
+}
+
+function HistoryTab({
+  fmtRelative,
+}: {
+  fmtRelative: (s: string) => string;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <PushHistorySection fmtRelative={fmtRelative} />
+      <AuditLogSection fmtRelative={fmtRelative} />
     </div>
   );
 }
