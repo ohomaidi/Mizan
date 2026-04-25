@@ -21,6 +21,14 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const CustomEvidenceSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(160),
+  manualPassRate: z.number().min(0).max(100),
+  reviewedAt: z.string().trim().min(1).max(40),
+  reviewerNote: z.string().trim().max(500).optional(),
+});
+
 const ClauseSchema = z.object({
   id: z.string().trim().min(1).max(64),
   ref: z.string().trim().min(1).max(200),
@@ -37,6 +45,10 @@ const ClauseSchema = z.object({
   descriptionEn: z.string().trim().max(2000).default(""),
   descriptionAr: z.string().trim().max(2000).default(""),
   secureScoreControls: z.array(z.string()).default([]),
+  // Operator-managed evidence anchors the Council reviews
+  // periodically. Used for ISR domains Microsoft can't see (BCP,
+  // Physical, HR) and for any custom controls outside Microsoft 365.
+  customEvidence: z.array(CustomEvidenceSchema).max(40).optional(),
   weight: z.number().min(0).max(100),
 });
 

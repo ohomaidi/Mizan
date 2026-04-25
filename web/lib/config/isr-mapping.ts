@@ -174,6 +174,33 @@ export const DEFAULT_ISR_MAPPING: ComplianceMapping = {
       descriptionAr:
         "ضمان توافر الخدمات والعمليات الحرجة في الجهة؛ تقليل الأثر التشغيلي عند انقطاع الخدمة؛ ضمان قدرة الخدمات والبنية التحتية على المقاومة والتعافي من الأخطاء أو الهجمات أو الكوارث. الضوابط الرئيسية: 7.1 تحليل أثر الأعمال؛ 7.2 خطة استمرارية الأعمال؛ 7.3 اختبار ومراجعة الخطة؛ 7.4 استراتيجيات النسخ الاحتياطي والتخزين؛ 7.5 التعافي من الكوارث.",
       secureScoreControls: [],
+      // ISR-7 BCP is invisible to Microsoft Graph — no Secure Score
+      // control evidences "we ran a DR drill last quarter". Seed with
+      // operator-managed anchors the Council reviews periodically.
+      customEvidence: [
+        {
+          id: "bcp-bia-current",
+          label: "Business Impact Analysis — current and signed off",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+          reviewerNote:
+            "Verified the entity's BIA document is dated within the last 12 months and signed by senior management.",
+        },
+        {
+          id: "bcp-dr-drill-last-12m",
+          label: "DR drill conducted in the last 12 months",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+          reviewerNote:
+            "Council reviews the post-drill report (RTO/RPO actuals vs. targets).",
+        },
+        {
+          id: "bcp-backup-restore-tested",
+          label: "Backup restoration tested for tier-1 systems",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+        },
+      ],
       weight: 6,
     },
 
@@ -208,6 +235,29 @@ export const DEFAULT_ISR_MAPPING: ComplianceMapping = {
       descriptionAr:
         "حماية مقرات الجهة ومرافق معالجة المعلومات والموارد من الأضرار المادية أو البيئية. الضوابط الرئيسية: 9.1 سياسة وإجراء الحماية من التهديدات البيئية/المادية؛ 9.2 الحماية من التهديدات البيئية؛ 9.3 تأمين المعدّات؛ 9.4 مناطق العمل الآمنة؛ 9.5 الاختبار الدوري.",
       secureScoreControls: [],
+      // ISR-9 Physical/Environmental — Microsoft can't see your server
+      // room, badge readers, or fire-suppression panel. Operator-
+      // managed anchors only.
+      customEvidence: [
+        {
+          id: "phys-access-audit-annual",
+          label: "Physical access audit — annual badge / CCTV review",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+        },
+        {
+          id: "phys-env-fire-test-annual",
+          label: "Fire suppression + detection systems tested annually",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+        },
+        {
+          id: "phys-secure-areas-controls",
+          label: "Secure-area controls (data center, NOC, exec floor)",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+        },
+      ],
       weight: 5,
     },
 
@@ -225,6 +275,31 @@ export const DEFAULT_ISR_MAPPING: ComplianceMapping = {
       descriptionAr:
         "ضمان وعي جميع الموظفين والمتعاقدين والموظفين الخارجيين بالتزاماتهم تجاه أمن المعلومات وتحديد أدوارهم ومسؤولياتهم لحماية معلومات الجهة ومرافقها. الضوابط الرئيسية: 10.1 ضوابط ما قبل التوظيف؛ 10.2 ضوابط أثناء التوظيف؛ 10.3 ضوابط إنهاء/تغيير التوظيف.",
       secureScoreControls: [],
+      // ISR-10 HR — Microsoft can't see screening, contract clauses,
+      // termination handover, or awareness completion. Operator
+      // attests against documented HR processes.
+      customEvidence: [
+        {
+          id: "hr-screening-policy",
+          label: "Pre-employment screening policy in place",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+        },
+        {
+          id: "hr-awareness-annual",
+          label: "Security awareness training completed (≥ 90% of staff)",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+          reviewerNote:
+            "Tracked through the entity's LMS — Council requests the completion report each cycle.",
+        },
+        {
+          id: "hr-leaver-revocation-tested",
+          label: "Leaver-process access revocation tested in last quarter",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-15",
+        },
+      ],
       weight: 5,
     },
 
@@ -339,6 +414,9 @@ function mergeWithDefaults(input: Partial<ComplianceMapping>): ComplianceMapping
             secureScoreControls: Array.isArray(c.secureScoreControls)
               ? c.secureScoreControls
               : [],
+            customEvidence: Array.isArray(c.customEvidence)
+              ? c.customEvidence
+              : undefined,
             weight: typeof c.weight === "number" ? c.weight : 0,
           }))
         : DEFAULT_ISR_MAPPING.clauses,

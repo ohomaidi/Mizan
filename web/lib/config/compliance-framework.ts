@@ -34,6 +34,33 @@ import {
 /** Common shape every framework's catalog conforms to. */
 export type ComplianceClass = "Governance" | "Operation" | "Assurance";
 
+/**
+ * Operator-managed evidence anchor for a clause that Microsoft cannot
+ * see. ISR has three domains where Microsoft has no native visibility:
+ * Domain 7 (BCP), Domain 9 (Physical & Environmental), Domain 10 (HR).
+ * For those — and for any future ISR sub-control whose evidence lives
+ * outside the Microsoft 365 estate — the operator records evidence
+ * with a manually-set pass rate that the Council reviews periodically.
+ *
+ * Carried alongside `secureScoreControls` (the Microsoft-managed
+ * anchors), they're combined in the clause's coverage calculation as
+ * an unweighted average of pass rates. The `reviewedAt` timestamp
+ * powers a stale-review badge — if older than 90 days, the UI hints
+ * that the Council should re-verify.
+ */
+export type CustomEvidence = {
+  /** Operator-assigned id, kept stable across edits (e.g. "phys-audit-2026q1"). */
+  id: string;
+  /** Human-readable name (e.g. "Annual physical access audit — Q1 2026"). */
+  label: string;
+  /** Operator's review verdict — 0 (none) to 100 (fully implemented). */
+  manualPassRate: number;
+  /** ISO date of the operator's last review. Drives the stale badge. */
+  reviewedAt: string;
+  /** Optional free-text justification (max ~500 chars). */
+  reviewerNote?: string;
+};
+
 export type ComplianceClause = {
   id: string;
   ref: string;
@@ -54,6 +81,13 @@ export type ComplianceClause = {
   descriptionAr: string;
   /** Microsoft 365 Secure Score control names that evidence this clause. */
   secureScoreControls: string[];
+  /**
+   * Operator-managed evidence the Council reviews periodically — used
+   * for ISR domains Microsoft can't see (BCP, Physical, HR) and for
+   * any future ISR sub-control whose evidence lives outside the
+   * Microsoft estate. Optional; absent on most NESA clauses.
+   */
+  customEvidence?: CustomEvidence[];
   /** 0..100, normalized to sum to 100 across the catalog on save. */
   weight: number;
 };

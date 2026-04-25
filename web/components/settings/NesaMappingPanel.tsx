@@ -25,6 +25,14 @@ type SecureScoreControl = {
   averagePassRate: number | null;
 };
 
+type CustomEvidence = {
+  id: string;
+  label: string;
+  manualPassRate: number;
+  reviewedAt: string;
+  reviewerNote?: string;
+};
+
 type Clause = {
   id: string;
   ref: string;
@@ -34,6 +42,7 @@ type Clause = {
   descriptionEn: string;
   descriptionAr: string;
   secureScoreControls: string[];
+  customEvidence?: CustomEvidence[];
   weight: number;
 };
 
@@ -277,6 +286,7 @@ export function NesaMappingPanel() {
               <Field label={t("nesaCfg.coverage")}>
                 <CoverageReadout
                   controls={c.secureScoreControls}
+                  customEvidence={c.customEvidence ?? []}
                   registry={registryById}
                 />
               </Field>
@@ -300,6 +310,30 @@ export function NesaMappingPanel() {
                 registryById={registryById}
                 onChange={(next) =>
                   setClause(i, { secureScoreControls: next })
+                }
+              />
+            </div>
+
+            {/* Custom evidence — operator-managed anchors for ISR
+                domains Microsoft can't see (BCP, Physical, HR) and
+                for any future ISR sub-control whose evidence lives
+                outside the Microsoft estate. Each anchor carries a
+                manually-set pass rate the Council reviews
+                periodically; if reviewedAt is older than 90 days the
+                chip shows a stale-review badge. */}
+            <div className="mt-3 pt-3 border-t border-border/60">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[11px] text-ink-3">
+                  {t("nesaCfg.custom.title")}
+                </div>
+                <span className="text-[10.5px] text-ink-3">
+                  {t("nesaCfg.custom.subtitle")}
+                </span>
+              </div>
+              <CustomEvidenceList
+                value={c.customEvidence ?? []}
+                onChange={(next) =>
+                  setClause(i, { customEvidence: next })
                 }
               />
             </div>
@@ -354,15 +388,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ────────────────────────────────────────────────────────────────────
 function CoverageReadout({
   controls,
+  customEvidence,
   registry,
 }: {
   controls: string[];
+  customEvidence: CustomEvidence[];
   registry: Map<string, SecureScoreControl>;
 }) {
   const { t } = useI18n();
   const fmt = useFmtNum();
 
-  if (controls.length === 0) {
+  if (controls.length === 0 && customEvidence.length === 0) {
     return (
       <div className="text-[12.5px] text-ink-3">
         {t("nesaCfg.coverage.noControls")}
@@ -370,13 +406,18 @@ function CoverageReadout({
     );
   }
 
-  // Pass-rate roll-up across the registered controls. We ignore any id
-  // the registry doesn't know about (operator-typed legacy IDs) and
-  // surface the unmatched count separately so it's transparent.
+  // Pass-rate roll-up: combine Microsoft Secure Score evidence (live
+  // pass-rates from the registry) with operator-managed custom
+  // evidence (manualPassRate set by the Council). Both are weighted
+  // equally — each anchor contributes one sample to the average,
+  // regardless of source. This is intentional: a 70% manual rating
+  // on the entity's BCP drill is just as meaningful as a 70% Secure
+  // Score rating on MFA coverage when rolling up an ISR domain.
   let matched = 0;
   let observedTenantUnion = 0;
   let weightedRate = 0;
   let weightSum = 0;
+
   for (const id of controls) {
     const r = registry.get(id);
     if (!r) continue;
@@ -388,7 +429,12 @@ function CoverageReadout({
     }
   }
 
-  if (matched === 0) {
+  for (const ev of customEvidence) {
+    weightedRate += (ev.manualPassRate ?? 0) / 100;
+    weightSum += 1;
+  }
+
+  if (matched === 0 && customEvidence.length === 0) {
     return (
       <div className="text-[12.5px] text-ink-3">
         {t("nesaCfg.coverage.notObserved")}
@@ -411,13 +457,22 @@ function CoverageReadout({
   const tone =
     pct >= 80 ? "text-pos" : pct >= 50 ? "text-ink-1" : "text-warn";
   return (
-    <div className="text-[12.5px] flex items-baseline gap-2">
+    <div className="text-[12.5px] flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
       <span className={`tabular font-semibold ${tone}`}>{pct}%</span>
-      <span className="text-ink-3">
-        {t("nesaCfg.coverage.acrossTenants", {
-          n: fmt(observedTenantUnion),
-        })}
-      </span>
+      {observedTenantUnion > 0 ? (
+        <span className="text-ink-3">
+          {t("nesaCfg.coverage.acrossTenants", {
+            n: fmt(observedTenantUnion),
+          })}
+        </span>
+      ) : null}
+      {customEvidence.length > 0 ? (
+        <span className="text-ink-3">
+          {t("nesaCfg.coverage.customEvidenceCount", {
+            n: fmt(customEvidence.length),
+          })}
+        </span>
+      ) : null}
       {matched < controls.length ? (
         <span className="text-ink-3">
           {t("nesaCfg.coverage.unmatched", {
@@ -452,9 +507,28 @@ function ControlPicker({
   const fmt = useFmtNum();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("");
+  const [filterService, setFilterService] = useState<string>("");
   const [customMode, setCustomMode] = useState(false);
   const [customValue, setCustomValue] = useState("");
   const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Build the filter dropdown options from whatever the registry
+  // actually contains. Microsoft has rebranded categories + service
+  // labels several times so we don't hard-code an enum — we discover
+  // what's there and let the operator narrow.
+  const { categoryOptions, serviceOptions } = useMemo(() => {
+    const cats = new Set<string>();
+    const svcs = new Set<string>();
+    for (const r of registry) {
+      if (r.category) cats.add(r.category);
+      if (r.service) svcs.add(r.service);
+    }
+    return {
+      categoryOptions: Array.from(cats).sort(),
+      serviceOptions: Array.from(svcs).sort(),
+    };
+  }, [registry]);
 
   // Close picker when clicking outside.
   useEffect(() => {
@@ -474,9 +548,23 @@ function ControlPicker({
   const selected = new Set(value);
   const q = query.trim().toLowerCase();
   const filtered = useMemo(() => {
-    if (!q) return registry.slice(0, 60);
+    const matchesFilter = (r: SecureScoreControl) =>
+      (!filterCategory || r.category === filterCategory) &&
+      (!filterService || r.service === filterService);
+
+    if (!q) {
+      const out: SecureScoreControl[] = [];
+      for (const r of registry) {
+        if (matchesFilter(r)) {
+          out.push(r);
+          if (out.length >= 60) break;
+        }
+      }
+      return out;
+    }
     const hits: SecureScoreControl[] = [];
     for (const r of registry) {
+      if (!matchesFilter(r)) continue;
       if (
         r.id.toLowerCase().includes(q) ||
         r.title.toLowerCase().includes(q) ||
@@ -642,6 +730,56 @@ function ControlPicker({
                     dir="ltr"
                   />
                 </div>
+                {/* Category + service filter dropdowns. Drawn from
+                    whatever the registry actually contains so the
+                    options stay current as Microsoft adds/renames
+                    services. Setting either narrows the result list
+                    in addition to the text search above. */}
+                <div className="px-2 py-1.5 border-b border-border flex items-center gap-2 text-[11.5px]">
+                  <span className="text-ink-3 shrink-0">
+                    {t("nesaCfg.picker.filterBy")}
+                  </span>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="h-6 px-1.5 rounded border border-border bg-surface-2 text-ink-1 text-[11.5px]"
+                  >
+                    <option value="">
+                      {t("nesaCfg.picker.allCategories")}
+                    </option>
+                    {categoryOptions.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={filterService}
+                    onChange={(e) => setFilterService(e.target.value)}
+                    className="h-6 px-1.5 rounded border border-border bg-surface-2 text-ink-1 text-[11.5px]"
+                  >
+                    <option value="">
+                      {t("nesaCfg.picker.allServices")}
+                    </option>
+                    {serviceOptions.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  {(filterCategory || filterService) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFilterCategory("");
+                        setFilterService("");
+                      }}
+                      className="ms-auto text-ink-3 hover:text-ink-1 inline-flex items-center gap-1"
+                    >
+                      <X size={11} /> {t("nesaCfg.picker.clearFilters")}
+                    </button>
+                  )}
+                </div>
                 <div className="max-h-72 overflow-y-auto">
                   {filtered.length === 0 ? (
                     <div className="p-3 text-[11.5px] text-ink-3">
@@ -719,6 +857,286 @@ function ControlPicker({
             )}
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// CustomEvidenceList — operator-managed evidence anchors for a clause.
+// Each row shows the label + manual pass-rate slider + last-reviewed
+// date + a stale-review badge if reviewedAt is older than 90 days.
+// "Add evidence" opens an inline editor for new anchors. Edit + delete
+// are inline.
+// ────────────────────────────────────────────────────────────────────
+function CustomEvidenceList({
+  value,
+  onChange,
+}: {
+  value: CustomEvidence[];
+  onChange: (next: CustomEvidence[]) => void;
+}) {
+  const { t } = useI18n();
+  const fmt = useFmtNum();
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [draftLabel, setDraftLabel] = useState("");
+  const [draftRate, setDraftRate] = useState(0);
+  const [draftDate, setDraftDate] = useState("");
+  const [draftNote, setDraftNote] = useState("");
+
+  const startEdit = (i: number) => {
+    const ev = value[i];
+    setEditingIdx(i);
+    setDraftLabel(ev.label);
+    setDraftRate(ev.manualPassRate);
+    setDraftDate(ev.reviewedAt);
+    setDraftNote(ev.reviewerNote ?? "");
+  };
+
+  const startAdd = () => {
+    setEditingIdx(value.length);
+    setDraftLabel("");
+    setDraftRate(0);
+    setDraftDate(new Date().toISOString().slice(0, 10));
+    setDraftNote("");
+  };
+
+  const cancelEdit = () => {
+    setEditingIdx(null);
+  };
+
+  const saveEdit = () => {
+    if (editingIdx === null) return;
+    if (!draftLabel.trim()) return;
+    const next = [...value];
+    const existing = next[editingIdx];
+    const evidence: CustomEvidence = {
+      // Keep id stable across edits; generate from the label for new
+      // entries (operator can override later by editing the saved file).
+      id:
+        existing?.id ??
+        (draftLabel
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60) || `custom-${Date.now()}`),
+      label: draftLabel.trim(),
+      manualPassRate: Math.max(0, Math.min(100, Math.round(draftRate))),
+      reviewedAt: draftDate || new Date().toISOString().slice(0, 10),
+      reviewerNote: draftNote.trim() || undefined,
+    };
+    next[editingIdx] = evidence;
+    onChange(next);
+    setEditingIdx(null);
+  };
+
+  const remove = (i: number) => {
+    onChange(value.filter((_, idx) => idx !== i));
+  };
+
+  // Compute "stale" = reviewedAt older than 90 days. Defensive parse
+  // — invalid dates sort as never-reviewed.
+  const isStale = (iso: string): boolean => {
+    const t = Date.parse(iso);
+    if (Number.isNaN(t)) return true;
+    return Date.now() - t > 90 * 24 * 3600 * 1000;
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {value.length === 0 && editingIdx === null ? (
+        <div className="text-[11.5px] text-ink-3">
+          {t("nesaCfg.custom.empty")}
+        </div>
+      ) : null}
+
+      {value.map((ev, i) => {
+        if (editingIdx === i) {
+          return (
+            <CustomEvidenceEditor
+              key={`edit-${i}`}
+              draftLabel={draftLabel}
+              draftRate={draftRate}
+              draftDate={draftDate}
+              draftNote={draftNote}
+              setDraftLabel={setDraftLabel}
+              setDraftRate={setDraftRate}
+              setDraftDate={setDraftDate}
+              setDraftNote={setDraftNote}
+              onSave={saveEdit}
+              onCancel={cancelEdit}
+            />
+          );
+        }
+        const stale = isStale(ev.reviewedAt);
+        const tone =
+          ev.manualPassRate >= 80
+            ? "text-pos"
+            : ev.manualPassRate >= 50
+              ? "text-ink-1"
+              : "text-warn";
+        return (
+          <div
+            key={ev.id}
+            className="rounded border border-border bg-surface-1 p-2.5 flex items-start gap-2.5"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`text-[12.5px] tabular font-semibold shrink-0 ${tone}`}
+                >
+                  {fmt(ev.manualPassRate)}%
+                </span>
+                <span className="text-[12.5px] text-ink-1 truncate">
+                  {ev.label}
+                </span>
+                {stale ? (
+                  <span className="text-[9.5px] uppercase tracking-[0.06em] font-semibold text-warn border border-warn/40 bg-warn/10 rounded px-1.5 py-px">
+                    {t("nesaCfg.custom.stale")}
+                  </span>
+                ) : null}
+              </div>
+              <div className="text-[10.5px] text-ink-3 mt-0.5 keep-ltr">
+                {t("nesaCfg.custom.reviewedAt", { date: ev.reviewedAt })}
+                {ev.reviewerNote ? (
+                  <span className="ms-2 text-ink-2">— {ev.reviewerNote}</span>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => startEdit(i)}
+                className="h-7 px-2 rounded text-[11.5px] text-ink-2 hover:text-ink-1 hover:bg-surface-2"
+              >
+                {t("nesaCfg.custom.edit")}
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="h-7 w-7 grid place-items-center rounded text-ink-3 hover:text-neg hover:bg-surface-2"
+                aria-label="Remove"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      {editingIdx === value.length ? (
+        <CustomEvidenceEditor
+          draftLabel={draftLabel}
+          draftRate={draftRate}
+          draftDate={draftDate}
+          draftNote={draftNote}
+          setDraftLabel={setDraftLabel}
+          setDraftRate={setDraftRate}
+          setDraftDate={setDraftDate}
+          setDraftNote={setDraftNote}
+          onSave={saveEdit}
+          onCancel={cancelEdit}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={startAdd}
+          className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-border text-[11.5px] text-ink-2 hover:text-ink-1 self-start"
+        >
+          <Plus size={11} />
+          {t("nesaCfg.custom.add")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CustomEvidenceEditor({
+  draftLabel,
+  draftRate,
+  draftDate,
+  draftNote,
+  setDraftLabel,
+  setDraftRate,
+  setDraftDate,
+  setDraftNote,
+  onSave,
+  onCancel,
+}: {
+  draftLabel: string;
+  draftRate: number;
+  draftDate: string;
+  draftNote: string;
+  setDraftLabel: (s: string) => void;
+  setDraftRate: (n: number) => void;
+  setDraftDate: (s: string) => void;
+  setDraftNote: (s: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="rounded border border-accent/40 bg-accent/5 p-3 flex flex-col gap-2">
+      <input
+        autoFocus
+        value={draftLabel}
+        onChange={(e) => setDraftLabel(e.target.value)}
+        placeholder={t("nesaCfg.custom.labelPlaceholder")}
+        className={inputClass}
+        maxLength={160}
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-[10.5px] text-ink-3">
+            {t("nesaCfg.custom.passRate")}: {draftRate}%
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={draftRate}
+            onChange={(e) => setDraftRate(Number(e.target.value))}
+            className="accent-council-strong"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10.5px] text-ink-3">
+            {t("nesaCfg.custom.reviewedDateLabel")}
+          </span>
+          <input
+            type="date"
+            value={draftDate}
+            onChange={(e) => setDraftDate(e.target.value)}
+            className={`${inputClass} keep-ltr`}
+            dir="ltr"
+          />
+        </label>
+      </div>
+      <textarea
+        value={draftNote}
+        onChange={(e) => setDraftNote(e.target.value)}
+        placeholder={t("nesaCfg.custom.notePlaceholder")}
+        rows={2}
+        maxLength={500}
+        className="w-full px-2.5 py-1.5 rounded-md border border-border bg-surface-1 text-ink-1 placeholder:text-ink-3 text-[12.5px] outline-none focus:border-council-strong resize-y"
+      />
+      <div className="flex justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-7 px-2.5 rounded-md text-[11.5px] text-ink-3 hover:text-ink-1"
+        >
+          {t("nesaCfg.picker.cancel")}
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!draftLabel.trim()}
+          className="h-7 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold disabled:opacity-50"
+        >
+          {t("nesaCfg.custom.save")}
+        </button>
       </div>
     </div>
   );

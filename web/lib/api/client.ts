@@ -323,6 +323,13 @@ export const api = {
           descriptionEn: string;
           descriptionAr: string;
           secureScoreControls: string[];
+          customEvidence?: Array<{
+            id: string;
+            label: string;
+            manualPassRate: number;
+            reviewedAt: string;
+            reviewerNote?: string;
+          }>;
           weight: number;
         }>;
         updatedAt?: string;
@@ -343,6 +350,13 @@ export const api = {
       descriptionEn: string;
       descriptionAr: string;
       secureScoreControls: string[];
+      customEvidence?: Array<{
+        id: string;
+        label: string;
+        manualPassRate: number;
+        reviewedAt: string;
+        reviewerNote?: string;
+      }>;
       weight: number;
     }>;
   }) =>

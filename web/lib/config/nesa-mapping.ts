@@ -184,6 +184,9 @@ function mergeWithDefaults(input: Partial<ComplianceMapping>): ComplianceMapping
             secureScoreControls: Array.isArray(c.secureScoreControls)
               ? c.secureScoreControls
               : [],
+            customEvidence: Array.isArray(c.customEvidence)
+              ? c.customEvidence
+              : undefined,
             weight: typeof c.weight === "number" ? c.weight : 0,
           }))
         : DEFAULT_NESA_MAPPING.clauses,
