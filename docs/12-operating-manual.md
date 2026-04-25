@@ -296,6 +296,18 @@ Lives in its own section between Intune and Coming-soon. Four baselines: strict 
 
 The push modal renders the exact JSON patch that will be PATCHed before the operator confirms.
 
+### B.7d Accessibility (v2.0+)
+
+Mizan ships an accessibility v1 baseline:
+
+- **Skip-to-content link** at the top of every dashboard page (visually hidden until focused; first focus stop on Tab from the URL bar; Enter jumps focus to `<main>`). WCAG 2.4.1 Bypass Blocks.
+- **Modal dialogs** trap focus, restore it to the trigger element on close, and announce themselves via `aria-labelledby`. Tab + Shift+Tab cycle inside the modal; Esc closes. WCAG 2.4.3 + 2.4.7.
+- **Sidebar** uses `aria-current="page"` on the active route so AT announces "current page". Decorative icons inside nav links are `aria-hidden="true"` to avoid double-announce.
+- **Wizard autosave indicator** is a `role="status"` `aria-live="polite"` region — Saving / Saved transitions are announced without interrupting whatever the operator is typing.
+- **Theme + language toggles** carry `aria-label` + `aria-pressed`, decorative icons hidden from AT.
+
+Not yet shipped in v2.0: formal axe-core CI pass, full keyboard-only smoke test of every page, color-contrast audit. Tracked in `project_sharjah_council_backlog.md`.
+
 ### B.7c Cert-based MSAL (production hardening)
 
 By default the Settings → App Registration panel asks for a client secret string. For production deployments where audit policy requires "no shared secrets in app config", switch the auth method to **Certificate**:

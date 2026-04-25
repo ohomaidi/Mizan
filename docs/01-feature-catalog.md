@@ -239,6 +239,21 @@ Phases 1–4.5 are the observation + directive ladder as actually shipped. Phase
 
 ---
 
+## Production hardening
+
+Status as of v2.0.0 (2026-04-25):
+
+| Capability | Status |
+|---|---|
+| **`/api/health`** — DB-ping liveness probe for Azure / Mac LaunchAgent / Windows Service | ✅ Shipped 2026-04-25. Returns `{ status, deploymentMode, tenantCount, latencyMs }`; 200 healthy / 503 on DB error. No auth required. |
+| **Cert-based MSAL** — replace `client_secret` with PEM private key + SHA-1 thumbprint | ✅ Shipped 2026-04-25. UI in Settings → App Registration toggles between Secret and Certificate; switching clears the OTHER credential server-side. Env-var fallback (`AZURE_CLIENT_CERT_THUMBPRINT` + `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM`) for Key Vault. Same option on user-auth Entra app. |
+| **Accessibility v1** — skip-to-content link, Modal focus trap + restore + `aria-labelledby`, sidebar `aria-current="page"`, autosave `aria-live="polite"` regions, decorative icons `aria-hidden`. | ✅ Shipped 2026-04-25. Formal WCAG 2.2 audit (axe-core in CI) deferred. |
+| **Tests** — directive engine + maturity compute + builder unit tests | 🔴 Deferred. Setting up a runner (tsx, server-only mock, DB fixtures, `@/` alias) is its own session. |
+| **Cert auto-rotation** — Key Vault renew + auto-reload | 🔴 Deferred. Manual cert paste through Settings is the v2 path. |
+| **Load test** — 200 tenants × 18 signals through the orchestrator | 🔴 Pending — needs a real-tenant fleet to be meaningful. |
+
+---
+
 ## Open questions for customers
 
 Customer-specific decisions that are *not* resolved at the code level.

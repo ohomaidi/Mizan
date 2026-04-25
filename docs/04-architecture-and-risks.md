@@ -293,7 +293,27 @@ ACA Managed Environments have **immutable `vnetConfiguration`** — Azure forbid
 - [ ] Update both Entra app registrations' redirect URIs to the custom domain.
 - [ ] Enable diagnostic settings on the Container App → Log Analytics for 30-day audit retention.
 - [ ] Add a daily sync trigger: Azure Function or Logic App hitting `/api/sync` with the shared `X-Sync-Secret` header.
-- [ ] Rotate the user-auth client secret on a 90-day cycle; plan for cert-based MSAL + Key Vault at year one.
+- [ ] Rotate the user-auth client secret on a 90-day cycle; **OR** switch to cert-based MSAL via Settings → App Registration → Certificate (shipped v2.0.0).
+
+### 7.4 Cert-based MSAL (production hardening, v2.0+)
+
+`AzureAppConfig` and `UserAuthConfig` carry both credential modes side-by-side. The MSAL client builders in `lib/graph/msal.ts` and `lib/auth/msal-user.ts` prefer cert when `clientCertThumbprint` + `clientCertPrivateKeyPem` are present; secret is the fallback. `getAzureAuthMethod()` / `getUserAuthMethod()` report which mode is active so the UI renders the right Settings panel.
+
+Switching credential mode in the UI (Secret → Certificate or vice versa) clears the OTHER credential on save so a customer never accumulates stale shared secrets after migrating to certs.
+
+For Azure Container Apps + Key Vault: store the PEM block as a Container App secret referencing a Key Vault secret URI, expose it as `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM` in env, set `AZURE_CLIENT_CERT_THUMBPRINT` alongside, and leave the DB-side cert fields empty — the env-fallback path picks both up. `assertAzureConfigured()` accepts either secret OR cert as evidence the app is wired.
+
+### 7.5 Accessibility v1 (shipped v2.0+)
+
+Concrete improvements landed against WCAG 2.2 baseline:
+
+- **Skip-to-content link** in `(dashboard)/layout.tsx` — first focus stop on every page; visually hidden until focused; jumps to `<main id="main">` (WCAG 2.4.1 Bypass Blocks).
+- **Modal focus management** in `components/ui/Modal.tsx` — `aria-labelledby` on the title, focus moved into the panel on open, `Tab` + `Shift+Tab` cycle within the modal, `Esc` closes, focus restores to the previously-focused element on close (WCAG 2.4.3 + 2.4.7).
+- **Sidebar nav** — `aria-label` on `<nav>`, `aria-current="page"` on the active link, decorative icons marked `aria-hidden="true"`.
+- **Autosave indicator** in the wizard — wrapped in `role="status"` + `aria-live="polite"` so AT announces "Saving / Saved" without interrupting typing.
+- **Theme + language toggles** already had `aria-label` + `aria-pressed`; decorative icons inside also marked `aria-hidden`.
+
+Not yet shipped: full WCAG 2.2 axe-core CI pass, formal color-contrast pass, keyboard-only end-to-end smoke test of every page.
 
 ---
 

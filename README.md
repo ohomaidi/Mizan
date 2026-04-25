@@ -39,20 +39,35 @@ Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 
 - **White-label** — organization name, logo (auto background-strip, 100% local), colors, tagline, framework — all in Settings
 - **Bilingual** — full English + Arabic, RTL-native
 
-### Directive mode — regulator write tier (optional)
+### Directive mode — regulator write tier (optional, v2.0+)
 
-Deploy with `MIZAN_DEPLOYMENT_MODE=directive` and you also get a second Entra app (provisioned through the setup wizard) holding writable Graph scopes, plus a `/directive` surface for regulators who have authority to harden consented entities:
+Deploy with `MIZAN_DEPLOYMENT_MODE=directive` and you also get a second Entra app (provisioned through the setup wizard) holding writable Graph scopes, plus a `/directive` surface for regulators who have authority to harden consented entities. v2.0 ships the full directive write tier on every Graph-reachable surface today + curated coming-soon catalogs for the rest.
+
+**Live in v2.0 — push works, real Graph writes:**
 
 - **Per-entity consent mode** — each entity opts in or stays in observation. Observation entities are never written to, regardless of role.
-- **12 curated Conditional Access baselines** — identity hardening, legacy auth block, risk-based enforcement, session hygiene, device posture. Every baseline ships in report-only; the operator explicitly flips to enforce.
-- **Custom CA wizard** — 7 steps, no JSON. Cross-tenant mode uses only fields that mean the same thing in every Entra tenant. Tenant-scoped mode unlocks specific users / groups / named locations / Terms of Use / custom auth strengths against one reference tenant. Device filter rule builder included.
-- **Idempotent push** — repeat pushes match the existing policy by tag and no-op instead of duplicating.
-- **Rollback safety** — pre-flight preview reads each policy's current state, warns if the entity has flipped it to Enabled, per-row deselect for scoped rollback, baseline-wide "Remove from ALL entities" action.
-- **Per-entity baseline status** — live or demo-synthesized view of which baselines are currently deployed in each entity's tenant and what state each is in.
-- **Reactive writes** — incident classification, alert comments, risky-user confirm/dismiss, session revoke, threat submission (email / URL / file).
+- **12 Conditional Access baselines** — identity hardening, legacy auth block, risk-based enforcement, session hygiene, device posture. Report-only by default.
+- **Custom CA wizard** — 7 steps, no JSON. Cross-tenant + tenant-scoped modes (latter unlocks specific users / groups / named locations / Terms of Use / custom auth strengths via Graph typeahead). Device filter rule builder.
+- **13 Intune device-posture baselines** — iOS / Android / Windows / macOS compliance + iOS / Android MAM (no enrolment needed) + Windows BitLocker enforcement + 6 Defender for Endpoint **Attack Surface Reduction rules** (audit mode default).
+- **4 SharePoint tenant external-sharing baselines** — strict external sharing, default link Internal+View, domain allow-list, anonymous links off. Singleton model — push only, no rollback (audit captures the diff).
+- **IOC push console** — Defender for Endpoint Threat Intelligence indicators (file hash / URL / domain / IPv4 / IPv6) with per-IOC expiration, idempotency by description tag, full rollback.
+- **Reactive writes** — incident classification, alert comments, risky-user confirm/dismiss, session revoke, threat submission.
+- **Idempotent push** — repeat pushes match by tag and no-op instead of duplicating.
+- **Rollback safety** — pre-flight preview reads each policy's current state from Graph, warns if the entity flipped report-only → enabled, per-row deselect, baseline-wide "Remove from ALL entities".
+- **Per-entity baseline status** — one-call Graph-tag scan showing which baselines are present in each entity and what state each is in.
 - **Audit log** — every directive action captured in `directive_actions` with actor, timestamp, Graph response. Never deleted.
 
-See [`docs/12-operating-manual.md`](docs/12-operating-manual.md) for the step-by-step operator flow. Observation-mode deployments render none of the above — the `/directive` route returns 404 at the route-loader level.
+**Coming soon catalogs in v2.0 — UI ready, push disabled until Microsoft Graph API closes the gap:**
+
+DLP (4 baselines), Sensitivity Labels (3), Attack Simulation Training (3), PIM + Identity Governance (5), App Consent Policies (4), Tenant Identity Defaults (6). Catalogs render with an accent "Coming soon" banner; flipping `pushEnabled: true` is the only change needed when each phase's authoring API moves to GA.
+
+**Production hardening:**
+
+- **Cert-based MSAL** — swap `client_secret` for a PEM private key + SHA-1 thumbprint via Settings → App Registration → Certificate. No more shared-secret rotation; cert lifetime is whatever you sign with. Env-var fallback (`AZURE_CLIENT_CERT_THUMBPRINT` + `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM`) for Azure Key Vault deployments. Same option on the user-auth Entra app.
+- **`/api/health` endpoint** — DB ping for Azure liveness + monitoring probes. No auth required (probes have no creds; response carries no secrets — just `{ status, deploymentMode, tenantCount, latencyMs }`).
+- **Accessibility v1** — skip-to-content link, modal focus trap + restore + `aria-labelledby`, sidebar `aria-current="page"`, autosave `aria-live="polite"` regions. Formal WCAG 2.2 audit deferred but the worst gaps are closed.
+
+See [`docs/12-operating-manual.md`](docs/12-operating-manual.md) for the step-by-step operator flow. Observation-mode deployments render none of the directive surface — the `/directive` route returns 404 at the route-loader level.
 
 ---
 

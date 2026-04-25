@@ -52,21 +52,38 @@ export function SecurityPrivacyStatement({ lang }: { lang: DocLang }) {
 function BodyEn() {
   return (
     <View>
-      <H1 lang="en" num={1}>Read-only posture</H1>
+      <H1 lang="en" num={1}>Two deployment modes</H1>
       <P lang="en">
-        The Posture & Maturity Dashboard is a read-only observability
-        platform. It never writes to, modifies, or deletes data, policies,
-        or configuration in any connected entity's tenant.
-        Every Microsoft Graph permission it requests is an application-level
-        <Text style={{ fontWeight: 700 }}> Read</Text> scope. No
-        <Text style={{ fontWeight: 700 }}> ReadWrite</Text> scopes are ever
-        requested or granted.
+        The platform ships in one of two deployment modes, fixed at install
+        time and visible to every connected entity in the Onboarding Letter:
       </P>
+      <Bullet lang="en">
+        <Text style={{ fontWeight: 700 }}>Observation mode</Text> — read-only
+        posture observability. The platform never writes to, modifies, or
+        deletes data, policies, or configuration in any connected entity's
+        tenant. Every Microsoft Graph permission requested is an
+        application-level <Text style={{ fontWeight: 700 }}>Read</Text>{" "}
+        scope. This is the default, and the only mode for entities that
+        consent to the read-only Onboarding Letter.
+      </Bullet>
+      <Bullet lang="en">
+        <Text style={{ fontWeight: 700 }}>Directive mode</Text> — observation
+        plus a curated write tier (Conditional Access baselines, Intune
+        device-posture policies, SharePoint tenant external-sharing settings,
+        Defender for Endpoint Threat Intelligence indicators, reactive
+        incident / alert / user actions). Entities opt into directive mode
+        with a separate admin-consent flow against a second Entra app
+        carrying writable scopes; the directive Onboarding Letter PDF lists
+        exactly which scopes that second app holds.
+      </Bullet>
       <Callout lang="en" title="Entities retain full autonomy">
-        Each entity's own IT and security team remains the sole authoritative
-        authority over policies, configurations, and tenant-scoped data
-        decisions. The Council platform measures posture; it does not manage
-        tenants.
+        Per-entity consent mode is mutable. An entity that consented in
+        observation mode is never written to until its Global Administrator
+        runs the directive consent flow. An entity that consented in
+        directive mode can revoke the directive app at any time from their
+        own Entra admin center, downgrading themselves to observation. Each
+        entity's own IT + security team remains the sole authoritative
+        authority over its own configuration.
       </Callout>
 
       <H1 lang="en" num={2}>What IS read</H1>
@@ -126,10 +143,27 @@ function BodyEn() {
         entities.
       </Bullet>
       <Bullet lang="en">
-        <Text style={{ fontWeight: 700 }}>Write-side configuration</Text> —
-        DLP policy authoring, retention label publishing, Conditional Access
-        policy creation, Information Barrier setup. Explicitly out of scope;
-        every entity authors its own policies.
+        <Text style={{ fontWeight: 700 }}>Email message contents</Text>,{" "}
+        <Text style={{ fontWeight: 700 }}>file contents</Text>, and{" "}
+        <Text style={{ fontWeight: 700 }}>chat message contents</Text> are
+        never read in either mode.
+      </Bullet>
+      <Bullet lang="en">
+        <Text style={{ fontWeight: 700 }}>Observation-mode entities</Text> —
+        no write-side configuration of any kind. DLP policies, retention
+        labels, Conditional Access policies, Intune profiles, SharePoint
+        settings: all entirely in entity hands.
+      </Bullet>
+      <Bullet lang="en">
+        <Text style={{ fontWeight: 700 }}>Directive-mode entities</Text> —
+        the Council platform may create / update / delete policy objects in
+        the entity's tenant, scoped to the writable surfaces enumerated in
+        the directive Onboarding Letter (Conditional Access, Intune device
+        compliance + app protection + device config + ASR rules, SharePoint
+        tenant settings, Defender for Endpoint Threat Intelligence
+        indicators, reactive incident / alert / user actions). Every write
+        is captured in `directive_actions` with actor + timestamp + Graph
+        response.
       </Bullet>
 
       <H1 lang="en" num={4}>Storage and residency</H1>
@@ -159,22 +193,42 @@ function BodyEn() {
       <P lang="en">
         Two distinct authentication paths, each with its own trust boundary:
       </P>
-      <H2 lang="en">5.1 Graph read path (app-to-tenant)</H2>
+      <H2 lang="en">5.1 Graph paths (app-to-tenant)</H2>
       <P lang="en">
-        The Council's multi-tenant Entra application uses client credentials
-        (or certificate in production) to acquire a per-tenant app-only token.
-        The entity's Global Administrator has explicitly consented to the
-        read-only permission set listed in Section 2 of the Onboarding Letter.
-        The entity can inspect, scope, or revoke this consent at any time
-        from their own Entra admin center.
+        Two multi-tenant Entra applications, one per direction:
       </P>
-      <H2 lang="en">5.2 Dashboard access (user-to-Council)</H2>
+      <Bullet lang="en">
+        <Text style={{ fontWeight: 700 }}>Graph-Signals app</Text> —{" "}
+        application-level Read scopes only. Used by every deployment for
+        the daily posture sync. Permissions enumerated in Section 2 of
+        the observation Onboarding Letter.
+      </Bullet>
+      <Bullet lang="en">
+        <Text style={{ fontWeight: 700 }}>Directive app</Text> — only
+        provisioned in directive-mode deployments. Holds the writable
+        scopes Mizan needs for Conditional Access push, Intune policy
+        push, SharePoint tenant settings, IOC submission, and reactive
+        actions. Permissions enumerated in Section 2 of the directive
+        Onboarding Letter. Entities consent separately to this app; an
+        observation-mode entity never has it consented in their tenant.
+      </Bullet>
       <P lang="en">
-        Access to the dashboard itself is gated by Cloudflare Zero Trust
-        Access in front of the application. Council staff authenticate with
-        their Council Entra accounts. Named-user MSAL sign-in with role
-        scopes (Admin / Analyst / Auditor) is a follow-on enhancement on the
-        roadmap.
+        Both apps use confidential-client authentication. Production
+        deployments should use{" "}
+        <Text style={{ fontWeight: 700 }}>certificate-based MSAL</Text>{" "}
+        (PEM private key + SHA-1 thumbprint via Settings → App
+        Registration → Certificate, or via Key Vault env vars) instead of
+        a shared client secret. Cert lifetime = whatever the operator
+        signs with; no secret rotation tax.
+      </P>
+      <H2 lang="en">5.2 Dashboard access (user-to-Mizan)</H2>
+      <P lang="en">
+        Access to the dashboard itself is gated by Mizan's user-auth Entra
+        application (OpenID Connect + authorization code) plus its built-in
+        RBAC (Admin / Analyst / Viewer roles). The user-auth app supports
+        the same secret-or-cert toggle as the Graph apps. For demo URLs,
+        Cloudflare Zero Trust Access stays in front as a network-layer
+        gate.
       </P>
 
       <H1 lang="en" num={6}>Audit and retention</H1>
@@ -246,19 +300,34 @@ function BodyEn() {
 function BodyAr() {
   return (
     <View>
-      <H1 lang="ar" num={1}>وضع القراءة فقط</H1>
+      <H1 lang="ar" num={1}>وضعا النشر</H1>
       <P lang="ar">
-        لوحة الوضع الأمني والنضج لمجلس الشارقة للأمن السيبراني منصة مراقبة
-        للقراءة فقط. لا تكتب ولا تعدّل ولا تحذف أي بيانات أو سياسات أو
-        إعدادات في مستأجر أي جهة شارقة. كل إذن Microsoft Graph تطلبه هو نطاق
-        <Text style={{ fontWeight: 700 }}> Read</Text> على مستوى التطبيق. لا
-        تُطلب أو تُمنح أبدًا نطاقات <Text style={{ fontWeight: 700 }}>
-        ReadWrite</Text>.
+        تُنشر المنصة في أحد وضعين، يُحدَّد عند التثبيت ويظهر لكل جهة في
+        خطاب الإعداد:
       </P>
+      <Bullet lang="ar">
+        <Text style={{ fontWeight: 700 }}>وضع المراقبة</Text> — قراءة الوضع
+        الأمني فقط. لا تكتب ولا تعدّل ولا تحذف أي بيانات أو سياسات أو
+        إعدادات في مستأجر أي جهة. كل إذن Microsoft Graph مطلوب هو نطاق
+        <Text style={{ fontWeight: 700 }}> Read</Text> على مستوى التطبيق.
+        وهذا هو الافتراضي والوضع الوحيد للجهات التي توافق على خطاب الإعداد
+        للقراءة فقط.
+      </Bullet>
+      <Bullet lang="ar">
+        <Text style={{ fontWeight: 700 }}>وضع التوجيه</Text> — المراقبة مع
+        طبقة كتابة منسَّقة (قواعد Conditional Access، سياسات وضع الأجهزة في
+        Intune، إعدادات SharePoint للمشاركة الخارجية، مؤشّرات Defender
+        التهديدية، إجراءات تفاعلية على الحوادث/التنبيهات/المستخدمين). تختار
+        الجهة الانضمام إلى وضع التوجيه عبر تدفّق موافقة منفصل لتطبيق Entra
+        ثانٍ يحمل نطاقات قابلة للكتابة؛ يسرد خطاب إعداد التوجيه بالضبط أي
+        نطاقات يحملها هذا التطبيق الثاني.
+      </Bullet>
       <Callout lang="ar" title="الجهات تحتفظ بالاستقلالية الكاملة">
-        يبقى فريق تقنية المعلومات والأمن لكل جهة السلطة الوحيدة المخوّلة
-        بقرارات السياسات والإعدادات والبيانات في نطاق مستأجرها. تقيس منصة
-        المجلس الوضع الأمني؛ ولا تُدير المستأجرات.
+        وضع موافقة الجهة قابل للتعديل. الجهة التي وافقت في وضع المراقبة لا
+        يُكتب إليها حتى يُشغّل مسؤولها العام تدفّق موافقة التوجيه. الجهة التي
+        وافقت في وضع التوجيه يمكنها سحب تطبيق التوجيه في أي وقت من مركز
+        إدارة Entra لديها، فتعود إلى وضع المراقبة. يبقى فريق تقنية المعلومات
+        والأمن لكل جهة السلطة الوحيدة المخوّلة بإعداداتها.
       </Callout>
 
       <H1 lang="ar" num={2}>ما يُقرأ</H1>

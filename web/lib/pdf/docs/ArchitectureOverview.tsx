@@ -250,32 +250,70 @@ Entity tenant N  ┘                   ▼
       </P>
 
       <H1 lang="en" num={8}>Scoping decisions</H1>
-      <H2 lang="en">8.1 Read-only forever</H2>
+      <H2 lang="en">8.1 Two deployment modes (v2.0+)</H2>
       <P lang="en">
-        The Council decided 2026-04-19 that the product ships read-only
-        throughout. Policy Deployment Service (Graph-writable half) and the
-        PowerShell automation tier (DLP / IRM / Retention policy CRUD) are
-        deferred to a potential follow-on engagement. The Onboarding Letter
-        was cleaned accordingly — no role-grant PowerShell step.
+        The product reverses an earlier read-only-forever decision. Mizan
+        v2.0 ships in either{" "}
+        <Text style={{ fontWeight: 700 }}>observation mode</Text> (the
+        original read-only profile, suitable for Sharjah Cybersecurity
+        Center and similar visibility-only customers) or{" "}
+        <Text style={{ fontWeight: 700 }}>directive mode</Text> (the
+        write-tier profile, suitable for regulators like Dubai Electronic
+        Security Center who push baseline policies to consented entities).
+        Mode is fixed at install time via{" "}
+        <Text style={{ fontWeight: 700 }}>MIZAN_DEPLOYMENT_MODE</Text>;
+        switching is a redeploy. The directive write tier covers
+        Conditional Access (Phase 3 — 12 baselines + custom wizard),
+        Intune device posture (Phase 5 — 13 baselines including ASR
+        rules), SharePoint tenant external-sharing (Phase 11a — 4
+        baselines, singleton settings model), Defender for Endpoint
+        Threat Intelligence indicators (Phase 14b — operator console),
+        and reactive incident / alert / user actions (Phase 2). DLP,
+        Sensitivity Labels, Retention, Defender for Office, Exchange
+        transport, OneDrive/Teams policies ship as coming-soon catalog
+        UIs that flip on per-phase as Microsoft moves the relevant Graph
+        authoring API to GA. No PowerShell automation tier — the
+        coming-soon pattern replaces it.
       </P>
-      <H2 lang="en">8.2 Framework: UAE NESA only</H2>
+      <H2 lang="en">8.2 Framework: per-customer config</H2>
       <P lang="en">
-        NCA and ISR framework mappings were discussed in earlier scope
-        drafts but removed. Only UAE NESA is in the current framework set.
-        The mapping is Council-editable at runtime.
+        UAE NESA / KSA NCA / ISR-ISO / generic — chosen at install time
+        per customer, editable at runtime via Settings → Maturity Index
+        and Settings → Framework Mapping. The default for SCSC is NESA;
+        DESC defaults to ISR.
       </P>
       <H2 lang="en">8.3 Daily cadence, not near-real-time</H2>
       <P lang="en">
         Graph change notifications (webhooks) were evaluated and deferred —
-        a daily read-only report doesn't need webhook renewal scheduling or
-        an inbound receiver URL. The 3 am scheduled sync covers the use case.
+        a daily report doesn't need webhook renewal scheduling or an
+        inbound receiver URL. The 3 am scheduled sync covers the use case.
       </P>
-      <H2 lang="en">8.4 Council staff auth: Cloudflare Access, not MSAL user-auth</H2>
+      <H2 lang="en">8.4 Mizan-native auth + RBAC</H2>
       <P lang="en">
-        Dashboard access control currently relies on Cloudflare Zero Trust
-        Access in front of the app. Named-user MSAL sign-in with role scopes
-        is deferred to a follow-on engagement. Every mutation that does land
-        is captured in the audit log, though without a per-user actor today.
+        Dashboard access uses Mizan's user-auth Entra application (OpenID
+        Connect + authorization code flow) plus internal RBAC (Admin /
+        Analyst / Viewer roles). Sliding 7-day session window with silent
+        Microsoft SSO re-auth on expiry. Both the Graph-Signals app and
+        the user-auth app support cert-based MSAL (PEM private key + SHA-1
+        thumbprint via Settings → App Registration → Certificate, or via{" "}
+        <Text style={{ fontWeight: 700 }}>AZURE_CLIENT_CERT_THUMBPRINT</Text>
+        {" "}+ <Text style={{ fontWeight: 700 }}>
+        AZURE_CLIENT_CERT_PRIVATE_KEY_PEM</Text> env vars for Key Vault
+        deployments). Cloudflare Zero Trust Access remains a recommended
+        network-layer gate for demo URLs.
+      </P>
+      <H2 lang="en">8.5 Production hardening (v2.0+)</H2>
+      <P lang="en">
+        Shipped:{" "}
+        <Text style={{ fontWeight: 700 }}>/api/health</Text> liveness probe
+        endpoint (DB ping + deployment-mode + tenant count, 503 on DB
+        error); cert-based MSAL on both Entra apps; accessibility v1
+        (skip-to-content, modal focus trap + restore +{" "}
+        <Text style={{ fontWeight: 700 }}>aria-labelledby</Text>, sidebar{" "}
+        <Text style={{ fontWeight: 700 }}>aria-current</Text>, autosave{" "}
+        <Text style={{ fontWeight: 700 }}>aria-live</Text> regions).
+        Pending: directive-engine unit tests, formal WCAG 2.2 axe-core CI
+        pass, certificate auto-rotation from Key Vault.
       </P>
     </View>
   );
@@ -468,32 +506,54 @@ function BodyAr() {
       </P>
 
       <H1 lang="ar" num={8}>قرارات النطاق</H1>
-      <H2 lang="ar">٨.١ قراءة فقط بشكل دائم</H2>
+      <H2 lang="ar">٨.١ وضعا النشر (v2.0+)</H2>
       <P lang="ar">
-        قرر المجلس بتاريخ 2026-04-19 أن يُشحن المنتج للقراءة فقط طيلة عمره.
-        خدمة نشر السياسات (النصف القابل للكتابة عبر Graph) وطبقة أتمتة
-        PowerShell (إدارة سياسات DLP / IRM / الاحتفاظ) مؤجلة إلى ارتباط
-        محتمل لاحق. تم تنظيف خطاب الإعداد وفقًا لذلك — لا خطوة PowerShell
-        لمنح الأدوار.
+        يعكس المنتج قرار "للقراءة فقط طوال العمر" السابق. Mizan v2.0 يُشحن
+        إما في{" "}
+        <Text style={{ fontWeight: 700 }}>وضع المراقبة</Text> (الملف
+        الأصلي للقراءة فقط، يناسب SCSC) أو في{" "}
+        <Text style={{ fontWeight: 700 }}>وضع التوجيه</Text> (ملف طبقة
+        الكتابة، يناسب الجهات التنظيمية مثل DESC). يُحدَّد الوضع عند
+        التثبيت عبر <Text style={{ fontWeight: 700 }}>
+        MIZAN_DEPLOYMENT_MODE</Text>؛ التغيير = إعادة نشر. تغطّي طبقة
+        الكتابة Conditional Access و Intune و SharePoint و IOC للـDefender
+        والإجراءات التفاعلية. DLP والتصنيفات والاحتفاظ وغيرها تُشحن
+        ككتالوجات "قريبًا" تُفعَّل عند نقل Microsoft واجهات تأليفها إلى
+        Graph GA. لا توجد طبقة PowerShell — نمط "قريبًا" يحلّ محلّها.
       </P>
-      <H2 lang="ar">٨.٢ الإطار: NESA الإماراتي فقط</H2>
+      <H2 lang="ar">٨.٢ الإطار: تكوين لكل عميل</H2>
       <P lang="ar">
-        نوقشت مواءمة أُطر NCA و ISR في مسوّدات النطاق السابقة لكنها أُزيلت.
-        NESA الإماراتي فقط في مجموعة الأطر الحالية. المواءمة قابلة للتحرير
-        من المجلس في وقت التشغيل.
+        UAE NESA / KSA NCA / ISR-ISO / عام — يُختار عند التثبيت لكل عميل،
+        قابل للتعديل في وقت التشغيل. الافتراضي لـ SCSC هو NESA؛ DESC
+        افتراضيًا ISR.
       </P>
       <H2 lang="ar">٨.٣ وتيرة يومية وليست قريبة من الحقيقي</H2>
       <P lang="ar">
         تم تقييم إشعارات تغيير Graph (webhooks) وتأجيلها — التقرير اليومي
-        للقراءة فقط لا يحتاج جدولة تجديد webhook أو رابط مستقبل وارد. تغطي
-        المزامنة المجدولة عند الثالثة صباحًا حالة الاستخدام.
+        لا يحتاج جدولة تجديد webhook أو رابط مستقبل وارد. تغطي المزامنة
+        المجدولة عند الثالثة صباحًا حالة الاستخدام.
       </P>
-      <H2 lang="ar">٨.٤ مصادقة موظفي المجلس: Cloudflare Access، لا MSAL</H2>
+      <H2 lang="ar">٨.٤ مصادقة Mizan الأصلية + RBAC</H2>
       <P lang="ar">
-        تعتمد حاليًا رقابة الوصول إلى اللوحة على Cloudflare Zero Trust Access
-        أمام التطبيق. تسجيل الدخول بالمستخدم المُسَمَّى عبر MSAL مع نطاقات
-        الأدوار مؤجَّل إلى ارتباط لاحق. كل تعديل يحدث اليوم يُلتقط في سجل
-        التدقيق، وإن كان بدون فاعل لكل مستخدم حاليًا.
+        يستخدم الوصول إلى اللوحة تطبيق Entra لمصادقة المستخدم الخاصّ بـ
+        Mizan (OpenID Connect + authorization code) مع RBAC داخلي
+        (Admin / Analyst / Viewer). نافذة جلسة منزلقة لـ 7 أيام مع إعادة
+        مصادقة SSO صامتة عند الانتهاء. كلا تطبيقَي Entra (Graph-Signals
+        و user-auth) يدعمان MSAL القائم على الشهادة (مفتاح خاصّ PEM +
+        بصمة SHA-1 عبر الإعدادات ← App Registration ← Certificate، أو
+        عبر متغيري بيئة لـ Key Vault). يبقى Cloudflare Zero Trust Access
+        موصى به كبوّابة شبكة للـURLs التجريبية.
+      </P>
+      <H2 lang="ar">٨.٥ تشديد الإنتاج (v2.0+)</H2>
+      <P lang="ar">
+        تم شحنه:{" "}
+        <Text style={{ fontWeight: 700 }}>/api/health</Text> (فحص حياة
+        قاعدة البيانات + وضع النشر + عدد المستأجرين)؛ MSAL قائم على
+        الشهادة على كلا تطبيقَي Entra؛ إمكانية وصول v1 (تخطٍّ إلى
+        المحتوى، فخّ تركيز للنوافذ المنبثقة، aria-labelledby، sidebar
+        aria-current، مناطق aria-live للحفظ التلقائي). معلَّق: اختبارات
+        وحدة لمحرك التوجيه، WCAG 2.2 axe-core في CI، تدوير شهادات تلقائي
+        من Key Vault.
       </P>
     </View>
   );

@@ -289,7 +289,29 @@ Deferred by user 2026-04-24. Design sketch preserved in session notes; reopens w
 
 ---
 
-## 5. Timeline — status as of 2026-04-24
+## 5. Timeline — status as of 2026-04-25 (v2.0.0 shipped)
+
+**v2.0.0 published 2026-04-25.** Tag pushed to GitHub, GHCR built `ghcr.io/ohomaidi/mizan:2.0.0` + `:latest`, Mac `.pkg` built locally. Windows `.msi` requires a Windows machine + WiX v4 to build (cross-build from macOS not supported).
+
+What's now in the released image:
+
+- All Phase 2 reactive directive actions
+- Phase 3 — 12 Conditional Access baselines, idempotent push, rollback trilogy, per-entity baseline status
+- Phase 4 — Custom CA wizard, clone from baseline
+- Phase 4.5 — Tenant-scoped wizard mode (specific users / groups / named locations / ToU / custom auth strengths) + device filter rule builder
+- Phase 5 — 13 Intune device-posture baselines (compliance + MAM + Windows BitLocker config + 6 Defender ASR rules)
+- Phase 11a — SharePoint tenant external-sharing (4 baselines, singleton model)
+- Phase 14b — IOC push console (file hash / URL / domain / IP) with rollback
+- Coming-soon catalogs for Phases 6, 7, 9, 12, 13, 15
+- Production hardening: `/api/health`, **cert-based MSAL**, Accessibility v1
+
+Recommended for DESC's Monday deployment:
+
+- Use cert-based MSAL from day one (Settings → App Registration → Certificate). Generate the cert, upload public to Entra, paste private + thumbprint into Mizan.
+- Test with `require-mfa-for-admins` Phase 3 baseline in report-only on the first 1–2 entities; review Defender XDR for 7 days; flip to enforced.
+- For Intune ASR rules, leave them in audit mode for ~14 days before flipping individual rules to Block in the Defender portal.
+
+## 5b. Original timeline (resolved)
 
 Phases 1 through 4.5 are all shipped. Demo at `desc.zaatarlabs.com` is live with:
 

@@ -63,11 +63,20 @@ function BodyEn() {
         that reads security posture from every connected entity's Microsoft 365
         tenant and ranks it against an organization-defined target.
       </P>
-      <Callout lang="en" title="Read-only by design">
-        The Council platform never writes to an entity's tenant. It does not
-        push Conditional Access policies, DLP rules, retention labels, or any
-        other configuration. Entities retain full policy autonomy and
-        authorship. The dashboard measures; entities operate.
+      <Callout lang="en" title="Two deployment modes (v2.0+)">
+        The platform runs in either{" "}
+        <Text style={{ fontWeight: 700 }}>observation mode</Text> (read-only
+        across every entity — no Graph writes ever) or{" "}
+        <Text style={{ fontWeight: 700 }}>directive mode</Text> (observation
+        plus a curated write tier for entities that explicitly opt in). Mode
+        is fixed at install time via the <Text style={{ fontWeight: 700 }}>
+        MIZAN_DEPLOYMENT_MODE</Text> environment variable. Observation-mode
+        entities are never written to, regardless of deployment. The
+        directive write tier covers Conditional Access, Intune device
+        posture, SharePoint tenant external-sharing, Defender for Endpoint
+        Threat Intelligence indicators, and reactive incident / alert /
+        user actions — see the dedicated <Text style={{ fontWeight: 700 }}>
+        /directive</Text> page in the dashboard for the full operator flow.
       </Callout>
       <P lang="en">
         Every number you see is computed from live Microsoft Graph reads on a
@@ -366,11 +375,20 @@ function BodyAr() {
         الأمني من كل مستأجر Microsoft 365 لكل جهة حكومية في الشارقة وترتّبه
         مقابل هدف يحدده المجلس.
       </P>
-      <Callout lang="ar" title="قراءة فقط بحكم التصميم">
-        لا تكتب منصة المجلس أبدًا في مستأجر أي جهة. لا تدفع سياسات
-        Conditional Access أو قواعد DLP أو تصنيفات الاحتفاظ أو أي إعداد آخر.
-        تحتفظ الجهات بالاستقلالية الكاملة في تأليف السياسات. اللوحة تقيس،
-        والجهات تُشغّل.
+      <Callout lang="ar" title="وضعا النشر (v2.0+)">
+        تعمل المنصة إما في{" "}
+        <Text style={{ fontWeight: 700 }}>وضع المراقبة</Text> (قراءة فقط عبر
+        كل جهة — لا كتابات Graph أبدًا) أو{" "}
+        <Text style={{ fontWeight: 700 }}>وضع التوجيه</Text> (المراقبة مع
+        طبقة كتابة منسَّقة للجهات التي توافق صراحةً). يُحدَّد الوضع عند
+        التثبيت عبر متغير البيئة{" "}
+        <Text style={{ fontWeight: 700 }}>MIZAN_DEPLOYMENT_MODE</Text>. لا
+        يُكتب أبدًا في الجهات بوضع المراقبة بصرف النظر عن وضع النشر. تغطّي
+        طبقة الكتابة Conditional Access، ووضع الأجهزة في Intune، وإعدادات
+        SharePoint للمشاركة الخارجية، ومؤشّرات Defender التهديدية،
+        والإجراءات التفاعلية على الحوادث/التنبيهات/المستخدمين — راجع صفحة{" "}
+        <Text style={{ fontWeight: 700 }}>/directive</Text> المخصّصة في
+        اللوحة لتدفّق المشغّل الكامل.
       </Callout>
       <P lang="ar">
         كل رقم تراه محسوب من قراءات حيّة عبر Microsoft Graph بدورة تحديث يومية.

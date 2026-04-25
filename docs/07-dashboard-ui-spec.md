@@ -275,18 +275,22 @@ This gives the Council a clickable, demo-able UI immediately. Real signals slot 
 
 Mounted only when `MIZAN_DEPLOYMENT_MODE=directive`. Observation-mode builds do not register the route — 404 at the loader. Full operator flow in [`12-operating-manual.md §B`](12-operating-manual.md).
 
-### 9.1 Page structure
+### 9.1 Page structure (v2.0+)
 
 Top-to-bottom stack of cards. Scrolls naturally, no tabs.
 
-1. **Capability cards** — a row of 5 icons representing Phase 2 + Phase 3 directive actions, each flipping from "Planned" chip to "Available" chip based on deployment state.
+1. **Capability cards** — a row of icons representing Phase 2 + Phase 3 directive actions, each flipping from "Planned" chip to "Available" chip based on deployment state.
 2. **Conditional Access baselines** — grid of 12 baseline cards (see §9.2).
-3. **Custom CA policies** — drafts list + "+ New custom policy" button. Routes into the wizard at `/directive/custom-policies/[id]/edit`.
-4. **Baseline status per entity** — entity dropdown + 12-row matrix of current state per baseline.
-5. **Push history** — last 50 push_requests with per-row Roll back button.
-6. **Threat submission console** — in-line form for submitting email / URL / file threats.
-7. **Audit log** — last 500 directive_actions rows with filter + per-row "View details" drawer.
-8. **Guardrails panel** — inline reminder of the safety rails: report-only default, Global Admin exclusion, idempotency, rollback.
+3. **Intune device-posture baselines** — grid of 13 baseline cards (compliance + MAM + ASR rules) with platform filter chips (All / iOS / Android / Windows / macOS).
+4. **SharePoint tenant external-sharing baselines** — 4 baseline cards. Yellow "singleton model — no rollback button" caveat banner above the grid.
+5. **Threat Intelligence — IOC push** — operator console with form (indicator type / value / action / severity / description / expiry) + tenant picker + recent IOCs table.
+6. **Coming-soon catalogs** — 6 sections rendered with accent "Coming soon" banner + dimmed cards + disabled push button: DLP, Sensitivity Labels, Attack Simulation Training, PIM + Identity Governance, App Consent Policies, Tenant Identity Defaults.
+7. **Custom CA policies** — drafts list + "+ New custom policy" button. Routes into the wizard at `/directive/custom-policies/[id]/edit`.
+8. **Baseline status per entity** — entity dropdown + matrix of current state per baseline.
+9. **Push history** — last 50 push_requests with per-row Roll back button.
+10. **Threat submission console** — in-line form for submitting email / URL / file threats.
+11. **Audit log** — last 500 directive_actions rows with filter + per-row "View details" drawer.
+12. **Guardrails panel** — inline reminder of the safety rails: report-only default, Global Admin exclusion, idempotency, rollback.
 
 ### 9.2 Baseline card
 
@@ -344,3 +348,55 @@ Opens on **Roll back** in Push history. Contents:
 - "Snapshot taken" timestamp + mode chip (accent "Simulated" for demo tenants, green "Live from Entra tenant" for real)
 - 12-row table: Baseline name / Present (green Yes or grey Not present) / Current state (chip) / Observed timestamp
 - Drift annotations inline under each row: yellow "flipped to Enabled" warning, grey "still in report-only" info
+
+### 9.7 Intune card structure
+
+Same overall shape as a CA baseline card but with three distinguishing elements:
+
+- Platform pill in the title row (`iOS` / `Android` / `Windows` / `macOS`)
+- Yellow **"Ships un-assigned"** banner explaining the Intune analogue of CA's report-only state — policy is created but no users/devices are assigned until the entity admin opens Intune
+- Effect summary describes ASR rules in audit mode, BitLocker enforcement, etc. Cards are filterable by platform via the chip row at the section top.
+
+### 9.8 SharePoint card + push modal
+
+SharePoint baselines look like CA / Intune cards but the push modal is different:
+
+- Renders the **exact JSON patch** that will be PATCHed to `/admin/sharepoint/settings`
+- Yellow **"Singleton — no rollback button"** banner explains the audit-only revert path
+- No "Already applied" chip across pushes — instead, the push GETs the current settings, diffs the intended patch, and skips (returning `already_applied`) when every key already matches
+
+### 9.9 IOC push console
+
+Form-based, not card-grid. Top-to-bottom:
+
+1. Indicator type dropdown (file hash / URL / domain / IPv4 / IPv6) + value input with type-aware placeholder
+2. Action dropdown (alertAndBlock recommended / alert / block / allow)
+3. Severity dropdown (informational / low / medium / high)
+4. Free-text description (Mizan auto-prefixes with `[Mizan IOC <id>]` for rollback lookup)
+5. Internal note (Mizan-only, not sent to Defender)
+6. Expiration days (default 90)
+7. Multi-select tenant picker
+8. Push button — disabled until value + description + at least one tenant
+9. Recent IOCs table below: type / value / action / severity / expires / created
+
+### 9.10 Coming-soon catalog sections
+
+Six identical sections (DLP, Labels, Attack Sim, PIM, App Consent, Tenant Identity Defaults). Each renders:
+
+- Title with phase-appropriate icon
+- Subtitle explaining the catalog
+- Accent **"Coming soon"** banner with the Microsoft Graph coverage gap explanation
+- Dimmed (75% opacity) baseline cards in a 2-col grid
+- Each card has a disabled grey **Push to entities** button (cursor: not-allowed)
+
+When Microsoft moves the relevant Graph authoring API to GA, flipping `pushEnabled: true` on the API route is the only change needed to unlock push.
+
+### 9.11 Wizard accessibility (v2.0+)
+
+The custom CA wizard ships the WCAG-compliant Modal pattern across every step:
+
+- Modal `aria-labelledby` points at each section title
+- Tab cycles inside the modal; Esc closes; focus restores to the previously-focused trigger
+- Wizard's **Saving / Saved** indicator wrapped in `role="status"` + `aria-live="polite"` so AT announces autosave transitions without interrupting typing
+- Sidebar nav uses `aria-current="page"` on the active link
+- Top-of-layout skip-to-content link jumps focus to `<main>` (WCAG 2.4.1 Bypass Blocks)

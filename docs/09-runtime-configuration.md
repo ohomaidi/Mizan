@@ -255,6 +255,19 @@ These are set on the container / LaunchAgent / Windows Service at install time. 
 | `SCSC_SEED_DEMO` | `true` / `false` (default false in packaged releases) | If true + DB is empty, seeds demo tenants + signal snapshots. Each of the Mac Mini demos sets this true. |
 | `NODE_ENV` | `production` / `development` | Standard Next.js. |
 
+### Azure app credentials (env-var fallback for the DB-backed config)
+
+Either secret-based OR cert-based — not both. DB-stored values win when set; env values are the production fallback for Azure Key Vault deployments.
+
+| Variable | Purpose |
+|---|---|
+| `AZURE_CLIENT_ID` | Graph-Signals app GUID. |
+| `AZURE_CLIENT_SECRET` | Secret-based auth. Leave unset when using cert. |
+| `AZURE_CLIENT_CERT_THUMBPRINT` | SHA-1 thumbprint (40 hex chars, no colons) of the public cert uploaded to the Entra app. Pairs with the next two. |
+| `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM` | PEM-encoded private key matching the cert. Whole `-----BEGIN PRIVATE KEY-----`…`-----END PRIVATE KEY-----` block. |
+| `AZURE_CLIENT_CERT_CHAIN_PEM` | Optional PEM cert chain for x5c validation. |
+| `AZURE_AUTHORITY_HOST` | Override for sovereign clouds (default `https://login.microsoftonline.com`). |
+
 ### Intentionally not wired
 
 Don't add the following env vars without the user's approval — the absence is deliberate.
@@ -262,3 +275,16 @@ Don't add the following env vars without the user's approval — the absence is 
 | Var | Why not |
 |---|---|
 | `DIRECTIVE_APPROVAL_DISABLED` / `DIRECTIVE_APPROVAL_ALLOW_SELF` | Two-person approval workflow is deferred (2026-04-24). No env vars today — the code path doesn't exist. |
+
+---
+
+## Directive DB schema (cumulative through migration v11)
+
+| Table | Migration | Purpose |
+|---|---|---|
+| `directive_actions` | v8 | Audit row per directive write attempt. Never deleted. Powers `/directive → Audit log`. |
+| `directive_push_requests` | v9 | One row per push attempt. `baseline_id` carries a prefix: `<id>` for CA baselines, `custom:<id>` for the wizard, `intune:<id>` for Intune, `sharepoint:<id>` for SharePoint, `ioc:<id>` for IOC pushes. Captures actor + timestamps + per-tenant target list. |
+| `directive_push_actions` | v9 | Per-tenant row inside a push. `graph_policy_id` only set on creates (NULL on idempotent matches → rollback safety; rollback skips NULL rows). |
+| `custom_ca_policies` | v10 | Wizard drafts with `spec_json` + status (`draft` / `archived`). |
+| `directive_iocs` | v11 | Operator-authored IOC catalog (type / value / action / severity / description / expiration). Pushes land on `directive_push_requests` / `_actions`; this table makes the IOC list view a single read. |
+| `consent_history` | v7 | Audit trail for per-entity `consent_mode` transitions (observation ↔ directive). |
