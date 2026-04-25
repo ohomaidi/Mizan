@@ -183,7 +183,15 @@ const GRAPH_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [
  * `/security/tiIndicators` which Microsoft deprecated for removal by
  * April 2026; we replaced both the endpoint and the scope.
  */
-const DEFENDER_APP_PERMISSIONS: Array<{ name: string; id: string }> = [
+/** Defender API read-only scopes — needed in both observation + directive. */
+const DEFENDER_APP_READ_PERMISSIONS: Array<{ name: string; id: string }> = [
+  // GET https://api.security.microsoft.com/api/machines (Phase 16
+  // Workload Coverage card — MDE onboarded device inventory). Read-only.
+  { name: "Machine.Read.All", id: "ea8291d3-4b9a-44b5-bc3a-6cea3026dc79" },
+];
+
+/** Defender API write-side scopes — directive deployments only. */
+const DEFENDER_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [
   // POST/PUT/DELETE https://api.security.microsoft.com/api/indicators
   // 15,000-indicator-per-tenant ceiling, 100 calls/minute, 1500/hour.
   { name: "Ti.ReadWrite.All", id: "bc2dd901-9ae8-4d0a-a3a6-bbd4ddf25fa6" },
@@ -220,6 +228,10 @@ function requiredResourceAccessForMode(
   resourceAppId: string;
   resourceAccess: Array<{ id: string; type: "Role" }>;
 }> {
+  const defenderPerms =
+    mode === "directive"
+      ? [...DEFENDER_APP_READ_PERMISSIONS, ...DEFENDER_APP_WRITE_PERMISSIONS]
+      : DEFENDER_APP_READ_PERMISSIONS;
   const blocks: Array<{
     resourceAppId: string;
     resourceAccess: Array<{ id: string; type: "Role" }>;
@@ -231,16 +243,14 @@ function requiredResourceAccessForMode(
         type: "Role",
       })),
     },
-  ];
-  if (mode === "directive") {
-    blocks.push({
+    {
       resourceAppId: WIN_DEFENDER_ATP,
-      resourceAccess: DEFENDER_APP_PERMISSIONS.map((p) => ({
+      resourceAccess: defenderPerms.map((p) => ({
         id: p.id,
         type: "Role",
       })),
-    });
-  }
+    },
+  ];
   return blocks;
 }
 

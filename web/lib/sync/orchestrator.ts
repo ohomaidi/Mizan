@@ -32,6 +32,7 @@ import {
   fetchThreatIntelligence,
   fetchVulnerabilities,
 } from "@/lib/graph/signals";
+import { fetchWorkloadCoverage } from "@/lib/graph/workload-coverage";
 import { GraphError } from "@/lib/graph/fetch";
 import { invalidateTenantToken } from "@/lib/graph/msal";
 import { config } from "@/lib/config";
@@ -113,6 +114,11 @@ const SIGNAL_ORDER = [
   { type: "vulnerabilities", run: fetchVulnerabilities },
   // Label adoption telemetry (async job — submits or polls depending on state).
   { type: "labelAdoption", run: fetchLabelAdoption },
+  // Phase 16 — Workload Coverage rollup. Multi-resource (Graph +
+  // Defender API + license SKU detection); rendered at the top of the
+  // entity overview page. Runs last so individual signal refreshes are
+  // never blocked behind it.
+  { type: "workloadCoverage", run: fetchWorkloadCoverage },
 ] as const;
 
 /**

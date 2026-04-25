@@ -917,6 +917,81 @@ export const DICT = {
     "entity.review.dialog.clear": "Clear",
     "entity.review.dialog.cancel": "Cancel",
 
+    "workloadCoverage.title": "Microsoft 365 workload coverage",
+    "workloadCoverage.subtitle":
+      "What this entity has licensed, what's actively deployed, and where the coverage gaps are. Tools served by Microsoft Graph beta endpoints are tagged BETA; tools whose deployment details aren't on Microsoft Graph yet show license + activity proxies.",
+    "workloadCoverage.collectedAt": "Collected {when}",
+    "workloadCoverage.notYetCollected": "Coverage signal not collected yet for this entity. Press \u201cSync now\u201d to gather it.",
+    "workloadCoverage.awaitingFirstSync": "Waiting on the first sync of this entity.",
+    "workloadCoverage.licensed": "Licensed.",
+    "workloadCoverage.notLicensed": "Not licensed.",
+    "workloadCoverage.seatMath": "{consumed} of {total} seats assigned.",
+    "workloadCoverage.licenseNoSeatData": "Seats not reported.",
+    "workloadCoverage.andMore": "+{n} more",
+
+    "workloadCoverage.badge.live": "Live",
+    "workloadCoverage.badge.beta": "Beta",
+    "workloadCoverage.badge.comingSoon": "Coming soon",
+    "workloadCoverage.badge.comingSoonLicensed": "Coming soon",
+
+    "workloadCoverage.tool.intune.name": "Intune",
+    "workloadCoverage.tool.intune.subtitle":
+      "Device + app management. MDM authority, enrolled devices, compliance + configuration profiles.",
+    "workloadCoverage.intune.mdmAuthority": "MDM authority",
+    "workloadCoverage.intune.enrolled": "Enrolled devices",
+    "workloadCoverage.intune.compliant": "% compliant",
+    "workloadCoverage.intune.compliancePolicies": "Compliance policies",
+    "workloadCoverage.intune.configProfiles": "Config profiles",
+    "workloadCoverage.intune.settingsCatalog": "Settings catalog",
+    "workloadCoverage.intune.byPlatform": "By platform",
+
+    "workloadCoverage.tool.mde.name": "Defender for Endpoint (MDE)",
+    "workloadCoverage.tool.mde.subtitle":
+      "Endpoint sensors. Onboarded device count, OS distribution, last-seen activity, stale-sensor detection.",
+    "workloadCoverage.mde.onboarded": "Onboarded",
+    "workloadCoverage.mde.activeLast7d": "Active (7d)",
+    "workloadCoverage.mde.staleOver30d": "Stale (>30d)",
+    "workloadCoverage.mde.byOs": "By OS",
+    "workloadCoverage.mde.coverageGap":
+      "{n} Intune-managed devices are not yet onboarded to MDE. Closing this gap is the highest-leverage endpoint-protection action for this entity.",
+
+    "workloadCoverage.tool.mdi.name": "Defender for Identity (MDI)",
+    "workloadCoverage.tool.mdi.subtitle":
+      "On-prem AD sensor coverage + sensor health. Sensor inventory pulled from Microsoft Graph beta — schema may shift.",
+    "workloadCoverage.mdi.sensors": "Sensors",
+    "workloadCoverage.mdi.openHealth": "Open issues",
+    "workloadCoverage.mdi.criticalHealth": "Critical issues",
+
+    "workloadCoverage.tool.labels.name": "Sensitivity Labels",
+    "workloadCoverage.tool.labels.subtitle":
+      "Microsoft Purview sensitivity-label catalog. Label policies + auto-labelling rules require Security & Compliance PowerShell — coming soon.",
+    "workloadCoverage.labels.published": "Published labels",
+    "workloadCoverage.labels.eventsLast30d": "Activity (30d)",
+    "workloadCoverage.labels.catalog": "Catalog",
+
+    "workloadCoverage.tool.mdo.name": "Defender for Office 365 (MDO)",
+    "workloadCoverage.tool.mdo.subtitle":
+      "Email + collab threat protection. Policy details (Safe Attachments, Safe Links, anti-phishing) require Exchange Online PowerShell.",
+    "workloadCoverage.mdo.alertsLast30d": "Alerts (30d)",
+    "workloadCoverage.mdo.submissionsLast30d": "Submissions (30d)",
+    "workloadCoverage.mdo.comingSoonNote":
+      "Activity proxy (alerts + submissions) shown here. Full policy details available in the Defender admin portal.",
+
+    "workloadCoverage.tool.mdca.name": "Defender for Cloud Apps (MDCA)",
+    "workloadCoverage.tool.mdca.subtitle":
+      "SaaS / OAuth security. Sanctioned-app catalog + connected apps live on the per-tenant MDCA portal API.",
+    "workloadCoverage.mdca.alertsLast30d": "Alerts (30d)",
+    "workloadCoverage.mdca.comingSoonNote":
+      "Activity proxy (alerts) shown here. Sanctioned apps + connected apps are available in the Defender for Cloud Apps portal.",
+
+    "workloadCoverage.tool.dlp.name": "Data Loss Prevention",
+    "workloadCoverage.tool.dlp.subtitle":
+      "Endpoint DLP, Teams DLP, SharePoint, OneDrive, Exchange. Per-workload deployment requires Security & Compliance PowerShell.",
+    "workloadCoverage.dlp.policiesBeta": "Policies (beta)",
+    "workloadCoverage.dlp.alertsLast30d": "Alerts (30d)",
+    "workloadCoverage.dlp.comingSoonNote":
+      "Activity proxy (alerts) + tenant policy count from Microsoft Graph beta. Per-workload (Endpoint / Teams / SPO / OneDrive / Exchange) deployment available in the Purview portal.",
+
     "entity.maturityTitle": "Maturity index",
     "entity.maturitySubtitle": "Vs. {orgShort} target {target}",
     "entity.targetMarker": "Target {target}",
@@ -3364,6 +3439,81 @@ export const DICT = {
     "entity.review.dialog.save": "حفظ",
     "entity.review.dialog.clear": "مسح",
     "entity.review.dialog.cancel": "إلغاء",
+
+    "workloadCoverage.title": "تغطية أحمال Microsoft 365",
+    "workloadCoverage.subtitle":
+      "ما رخّصته هذه الجهة، وما هو منشور فعلياً، وأين فجوات التغطية. الأدوات المخدومة من نقاط Microsoft Graph التجريبية موسومة BETA؛ الأدوات التي لم تُكشف تفاصيل نشرها على Graph بعد تظهر مؤشرات الترخيص + النشاط.",
+    "workloadCoverage.collectedAt": "جُمعت {when}",
+    "workloadCoverage.notYetCollected": "إشارة التغطية لم تُجمع بعد لهذه الجهة. اضغط \u00ab\u062cمزامنة الآن\u00bb لجمعها.",
+    "workloadCoverage.awaitingFirstSync": "بانتظار أول مزامنة لهذه الجهة.",
+    "workloadCoverage.licensed": "مُرخَّص.",
+    "workloadCoverage.notLicensed": "غير مُرخَّص.",
+    "workloadCoverage.seatMath": "{consumed} من أصل {total} مقعد مُسنَد.",
+    "workloadCoverage.licenseNoSeatData": "لم تُرفع المقاعد.",
+    "workloadCoverage.andMore": "+{n} أخرى",
+
+    "workloadCoverage.badge.live": "متاح",
+    "workloadCoverage.badge.beta": "تجريبي",
+    "workloadCoverage.badge.comingSoon": "قادم قريباً",
+    "workloadCoverage.badge.comingSoonLicensed": "قادم قريباً",
+
+    "workloadCoverage.tool.intune.name": "Intune",
+    "workloadCoverage.tool.intune.subtitle":
+      "إدارة الأجهزة + التطبيقات. سلطة MDM، الأجهزة المسجَّلة، سياسات الالتزام، ملفات الإعداد.",
+    "workloadCoverage.intune.mdmAuthority": "سلطة MDM",
+    "workloadCoverage.intune.enrolled": "أجهزة مسجَّلة",
+    "workloadCoverage.intune.compliant": "% ملتزم",
+    "workloadCoverage.intune.compliancePolicies": "سياسات الالتزام",
+    "workloadCoverage.intune.configProfiles": "ملفات الإعداد",
+    "workloadCoverage.intune.settingsCatalog": "كتالوج الإعدادات",
+    "workloadCoverage.intune.byPlatform": "حسب المنصّة",
+
+    "workloadCoverage.tool.mde.name": "Defender for Endpoint (MDE)",
+    "workloadCoverage.tool.mde.subtitle":
+      "حسّاسات النقاط الطرفية. عدد الأجهزة المُلحَقة، توزيع نظام التشغيل، النشاط الأخير، اكتشاف الحسّاسات الراكدة.",
+    "workloadCoverage.mde.onboarded": "مُلحَقة",
+    "workloadCoverage.mde.activeLast7d": "نشطة (7 أيام)",
+    "workloadCoverage.mde.staleOver30d": "راكدة (>30 يوماً)",
+    "workloadCoverage.mde.byOs": "حسب نظام التشغيل",
+    "workloadCoverage.mde.coverageGap":
+      "{n} جهاز مُدار بـ Intune لم يُلحَق بعد بـ MDE. سدّ هذه الفجوة هو أعلى إجراءات حماية النقاط الطرفية رفعاً للقيمة لهذه الجهة.",
+
+    "workloadCoverage.tool.mdi.name": "Defender for Identity (MDI)",
+    "workloadCoverage.tool.mdi.subtitle":
+      "تغطية حسّاسات AD المحلية + صحة الحسّاس. جرد الحسّاسات يأتي من Microsoft Graph التجريبي — قد يتغيّر المخطط.",
+    "workloadCoverage.mdi.sensors": "حسّاسات",
+    "workloadCoverage.mdi.openHealth": "مشاكل مفتوحة",
+    "workloadCoverage.mdi.criticalHealth": "مشاكل حرجة",
+
+    "workloadCoverage.tool.labels.name": "تصنيفات الحساسية",
+    "workloadCoverage.tool.labels.subtitle":
+      "كتالوج تصنيفات Microsoft Purview. سياسات التصنيف + التصنيف التلقائي تتطلب PowerShell — قادم قريباً.",
+    "workloadCoverage.labels.published": "تصنيفات منشورة",
+    "workloadCoverage.labels.eventsLast30d": "نشاط (30 يوماً)",
+    "workloadCoverage.labels.catalog": "الكتالوج",
+
+    "workloadCoverage.tool.mdo.name": "Defender for Office 365 (MDO)",
+    "workloadCoverage.tool.mdo.subtitle":
+      "حماية البريد + التعاون. تفاصيل السياسات (Safe Attachments / Links / anti-phishing) تتطلب PowerShell الخاص بـ Exchange Online.",
+    "workloadCoverage.mdo.alertsLast30d": "تنبيهات (30 يوماً)",
+    "workloadCoverage.mdo.submissionsLast30d": "إرساليات (30 يوماً)",
+    "workloadCoverage.mdo.comingSoonNote":
+      "مؤشر النشاط (التنبيهات + الإرساليات) معروض هنا. تفاصيل السياسات الكاملة متاحة في بوابة Defender.",
+
+    "workloadCoverage.tool.mdca.name": "Defender for Cloud Apps (MDCA)",
+    "workloadCoverage.tool.mdca.subtitle":
+      "حماية SaaS / OAuth. كتالوج التطبيقات المُجازة + التطبيقات المتّصلة على واجهة بوابة MDCA لكل مستأجر.",
+    "workloadCoverage.mdca.alertsLast30d": "تنبيهات (30 يوماً)",
+    "workloadCoverage.mdca.comingSoonNote":
+      "مؤشر النشاط (التنبيهات) معروض هنا. التطبيقات المُجازة + المتّصلة متوفّرة في بوابة Defender for Cloud Apps.",
+
+    "workloadCoverage.tool.dlp.name": "منع تسرّب البيانات",
+    "workloadCoverage.tool.dlp.subtitle":
+      "Endpoint DLP، Teams DLP، SharePoint، OneDrive، Exchange. النشر لكل حِمل يتطلب PowerShell.",
+    "workloadCoverage.dlp.policiesBeta": "سياسات (تجريبي)",
+    "workloadCoverage.dlp.alertsLast30d": "تنبيهات (30 يوماً)",
+    "workloadCoverage.dlp.comingSoonNote":
+      "مؤشر النشاط (التنبيهات) + عدد سياسات المستأجر من Microsoft Graph التجريبي. النشر لكل حِمل (Endpoint / Teams / SPO / OneDrive / Exchange) متاح في بوابة Purview.",
 
     "entity.maturityTitle": "مؤشر النضج",
     "entity.maturitySubtitle": "مقارنة بهدف {orgShort} {target}",

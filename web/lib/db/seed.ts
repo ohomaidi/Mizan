@@ -1005,6 +1005,162 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
         payload: JSON.stringify(generateVulnerabilities(e, devices)),
       });
 
+      // Workload Coverage — Phase 16. Synthesizes the multi-tool rollup
+      // shown at the top of the entity overview page. Numbers correlate
+      // with the entity's overall maturity index so the demo looks
+      // coherent (a 92-index entity has 100% Intune+MDE coverage and an
+      // 18-index entity has gaps everywhere). The Intune-vs-MDE coverage
+      // gap is computed live from the synthesized counts so the headline
+      // callout strip works without further wiring.
+      {
+        const totalDevices = devices.length;
+        const intuneEnrolled = Math.round(
+          totalDevices * (0.85 + Math.random() * 0.12),
+        );
+        const mdeOnboarded = Math.round(
+          intuneEnrolled * (0.65 + (e.index / 100) * 0.3),
+        );
+        const compliantPct = Math.round(60 + (e.index / 100) * 35);
+        const compliantDevices = Math.round(
+          intuneEnrolled * (compliantPct / 100),
+        );
+        const platformSplit = {
+          windows: Math.round(intuneEnrolled * 0.6),
+          ios: Math.round(intuneEnrolled * 0.18),
+          android: Math.round(intuneEnrolled * 0.16),
+          macOS: Math.round(intuneEnrolled * 0.06),
+        };
+        const osSplit = {
+          Windows10: Math.round(mdeOnboarded * 0.45),
+          Windows11: Math.round(mdeOnboarded * 0.4),
+          WindowsServer2019: Math.round(mdeOnboarded * 0.07),
+          WindowsServer2022: Math.round(mdeOnboarded * 0.05),
+          Other: Math.round(mdeOnboarded * 0.03),
+        };
+        const dcCount = Math.max(2, Math.round(2 + Math.random() * 4));
+        const mdiOpenIssues = e.index < 60 ? Math.round(2 + Math.random() * 6) : 0;
+        const mdiCriticalIssues = e.index < 50 && Math.random() > 0.5 ? 1 : 0;
+        const labelEventsLast30d = Math.round(
+          150 + (e.index / 100) * 800 + Math.random() * 100,
+        );
+        const mdoAlerts = Math.round(2 + Math.random() * 18);
+        const submissions = Math.round(Math.random() * 8);
+        const mdcaAlerts = Math.round(Math.random() * 12);
+        const dlpAlerts = Math.round(4 + Math.random() * 22);
+        const seatBase = Math.max(50, totalDevices + 20);
+        insertSnap.run({
+          tenant_id: e.id,
+          signal_type: "workloadCoverage",
+          payload: JSON.stringify({
+            collectedAt: lastSyncAt,
+            mdmAuthority: "intune",
+            tenantUserCountFloor: seatBase,
+            intune: {
+              available: "live",
+              license: {
+                licensed: true,
+                via: "ENTERPRISEPACKPLUS / INTUNE_A",
+                totalSeats: seatBase + 20,
+                consumedSeats: seatBase,
+              },
+              enrolledDevices: intuneEnrolled,
+              devicesByPlatform: platformSplit,
+              devicesByCompliance: {
+                compliant: compliantDevices,
+                noncompliant: intuneEnrolled - compliantDevices,
+              },
+              percentCompliant: compliantPct,
+              compliancePolicyCount: 7 + Math.round(Math.random() * 4),
+              configurationProfileCount: 12 + Math.round(Math.random() * 6),
+              settingsCatalogProfileCount: 4 + Math.round(Math.random() * 3),
+              error: null,
+            },
+            mde: {
+              available: "live",
+              license: {
+                licensed: true,
+                via: "M365_E5 / WINDEFATP",
+                totalSeats: seatBase + 20,
+                consumedSeats: seatBase,
+              },
+              onboardedDevices: mdeOnboarded,
+              activeLast7Days: Math.round(mdeOnboarded * 0.92),
+              staleOver30Days: Math.round(mdeOnboarded * 0.04),
+              devicesByOs: osSplit,
+              devicesByHealth: {
+                Active: Math.round(mdeOnboarded * 0.92),
+                Inactive: Math.round(mdeOnboarded * 0.05),
+                ImpairedCommunication: Math.round(mdeOnboarded * 0.02),
+                NoSensorData: Math.round(mdeOnboarded * 0.01),
+              },
+              intuneCoverageGap: Math.max(0, intuneEnrolled - mdeOnboarded),
+              error: null,
+            },
+            mdi: {
+              available: "beta",
+              license: {
+                licensed: e.index >= 30,
+                via: e.index >= 30 ? "M365_E5 / ATA" : null,
+                totalSeats: e.index >= 30 ? seatBase + 20 : 0,
+                consumedSeats: e.index >= 30 ? seatBase : 0,
+              },
+              sensorCount: e.index >= 30 ? dcCount : null,
+              openHealthIssues: e.index >= 30 ? mdiOpenIssues : null,
+              criticalHealthIssues: e.index >= 30 ? mdiCriticalIssues : null,
+              error: null,
+            },
+            labels: {
+              available: "live",
+              license: {
+                licensed: true,
+                via: "ENTERPRISEPACKPLUS / RMS_S_ENTERPRISE",
+                totalSeats: seatBase + 20,
+                consumedSeats: seatBase,
+              },
+              publishedLabelCount: 4,
+              labelNames: ["Public", "Internal", "Confidential", "Highly Confidential"],
+              labelEventsLast30d,
+              error: null,
+            },
+            mdo: {
+              available: "coming_soon",
+              license: {
+                licensed: true,
+                via: "M365_E5 / ATP_ENTERPRISE",
+                totalSeats: seatBase + 20,
+                consumedSeats: seatBase,
+              },
+              alertsLast30d: mdoAlerts,
+              submissionsLast30d: submissions,
+              error: null,
+            },
+            mdca: {
+              available: "coming_soon",
+              license: {
+                licensed: e.index >= 50,
+                via: e.index >= 50 ? "M365_E5 / ADALLOM_S_STANDALONE" : null,
+                totalSeats: e.index >= 50 ? seatBase + 20 : 0,
+                consumedSeats: e.index >= 50 ? seatBase : 0,
+              },
+              alertsLast30d: e.index >= 50 ? mdcaAlerts : 0,
+              error: null,
+            },
+            dlp: {
+              available: "coming_soon",
+              license: {
+                licensed: true,
+                via: "M365_E5 / MIP_S_CLP2",
+                totalSeats: seatBase + 20,
+                consumedSeats: seatBase,
+              },
+              policyCountBeta: 5 + Math.round(Math.random() * 4),
+              alertsLast30d: dlpAlerts,
+              error: null,
+            },
+          }),
+        });
+      }
+
       // Label adoption — synthesized from sensitivity label mix scaled by entity size.
       const adoptionEvents = Math.round(
         200 + Math.random() * 400 + e.index * 3,

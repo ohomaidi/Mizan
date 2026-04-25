@@ -20,7 +20,11 @@ export type SignalType =
   | "threatIntelligence"
   | "advancedHunting"
   | "labelAdoption"
-  | "vulnerabilities";
+  | "vulnerabilities"
+  // Phase 16 — Workload Coverage card. Aggregates Intune / MDE / MDI /
+  // Labels / MDO / MDCA / DLP into a single per-tenant payload via a
+  // multi-resource collector. Stored as one row per refresh.
+  | "workloadCoverage";
 
 export type SignalSnapshot<P = unknown> = {
   id: number;
@@ -100,6 +104,7 @@ const ALL_SIGNAL_TYPES: SignalType[] = [
   "advancedHunting",
   "labelAdoption",
   "vulnerabilities",
+  "workloadCoverage",
 ];
 
 export function getLatestSnapshotsForTenant(
