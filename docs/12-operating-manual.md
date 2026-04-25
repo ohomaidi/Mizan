@@ -283,15 +283,20 @@ Policies ship **un-assigned by default** — the Intune equivalent of CA's repor
 
 License requirement: every target entity must have Intune P1 (Microsoft 365 E3+ / A3+ / standalone). Unlicensed tenants return 403 on push — the push modal surfaces this as `failed` with the Graph error.
 
-### B.8 DLP + Sensitivity Labels (Phases 6/7) — COMING SOON
+### B.8 Coming-soon roadmap catalogs (Phases 6, 7, 9, 12, 13, 15)
 
-Both Phases 6 (Data Loss Prevention) and 7 (Sensitivity Labels) ship as **catalog + card UI with push disabled**. An accent *"Coming soon"* banner explains why.
+Six phases ship as **catalog + card UI with push disabled**. An accent *"Coming soon"* banner explains each one. The catalog is fully authored — operators can review baseline copy with entities to pre-brief them on the direction of travel.
 
-Reason: Microsoft Graph doesn't yet expose the full DLP and sensitivity-label authoring API. Endpoint DLP, rule exceptions, user notifications, incident reports, label encryption, content marking, publishing policies, and auto-labeling rules are missing from Graph's public preview today.
+| Section | Baselines | Why coming-soon |
+|---|---|---|
+| **Phase 6 — Data Loss Prevention** | 4 baselines (block sensitive external share, block credential exfil, flag bulk transfer, block labelled-data sharing) | Graph DLP authoring API is minimal; rule exceptions, user notifications, incident reports, endpoint DLP, most condition types missing |
+| **Phase 7 — Sensitivity Labels** | 3 baselines (4-level hierarchy, auto-label internal, auto-label sensitive content) | Graph creates bare labels only; encryption, content marking, publishing, auto-label rules missing |
+| **Phase 9 — Attack Simulation Training** | 3 baselines (quarterly phishing, new-hire training, repeat-offender retraining) | Graph reads work; create + schedule API in beta only |
+| **Phase 12 — PIM + Identity Governance** | 5 baselines (MFA on activation, 8h max, justification required, notify on activation, quarterly access review) | Most write paths land on Graph today; held coming-soon until cross-tenant CRUD contract is stable |
+| **Phase 13 — App Consent Policies** | 4 baselines (verified-only, admin workflow, block high-risk perms, pre-approve low-risk) | On Graph today; coming-soon catalog now, real Phase 13 implementation lands next |
+| **Phase 15 — Tenant Identity Defaults** | 6 baselines (FIDO2 tenant-wide, block user app reg, block user tenant creation, restrict default perms, cross-tenant MFA trust, block personal-account linking) | Most surfaces on Graph; schemas have been moving (FIDO2 → passkey rename, B2B trust model rev). Coming-soon until they settle. |
 
-**User decision 2026-04-24: no PowerShell workaround.** We wait for Microsoft to close the Graph gap instead of building a parallel PS execution tier. When the missing endpoints land on Graph, we flip `pushEnabled: true` in the relevant API route and push unlocks — no redeploy, no architectural change.
-
-The catalog is fully authored today and reviewable by customers. Use it to pre-brief entities on the direction of travel so they're not surprised when push lands.
+**User decision 2026-04-24: no PowerShell workaround.** We wait for Microsoft to close the Graph gap (or stabilise the schema) for each phase. When ready, we flip `pushEnabled: true` in the relevant API route and push unlocks — no redeploy, no architectural change.
 
 ### B.9 What directive mode still doesn't do (deferred)
 

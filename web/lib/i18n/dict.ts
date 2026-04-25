@@ -1753,6 +1753,110 @@ export const DICT = {
     "labels.baseline.autoLabelSensitive.body":
       "Content matching built-in sensitive-info types is auto-labelled Confidential or Highly Confidential based on severity. Bridges the gap between DLP detection and label-based enforcement.",
 
+    // ---- Phase 9 Attack Simulation Training (coming soon) ----
+    "attackSim.title": "Attack simulation training",
+    "attackSim.subtitle":
+      "Curated phishing-simulation + awareness-training schedule. Push unlocks when Microsoft GAs the simulation create + automation API on Graph — read-side is already wired.",
+    "attackSim.previewBanner.title": "Coming soon",
+    "attackSim.previewBanner.body":
+      "Microsoft Graph exposes Attack Simulation reads but the create + schedule surface is in beta only. When Microsoft GAs the simulation create + automation API, every card here unlocks automatically.",
+    "attackSim.baseline.quarterlyPhishing.title":
+      "Quarterly phishing simulation",
+    "attackSim.baseline.quarterlyPhishing.body":
+      "Schedule a phishing simulation against all licensed users every 90 days. Microsoft's curated payload library; randomise across credential-harvest, link-in-attachment, and malware-attachment patterns. Click rate trends per entity over time.",
+    "attackSim.baseline.newHireTraining.title":
+      "Auto-enroll new hires in training",
+    "attackSim.baseline.newHireTraining.body":
+      "Every newly licensed user is auto-enrolled in Microsoft's phishing-awareness training course within 30 days of license assignment. No manual provisioning. Closes the 'new joiner is the easiest target' gap.",
+    "attackSim.baseline.repeatOffender.title":
+      "Repeat-offender retraining",
+    "attackSim.baseline.repeatOffender.body":
+      "Users who clicked or supplied credentials in the last simulation get a follow-up training within 7 days. Compounds across simulations — third-time offenders trigger a manager notification.",
+
+    // ---- Phase 12 PIM + Identity Governance (coming soon) ----
+    "pim.title": "PIM + identity governance",
+    "pim.subtitle":
+      "Privileged Identity Management activation policies + access reviews + Terms of Use. Most write paths land on Graph today; held coming-soon until the cross-tenant CRUD contract is stable.",
+    "pim.previewBanner.title": "Coming soon",
+    "pim.previewBanner.body":
+      "PIM + Identity Governance writes mostly land on Graph today, but role-management policy settings + entitlement-management catalogs have rough edges in cross-tenant CRUD. The catalog below ships now; full Phase 12 implementation lands once the contract is reliable across tenants.",
+    "pim.baseline.mfaOnActivation.title":
+      "MFA required on PIM activation",
+    "pim.baseline.mfaOnActivation.body":
+      "Every privileged role activation requires MFA at the moment of activation, even if the admin's session is already MFA'd. The single most-cited PIM control in audits.",
+    "pim.baseline.maxActivation8h.title":
+      "Cap activation at 8 hours",
+    "pim.baseline.maxActivation8h.body":
+      "Maximum activation duration capped at 8 hours; auto-expires. Admins can request shorter (e.g. 1h for a specific change) but never longer. Reduces the 'forgot to deactivate over the weekend' lateral-move surface.",
+    "pim.baseline.justificationRequired.title":
+      "Justification required on activation",
+    "pim.baseline.justificationRequired.body":
+      "Activation requires a free-text justification of at least 20 characters. Stored on the role-assignment-schedule audit row, surfaced in Mizan's audit log next to the activation event.",
+    "pim.baseline.notificationOnActivation.title":
+      "Notify on activation",
+    "pim.baseline.notificationOnActivation.body":
+      "Security team email + admin's manager notified on every privileged role activation. Catches the rogue-admin scenario early; pairs with the audit log for forensic context.",
+    "pim.baseline.quarterlyAccessReview.title":
+      "Quarterly privileged-role access review",
+    "pim.baseline.quarterlyAccessReview.body":
+      "Quarterly access review of every privileged role assignment (eligible + active). Reviewers = role's manager chain. Auto-removal of un-reviewed assignments at deadline closes the 'forgot they had Global Admin from a project two years ago' gap.",
+
+    // ---- Phase 13 App Consent (coming soon) ----
+    "appConsent.title": "App consent policies",
+    "appConsent.subtitle":
+      "OAuth consent guardrails. Restrict which third-party apps users can consent to without admin approval. Closes the OAuth consent phishing surface.",
+    "appConsent.previewBanner.title": "Coming soon",
+    "appConsent.previewBanner.body":
+      "App consent + admin consent workflow are on Graph today (`/policies/adminConsentRequestPolicy`, `/policies/permissionGrantPolicies`). Verified-publisher allowlists + pre-approved permission sets vary tenant-to-tenant. Coming-soon catalog now; real Phase 13 implementation lands next.",
+    "appConsent.baseline.verifiedOnly.title":
+      "Restrict consent to verified publishers",
+    "appConsent.baseline.verifiedOnly.body":
+      "Users can only consent to apps from Microsoft-verified publishers. Unverified third-party apps require admin approval. Closes the OAuth consent phishing surface — one of the top current attack vectors.",
+    "appConsent.baseline.adminWorkflow.title":
+      "Enable admin consent request workflow",
+    "appConsent.baseline.adminWorkflow.body":
+      "When users hit a blocked app, they can submit an admin consent request via the Microsoft 365 portal. Designated reviewers (Cloud Application Administrators) approve or reject in the Entra admin center. Removes the 'just disable it for everyone' tax.",
+    "appConsent.baseline.blockHighRisk.title":
+      "Always require admin approval for high-risk permissions",
+    "appConsent.baseline.blockHighRisk.body":
+      "Block user consent to apps requesting high-risk permissions: Mail.ReadWrite, Files.ReadWrite.All, Sites.FullControl.All, Application.ReadWrite.All, Directory.ReadWrite.All. These permissions enable the most common consent-phishing exfiltration paths.",
+    "appConsent.baseline.preapproveLowRisk.title":
+      "Pre-approve low-risk permissions",
+    "appConsent.baseline.preapproveLowRisk.body":
+      "Pre-approve user consent for the low-risk permission set (User.Read, openid, profile, email, offline_access). Preserves frictionless sign-in for legitimate apps; reduces noise in the admin-consent inbox.",
+
+    // ---- Phase 15 Tenant Identity Defaults (coming soon) ----
+    "tenantIdentity.title": "Tenant-wide identity defaults",
+    "tenantIdentity.subtitle":
+      "Authentication-methods policy, default user permissions, cross-tenant access trust. Completes the identity hardening story alongside Conditional Access.",
+    "tenantIdentity.previewBanner.title": "Coming soon",
+    "tenantIdentity.previewBanner.body":
+      "Tenant-wide identity defaults live on `/authenticationMethodsPolicy`, `/authorizationPolicy`, and the cross-tenant access settings endpoints. Schemas have been moving (FIDO2 → passkey rename, B2B trust model rev). Coming-soon catalog now; real Phase 15 implementation lands once the schemas settle.",
+    "tenantIdentity.baseline.fido2TenantWide.title":
+      "FIDO2 / passkey enabled tenant-wide",
+    "tenantIdentity.baseline.fido2TenantWide.body":
+      "Tenant-wide allow + recommend FIDO2 / passkey for every user. Pairs with the Phase 3 phishing-resistant MFA admin baseline by ensuring users CAN enroll a key in the first place. Without this, the admin policy fails on registration day.",
+    "tenantIdentity.baseline.blockUserAppRegistration.title":
+      "Only admins register apps",
+    "tenantIdentity.baseline.blockUserAppRegistration.body":
+      "Only Application Administrators (and equivalents) can register Entra apps. Default user permission `allowedToCreateApps: false`. Removes the 'rogue user creates app, consents itself, exfils data' attack chain.",
+    "tenantIdentity.baseline.blockUserTenantCreation.title":
+      "Only admins create tenants",
+    "tenantIdentity.baseline.blockUserTenantCreation.body":
+      "Block ordinary users from spinning up new Entra tenants under your subscription. Default user permission `allowedToCreateTenants: false`. Closes a quirky exfil path where users move data to a new tenant they control.",
+    "tenantIdentity.baseline.restrictDefaultUserPerms.title":
+      "Lock down default user permissions",
+    "tenantIdentity.baseline.restrictDefaultUserPerms.body":
+      "Default user role can no longer read all directory objects, create Microsoft 365 groups, or invite guests. Guest invites delegated to a Guest Inviter role. Tightens the 'reconnaissance from a low-priv account' gap.",
+    "tenantIdentity.baseline.crossTenantTrustMfa.title":
+      "Trust partner-tenant MFA + compliance",
+    "tenantIdentity.baseline.crossTenantTrustMfa.body":
+      "Trust inbound MFA + compliant-device claims from explicitly-listed partner tenants (B2B collaboration). Avoids re-MFA prompts on legitimate B2B collaboration without lowering the bar for unknown tenants.",
+    "tenantIdentity.baseline.blockPersonalLinking.title":
+      "Block personal-account linking",
+    "tenantIdentity.baseline.blockPersonalLinking.body":
+      "Disable LinkedIn account connections + similar personal-account linking. Removes the 'add my personal LinkedIn to my work identity' surface that has been used for credential-correlation phishing.",
+
     "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
     "baseline.requireMfaForAdmins.body":
       "Every privileged directory role (Global Admin, Security Admin, Exchange / SharePoint / User / App / Cloud App / Authentication / Helpdesk / Intune / Billing / Privileged Role / Conditional Access Administrator) must satisfy multi-factor authentication. Report-only by default.",
@@ -3852,6 +3956,110 @@ export const DICT = {
       "تصنيف تلقائي للمحتوى الحسّاس",
     "labels.baseline.autoLabelSensitive.body":
       "المحتوى المطابق لأنواع المعلومات الحسّاسة المدمجة يُصنَّف تلقائيًا Confidential أو Highly Confidential حسب الشدّة. يربط كشف DLP بالإنفاذ المُستند إلى التصنيف.",
+
+    // ---- Phase 9 Attack Simulation (قريبًا) ----
+    "attackSim.title": "تدريب محاكاة الهجمات",
+    "attackSim.subtitle":
+      "جدولة محاكاة تصيّد + تدريبات وعي مُنسَّقة. يُفتَح الدفع حين تُتيح Microsoft واجهة إنشاء + جدولة المحاكاة على Graph بشكل عام — جانب القراءة موصول بالفعل.",
+    "attackSim.previewBanner.title": "قريبًا",
+    "attackSim.previewBanner.body":
+      "Microsoft Graph تُتيح قراءة محاكاة الهجمات لكن واجهة الإنشاء + الجدولة في Beta فقط. حين تُعمَّم الواجهة، تُفتَح كل البطاقات هنا تلقائيًا.",
+    "attackSim.baseline.quarterlyPhishing.title":
+      "محاكاة تصيّد ربع سنوية",
+    "attackSim.baseline.quarterlyPhishing.body":
+      "جدولة محاكاة تصيّد ضد كل المستخدمين المرخّصين كل 90 يومًا. باستخدام مكتبة Microsoft المنسَّقة؛ توزيع عشوائي بين أنماط حصاد الاعتمادات والروابط في المرفقات والبرمجيات الخبيثة في المرفقات. اتجاهات معدّل النقر لكل جهة عبر الزمن.",
+    "attackSim.baseline.newHireTraining.title":
+      "تسجيل تلقائي للموظّفين الجدد في التدريب",
+    "attackSim.baseline.newHireTraining.body":
+      "كل مستخدم جديد مرخّص يُسجَّل تلقائيًا في دورة التوعية ضد التصيّد من Microsoft خلال 30 يومًا من تخصيص الترخيص. بلا توفير يدوي. يُغلق فجوة 'الموظّف الجديد هدف أسهل'.",
+    "attackSim.baseline.repeatOffender.title":
+      "إعادة تدريب من تكرّر وقوعه",
+    "attackSim.baseline.repeatOffender.body":
+      "المستخدمون الذين نقروا أو أدخلوا اعتمادات في المحاكاة الأخيرة يحصلون على تدريب متابعة خلال 7 أيام. يتراكم عبر المحاكاة — من يقع للمرة الثالثة يُحفّز إشعارًا للمدير المباشر.",
+
+    // ---- Phase 12 PIM + الحوكمة (قريبًا) ----
+    "pim.title": "PIM + حوكمة الهوية",
+    "pim.subtitle":
+      "سياسات تفعيل الأدوار ذات الامتياز + مراجعات الوصول + Terms of Use. أغلب مسارات الكتابة على Graph اليوم؛ تبقى قريبًا حتى يستقرّ عقد CRUD عبر المستأجرين.",
+    "pim.previewBanner.title": "قريبًا",
+    "pim.previewBanner.body":
+      "كتابات PIM + حوكمة الهوية تنزل على Graph غالبًا اليوم، لكن إعدادات سياسة إدارة الأدوار + كتالوجات entitlement-management بها حوافّ خشنة في CRUD عبر المستأجرين. الكتالوج أدناه يُشحن الآن؛ تنفيذ المرحلة 12 الكامل ينزل حين يستقرّ العقد.",
+    "pim.baseline.mfaOnActivation.title":
+      "اشتراط MFA عند تفعيل PIM",
+    "pim.baseline.mfaOnActivation.body":
+      "كل تفعيل لدور ذي امتياز يشترط MFA لحظة التفعيل، حتى لو كانت جلسة المسؤول مُحقَّقة بـ MFA. أكثر ضوابط PIM ذكرًا في عمليات التدقيق.",
+    "pim.baseline.maxActivation8h.title":
+      "تحديد التفعيل بـ 8 ساعات",
+    "pim.baseline.maxActivation8h.body":
+      "أقصى مدة تفعيل 8 ساعات؛ تنتهي تلقائيًا. يستطيع المسؤولون طلب أقصر (مثلًا ساعة لتغيير محدّد) لكن ليس أطول. يُقلّل سطح الحركة الجانبية الناتج عن 'نسي إلغاء التفعيل في عطلة الأسبوع'.",
+    "pim.baseline.justificationRequired.title":
+      "تبرير مطلوب عند التفعيل",
+    "pim.baseline.justificationRequired.body":
+      "يشترط التفعيل تبريرًا نصّيًا لا يقلّ عن 20 حرفًا. يُحفظ على صفّ تدقيق role-assignment-schedule، ويظهر في سجل تدقيق Mizan بجوار حدث التفعيل.",
+    "pim.baseline.notificationOnActivation.title":
+      "إشعار عند التفعيل",
+    "pim.baseline.notificationOnActivation.body":
+      "بريد فريق الأمن + مدير المسؤول المباشر يُبلَّغان عند كل تفعيل لدور ذي امتياز. يَكشف سيناريو 'المسؤول المتمرّد' مبكرًا؛ مع سجل التدقيق للسياق الجنائي.",
+    "pim.baseline.quarterlyAccessReview.title":
+      "مراجعة وصول ربع سنوية للأدوار ذات الامتياز",
+    "pim.baseline.quarterlyAccessReview.body":
+      "مراجعة وصول ربع سنوية لكل تخصيص دور ذي امتياز (مؤهَّل + مُفعَّل). المراجِعون = سلسلة مدير الدور. الإزالة التلقائية للتخصيصات غير المُراجَعة عند الموعد النهائي تُغلق فجوة 'نسوا أن لديهم Global Admin من مشروع قبل سنتين'.",
+
+    // ---- Phase 13 موافقة التطبيقات (قريبًا) ----
+    "appConsent.title": "سياسات موافقة التطبيقات",
+    "appConsent.subtitle":
+      "ضوابط موافقة OAuth. تُقيّد أي تطبيقات طرف ثالث يمكن للمستخدمين الموافقة عليها بدون إذن مسؤول. تُغلق سطح تصيّد موافقة OAuth.",
+    "appConsent.previewBanner.title": "قريبًا",
+    "appConsent.previewBanner.body":
+      "موافقة التطبيقات + سير عمل موافقة المسؤول على Graph اليوم. قوائم السماح بالناشرين المُتحقَّقين + مجموعات الأذونات المُوافَق عليها سلفًا تختلف بين المستأجرين. كتالوج قريبًا الآن؛ تنفيذ المرحلة 13 الفعلي بعد ذلك.",
+    "appConsent.baseline.verifiedOnly.title":
+      "تقييد الموافقة على ناشرين مُتحقَّقين فقط",
+    "appConsent.baseline.verifiedOnly.body":
+      "يستطيع المستخدمون الموافقة فقط على تطبيقات من ناشرين مُتحقَّقين من Microsoft. التطبيقات غير المُتحقَّقة تتطلّب موافقة مسؤول. تُغلق سطح تصيّد موافقة OAuth — أحد أبرز نواقل الهجوم الحالية.",
+    "appConsent.baseline.adminWorkflow.title":
+      "تفعيل سير عمل طلب موافقة المسؤول",
+    "appConsent.baseline.adminWorkflow.body":
+      "حين يصطدم المستخدمون بتطبيق محظور، يستطيعون تقديم طلب موافقة مسؤول عبر بوابة Microsoft 365. المراجعون المُعيَّنون (Cloud Application Administrators) يوافقون أو يرفضون في مركز إدارة Entra. يُزيل ضريبة 'فقط عطّلها للجميع'.",
+    "appConsent.baseline.blockHighRisk.title":
+      "إذن مسؤول دائمًا للأذونات عالية المخاطر",
+    "appConsent.baseline.blockHighRisk.body":
+      "حظر موافقة المستخدمين على التطبيقات التي تطلب أذونات عالية المخاطر: Mail.ReadWrite وFiles.ReadWrite.All وSites.FullControl.All وApplication.ReadWrite.All وDirectory.ReadWrite.All. هذه الأذونات تُمكّن أكثر مسارات استخراج البيانات شيوعًا.",
+    "appConsent.baseline.preapproveLowRisk.title":
+      "موافقة مُسبقة للأذونات منخفضة المخاطر",
+    "appConsent.baseline.preapproveLowRisk.body":
+      "موافقة مُسبقة على مجموعة الأذونات منخفضة المخاطر (User.Read وopenid وprofile وemail وoffline_access). يُحافظ على تسجيل دخول سلس للتطبيقات المشروعة؛ يُقلّل ضوضاء بريد موافقة المسؤول.",
+
+    // ---- Phase 15 الإعدادات الافتراضية للهوية (قريبًا) ----
+    "tenantIdentity.title": "إعدادات الهوية الافتراضية للمستأجر",
+    "tenantIdentity.subtitle":
+      "سياسة طرق المصادقة، صلاحيات المستخدم الافتراضية، ثقة الوصول عبر المستأجرين. تُكمل قصّة تقوية الهوية بجانب Conditional Access.",
+    "tenantIdentity.previewBanner.title": "قريبًا",
+    "tenantIdentity.previewBanner.body":
+      "إعدادات الهوية الافتراضية على `/authenticationMethodsPolicy` و`/authorizationPolicy` ونقاط cross-tenant access. المخطّطات تتحرّك (إعادة تسمية FIDO2 → passkey، تنقيح B2B trust). كتالوج قريبًا الآن؛ التنفيذ الفعلي حين تستقرّ المخطّطات.",
+    "tenantIdentity.baseline.fido2TenantWide.title":
+      "FIDO2 / passkey مُفعَّل على مستوى المستأجر",
+    "tenantIdentity.baseline.fido2TenantWide.body":
+      "السماح + التوصية بـ FIDO2 / passkey لكل المستخدمين على مستوى المستأجر. يقترن مع قاعدة phishing-resistant MFA للمسؤولين في المرحلة 3 بضمان أن المستخدمين قادرون أصلًا على تسجيل مفتاح.",
+    "tenantIdentity.baseline.blockUserAppRegistration.title":
+      "تسجيل التطبيقات للمسؤولين فقط",
+    "tenantIdentity.baseline.blockUserAppRegistration.body":
+      "Application Administrators فقط (وما يكافئها) يستطيعون تسجيل تطبيقات Entra. صلاحية افتراضية `allowedToCreateApps: false`. تُزيل سلسلة هجوم 'مستخدم متمرّد ينشئ تطبيقًا، يوافق على نفسه، يُسرّب البيانات'.",
+    "tenantIdentity.baseline.blockUserTenantCreation.title":
+      "إنشاء المستأجرات للمسؤولين فقط",
+    "tenantIdentity.baseline.blockUserTenantCreation.body":
+      "حظر إنشاء مستأجرات Entra جديدة من قِبل المستخدمين العاديين. صلاحية افتراضية `allowedToCreateTenants: false`. تُغلق مسار تسرّب غريب ينقل البيانات إلى مستأجر جديد يتحكّم به المستخدم.",
+    "tenantIdentity.baseline.restrictDefaultUserPerms.title":
+      "تقييد صلاحيات المستخدم الافتراضية",
+    "tenantIdentity.baseline.restrictDefaultUserPerms.body":
+      "دور المستخدم الافتراضي لم يعد قادرًا على قراءة كل كائنات الدليل، أو إنشاء مجموعات Microsoft 365، أو دعوة الضيوف. دعوات الضيوف تُفوَّض إلى دور Guest Inviter.",
+    "tenantIdentity.baseline.crossTenantTrustMfa.title":
+      "ثقة بـ MFA + التوافق من مستأجرات شريكة",
+    "tenantIdentity.baseline.crossTenantTrustMfa.body":
+      "ثقة بادعاءات MFA + الجهاز المتوافق الواردة من مستأجرات شريكة مُحدَّدة (B2B collaboration). تتجنّب طلبات MFA المكرّرة في تعاون B2B المشروع دون خفض المعيار للمستأجرات غير المعروفة.",
+    "tenantIdentity.baseline.blockPersonalLinking.title":
+      "حظر ربط الحسابات الشخصية",
+    "tenantIdentity.baseline.blockPersonalLinking.body":
+      "تعطيل ربط حسابات LinkedIn وما يماثلها. تُزيل سطح 'ربط LinkedIn الشخصي بهويّتي المؤسسية' الذي استُغلّ في تصيّد ربط الاعتمادات.",
 
     "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
     "baseline.requireMfaForAdmins.body":

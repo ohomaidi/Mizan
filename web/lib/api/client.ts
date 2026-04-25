@@ -928,6 +928,66 @@ export const api = {
       }>;
     }>("/api/directive/labels/baselines"),
 
+  // ----- Phase 9 Attack Simulation Training (preview) -----
+
+  directiveAttackSimBaselines: () =>
+    jsonFetch<{
+      pushEnabled: boolean;
+      coverageNote: string;
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        effectSummary: string;
+      }>;
+    }>("/api/directive/attack-sim/baselines"),
+
+  // ----- Phase 12 PIM + Identity Governance (preview) -----
+
+  directivePimBaselines: () =>
+    jsonFetch<{
+      pushEnabled: boolean;
+      coverageNote: string;
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        effectSummary: string;
+      }>;
+    }>("/api/directive/pim/baselines"),
+
+  // ----- Phase 13 App Consent (preview) -----
+
+  directiveAppConsentBaselines: () =>
+    jsonFetch<{
+      pushEnabled: boolean;
+      coverageNote: string;
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        effectSummary: string;
+      }>;
+    }>("/api/directive/app-consent/baselines"),
+
+  // ----- Phase 15 Tenant Identity Defaults (preview) -----
+
+  directiveTenantIdentityBaselines: () =>
+    jsonFetch<{
+      pushEnabled: boolean;
+      coverageNote: string;
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        effectSummary: string;
+      }>;
+    }>("/api/directive/tenant-identity/baselines"),
+
   // ----- Phase 4 custom CA policies -----
 
   directiveCustomPolicies: () =>

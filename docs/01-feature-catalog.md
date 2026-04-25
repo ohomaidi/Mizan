@@ -220,6 +220,10 @@ Phases 1–4.5 are the observation + directive ladder as actually shipped. Phase
 | 5 — Intune writes | 7 baselines: iOS/Android/Windows/macOS compliance + iOS/Android MAM + Windows BitLocker config. Kind-generic Graph dispatcher. Policies ship un-assigned. | ✅ Shipped |
 | 6 — Purview DLP writes | 4 baselines shipped as coming-soon UI. Push unlocks when Microsoft exposes the full DLP authoring API on Graph (rule exceptions, user notifications, incident reports, endpoint DLP, most condition types all missing today). | ⏳ Coming soon — waiting on Microsoft Graph |
 | 7 — Sensitivity labels + auto-labeling | 3 baselines shipped as coming-soon UI. Push unlocks when Microsoft exposes the full label authoring API on Graph (encryption, content marking, protection settings, publishing policies, auto-labeling rules all missing today). | ⏳ Coming soon — waiting on Microsoft Graph |
+| 9 (subset) — Attack Simulation Training | 3 baselines shipped as coming-soon UI: quarterly phishing, new-hire training, repeat-offender retraining. Push unlocks when Microsoft GAs the simulation create + automation API. | ⏳ Coming soon |
+| 12 — PIM + Identity Governance | 5 baselines shipped as coming-soon UI: MFA on activation, 8h max, justification, notification, quarterly access review. | ⏳ Coming soon |
+| 13 — App Consent Policies | 4 baselines shipped as coming-soon UI: verified-only consent, admin workflow, block high-risk perms, pre-approve low-risk. | ⏳ Coming soon |
+| 15 — Tenant-wide identity defaults | 6 baselines shipped as coming-soon UI: tenant FIDO2, block user app reg, block user tenant creation, restrict default perms, cross-tenant MFA trust, block personal-account linking. | ⏳ Coming soon |
 | 8 — Retention + records | Retention baselines + records-management holds. | 🟡 Future |
 | 9 — Defender for Office | Anti-phishing, Safe Links, Safe Attachments, preset security policies, attack simulation scheduling. | 🟡 Future |
 | 10 — Exchange transport + email auth | Transport rules, DMARC/SPF/DKIM. Has Graph-coverage gap — may reopen PS tier. | 🟡 Future |

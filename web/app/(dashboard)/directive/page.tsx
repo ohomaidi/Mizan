@@ -242,6 +242,14 @@ export default function DirectivePage() {
 
       <LabelsBaselinesSection />
 
+      <AttackSimBaselinesSection />
+
+      <PimBaselinesSection />
+
+      <AppConsentBaselinesSection />
+
+      <TenantIdentityBaselinesSection />
+
       <CustomPoliciesSection fmtRelative={fmtRelative} />
 
       <BaselinesStatusSection locale={locale} fmtRelative={fmtRelative} />
@@ -1679,38 +1687,75 @@ function IntuneBaselinePushModal({
 // Phase 6 — DLP (preview)
 // ============================================================================
 
-function DlpBaselinesSection() {
+/**
+ * Shared "Coming soon — push disabled" baselines section. Used by every
+ * roadmap phase whose Graph authoring API isn't fully landed yet (DLP,
+ * Sensitivity Labels, Attack Simulation, PIM, App Consent, Tenant Identity
+ * Defaults). All six render the same card structure; they differ only in
+ * title / subtitle / icon / API endpoint / banner copy.
+ *
+ * The day Microsoft closes the Graph gap on a given phase, the wrapper
+ * flips its API endpoint to a real push route and this component is
+ * replaced by the live equivalent (cf. Phase 5 Intune).
+ */
+type ComingSoonBaseline = {
+  id: string;
+  titleKey: string;
+  bodyKey: string;
+  riskTier: "low" | "medium" | "high";
+  effectSummary: string;
+  surface?: string;
+};
+
+type ComingSoonFetchResult = {
+  pushEnabled: boolean;
+  coverageNote: string;
+  baselines: ComingSoonBaseline[];
+};
+
+function ComingSoonBaselinesSection({
+  title,
+  subtitle,
+  icon: Icon,
+  fetcher,
+  bannerTitleKey,
+  bannerBodyKey,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  fetcher: () => Promise<ComingSoonFetchResult>;
+  bannerTitleKey: DictKey;
+  bannerBodyKey: DictKey;
+}) {
   const { t } = useI18n();
-  const [data, setData] = useState<Awaited<
-    ReturnType<typeof api.directiveDlpBaselines>
-  > | null>(null);
+  const [data, setData] = useState<ComingSoonFetchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api
-      .directiveDlpBaselines()
+    fetcher()
       .then(setData)
       .catch((e) => setError((e as Error).message));
-  }, []);
+  }, [fetcher]);
 
   return (
     <Card>
       <CardHeader
         title={
           <span className="inline-flex items-center gap-2">
-            <FileWarning size={14} className="text-council-strong" />
-            {t("dlp.title")}
+            <Icon size={14} className="text-council-strong" />
+            {title}
           </span>
         }
-        subtitle={t("dlp.subtitle")}
+        subtitle={subtitle}
       />
       <div className="rounded-md border border-accent/40 bg-accent/10 p-3 mb-3">
         <div className="text-[12px] font-semibold text-accent inline-flex items-center gap-1.5 mb-1">
           <Sparkles size={12} />
-          {t("dlp.previewBanner.title")}
+          {t(bannerTitleKey)}
         </div>
         <div className="text-[11.5px] text-ink-1 leading-relaxed">
-          {t("dlp.previewBanner.body")}
+          {t(bannerBodyKey)}
         </div>
       </div>
       {error ? (
@@ -1729,9 +1774,11 @@ function DlpBaselinesSection() {
                   {t(b.titleKey as DictKey)}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-[0.08em] border border-border bg-surface-2 text-ink-2">
-                    {b.surface}
-                  </span>
+                  {b.surface ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-semibold uppercase tracking-[0.08em] border border-border bg-surface-2 text-ink-2">
+                      {b.surface}
+                    </span>
+                  ) : null}
                   <RiskChip tier={b.riskTier} />
                 </div>
               </div>
@@ -1759,82 +1806,87 @@ function DlpBaselinesSection() {
   );
 }
 
-// ============================================================================
-// Phase 7 — Sensitivity Labels (preview)
-// ============================================================================
+function DlpBaselinesSection() {
+  const { t } = useI18n();
+  return (
+    <ComingSoonBaselinesSection
+      title={t("dlp.title")}
+      subtitle={t("dlp.subtitle")}
+      icon={FileWarning}
+      fetcher={api.directiveDlpBaselines}
+      bannerTitleKey="dlp.previewBanner.title"
+      bannerBodyKey="dlp.previewBanner.body"
+    />
+  );
+}
 
 function LabelsBaselinesSection() {
   const { t } = useI18n();
-  const [data, setData] = useState<Awaited<
-    ReturnType<typeof api.directiveLabelsBaselines>
-  > | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .directiveLabelsBaselines()
-      .then(setData)
-      .catch((e) => setError((e as Error).message));
-  }, []);
-
   return (
-    <Card>
-      <CardHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            <Tag size={14} className="text-council-strong" />
-            {t("labels.title")}
-          </span>
-        }
-        subtitle={t("labels.subtitle")}
-      />
-      <div className="rounded-md border border-accent/40 bg-accent/10 p-3 mb-3">
-        <div className="text-[12px] font-semibold text-accent inline-flex items-center gap-1.5 mb-1">
-          <Sparkles size={12} />
-          {t("labels.previewBanner.title")}
-        </div>
-        <div className="text-[11.5px] text-ink-1 leading-relaxed">
-          {t("labels.previewBanner.body")}
-        </div>
-      </div>
-      {error ? (
-        <div className="text-[12px] text-neg">{error}</div>
-      ) : !data ? (
-        <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {data.baselines.map((b) => (
-            <div
-              key={b.id}
-              className="rounded-md border border-border bg-surface-1 p-3 opacity-75"
-            >
-              <div className="flex items-start justify-between gap-2 mb-1.5">
-                <div className="text-[13.5px] font-semibold text-ink-1 min-w-0 break-words">
-                  {t(b.titleKey as DictKey)}
-                </div>
-                <RiskChip tier={b.riskTier} />
-              </div>
-              <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
-                {t(b.bodyKey as DictKey)}
-              </div>
-              <div className="text-[11px] text-ink-3 leading-relaxed">
-                <span className="font-semibold text-ink-2">
-                  {t("intune.effect")}:
-                </span>{" "}
-                {b.effectSummary}
-              </div>
-              <button
-                disabled
-                className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-surface-3 text-ink-3 text-[11.5px] font-semibold cursor-not-allowed"
-              >
-                <Play size={11} />
-                {t("intune.pushCta")}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
+    <ComingSoonBaselinesSection
+      title={t("labels.title")}
+      subtitle={t("labels.subtitle")}
+      icon={Tag}
+      fetcher={api.directiveLabelsBaselines}
+      bannerTitleKey="labels.previewBanner.title"
+      bannerBodyKey="labels.previewBanner.body"
+    />
+  );
+}
+
+function AttackSimBaselinesSection() {
+  const { t } = useI18n();
+  return (
+    <ComingSoonBaselinesSection
+      title={t("attackSim.title")}
+      subtitle={t("attackSim.subtitle")}
+      icon={Radar}
+      fetcher={api.directiveAttackSimBaselines}
+      bannerTitleKey="attackSim.previewBanner.title"
+      bannerBodyKey="attackSim.previewBanner.body"
+    />
+  );
+}
+
+function PimBaselinesSection() {
+  const { t } = useI18n();
+  return (
+    <ComingSoonBaselinesSection
+      title={t("pim.title")}
+      subtitle={t("pim.subtitle")}
+      icon={Lock}
+      fetcher={api.directivePimBaselines}
+      bannerTitleKey="pim.previewBanner.title"
+      bannerBodyKey="pim.previewBanner.body"
+    />
+  );
+}
+
+function AppConsentBaselinesSection() {
+  const { t } = useI18n();
+  return (
+    <ComingSoonBaselinesSection
+      title={t("appConsent.title")}
+      subtitle={t("appConsent.subtitle")}
+      icon={Package}
+      fetcher={api.directiveAppConsentBaselines}
+      bannerTitleKey="appConsent.previewBanner.title"
+      bannerBodyKey="appConsent.previewBanner.body"
+    />
+  );
+}
+
+function TenantIdentityBaselinesSection() {
+  const { t } = useI18n();
+  return (
+    <ComingSoonBaselinesSection
+      title={t("tenantIdentity.title")}
+      subtitle={t("tenantIdentity.subtitle")}
+      icon={ShieldCheck}
+      fetcher={api.directiveTenantIdentityBaselines}
+      bannerTitleKey="tenantIdentity.previewBanner.title"
+      bannerBodyKey="tenantIdentity.previewBanner.body"
+    />
   );
 }
 
