@@ -691,7 +691,30 @@ export const DICT = {
     "nesaCfg.save": "Save",
     "nesaCfg.saved": "Saved. Applies to the next maturity compute cycle.",
     "nesaCfg.weight": "Weight",
-    "nesaCfg.controls": "Secure Score controls (comma-separated)",
+    "nesaCfg.controls": "Evidence anchors — Microsoft Secure Score controls",
+    "nesaCfg.coverage": "Live coverage",
+    "nesaCfg.coverage.noControls":
+      "No controls mapped yet — add evidence anchors below.",
+    "nesaCfg.coverage.notObserved":
+      "Mapped controls not yet observed in any consented tenant.",
+    "nesaCfg.coverage.observedNoScore":
+      "{n} of {total} controls observed (informational, no pass-rate).",
+    "nesaCfg.coverage.acrossTenants": "across {n} tenants",
+    "nesaCfg.coverage.unmatched": "+{n} unmatched",
+    "nesaCfg.picker.noneSelected": "No evidence anchors selected.",
+    "nesaCfg.picker.addControl": "Add control…",
+    "nesaCfg.picker.available": "available",
+    "nesaCfg.picker.custom": "Custom…",
+    "nesaCfg.picker.customLabel":
+      "Add a control ID by hand. Useful when DESC publishes a new ISR sub-control before our registry has caught up — the chip will show with no live coverage data until a tenant reports it.",
+    "nesaCfg.picker.customPlaceholder": "e.g. ISR-Custom-001",
+    "nesaCfg.picker.cancel": "Cancel",
+    "nesaCfg.picker.add": "Add",
+    "nesaCfg.picker.searchPlaceholder":
+      "Search by id, title, service, or category…",
+    "nesaCfg.picker.noResults": "No controls match your search.",
+    "nesaCfg.picker.showing": "Showing {n} of {total}",
+    "nesaCfg.picker.customLink": "Add a custom ID instead",
     "nesaCfg.totalWeight": "Total weight: {n}",
     "nesaCfg.addClause": "Add clause",
     "nesaCfg.removeClause": "Remove",
@@ -3205,7 +3228,30 @@ export const DICT = {
     "nesaCfg.save": "حفظ",
     "nesaCfg.saved": "تم الحفظ. يُطبَّق في دورة حساب النضج التالية.",
     "nesaCfg.weight": "الوزن",
-    "nesaCfg.controls": "ضوابط Secure Score (مفصولة بفاصلة)",
+    "nesaCfg.controls": "مرتكزات الأدلة — ضوابط Microsoft Secure Score",
+    "nesaCfg.coverage": "التغطية الحيّة",
+    "nesaCfg.coverage.noControls":
+      "لا توجد ضوابط مُربَطة بعد — أضف مرتكزات أدلة في الأسفل.",
+    "nesaCfg.coverage.notObserved":
+      "الضوابط المُربَطة لم تُرصد في أي جهة موافقة بعد.",
+    "nesaCfg.coverage.observedNoScore":
+      "تم رصد {n} من {total} ضابط (معلومات، بدون نسبة نجاح).",
+    "nesaCfg.coverage.acrossTenants": "عبر {n} جهة",
+    "nesaCfg.coverage.unmatched": "+{n} غير مطابق",
+    "nesaCfg.picker.noneSelected": "لم يتم اختيار مرتكزات أدلة.",
+    "nesaCfg.picker.addControl": "إضافة ضابط…",
+    "nesaCfg.picker.available": "متاح",
+    "nesaCfg.picker.custom": "مخصّص…",
+    "nesaCfg.picker.customLabel":
+      "أضف معرّف ضابط يدوياً. مفيد عندما تنشر DESC ضابطاً فرعياً جديداً قبل تحديث سجلّنا — ستظهر الرقاقة بلا بيانات تغطية حيّة حتى تُبلّغ إحدى الجهات عنه.",
+    "nesaCfg.picker.customPlaceholder": "مثال: ISR-Custom-001",
+    "nesaCfg.picker.cancel": "إلغاء",
+    "nesaCfg.picker.add": "إضافة",
+    "nesaCfg.picker.searchPlaceholder":
+      "ابحث بالمعرّف أو العنوان أو الخدمة أو الفئة…",
+    "nesaCfg.picker.noResults": "لا توجد ضوابط تطابق بحثك.",
+    "nesaCfg.picker.showing": "عرض {n} من {total}",
+    "nesaCfg.picker.customLink": "أضف معرّفاً مخصّصاً بدلاً من ذلك",
     "nesaCfg.totalWeight": "مجموع الأوزان: {n}",
     "nesaCfg.addClause": "إضافة بند",
     "nesaCfg.removeClause": "حذف",

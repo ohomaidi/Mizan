@@ -1,12 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Loader2,
+  Plus,
+  RotateCcw,
+  Save,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { ErrorState, LoadingState } from "@/components/ui/States";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useFmtNum } from "@/lib/i18n/num";
 import { api } from "@/lib/api/client";
+
+type SecureScoreControl = {
+  id: string;
+  title: string;
+  category: string | null;
+  service: string | null;
+  observedOnTenants: number;
+  averagePassRate: number | null;
+};
 
 type Clause = {
   id: string;
@@ -38,13 +55,27 @@ export function NesaMappingPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mapping, setMapping] = useState<Loaded | null>(null);
+  const [registry, setRegistry] = useState<SecureScoreControl[]>([]);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
 
+  // Quick lookup of registry rows by id, for rendering chips with the
+  // human title + live coverage % even when the operator hasn't seen
+  // the picker yet.
+  const registryById = useMemo(() => {
+    const m = new Map<string, SecureScoreControl>();
+    for (const c of registry) m.set(c.id, c);
+    return m;
+  }, [registry]);
+
   const load = async () => {
     try {
-      const r = await api.getNesaMapping();
-      setMapping(r.mapping);
+      const [m, r] = await Promise.all([
+        api.getNesaMapping(),
+        api.getSecureScoreControls().catch(() => ({ controls: [], total: 0 })),
+      ]);
+      setMapping(m.mapping);
+      setRegistry(r.controls);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -243,21 +274,34 @@ export function NesaMappingPanel() {
                   dir="ltr"
                 />
               </Field>
-              <Field label={t("nesaCfg.controls")}>
-                <input
-                  value={c.secureScoreControls.join(", ")}
-                  onChange={(e) =>
-                    setClause(i, {
-                      secureScoreControls: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  className={`${inputClass} keep-ltr`}
-                  dir="ltr"
+              <Field label={t("nesaCfg.coverage")}>
+                <CoverageReadout
+                  controls={c.secureScoreControls}
+                  registry={registryById}
                 />
               </Field>
+            </div>
+            {/* Evidence anchors — Microsoft Secure Score controls that
+                evidence this clause. Replaces the legacy comma-typed
+                text input with a searchable picker over the actual
+                controls returned by the consented tenants. Each chip
+                is removable; the picker drops when a control is
+                selected. The id-only chips for non-Graph evidence
+                (operator-typed) still show as a string with no
+                metadata — those are typed via the "Custom..." button
+                below if the registry doesn't carry the id. */}
+            <div className="mt-3">
+              <div className="text-[11px] text-ink-3 mb-1.5">
+                {t("nesaCfg.controls")}
+              </div>
+              <ControlPicker
+                value={c.secureScoreControls}
+                registry={registry}
+                registryById={registryById}
+                onChange={(next) =>
+                  setClause(i, { secureScoreControls: next })
+                }
+              />
             </div>
           </div>
         ))}
@@ -299,5 +343,383 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-[11px] text-ink-3">{label}</span>
       {children}
     </label>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// CoverageReadout — % pass-rate across the chosen controls + tenant
+// fan-out. Reads from the registry the panel already loaded; no extra
+// fetch. Empty-state and "no data observed" cases are distinguished
+// — DESC's auditor cares about the difference.
+// ────────────────────────────────────────────────────────────────────
+function CoverageReadout({
+  controls,
+  registry,
+}: {
+  controls: string[];
+  registry: Map<string, SecureScoreControl>;
+}) {
+  const { t } = useI18n();
+  const fmt = useFmtNum();
+
+  if (controls.length === 0) {
+    return (
+      <div className="text-[12.5px] text-ink-3">
+        {t("nesaCfg.coverage.noControls")}
+      </div>
+    );
+  }
+
+  // Pass-rate roll-up across the registered controls. We ignore any id
+  // the registry doesn't know about (operator-typed legacy IDs) and
+  // surface the unmatched count separately so it's transparent.
+  let matched = 0;
+  let observedTenantUnion = 0;
+  let weightedRate = 0;
+  let weightSum = 0;
+  for (const id of controls) {
+    const r = registry.get(id);
+    if (!r) continue;
+    matched++;
+    observedTenantUnion = Math.max(observedTenantUnion, r.observedOnTenants);
+    if (r.averagePassRate !== null) {
+      weightedRate += r.averagePassRate;
+      weightSum += 1;
+    }
+  }
+
+  if (matched === 0) {
+    return (
+      <div className="text-[12.5px] text-ink-3">
+        {t("nesaCfg.coverage.notObserved")}
+      </div>
+    );
+  }
+
+  if (weightSum === 0) {
+    return (
+      <div className="text-[12.5px] text-ink-2">
+        {t("nesaCfg.coverage.observedNoScore", {
+          n: fmt(matched),
+          total: fmt(controls.length),
+        })}
+      </div>
+    );
+  }
+
+  const pct = Math.round((weightedRate / weightSum) * 100);
+  const tone =
+    pct >= 80 ? "text-pos" : pct >= 50 ? "text-ink-1" : "text-warn";
+  return (
+    <div className="text-[12.5px] flex items-baseline gap-2">
+      <span className={`tabular font-semibold ${tone}`}>{pct}%</span>
+      <span className="text-ink-3">
+        {t("nesaCfg.coverage.acrossTenants", {
+          n: fmt(observedTenantUnion),
+        })}
+      </span>
+      {matched < controls.length ? (
+        <span className="text-ink-3">
+          {t("nesaCfg.coverage.unmatched", {
+            n: fmt(controls.length - matched),
+          })}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// ControlPicker — chips for selected ids + a searchable dropdown over
+// the live registry of every control the consented tenants have
+// reported. Operators add/remove evidence anchors without typing IDs
+// from memory. A "Custom..." action lets them attach an id the
+// registry doesn't know about (e.g. a control DESC publishes after
+// our last sync) — that chip carries no live coverage data.
+// ────────────────────────────────────────────────────────────────────
+function ControlPicker({
+  value,
+  registry,
+  registryById,
+  onChange,
+}: {
+  value: string[];
+  registry: SecureScoreControl[];
+  registryById: Map<string, SecureScoreControl>;
+  onChange: (next: string[]) => void;
+}) {
+  const { t } = useI18n();
+  const fmt = useFmtNum();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [customMode, setCustomMode] = useState(false);
+  const [customValue, setCustomValue] = useState("");
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Close picker when clicking outside.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const selected = new Set(value);
+  const q = query.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    if (!q) return registry.slice(0, 60);
+    const hits: SecureScoreControl[] = [];
+    for (const r of registry) {
+      if (
+        r.id.toLowerCase().includes(q) ||
+        r.title.toLowerCase().includes(q) ||
+        (r.service ?? "").toLowerCase().includes(q) ||
+        (r.category ?? "").toLowerCase().includes(q)
+      ) {
+        hits.push(r);
+        if (hits.length >= 60) break;
+      }
+    }
+    return hits;
+  }, [registry, q]);
+
+  const addControl = (id: string) => {
+    if (!id || selected.has(id)) return;
+    onChange([...value, id]);
+    setQuery("");
+    setCustomValue("");
+    setCustomMode(false);
+  };
+
+  const removeControl = (id: string) => {
+    onChange(value.filter((v) => v !== id));
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Chip row — selected controls. Each chip = id + service/cat
+          + remove button. Live pass-rate badge when the registry knows
+          the control. */}
+      <div className="flex flex-wrap gap-1.5">
+        {value.length === 0 ? (
+          <span className="text-[11.5px] text-ink-3">
+            {t("nesaCfg.picker.noneSelected")}
+          </span>
+        ) : (
+          value.map((id) => {
+            const r = registryById.get(id);
+            const pr = r?.averagePassRate;
+            const pct =
+              pr !== null && pr !== undefined ? Math.round(pr * 100) : null;
+            return (
+              <div
+                key={id}
+                className="inline-flex items-center gap-1.5 rounded border border-border bg-surface-1 ps-2 pe-1 py-1"
+              >
+                <span className="text-[11px] font-mono keep-ltr text-ink-1">
+                  {id}
+                </span>
+                {r?.service ? (
+                  <span className="text-[9.5px] uppercase tracking-[0.06em] text-ink-3 keep-ltr">
+                    {r.service}
+                  </span>
+                ) : null}
+                {pct !== null ? (
+                  <span
+                    className={`text-[10px] tabular font-semibold ${
+                      pct >= 80
+                        ? "text-pos"
+                        : pct >= 50
+                          ? "text-ink-2"
+                          : "text-warn"
+                    }`}
+                  >
+                    {pct}%
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-ink-3">—</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeControl(id)}
+                  className="h-5 w-5 grid place-items-center rounded-sm text-ink-3 hover:text-neg hover:bg-surface-2"
+                  aria-label={`Remove ${id}`}
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Picker popover — opens on click of "Add control...", closes on
+          select / outside-click / Esc. Search filters by id/title/
+          service/category, capped at 60 results so big tenants stay
+          responsive. */}
+      <div className="relative" ref={popoverRef}>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen((v) => !v);
+              setCustomMode(false);
+            }}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-dashed border-border text-[11.5px] text-ink-2 hover:text-ink-1"
+          >
+            <Plus size={11} />
+            {t("nesaCfg.picker.addControl")}
+            <span className="text-ink-3 ms-1">
+              ({fmt(registry.length)} {t("nesaCfg.picker.available")})
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCustomMode(true);
+              setOpen(true);
+            }}
+            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[11.5px] text-ink-3 hover:text-ink-1"
+          >
+            {t("nesaCfg.picker.custom")}
+          </button>
+        </div>
+
+        {open ? (
+          <div className="absolute z-20 mt-1 w-[min(560px,100%)] rounded-md border border-border bg-surface-1 shadow-lg">
+            {customMode ? (
+              <div className="p-3 flex flex-col gap-2">
+                <div className="text-[11.5px] text-ink-2">
+                  {t("nesaCfg.picker.customLabel")}
+                </div>
+                <input
+                  autoFocus
+                  value={customValue}
+                  onChange={(e) => setCustomValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addControl(customValue.trim());
+                    if (e.key === "Escape") setOpen(false);
+                  }}
+                  placeholder={t("nesaCfg.picker.customPlaceholder")}
+                  className={`${inputClass} keep-ltr font-mono`}
+                  dir="ltr"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCustomMode(false)}
+                    className="h-7 px-2.5 rounded-md text-[11.5px] text-ink-3 hover:text-ink-1"
+                  >
+                    {t("nesaCfg.picker.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addControl(customValue.trim())}
+                    disabled={!customValue.trim()}
+                    className="h-7 px-2.5 rounded-md bg-council-strong text-white text-[11.5px] font-semibold disabled:opacity-50"
+                  >
+                    {t("nesaCfg.picker.add")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="p-2 border-b border-border flex items-center gap-2">
+                  <Search size={12} className="text-ink-3 shrink-0 ms-1" />
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={t("nesaCfg.picker.searchPlaceholder")}
+                    className="flex-1 h-7 bg-transparent text-[12.5px] text-ink-1 outline-none"
+                    dir="ltr"
+                  />
+                </div>
+                <div className="max-h-72 overflow-y-auto">
+                  {filtered.length === 0 ? (
+                    <div className="p-3 text-[11.5px] text-ink-3">
+                      {t("nesaCfg.picker.noResults")}
+                    </div>
+                  ) : (
+                    filtered.map((r) => {
+                      const isSelected = selected.has(r.id);
+                      const pr = r.averagePassRate;
+                      const pct =
+                        pr !== null && pr !== undefined
+                          ? Math.round(pr * 100)
+                          : null;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            if (!isSelected) addControl(r.id);
+                            setOpen(false);
+                          }}
+                          disabled={isSelected}
+                          className="w-full px-3 py-2 text-start hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed border-b border-border/50 last:border-b-0"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[12px] font-mono keep-ltr text-ink-1 truncate">
+                              {r.id}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {r.service ? (
+                                <span className="text-[9.5px] uppercase tracking-[0.06em] text-ink-3 keep-ltr">
+                                  {r.category ? `${r.category}/` : ""}
+                                  {r.service}
+                                </span>
+                              ) : null}
+                              {pct !== null ? (
+                                <span
+                                  className={`text-[10px] tabular font-semibold ${
+                                    pct >= 80
+                                      ? "text-pos"
+                                      : pct >= 50
+                                        ? "text-ink-2"
+                                        : "text-warn"
+                                  }`}
+                                >
+                                  {pct}%
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-ink-2 mt-0.5">
+                            {r.title}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                <div className="p-2 border-t border-border text-[10.5px] text-ink-3 flex items-center justify-between">
+                  <span>
+                    {t("nesaCfg.picker.showing", {
+                      n: fmt(filtered.length),
+                      total: fmt(registry.length),
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCustomMode(true)}
+                    className="text-ink-2 hover:text-ink-1"
+                  >
+                    {t("nesaCfg.picker.customLink")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }

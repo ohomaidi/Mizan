@@ -357,6 +357,26 @@ export const api = {
       body: JSON.stringify({ reset: true }),
     }),
 
+  /**
+   * Returns the union of every Secure Score control observed across
+   * the latest snapshot of every consented tenant. Backs the searchable
+   * picker on the Compliance Framework settings panel — operators map
+   * ISR clauses to evidence anchors by ticking real controls instead
+   * of typing IDs from memory.
+   */
+  getSecureScoreControls: () =>
+    jsonFetch<{
+      controls: Array<{
+        id: string;
+        title: string;
+        category: string | null;
+        service: string | null;
+        observedOnTenants: number;
+        averagePassRate: number | null;
+      }>;
+      total: number;
+    }>("/api/config/secure-score-controls"),
+
   getPurviewRollup: () =>
     jsonFetch<{
       totals: {
