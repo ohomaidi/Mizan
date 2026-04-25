@@ -31,6 +31,23 @@ const MS_GRAPH = "00000003-0000-0000-c000-000000000000";
  * Application-permission IDs on Microsoft Graph that correspond to each of
  * the read-only scopes our sync orchestrator depends on. IDs are stable +
  * documented under https://learn.microsoft.com/en-us/graph/permissions-reference.
+ *
+ * **Audited 2026-04-25 — every name + id pair below was cross-checked against
+ * the canonical Microsoft Graph permissions reference.** Three latent ID bugs
+ * were found and fixed in this audit:
+ *   - `ThreatHunting.Read.All` previously held the GUID for
+ *     `SecurityIdentitiesHealth.Read.All`. POST /security/runHuntingQuery
+ *     would have 403'd against any real tenant.
+ *   - `SecurityAlert.ReadWrite.All` had a typo (`...8fdd` → `...8fdb`) so
+ *     the registration silently failed on Graph.
+ *   - `User.RevokeSessions.All` previously held the GUID for
+ *     `Group.ReadWrite.All`. That was a serious over-grant — the data app
+ *     would have asked for full create/edit/delete access to every group in
+ *     every entity tenant. Demo writes were simulated so this never blew up
+ *     end-to-end, but it would have on first real-tenant onboarding.
+ *
+ * If you change any line below, double-check against the upstream reference.
+ * One bad GUID = silent registration failure or unintended over-grant.
  */
 const GRAPH_APP_PERMISSIONS: Array<{ name: string; id: string }> = [
   { name: "SecurityEvents.Read.All", id: "bf394140-e372-4bf9-a898-299cfc7564e5" },
@@ -46,37 +63,93 @@ const GRAPH_APP_PERMISSIONS: Array<{ name: string; id: string }> = [
   { name: "DeviceManagementConfiguration.Read.All", id: "dc377aa6-52d8-4e23-b271-2a7ae04cedf3" },
   { name: "IdentityRiskyUser.Read.All", id: "dc5007c0-2d7d-4c42-879c-2dab87571379" },
   { name: "IdentityRiskEvent.Read.All", id: "6e472fd1-ad78-48da-a0f0-97ab2c6b769e" },
+  // AuditLog.Read.All covers /auditLogs/directoryAudits + /auditLogs/signIns
+  // (the older endpoints). The newer unified /security/auditLog/queries
+  // collection that signals.ts also calls needs AuditLogsQuery.Read.All
+  // separately (added below).
   { name: "AuditLog.Read.All", id: "b0afded3-3588-46d8-8b3d-9842eff778da" },
+  { name: "AuditLogsQuery.Read.All", id: "5e1e9171-754d-478c-812c-f1755a9a4c2d" },
   { name: "ThreatIndicators.Read.All", id: "197ee4e9-b993-4066-898f-d6aecc55125b" },
-  { name: "ThreatHunting.Read.All", id: "f8dcd971-5d83-4e1e-aa95-ef44611ad351" },
+  // FIXED 2026-04-25 — was `f8dcd971-...` which is actually
+  // SecurityIdentitiesHealth.Read.All. Real ThreatHunting.Read.All GUID:
+  { name: "ThreatHunting.Read.All", id: "dd98c7f5-2d42-42d3-a0e4-633161547251" },
+  // ADDED 2026-04-25 — covers /security/threatIntelligence/articles
+  // (Threat Intelligence digest signal in signals.ts).
+  { name: "ThreatIntelligence.Read.All", id: "e0b77adb-e790-44a3-b0a0-257d06303687" },
+  // ADDED 2026-04-25 — covers /security/attackSimulation/simulations + report
+  // overview (Attack Simulation read signal in signals.ts).
+  { name: "AttackSimulation.Read.All", id: "93283d0a-6322-4fa8-966b-8c121624760d" },
+  // ADDED 2026-04-25 — covers /security/identities/healthIssues
+  // (Defender for Identity sensor health signal in signals.ts).
+  { name: "SecurityIdentitiesHealth.Read.All", id: "f8dcd971-5d83-4e1e-aa95-ef44611ad351" },
+  // ADDED 2026-04-25 — covers /security/labels/retentionLabels (beta)
+  // (Records Management retention-label signal in signals.ts).
+  { name: "RecordsManagement.Read.All", id: "ac3a2b8e-03a3-4da9-9ce0-cbe28bf1accd" },
+  // ADDED 2026-04-25 — covers /admin/sharepoint/settings GET. Read scope
+  // sits in the read set so Phase 1 SharePoint-defaults signal works in
+  // observation mode; the matching ReadWrite scope sits in the write set
+  // for Phase 11a directive PATCH.
+  { name: "SharePointTenantSettings.Read.All", id: "83d4163d-a2d8-4d3b-9695-4ae3ca98f888" },
   { name: "InformationProtectionPolicy.Read.All", id: "19da66cb-0fb0-4390-b071-ebc76a349482" },
   { name: "SubjectRightsRequest.Read.All", id: "ee1460f0-368b-4153-870a-4e1ca7e72c42" },
+  // ADDED 2026-04-25 — PIM sprawl signal in signals.ts queries
+  // /roleManagement/directory/roleAssignmentSchedules (active assignments) +
+  // /roleManagement/directory/roleEligibilitySchedules (eligible). Each
+  // collection has its own scope.
+  { name: "RoleManagement.Read.Directory", id: "483bed4a-2ad3-4361-a73b-c83ccdbdc53c" },
+  { name: "RoleEligibilitySchedule.Read.Directory", id: "ff278e11-4a33-4d0c-83d2-d01dc58929a5" },
 ];
 
 /**
  * Write-side permissions added to the Graph app ON TOP OF the read-only set
  * when the deployment is in `directive` (read+write) mode. Scoped to what
- * Phase 2+ directive work will actually call:
- *   - Conditional Access policy baselines
- *   - Intune compliance policy baselines
- *   - Incident / alert operations
- *   - Risky user dispositions + force sign-out
- *   - Threat submissions
+ * the directive engine actually calls:
+ *   - Conditional Access policy baselines (Policy.ReadWrite.ConditionalAccess)
+ *   - Intune device-config + endpoint protection (DeviceManagementConfiguration.ReadWrite.All)
+ *   - Intune device-mgmt actions (DeviceManagementManagedDevices.{ReadWrite,PrivilegedOperations}.All)
+ *   - Intune iOS/Android Managed App Protection (DeviceManagementApps.ReadWrite.All)
+ *   - Incident / alert classify + comment (Security{Incident,Alert}.ReadWrite.All)
+ *   - Risky user confirm/dismiss (IdentityRiskyUser.ReadWrite.All)
+ *   - Force sign-out (User.RevokeSessions.All)
+ *   - Threat submissions (ThreatSubmission.ReadWrite.All)
+ *   - SharePoint tenant settings PATCH (SharePointTenantSettings.ReadWrite.All)
+ *   - IOC push (ThreatIndicators.ReadWrite.OwnedBy)
  *
- * Permission IDs are stable + documented under
- * https://learn.microsoft.com/en-us/graph/permissions-reference.
+ * Every name + id pair audited 2026-04-25 against the canonical Microsoft
+ * Graph permissions reference.
  */
 const GRAPH_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [
   { name: "Policy.ReadWrite.ConditionalAccess", id: "01c0a623-fc9b-48e9-b794-0756f8e8f067" },
+  // Application.Read.All — used by the Phase 4 custom CA wizard's "specific
+  // applications" picker (lists service principals so the operator can pin
+  // policies to specific OAuth apps). Kept on the write set rather than the
+  // read set because the wizard is directive-mode-only.
   { name: "Application.Read.All", id: "9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30" },
   { name: "DeviceManagementConfiguration.ReadWrite.All", id: "9241abd9-d0e6-425a-bd4f-47ba86e767a4" },
   { name: "DeviceManagementManagedDevices.ReadWrite.All", id: "243333ab-4d21-40cb-a475-36241daa0842" },
   { name: "DeviceManagementManagedDevices.PrivilegedOperations.All", id: "5b07b0dd-2377-4e44-a38d-703f09a0dc3c" },
+  // ADDED 2026-04-25 — required by Phase 5 Intune MAM baselines (POST/DELETE
+  // /deviceAppManagement/iosManagedAppProtections + androidManagedAppProtections).
+  // DeviceManagementConfiguration.ReadWrite.All does NOT cover the MAM
+  // endpoints; they live under deviceAppManagement, not deviceManagement.
+  { name: "DeviceManagementApps.ReadWrite.All", id: "78145de6-330d-4800-a6ce-494ff2d33d07" },
   { name: "SecurityIncident.ReadWrite.All", id: "34bf0e97-1971-4929-b999-9e2442d941d7" },
-  { name: "SecurityAlert.ReadWrite.All", id: "ed4fca05-be46-441f-9803-1873825f8fdd" },
+  // FIXED 2026-04-25 — was `...8fdd`, a typo. Real GUID ends `...8fdb`.
+  { name: "SecurityAlert.ReadWrite.All", id: "ed4fca05-be46-441f-9803-1873825f8fdb" },
   { name: "IdentityRiskyUser.ReadWrite.All", id: "656f6061-f9fe-4807-9708-6a2e0934df76" },
-  { name: "User.RevokeSessions.All", id: "62a82d76-70ea-41e2-9197-370581804d09" },
+  // FIXED 2026-04-25 — was `62a82d76-...` which is Group.ReadWrite.All
+  // (granted broad group create/edit/delete in entity tenants — over-grant).
+  // Real User.RevokeSessions.All GUID:
+  { name: "User.RevokeSessions.All", id: "77f3a031-c388-4f99-b373-dc68676a979e" },
   { name: "ThreatSubmission.ReadWrite.All", id: "d72bdbf4-a59b-405c-8b04-5995895819ac" },
+  // ADDED 2026-04-25 — required by Phase 11a SharePoint baselines
+  // (PATCH /admin/sharepoint/settings).
+  { name: "SharePointTenantSettings.ReadWrite.All", id: "19b94e34-907c-4f43-bde9-38b1909ed408" },
+  // IOC push (Phase 14b) — POST/DELETE /security/tiIndicators. `OwnedBy` is
+  // narrower than `All`: the app can only read/update/delete indicators it
+  // created (auto-tagged with its own clientId at creation time). The
+  // entity's own curated TI is untouchable.
+  { name: "ThreatIndicators.ReadWrite.OwnedBy", id: "21792b6c-c986-4ffc-85de-df9da54b52fa" },
 ];
 
 /**
