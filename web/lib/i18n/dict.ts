@@ -1679,6 +1679,9 @@ export const DICT = {
     "intune.unassignedChip": "Ships un-assigned",
     "intune.unassignedSubtitle":
       "The policy is created but not applied to any users/devices. Entity admin assigns from their Intune portal once they've reviewed it.",
+    "intune.asrComingSoon.title": "Coming soon",
+    "intune.asrComingSoon.body":
+      "ASR rules are gated until the Phase 14 Settings Catalog rewrite ships. Microsoft Graph's v1.0 endpoint-protection schema doesn't expose ASR fields as a collection — they live on the beta resource as discrete named properties. The catalog UI stays available for review; push unlocks once Mizan migrates the writer to Settings Catalog (`/deviceManagement/configurationPolicies`).",
     "intune.licenseNote":
       "Requires Intune licensing at each target entity (Microsoft 365 E3+ / A3+ / standalone Intune P1). Unlicensed entities return 403 on push.",
 
@@ -4123,6 +4126,9 @@ export const DICT = {
     "intune.unassignedChip": "تُشحن بدون تخصيص",
     "intune.unassignedSubtitle":
       "تُنشأ السياسة لكنها لا تُطبّق على أي مستخدمين/أجهزة. يخصّصها مسؤول الجهة من بوابة Intune بعد المراجعة.",
+    "intune.asrComingSoon.title": "قادم قريباً",
+    "intune.asrComingSoon.body":
+      "قواعد ASR مُعلَّقة حتى يُشحن إعادة كتابة المرحلة 14 إلى Settings Catalog. مخطط حماية النقاط الطرفية v1.0 في Microsoft Graph لا يكشف حقول ASR كمجموعة — تعيش على المورد التجريبي كخصائص فردية مُسمّاة. تبقى واجهة الكتالوج متاحة للمراجعة؛ يُفعَّل الدفع عند ترحيل Mizan الكاتب إلى Settings Catalog (`/deviceManagement/configurationPolicies`).",
     "intune.licenseNote":
       "تتطلّب ترخيص Intune في كل جهة مستهدفة (Microsoft 365 E3+ / A3+ / Intune P1 مستقل). الجهات غير المرخّصة تُرجع 403 عند الدفع.",
 

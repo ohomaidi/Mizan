@@ -19,6 +19,7 @@ import { createIocRow, listIocs } from "@/lib/directive/iocs/store";
 import {
   IocPushBodySchema,
   iocMizanTag,
+  defaultThreatTypeForIocKind,
   type IocPushBody,
 } from "@/lib/directive/iocs/types";
 
@@ -110,12 +111,21 @@ export async function POST(req: NextRequest) {
   }> = [];
 
   // Build the Graph body once. Field assignment depends on indicator type.
+  // Required fields per https://learn.microsoft.com/en-us/graph/api/resources/tiindicator
+  // are: action, description, expirationDateTime, targetProduct, threatType,
+  // tlpLevel, plus the type-specific observable. `tlpLevel` was missing on
+  // earlier versions of Mizan — Microsoft would 400 on submit; fixed here
+  // by defaulting to `amber` (the docs' recommended default for limited-
+  // distribution intel). `threatType` was previously hard-coded to
+  // `WatchList`, which the docs explicitly tell partners NOT to use; fixed
+  // by picking the closest specific classification per observable kind.
   const indicatorPayload: TiIndicatorBody = {
     targetProduct: "Microsoft Defender ATP",
-    threatType: "WatchList",
+    threatType: defaultThreatTypeForIocKind(data.type),
+    tlpLevel: "amber",
     action: data.action,
     severity: severityNumber(data.severity),
-    description: `${mizanTag} ${data.description}`,
+    description: `${mizanTag} ${data.description}`.slice(0, 100),
     expirationDateTime: expirationIso,
   };
   switch (data.type) {

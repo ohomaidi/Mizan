@@ -54,16 +54,19 @@ export function buildCaBodyFromSpec(
       users.includeGroups = include.groupIds;
     }
   }
+  // Global Admin exclusion is FORCED, not optional. The spec's
+  // `excludeGlobalAdmins` flag exists for transparency in the UI (so the
+  // operator sees the rail visualised), but the builder injects the
+  // exclusion regardless of the flag. Reason: this is the headline
+  // lockout-prevention guarantee for every Center-authored CA push, and
+  // a forged or PATCHed spec with `excludeGlobalAdmins=false` must NOT
+  // be able to skip it. Even policies that exclusively target guests or
+  // a hand-picked user list get the exclusion as a no-op safety net.
   const excludeRoles = [...spec.users.exclude.roleIds];
-  if (
-    spec.users.exclude.excludeGlobalAdmins &&
-    !excludeRoles.includes(GLOBAL_ADMIN_ROLE_ID)
-  ) {
+  if (!excludeRoles.includes(GLOBAL_ADMIN_ROLE_ID)) {
     excludeRoles.push(GLOBAL_ADMIN_ROLE_ID);
   }
-  if (excludeRoles.length > 0) {
-    users.excludeRoles = excludeRoles;
-  }
+  users.excludeRoles = excludeRoles;
   if (spec.referenceTenantId) {
     if (spec.users.exclude.userIds.length > 0) {
       users.excludeUsers = spec.users.exclude.userIds;

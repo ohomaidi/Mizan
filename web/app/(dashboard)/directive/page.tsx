@@ -1540,6 +1540,12 @@ function IntuneBaselineCard({
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
+  // Phase 14 ASR baselines are gated until they're rewritten to use
+  // Settings Catalog (the v1.0 windows10EndpointProtectionConfiguration
+  // schema doesn't expose ASR fields as a collection — they're discrete
+  // beta-only fields). Push is disabled at the route layer too; this
+  // is the UI-side counterpart so the operator sees the gate explicitly.
+  const isAsrComingSoon = b.id.startsWith("intune-asr-");
   return (
     <div className="rounded-md border border-border bg-surface-1 p-3 flex flex-col">
       <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -1564,15 +1570,27 @@ function IntuneBaselineCard({
         <span className="font-semibold text-ink-2">{t("intune.effect")}:</span>{" "}
         {b.effectSummary}
       </div>
-      <div className="mb-2 rounded border border-warn/40 bg-warn/10 px-2 py-1.5">
-        <div className="text-[11px] font-semibold text-warn inline-flex items-center gap-1">
-          <Radar size={10} />
-          {t("intune.unassignedChip")}
+      {isAsrComingSoon ? (
+        <div className="mb-2 rounded border border-accent/40 bg-accent/10 px-2 py-1.5">
+          <div className="text-[11px] font-semibold text-accent inline-flex items-center gap-1">
+            <Radar size={10} />
+            {t("intune.asrComingSoon.title")}
+          </div>
+          <div className="text-[10.5px] text-ink-2 leading-snug mt-0.5">
+            {t("intune.asrComingSoon.body")}
+          </div>
         </div>
-        <div className="text-[10.5px] text-ink-2 leading-snug mt-0.5">
-          {t("intune.unassignedSubtitle")}
+      ) : (
+        <div className="mb-2 rounded border border-warn/40 bg-warn/10 px-2 py-1.5">
+          <div className="text-[11px] font-semibold text-warn inline-flex items-center gap-1">
+            <Radar size={10} />
+            {t("intune.unassignedChip")}
+          </div>
+          <div className="text-[10.5px] text-ink-2 leading-snug mt-0.5">
+            {t("intune.unassignedSubtitle")}
+          </div>
         </div>
-      </div>
+      )}
 
       {expanded ? (
         <div className="mt-1 mb-3 rounded border border-border/70 bg-surface-2 p-2.5 space-y-2">
@@ -1607,7 +1625,8 @@ function IntuneBaselineCard({
       <div className="mt-auto flex items-center gap-2 pt-1">
         <button
           onClick={onPush}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold"
+          disabled={isAsrComingSoon}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Play size={11} />
           {t("intune.pushCta")}
@@ -2419,11 +2438,15 @@ function IocConsole({ locale }: { locale: "en" | "ar" }) {
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              maxLength={80}
               placeholder="e.g. Confirmed malware sample from Q2 incident"
               className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
             />
             <span className="text-[10.5px] text-ink-3">
-              {t("ioc.descriptionHint")}
+              {t("ioc.descriptionHint")}{" "}
+              <span className="text-ink-3/80">
+                ({description.length}/80)
+              </span>
             </span>
           </label>
           <label className="flex flex-col gap-1 sm:col-span-2">

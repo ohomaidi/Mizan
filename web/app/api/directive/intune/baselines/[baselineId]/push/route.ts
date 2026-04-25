@@ -49,6 +49,24 @@ export async function POST(
     );
   }
 
+  // Phase 14 ASR baselines are gated until they're rewritten to use
+  // Settings Catalog. The current `windows10EndpointProtectionConfiguration`
+  // body would 400 against Graph because the v1.0 schema has no ASR field
+  // collection — ASR is exposed on the BETA flavour of that resource as
+  // discrete named fields (defenderOfficeAppsLaunchChildProcessType etc.),
+  // not as an array. See backlog: project_sharjah_council_backlog.md
+  // ("Phase 14 ASR rewrite to Settings Catalog").
+  if (baselineId.startsWith("intune-asr-")) {
+    return NextResponse.json(
+      {
+        error: "coming_soon",
+        message:
+          "ASR baselines are coming soon. Push is disabled until the Phase 14 Settings Catalog rewrite ships. The catalog UI remains available for review.",
+      },
+      { status: 409 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();

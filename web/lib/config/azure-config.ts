@@ -110,21 +110,36 @@ export function getAzureAuthMethod(): AzureAuthMethod {
   return "none";
 }
 
+/**
+ * Merge a partial input over the existing Azure config and persist the
+ * result. **Explicit-empty wins over fallback** — passing an empty string
+ * for any credential field clears it. This is the auth-method switch's
+ * primary lever: when the operator switches Secret → Certificate the UI
+ * sends `{clientSecret: ""}` and we must NOT preserve the prior secret.
+ *
+ * Plain `??` fallback would keep stale credentials in the DB even after the
+ * operator switched methods (`"" ?? "abc"` evaluates to `"abc"`). The MSAL
+ * builder prefers cert when both are present, so the stale secret would
+ * never be USED, but it would still sit in the row indefinitely — which
+ * defeats the "switching clears the other" guarantee surfaced in the UI.
+ */
 export function setAzureConfig(input: Partial<AzureAppConfig>): AzureAppConfig {
   const existing = readConfig<AzureAppConfig>(KEY) ?? ({} as AzureAppConfig);
+  const pick = <K extends keyof AzureAppConfig>(
+    field: K,
+    fallback: string,
+  ): string =>
+    (input[field] !== undefined
+      ? (input[field] as string)
+      : ((existing[field] as string | undefined) ?? fallback));
   const next: AzureAppConfig = {
-    clientId: input.clientId ?? existing.clientId ?? "",
-    clientSecret: input.clientSecret ?? existing.clientSecret ?? "",
-    clientCertThumbprint:
-      input.clientCertThumbprint ?? existing.clientCertThumbprint ?? "",
-    clientCertPrivateKeyPem:
-      input.clientCertPrivateKeyPem ?? existing.clientCertPrivateKeyPem ?? "",
-    clientCertChainPem:
-      input.clientCertChainPem ?? existing.clientCertChainPem ?? "",
-    authorityHost:
-      input.authorityHost ?? existing.authorityHost ?? DEFAULT_AUTHORITY_HOST,
-    consentRedirectUri:
-      input.consentRedirectUri ?? existing.consentRedirectUri ?? "",
+    clientId: pick("clientId", ""),
+    clientSecret: pick("clientSecret", ""),
+    clientCertThumbprint: pick("clientCertThumbprint", ""),
+    clientCertPrivateKeyPem: pick("clientCertPrivateKeyPem", ""),
+    clientCertChainPem: pick("clientCertChainPem", ""),
+    authorityHost: pick("authorityHost", DEFAULT_AUTHORITY_HOST),
+    consentRedirectUri: pick("consentRedirectUri", ""),
     updatedAt: new Date().toISOString(),
   };
   writeConfig(KEY, next);

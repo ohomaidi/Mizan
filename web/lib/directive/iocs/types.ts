@@ -55,8 +55,14 @@ export const IocPushBodySchema = z.object({
   /** What Defender does on a match. */
   action: IocActionSchema.default("alertAndBlock"),
   severity: IocSeveritySchema.default("high"),
-  /** Free-text description (Mizan auto-prefixes with the tag). */
-  description: z.string().min(1).max(500),
+  /**
+   * Free-text description (Mizan auto-prefixes with the tag). Microsoft
+   * caps the final stored `description` at 100 chars, and the Mizan tag
+   * itself eats ~20 chars (`[Mizan IOC 12345678] `), so we cap user
+   * input at 80 to keep total ≤ 100. Anything longer would 400 on
+   * the create call.
+   */
+  description: z.string().min(1).max(80),
   /** Optional Mizan-side note for the audit trail (not sent to Graph). */
   internalNote: z.string().max(500).optional(),
   /**
@@ -73,4 +79,36 @@ export type IocPushBody = z.infer<typeof IocPushBodySchema>;
 /** Tag we stamp into the description so we can find IOCs we own. */
 export function iocMizanTag(localId: string): string {
   return `[Mizan IOC ${localId}]`;
+}
+
+/**
+ * Pick a sensible Microsoft `threatType` per IOC observable kind. The
+ * docs flag `WatchList` as a generic bucket "partners should not use",
+ * so we never default to it — instead we choose the closest specific
+ * classification per type:
+ *   - file hashes → `Malware` (block-listing a hash means we believe
+ *     the file is malicious)
+ *   - URLs → `MaliciousUrl`
+ *   - domains → `MaliciousUrl` (no separate domain enum — domains are
+ *     URL-shaped per Microsoft's mapping)
+ *   - IPv4/IPv6 → `C2` (block-listed IPs are most often C2 / botnet
+ *     infrastructure; less hand-wavy than `WatchList`)
+ *
+ * Reference: tiIndicator threatType enum at
+ * https://learn.microsoft.com/en-us/graph/api/resources/tiindicator
+ */
+export function defaultThreatTypeForIocKind(
+  kind: z.infer<typeof IocTypeSchema>,
+): string {
+  switch (kind) {
+    case "fileHashSha256":
+    case "fileHashSha1":
+      return "Malware";
+    case "url":
+    case "domainName":
+      return "MaliciousUrl";
+    case "ipv4":
+    case "ipv6":
+      return "C2";
+  }
 }
