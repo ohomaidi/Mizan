@@ -29,6 +29,8 @@ import {
   Smartphone,
   FileWarning,
   Tag,
+  Globe,
+  ShieldX,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -237,6 +239,10 @@ export default function DirectivePage() {
       <BaselinesSection locale={locale} />
 
       <IntuneBaselinesSection locale={locale} />
+
+      <SharepointBaselinesSection locale={locale} />
+
+      <IocConsole locale={locale} />
 
       <DlpBaselinesSection />
 
@@ -1686,6 +1692,768 @@ function IntuneBaselinePushModal({
 // ============================================================================
 // Phase 6 — DLP (preview)
 // ============================================================================
+
+// ============================================================================
+// Phase 11a — SharePoint tenant external-sharing
+// ============================================================================
+
+type SharepointBaseline = Awaited<
+  ReturnType<typeof api.directiveSharepointBaselines>
+>["baselines"][number];
+
+function SharepointBaselinesSection({ locale }: { locale: "en" | "ar" }) {
+  const { t } = useI18n();
+  const [baselines, setBaselines] = useState<SharepointBaseline[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<SharepointBaseline | null>(null);
+
+  useEffect(() => {
+    api
+      .directiveSharepointBaselines()
+      .then((r) => setBaselines(r.baselines))
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <Globe size={14} className="text-council-strong" />
+            {t("sharepoint.title")}
+          </span>
+        }
+        subtitle={t("sharepoint.subtitle")}
+      />
+      <div className="rounded-md border border-warn/40 bg-warn/10 p-3 mb-3 text-[11.5px] text-ink-1">
+        <div className="font-semibold inline-flex items-center gap-1.5 mb-1">
+          <ShieldAlert size={12} className="text-warn" />
+          {t("sharepoint.singletonNote")}
+        </div>
+      </div>
+      <div className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5 mb-3 text-[11px] text-ink-3">
+        {t("sharepoint.licenseNote")}
+      </div>
+      {error ? (
+        <div className="text-[12.5px] text-neg">{error}</div>
+      ) : !baselines ? (
+        <div className="text-[12.5px] text-ink-3">{t("state.loading")}</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {baselines.map((b) => (
+            <SharepointBaselineCard
+              key={b.id}
+              baseline={b}
+              onPush={() => setSelected(b)}
+            />
+          ))}
+        </div>
+      )}
+      {selected ? (
+        <SharepointPushModal
+          baseline={selected}
+          onClose={() => setSelected(null)}
+          locale={locale}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+function SharepointBaselineCard({
+  baseline: b,
+  onPush,
+}: {
+  baseline: SharepointBaseline;
+  onPush: () => void;
+}) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="rounded-md border border-border bg-surface-1 p-3 flex flex-col">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="text-[13.5px] font-semibold text-ink-1 min-w-0 break-words">
+          {t(b.titleKey as DictKey)}
+        </div>
+        <RiskChip tier={b.riskTier} />
+      </div>
+      <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
+        {t(b.bodyKey as DictKey)}
+      </div>
+      <div className="text-[11px] text-ink-3 mb-2 leading-relaxed">
+        <span className="font-semibold text-ink-2">{t("sharepoint.effect")}:</span>{" "}
+        {b.effectSummary}
+      </div>
+
+      {expanded ? (
+        <div className="mt-1 mb-3 rounded border border-border/70 bg-surface-2 p-2.5 space-y-2">
+          <DetailBlock
+            label={t("directive.baselines.why")}
+            body={t(b.whyKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.impact")}
+            body={t(b.impactKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.prerequisites")}
+            body={t(b.prerequisitesKey as DictKey)}
+          />
+          <DetailBlock
+            label={t("directive.baselines.rollout")}
+            body={t(b.rolloutAdviceKey as DictKey)}
+          />
+          <a
+            href={b.docsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] text-council-strong hover:underline"
+          >
+            <ExternalLink size={10} />
+            {t("directive.baselines.docsLink")}
+          </a>
+        </div>
+      ) : null}
+
+      <div className="mt-auto flex items-center gap-2 pt-1">
+        <button
+          onClick={onPush}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-council-strong text-white text-[11.5px] font-semibold"
+        >
+          <Play size={11} />
+          {t("sharepoint.pushCta")}
+        </button>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md border border-border bg-surface-1 text-ink-2 text-[11.5px] font-semibold hover:bg-surface-2"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp size={11} />
+              {t("directive.baselines.hideDetails")}
+            </>
+          ) : (
+            <>
+              <ChevronDown size={11} />
+              {t("directive.baselines.details")}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SharepointPushModal({
+  baseline,
+  onClose,
+  locale,
+}: {
+  baseline: SharepointBaseline;
+  onClose: () => void;
+  locale: "en" | "ar";
+}) {
+  const { t } = useI18n();
+  const [tenants, setTenants] = useState<
+    Array<{
+      id: string;
+      nameEn: string;
+      nameAr: string;
+      consentMode: string;
+      isDemo: boolean;
+    }>
+  >([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pushing, setPushing] = useState(false);
+  const [result, setResult] = useState<null | Awaited<
+    ReturnType<typeof api.directiveSharepointBaselinePush>
+  >>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .getEntities()
+      .then((r) =>
+        setTenants(r.entities.filter((e) => e.consentMode === "directive")),
+      )
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  const toggle = (id: string) =>
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const doPush = async () => {
+    setPushing(true);
+    setError(null);
+    try {
+      const r = await api.directiveSharepointBaselinePush(baseline.id, {
+        targetTenantIds: Array.from(selectedIds),
+      });
+      setResult(r);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={t(baseline.titleKey as DictKey)}
+      onClose={onClose}
+      open={true}
+      size="wide"
+    >
+      <div className="flex flex-col gap-3">
+        <div className="text-[12px] text-ink-2 leading-relaxed">
+          {t(baseline.bodyKey as DictKey)}
+        </div>
+        <div className="rounded-md border border-warn/40 bg-warn/10 px-2.5 py-2 text-[11.5px] text-ink-1">
+          {t("sharepoint.singletonNote")}
+        </div>
+        <pre className="text-[10.5px] text-ink-2 bg-surface-2 rounded-md border border-border p-2 keep-ltr overflow-x-auto">
+          {JSON.stringify(baseline.intendedPatch, null, 2)}
+        </pre>
+
+        {tenants.length === 0 ? (
+          <div className="text-[12px] text-ink-3 rounded-md border border-border bg-surface-1 p-3">
+            {t("directive.threat.noDirectiveEntities")}
+          </div>
+        ) : (
+          <>
+            <div className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("directive.baselines.targetsTitle")}
+            </div>
+            <div
+              className={`text-[11px] mb-1 ${
+                selectedIds.size === 0 ? "text-ink-3" : "text-ink-2"
+              }`}
+            >
+              {selectedIds.size === 0
+                ? t("directive.baselines.noneSelected")
+                : t("directive.baselines.selectedCount", {
+                    count: String(selectedIds.size),
+                    total: String(tenants.length),
+                  })}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[240px] overflow-y-auto">
+              {tenants.map((tenant) => {
+                const active = selectedIds.has(tenant.id);
+                return (
+                  <label
+                    key={tenant.id}
+                    className={`flex items-center gap-2 rounded-md border p-2 cursor-pointer ${
+                      active
+                        ? "border-council-strong bg-council-strong/5"
+                        : "border-border bg-surface-1 hover:border-council-strong/60"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggle(tenant.id)}
+                      className="accent-council-strong"
+                    />
+                    <span className="text-[12px] text-ink-1 flex-1 min-w-0 truncate">
+                      {locale === "ar" ? tenant.nameAr : tenant.nameEn}
+                    </span>
+                    {tenant.isDemo ? (
+                      <span className="text-[9.5px] uppercase tracking-[0.06em] border border-accent/50 text-accent rounded px-1.5 py-px font-semibold">
+                        {t("demo.badge")}
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {error ? (
+          <div className="rounded-md border border-neg/40 bg-neg/10 p-3 text-[12px] text-ink-1">
+            {error}
+          </div>
+        ) : null}
+        {result ? (
+          <div className="rounded-md border border-border bg-surface-1 p-3">
+            <div className="text-[12.5px] font-semibold text-ink-1 mb-2">
+              {t("directive.baselines.resultTitle", {
+                pushId: String(result.pushRequestId),
+              })}
+            </div>
+            <ul className="flex flex-col gap-1 text-[12px]">
+              {result.perTenant.map((r) => {
+                const tenant = tenants.find((t) => t.id === r.tenantId);
+                const name = tenant
+                  ? locale === "ar"
+                    ? tenant.nameAr
+                    : tenant.nameEn
+                  : r.tenantId;
+                return (
+                  <li
+                    key={r.tenantId}
+                    className="flex items-center gap-2 justify-between"
+                  >
+                    <span className="text-ink-1 truncate flex-1 min-w-0">
+                      {name}
+                    </span>
+                    <PushStatusChip status={r.status} />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+          {result ? (
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold"
+            >
+              {t("directive.baselines.close")}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                disabled={pushing}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-surface-2 text-ink-1 text-[12.5px] font-semibold disabled:opacity-60"
+              >
+                {t("directive.baselines.cancel")}
+              </button>
+              <button
+                onClick={() => void doPush()}
+                disabled={pushing || selectedIds.size === 0}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-council-strong text-white text-[12.5px] font-semibold disabled:opacity-60"
+              >
+                {pushing ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  <Send size={11} />
+                )}
+                {t("directive.baselines.executeCta", {
+                  count: String(selectedIds.size),
+                })}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// Phase 14b — IOC push console
+// ============================================================================
+
+type Ioc = Awaited<
+  ReturnType<typeof api.directiveIocs>
+>["iocs"][number];
+
+function IocConsole({ locale }: { locale: "en" | "ar" }) {
+  const { t } = useI18n();
+  const fmtRelative = useFmtRelative();
+  const [tenants, setTenants] = useState<
+    Array<{
+      id: string;
+      nameEn: string;
+      nameAr: string;
+      consentMode: string;
+      isDemo: boolean;
+    }>
+  >([]);
+  const [iocs, setIocs] = useState<Ioc[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [type, setType] = useState<Ioc["type"]>("fileHashSha256");
+  const [value, setValue] = useState("");
+  const [action, setAction] = useState<
+    "allow" | "alert" | "alertAndBlock" | "block"
+  >("alertAndBlock");
+  const [severity, setSeverity] = useState<
+    "low" | "medium" | "high" | "informational"
+  >("high");
+  const [description, setDescription] = useState("");
+  const [internalNote, setInternalNote] = useState("");
+  const [expirationDays, setExpirationDays] = useState(90);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<null | Awaited<
+    ReturnType<typeof api.directiveIocCreate>
+  >>(null);
+
+  const loadIocs = useCallback(() => {
+    api
+      .directiveIocs()
+      .then((r) => setIocs(r.iocs))
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  useEffect(() => {
+    api
+      .getEntities()
+      .then((r) =>
+        setTenants(r.entities.filter((e) => e.consentMode === "directive")),
+      )
+      .catch((e) => setError((e as Error).message));
+    loadIocs();
+  }, [loadIocs]);
+
+  const toggle = (id: string) =>
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const submit = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const expiration = new Date(
+        Date.now() + expirationDays * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      const r = await api.directiveIocCreate({
+        type,
+        value: value.trim(),
+        action,
+        severity,
+        description: description.trim(),
+        internalNote: internalNote.trim() || undefined,
+        expirationDateTime: expiration,
+        targetTenantIds: Array.from(selectedIds),
+      });
+      setResult(r);
+      setValue("");
+      setDescription("");
+      setInternalNote("");
+      setSelectedIds(new Set());
+      loadIocs();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <ShieldX size={14} className="text-council-strong" />
+            {t("ioc.title")}
+          </span>
+        }
+        subtitle={t("ioc.subtitle")}
+      />
+      <div className="rounded-md border border-warn/30 bg-warn/5 px-2.5 py-1.5 mb-3 text-[11px] text-ink-2">
+        {t("ioc.licenseNote")}
+      </div>
+
+      <div className="rounded-md border border-border bg-surface-2 p-3 mb-4">
+        <div className="text-[12.5px] font-semibold text-ink-1 mb-3">
+          {t("ioc.formTitle")}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("ioc.field.type")}
+            </span>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as Ioc["type"])}
+              className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+            >
+              <option value="fileHashSha256">
+                {t("ioc.type.fileHashSha256")}
+              </option>
+              <option value="fileHashSha1">
+                {t("ioc.type.fileHashSha1")}
+              </option>
+              <option value="url">{t("ioc.type.url")}</option>
+              <option value="domainName">{t("ioc.type.domainName")}</option>
+              <option value="ipv4">{t("ioc.type.ipv4")}</option>
+              <option value="ipv6">{t("ioc.type.ipv6")}</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("ioc.field.action")}
+            </span>
+            <select
+              value={action}
+              onChange={(e) =>
+                setAction(e.target.value as typeof action)
+              }
+              className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+            >
+              <option value="alertAndBlock">
+                {t("ioc.action.alertAndBlock")}
+              </option>
+              <option value="alert">{t("ioc.action.alert")}</option>
+              <option value="block">{t("ioc.action.block")}</option>
+              <option value="allow">{t("ioc.action.allow")}</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("ioc.field.value")}
+            </span>
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={
+                type === "fileHashSha256"
+                  ? "e.g. 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+                  : type === "url"
+                    ? "https://malicious.example.com/payload"
+                    : type === "domainName"
+                      ? "malicious.example.com"
+                      : type === "ipv4"
+                        ? "203.0.113.42"
+                        : ""
+              }
+              className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2 keep-ltr"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("ioc.field.severity")}
+            </span>
+            <select
+              value={severity}
+              onChange={(e) =>
+                setSeverity(e.target.value as typeof severity)
+              }
+              className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+            >
+              <option value="high">{t("ioc.severity.high")}</option>
+              <option value="medium">{t("ioc.severity.medium")}</option>
+              <option value="low">{t("ioc.severity.low")}</option>
+              <option value="informational">
+                {t("ioc.severity.informational")}
+              </option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("ioc.field.expirationDateTime")}
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={expirationDays}
+                onChange={(e) =>
+                  setExpirationDays(
+                    Math.max(1, Math.min(365, Number(e.target.value))),
+                  )
+                }
+                className="h-8 w-20 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+              />
+              <span className="text-[11px] text-ink-3">days</span>
+            </div>
+          </label>
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("ioc.field.description")}
+            </span>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Confirmed malware sample from Q2 incident"
+              className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+            />
+            <span className="text-[10.5px] text-ink-3">
+              {t("ioc.descriptionHint")}
+            </span>
+          </label>
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+              {t("ioc.field.internalNote")}
+            </span>
+            <input
+              value={internalNote}
+              onChange={(e) => setInternalNote(e.target.value)}
+              placeholder=""
+              className="h-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] px-2"
+            />
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-1.5">
+          <span className="text-[11px] text-ink-3 uppercase tracking-[0.06em] font-semibold">
+            {t("ioc.field.targetTenants")}
+          </span>
+          {tenants.length === 0 ? (
+            <div className="text-[12px] text-ink-3 rounded-md border border-border bg-surface-1 p-3">
+              {t("directive.threat.noDirectiveEntities")}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[200px] overflow-y-auto">
+              {tenants.map((tenant) => {
+                const active = selectedIds.has(tenant.id);
+                return (
+                  <label
+                    key={tenant.id}
+                    className={`flex items-center gap-2 rounded-md border p-2 cursor-pointer ${
+                      active
+                        ? "border-council-strong bg-council-strong/5"
+                        : "border-border bg-surface-1 hover:border-council-strong/60"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggle(tenant.id)}
+                      className="accent-council-strong"
+                    />
+                    <span className="text-[12px] text-ink-1 flex-1 min-w-0 truncate">
+                      {locale === "ar" ? tenant.nameAr : tenant.nameEn}
+                    </span>
+                    {tenant.isDemo ? (
+                      <span className="text-[9.5px] uppercase tracking-[0.06em] border border-accent/50 text-accent rounded px-1.5 py-px font-semibold">
+                        {t("demo.badge")}
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {error ? (
+          <div className="mt-3 rounded-md border border-neg/40 bg-neg/10 p-3 text-[12px] text-ink-1">
+            {error}
+          </div>
+        ) : null}
+        {result ? (
+          <div className="mt-3 rounded-md border border-border bg-surface-1 p-3">
+            <div className="text-[12.5px] font-semibold text-ink-1 mb-2">
+              {t("directive.baselines.resultTitle", {
+                pushId: String(result.pushRequestId),
+              })}
+            </div>
+            <ul className="flex flex-col gap-1 text-[12px]">
+              {result.perTenant.map((r) => {
+                const tenant = tenants.find((t) => t.id === r.tenantId);
+                const name = tenant
+                  ? locale === "ar"
+                    ? tenant.nameAr
+                    : tenant.nameEn
+                  : r.tenantId;
+                return (
+                  <li
+                    key={r.tenantId}
+                    className="flex items-center gap-2 justify-between"
+                  >
+                    <span className="text-ink-1 truncate flex-1 min-w-0">
+                      {name}
+                    </span>
+                    <PushStatusChip status={r.status} />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex items-center justify-end">
+          <button
+            onClick={() => void submit()}
+            disabled={
+              submitting ||
+              !value.trim() ||
+              !description.trim() ||
+              selectedIds.size === 0
+            }
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-council-strong text-white text-[12.5px] font-semibold disabled:opacity-60"
+          >
+            {submitting ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <Send size={11} />
+            )}
+            {t("ioc.submit", { count: String(selectedIds.size) })}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[12.5px] font-semibold text-ink-1 mb-2">
+          {t("ioc.recentTitle")}
+        </div>
+        {!iocs ? (
+          <div className="text-[12px] text-ink-3">{t("state.loading")}</div>
+        ) : iocs.length === 0 ? (
+          <div className="text-[12px] text-ink-3 rounded-md border border-border bg-surface-1 p-3">
+            {t("ioc.recentEmpty")}
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-3 px-3">
+            <table className="w-full text-[12px] border-collapse">
+              <thead>
+                <tr className="text-left text-[10.5px] uppercase tracking-[0.06em] text-ink-3 border-b border-border">
+                  <th className="py-1.5 pr-2">{t("ioc.field.type")}</th>
+                  <th className="py-1.5 pr-2">{t("ioc.col.value")}</th>
+                  <th className="py-1.5 pr-2">{t("ioc.col.action")}</th>
+                  <th className="py-1.5 pr-2">{t("ioc.col.severity")}</th>
+                  <th className="py-1.5 pr-2">{t("ioc.col.expires")}</th>
+                  <th className="py-1.5 pr-2">{t("ioc.col.created")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {iocs.map((ioc) => (
+                  <tr key={ioc.id} className="border-b border-border/50">
+                    <td className="py-1.5 pr-2 text-ink-2">
+                      {t(`ioc.type.${ioc.type}` as DictKey)}
+                    </td>
+                    <td className="py-1.5 pr-2 text-ink-1 keep-ltr tabular max-w-[280px] truncate">
+                      {ioc.value}
+                    </td>
+                    <td className="py-1.5 pr-2">
+                      <span
+                        className={`text-[10px] uppercase font-semibold tracking-[0.06em] px-1.5 py-0.5 rounded border ${
+                          ioc.action === "block" ||
+                          ioc.action === "alertAndBlock"
+                            ? "text-neg border-neg/40 bg-neg/10"
+                            : ioc.action === "alert"
+                              ? "text-warn border-warn/40 bg-warn/10"
+                              : "text-pos border-pos/40 bg-pos/10"
+                        }`}
+                      >
+                        {t(`ioc.action.${ioc.action}` as DictKey)}
+                      </span>
+                    </td>
+                    <td className="py-1.5 pr-2 text-ink-2 capitalize">
+                      {ioc.severity}
+                    </td>
+                    <td className="py-1.5 pr-2 text-ink-3 text-[11px]">
+                      {fmtRelative(ioc.expirationDate)}
+                    </td>
+                    <td className="py-1.5 pr-2 text-ink-3 text-[11px]">
+                      {fmtRelative(ioc.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 /**
  * Shared "Coming soon — push disabled" baselines section. Used by every

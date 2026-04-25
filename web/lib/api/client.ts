@@ -847,6 +847,110 @@ export const api = {
       `/api/directive/baselines/status?tenantId=${encodeURIComponent(tenantId)}`,
     ),
 
+  // ----- Phase 11a SharePoint tenant external-sharing baselines -----
+
+  directiveSharepointBaselines: () =>
+    jsonFetch<{
+      baselines: Array<{
+        id: string;
+        titleKey: string;
+        bodyKey: string;
+        riskTier: "low" | "medium" | "high";
+        effectSummary: string;
+        whyKey: string;
+        impactKey: string;
+        prerequisitesKey: string;
+        rolloutAdviceKey: string;
+        docsUrl: string;
+        idempotencyKey: string;
+        intendedPatch: Record<string, unknown>;
+      }>;
+    }>("/api/directive/sharepoint/baselines"),
+
+  directiveSharepointBaselinePush: (
+    baselineId: string,
+    body: { targetTenantIds: string[] },
+  ) =>
+    jsonFetch<{
+      ok: boolean;
+      pushRequestId: number;
+      perTenant: Array<{
+        tenantId: string;
+        status:
+          | "success"
+          | "already_applied"
+          | "failed"
+          | "simulated"
+          | "skipped_observation";
+        error?: string | null;
+        auditId?: number;
+      }>;
+    }>(
+      `/api/directive/sharepoint/baselines/${encodeURIComponent(baselineId)}/push`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
+  // ----- Phase 14b IOC push -----
+
+  directiveIocs: () =>
+    jsonFetch<{
+      iocs: Array<{
+        id: number;
+        ownerUserId: string | null;
+        type:
+          | "fileHashSha256"
+          | "fileHashSha1"
+          | "url"
+          | "domainName"
+          | "ipv4"
+          | "ipv6";
+        value: string;
+        action: "allow" | "alert" | "alertAndBlock" | "block" | "unknown";
+        severity: "low" | "medium" | "high" | "informational";
+        description: string;
+        internalNote: string | null;
+        expirationDate: string;
+        createdAt: string;
+      }>;
+    }>("/api/directive/iocs"),
+
+  directiveIocCreate: (body: {
+    type:
+      | "fileHashSha256"
+      | "fileHashSha1"
+      | "url"
+      | "domainName"
+      | "ipv4"
+      | "ipv6";
+    value: string;
+    action?: "allow" | "alert" | "alertAndBlock" | "block";
+    severity?: "low" | "medium" | "high" | "informational";
+    description: string;
+    internalNote?: string;
+    expirationDateTime?: string;
+    targetTenantIds: string[];
+  }) =>
+    jsonFetch<{
+      ok: boolean;
+      iocId: number;
+      pushRequestId: number;
+      perTenant: Array<{
+        tenantId: string;
+        status:
+          | "success"
+          | "already_applied"
+          | "failed"
+          | "simulated"
+          | "skipped_observation";
+        indicatorId?: string | null;
+        error?: string | null;
+        auditId?: number;
+      }>;
+    }>("/api/directive/iocs", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
   // ----- Phase 5 Intune baselines -----
 
   directiveIntuneBaselines: () =>

@@ -314,6 +314,37 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 11,
+    name: "add_iocs_table",
+    run: (db) => {
+      // Phase 14b — operator-authored Threat Intelligence Indicators.
+      // One row per IOC the operator submits. Each push fans the IOC out
+      // to selected entities; the per-tenant write lives on the existing
+      // directive_push_actions table (baseline_id stamped as "ioc:<id>"
+      // on directive_push_requests). This top-level row lets the IOC
+      // list view show what an operator authored without joining
+      // through push_requests.
+      db.exec(`CREATE TABLE IF NOT EXISTS directive_iocs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_user_id TEXT,
+        type TEXT NOT NULL,
+        value TEXT NOT NULL,
+        action TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        description TEXT NOT NULL,
+        internal_note TEXT,
+        expiration_date TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_iocs_created ON directive_iocs(created_at DESC)",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_directive_iocs_value ON directive_iocs(type, value)",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

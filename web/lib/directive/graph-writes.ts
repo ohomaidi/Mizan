@@ -406,3 +406,121 @@ export async function listMizanPoliciesByKind(
   });
   return r.value.filter((p) => p.displayName.includes("mizan:"));
 }
+
+// ---------------------------------------------------------------------------
+// SharePoint tenant settings — Phase 11a
+// ---------------------------------------------------------------------------
+
+/**
+ * SharePoint tenant settings are a SINGLETON per tenant. The push model
+ * is GET → diff → PATCH (or skip if already at intended values), unlike
+ * the create-by-collection model used for CA / Intune. No graph_policy_id
+ * is stored; rollback is not supported (would require capturing the
+ * before state, which the directive_push_actions schema doesn't have a
+ * column for today). Operators wanting to revert manually inspect the
+ * directive_actions audit trail and PATCH back from the SharePoint admin
+ * centre.
+ */
+export type SharepointSettings = {
+  sharingCapability?: string;
+  defaultSharingLinkType?: string;
+  defaultLinkPermission?: string;
+  sharingDomainRestrictionMode?: string;
+  sharingAllowedDomainList?: string[];
+  sharingBlockedDomainList?: string[];
+  requireAcceptingAccountMatchInvitedAccount?: boolean;
+  isLoopEnabled?: boolean;
+  anyoneLinkExpirationInDays?: number | null;
+};
+
+export async function getSharepointSettings(
+  tenant: Ids,
+): Promise<SharepointSettings> {
+  return graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "GET",
+    path: `/admin/sharepoint/settings`,
+  });
+}
+
+export async function patchSharepointSettings(
+  tenant: Ids,
+  patch: Partial<SharepointSettings>,
+): Promise<SharepointSettings> {
+  return graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "PATCH",
+    path: `/admin/sharepoint/settings`,
+    body: patch as Record<string, unknown>,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Threat Intelligence Indicators (IOCs) — Phase 14b
+// ---------------------------------------------------------------------------
+
+/**
+ * IOCs are POSTed to `/security/tiIndicators`. Returned `id` is what
+ * rollback DELETEs by. The body shape is heterogeneous — only the field
+ * matching the indicator type is populated (fileHashValue, url, etc.).
+ *
+ * Reference:
+ *   https://learn.microsoft.com/en-us/graph/api/tiindicators-post
+ *   https://learn.microsoft.com/en-us/graph/api/resources/tiindicator
+ */
+export type TiIndicatorBody = Record<string, unknown> & {
+  action: string;
+  description: string;
+  expirationDateTime: string;
+  targetProduct: "Microsoft Defender ATP";
+  threatType: string;
+  tlpLevel?: "white" | "green" | "amber" | "red";
+};
+
+export async function createTiIndicator(
+  tenant: Ids,
+  body: TiIndicatorBody,
+): Promise<{ id: string; description?: string }> {
+  return graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "POST",
+    path: `/security/tiIndicators`,
+    body,
+  });
+}
+
+export async function deleteTiIndicator(
+  tenant: Ids,
+  indicatorId: string,
+): Promise<void> {
+  await graphFetch({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "DELETE",
+    path: `/security/tiIndicators/${encodeURIComponent(indicatorId)}`,
+  });
+}
+
+/**
+ * Find Mizan-pushed indicators in a tenant by description-prefix match.
+ * Used for idempotency (find an existing match before creating a duplicate)
+ * + cross-push status views ("which IOCs of ours does this tenant have?").
+ */
+export async function findTiIndicatorByMizanTag(
+  tenant: Ids,
+  mizanTag: string,
+): Promise<{ id: string; description: string } | null> {
+  const r = await graphFetch<{
+    value: Array<{ id: string; description?: string }>;
+  }>({
+    tenantGuid: tenant.tenant_id,
+    ourTenantId: tenant.id,
+    method: "GET",
+    path: `/security/tiIndicators?$select=id,description&$top=200`,
+  });
+  const hit = r.value.find((p) => (p.description ?? "").includes(mizanTag));
+  return hit ? { id: hit.id, description: hit.description ?? "" } : null;
+}

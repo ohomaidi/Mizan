@@ -49,11 +49,14 @@ export async function GET(
   }
   const actions = listActionsForPush(pushIdNum);
 
-  // Resolve the idempotency key + policy kind for this push. Three
-  // tracks today: CA baselines, custom CA drafts, Intune baselines.
-  // baseline_id encodes which track via prefix.
+  // Resolve the idempotency key + policy kind for this push. Five
+  // tracks today: CA baselines, custom CA drafts, Intune baselines,
+  // IOCs, SharePoint singletons. baseline_id encodes which track via
+  // prefix; SharePoint and IOC don't have an idempotency-by-tag lookup
+  // (SharePoint has no listable id; IOC matches by description tag).
   let idempotencyKey: string | null = null;
   let policyKind: PolicyKind = "ca";
+  let track: "ca" | "intune" | "ioc" | "sharepoint" = "ca";
   if (push.baseline_id.startsWith("custom:")) {
     const policyId = Number(push.baseline_id.slice("custom:".length));
     const row = getCustomPolicy(policyId);
@@ -64,11 +67,23 @@ export async function GET(
     if (intune) {
       idempotencyKey = intune.idempotencyKey;
       policyKind = intune.descriptor.kind;
+      track = "intune";
     }
+  } else if (push.baseline_id.startsWith("ioc:")) {
+    track = "ioc";
+    // IOCs match by description-prefix; we don't pre-resolve the key
+    // here because the rollback-preview only reads current state, not
+    // does a fresh tag lookup. Skip-reason "no_policy_id" already
+    // handles the rare case where the indicator was deleted upstream.
+    idempotencyKey = null;
+  } else if (push.baseline_id.startsWith("sharepoint:")) {
+    track = "sharepoint";
+    idempotencyKey = null;
   } else {
     const baseline = getBaseline(push.baseline_id);
     if (baseline) idempotencyKey = baseline.idempotencyKey;
   }
+  void track; // currently the route doesn't branch on track beyond this lookup
 
   type Entry = {
     actionId: number;

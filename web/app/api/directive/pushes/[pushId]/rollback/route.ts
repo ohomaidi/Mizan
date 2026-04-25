@@ -8,6 +8,7 @@ import {
 import {
   deleteConditionalAccessPolicy,
   deletePolicyByKind,
+  deleteTiIndicator,
   type PolicyKind,
 } from "@/lib/directive/graph-writes";
 import {
@@ -88,14 +89,23 @@ export async function POST(
 
   const actions = listActionsForPush(pushIdNum);
 
-  // Resolve the policy kind once based on the push's baseline_id prefix.
-  // Intune pushes delete via the kind-generic helper; CA (default + custom)
-  // keeps the legacy CA call for clarity + Phase-3 parity.
+  // Resolve which Graph DELETE call to dispatch based on the push's
+  // baseline_id prefix:
+  //   intune:<id>  → deletePolicyByKind(intune-config|compliance|...)
+  //   ioc:<id>     → deleteTiIndicator
+  //   sharepoint:* → no rollback (singleton settings; skip)
+  //   default      → deleteConditionalAccessPolicy (CA baselines + custom)
   let policyKind: Exclude<PolicyKind, "ca"> | null = null;
+  let isIoc = false;
+  let isSharepoint = false;
   if (pushRequest.baseline_id.startsWith("intune:")) {
     const intuneId = pushRequest.baseline_id.slice("intune:".length);
     const intune = getIntuneBaseline(intuneId);
     if (intune) policyKind = intune.descriptor.kind;
+  } else if (pushRequest.baseline_id.startsWith("ioc:")) {
+    isIoc = true;
+  } else if (pushRequest.baseline_id.startsWith("sharepoint:")) {
+    isSharepoint = true;
   }
   const results: Array<{
     tenantId: string;
@@ -128,7 +138,17 @@ export async function POST(
       input: { policyId, policyKind: policyKind ?? ("ca" as const) },
       simulatedResult: { deleted: true, policyId },
       run: async ({ tenant }) => {
-        if (policyKind) {
+        if (isSharepoint) {
+          // SharePoint settings are singletons — no DELETE. Mark the
+          // action as rolled back without a Graph call. The action's
+          // graph_policy_id is null already, so this branch only fires
+          // if a SharePoint push somehow stored a policy_id, which it
+          // shouldn't.
+          return { deleted: false, policyId, reason: "sharepoint_singleton" };
+        }
+        if (isIoc) {
+          await deleteTiIndicator(tenant, policyId);
+        } else if (policyKind) {
           // Intune kinds route through the kind-generic helper.
           await deletePolicyByKind(policyKind, tenant, policyId);
         } else {

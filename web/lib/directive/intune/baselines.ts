@@ -298,6 +298,258 @@ export const intuneAndroidMam: IntuneBaseline = {
 };
 
 // -------------------------------------------------------------------
+// Phase 14 — Defender for Endpoint Attack Surface Reduction (ASR) rules
+// -------------------------------------------------------------------
+//
+// ASR rules are a Defender for Endpoint feature delivered through an
+// Intune Endpoint Protection configuration profile. Each rule is keyed
+// by a stable Microsoft GUID; the policy carries a list of rule-id ->
+// action mappings. Action `Block` enforces; `AuditMode` reports without
+// blocking — the Intune-level analogue of CA's report-only state.
+//
+// Reference (rule GUID list):
+//   https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference
+//
+// Every baseline below ships in AuditMode by default — the same safe
+// default Phase 3/5 applied to CA / compliance. Operators flip a rule to
+// Block once they've reviewed audit telemetry in Defender's portal.
+
+/**
+ * Common ASR rule GUIDs we ship baselines for. Names mirror the
+ * Microsoft Learn rule reference page.
+ */
+const ASR_RULE = {
+  blockOfficeChildProcesses: "D4F940AB-401B-4EFC-AADC-AD5F3C50688A",
+  blockOfficeApplicationsCreatingExecutableContent:
+    "3B576869-A4EC-4529-8536-B80A7769E899",
+  blockOfficeApplicationsInjecting: "75668C1F-73B5-4CF0-BB93-3ECF5CB7CC84",
+  blockExecutableContentEmail: "BE9BA2D9-53EA-4CDC-84E5-9B1EEEE46550",
+  blockJsVbsLaunchingDownloadedExe:
+    "D3E037E1-3EB8-44C8-A917-57927947596D",
+  blockPsExecAndWmiProcessCreations:
+    "D1E49AAC-8F56-4280-B9BA-993A6D77406C",
+  blockCredentialStealingFromLsass: "9E6C4E1F-7D60-472F-BA1A-A39EF669E4B2",
+  blockUntrustedUnsignedProcessesFromUSB:
+    "B2B3F03D-6A65-4F7B-A9C7-1C7EF74A9BA4",
+} as const;
+
+const asrAuditModeBase: Omit<IntuneBaseline, "buildPolicyBody" | "descriptor" | "idempotencyKey"> & {
+  descriptor: Omit<IntuneBaseline["descriptor"], "id" | "titleKey" | "bodyKey" | "whyKey" | "impactKey" | "prerequisitesKey" | "rolloutAdviceKey" | "docsUrl" | "platform" | "kind" | "riskTier" | "targetSummary" | "effectSummary"> & {
+    platform: "Windows";
+    kind: "intune-config";
+  };
+} = {
+  descriptor: {
+    platform: "Windows",
+    kind: "intune-config",
+  },
+};
+
+// Helper that wraps an ASR rule into an Endpoint Protection profile body.
+// Microsoft expects each rule as { id, type } where type is the action
+// (1 = Block, 2 = AuditMode, 6 = WarnMode) — we encode that as the rule's
+// GUID -> action enum string in the @odata-typed body.
+function buildAsrProfileBody(
+  baselineId: string,
+  ruleGuid: string,
+  description: string,
+): import("./types").IntunePolicyBody {
+  return {
+    "@odata.type": "#microsoft.graph.windows10EndpointProtectionConfiguration",
+    displayName: `[Mizan] ${baselineId} (${intuneIdempotencyKey(baselineId)})`,
+    description,
+    defenderAttackSurfaceReductionRules: [
+      {
+        // 1 = Block, 2 = AuditMode, 6 = WarnMode
+        type: "auditMode",
+        id: ruleGuid,
+      },
+    ],
+  };
+}
+
+const asrOfficeChildProcessesBase: Omit<IntuneBaseline, "buildPolicyBody"> = {
+  descriptor: {
+    id: "intune-asr-office-child-processes",
+    kind: "intune-config",
+    titleKey: "intune.baseline.asrOfficeChildProcesses.title",
+    bodyKey: "intune.baseline.asrOfficeChildProcesses.body",
+    riskTier: "high",
+    targetSummary: "Windows endpoints managed by Intune.",
+    effectSummary:
+      "Block Office (Word/Excel/PowerPoint/Outlook) from creating child processes. Stops macro-driven cmd.exe/powershell.exe spawning — a top initial-access vector.",
+    whyKey: "intune.baseline.asrOfficeChildProcesses.why",
+    impactKey: "intune.baseline.asrOfficeChildProcesses.impact",
+    prerequisitesKey:
+      "intune.baseline.asrOfficeChildProcesses.prerequisites",
+    rolloutAdviceKey: "intune.baseline.asrOfficeChildProcesses.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference",
+    platform: "Windows",
+  },
+  idempotencyKey: intuneIdempotencyKey("asr-office-child-processes"),
+};
+export const intuneAsrOfficeChildProcesses: IntuneBaseline = {
+  ...asrOfficeChildProcessesBase,
+  buildPolicyBody: () =>
+    buildAsrProfileBody(
+      "asr-office-child-processes",
+      ASR_RULE.blockOfficeChildProcesses,
+      "ASR: block Office apps from creating child processes (audit mode).",
+    ),
+};
+
+const asrExecutableContentEmailBase: Omit<IntuneBaseline, "buildPolicyBody"> = {
+  descriptor: {
+    id: "intune-asr-executable-content-email",
+    kind: "intune-config",
+    titleKey: "intune.baseline.asrExecutableContentEmail.title",
+    bodyKey: "intune.baseline.asrExecutableContentEmail.body",
+    riskTier: "high",
+    targetSummary: "Windows endpoints managed by Intune.",
+    effectSummary:
+      "Block executable content from email and webmail (.exe / .scr / .ps1 / .vbs / .js attachments and similar) from running.",
+    whyKey: "intune.baseline.asrExecutableContentEmail.why",
+    impactKey: "intune.baseline.asrExecutableContentEmail.impact",
+    prerequisitesKey: "intune.baseline.asrExecutableContentEmail.prerequisites",
+    rolloutAdviceKey: "intune.baseline.asrExecutableContentEmail.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference",
+    platform: "Windows",
+  },
+  idempotencyKey: intuneIdempotencyKey("asr-executable-content-email"),
+};
+export const intuneAsrExecutableContentEmail: IntuneBaseline = {
+  ...asrExecutableContentEmailBase,
+  buildPolicyBody: () =>
+    buildAsrProfileBody(
+      "asr-executable-content-email",
+      ASR_RULE.blockExecutableContentEmail,
+      "ASR: block executable content from email + webmail (audit mode).",
+    ),
+};
+
+const asrCredentialTheftBase: Omit<IntuneBaseline, "buildPolicyBody"> = {
+  descriptor: {
+    id: "intune-asr-credential-theft-lsass",
+    kind: "intune-config",
+    titleKey: "intune.baseline.asrCredentialTheft.title",
+    bodyKey: "intune.baseline.asrCredentialTheft.body",
+    riskTier: "high",
+    targetSummary: "Windows endpoints managed by Intune.",
+    effectSummary:
+      "Block credential stealing from LSASS — stops Mimikatz-class tools from reading hashed credentials out of the lsass.exe process.",
+    whyKey: "intune.baseline.asrCredentialTheft.why",
+    impactKey: "intune.baseline.asrCredentialTheft.impact",
+    prerequisitesKey: "intune.baseline.asrCredentialTheft.prerequisites",
+    rolloutAdviceKey: "intune.baseline.asrCredentialTheft.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference",
+    platform: "Windows",
+  },
+  idempotencyKey: intuneIdempotencyKey("asr-credential-theft-lsass"),
+};
+export const intuneAsrCredentialTheft: IntuneBaseline = {
+  ...asrCredentialTheftBase,
+  buildPolicyBody: () =>
+    buildAsrProfileBody(
+      "asr-credential-theft-lsass",
+      ASR_RULE.blockCredentialStealingFromLsass,
+      "ASR: block credential stealing from LSASS (audit mode).",
+    ),
+};
+
+const asrJsVbsLaunchExeBase: Omit<IntuneBaseline, "buildPolicyBody"> = {
+  descriptor: {
+    id: "intune-asr-js-vbs-launch-exe",
+    kind: "intune-config",
+    titleKey: "intune.baseline.asrJsVbsLaunchExe.title",
+    bodyKey: "intune.baseline.asrJsVbsLaunchExe.body",
+    riskTier: "medium",
+    targetSummary: "Windows endpoints managed by Intune.",
+    effectSummary:
+      "Block JavaScript or VBScript from launching downloaded executable content. Closes the 'phishing → JS dropper → ransomware' chain.",
+    whyKey: "intune.baseline.asrJsVbsLaunchExe.why",
+    impactKey: "intune.baseline.asrJsVbsLaunchExe.impact",
+    prerequisitesKey: "intune.baseline.asrJsVbsLaunchExe.prerequisites",
+    rolloutAdviceKey: "intune.baseline.asrJsVbsLaunchExe.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference",
+    platform: "Windows",
+  },
+  idempotencyKey: intuneIdempotencyKey("asr-js-vbs-launch-exe"),
+};
+export const intuneAsrJsVbsLaunchExe: IntuneBaseline = {
+  ...asrJsVbsLaunchExeBase,
+  buildPolicyBody: () =>
+    buildAsrProfileBody(
+      "asr-js-vbs-launch-exe",
+      ASR_RULE.blockJsVbsLaunchingDownloadedExe,
+      "ASR: block JS/VBS launching downloaded executable content (audit mode).",
+    ),
+};
+
+const asrPsExecWmiBase: Omit<IntuneBaseline, "buildPolicyBody"> = {
+  descriptor: {
+    id: "intune-asr-psexec-wmi",
+    kind: "intune-config",
+    titleKey: "intune.baseline.asrPsExecWmi.title",
+    bodyKey: "intune.baseline.asrPsExecWmi.body",
+    riskTier: "medium",
+    targetSummary: "Windows endpoints managed by Intune.",
+    effectSummary:
+      "Block process creations originating from PSExec and WMI commands. Stops common lateral-movement tradecraft.",
+    whyKey: "intune.baseline.asrPsExecWmi.why",
+    impactKey: "intune.baseline.asrPsExecWmi.impact",
+    prerequisitesKey: "intune.baseline.asrPsExecWmi.prerequisites",
+    rolloutAdviceKey: "intune.baseline.asrPsExecWmi.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference",
+    platform: "Windows",
+  },
+  idempotencyKey: intuneIdempotencyKey("asr-psexec-wmi"),
+};
+export const intuneAsrPsExecWmi: IntuneBaseline = {
+  ...asrPsExecWmiBase,
+  buildPolicyBody: () =>
+    buildAsrProfileBody(
+      "asr-psexec-wmi",
+      ASR_RULE.blockPsExecAndWmiProcessCreations,
+      "ASR: block process creations from PSExec and WMI (audit mode).",
+    ),
+};
+
+const asrUntrustedUsbBase: Omit<IntuneBaseline, "buildPolicyBody"> = {
+  descriptor: {
+    id: "intune-asr-untrusted-usb",
+    kind: "intune-config",
+    titleKey: "intune.baseline.asrUntrustedUsb.title",
+    bodyKey: "intune.baseline.asrUntrustedUsb.body",
+    riskTier: "medium",
+    targetSummary: "Windows endpoints managed by Intune.",
+    effectSummary:
+      "Block untrusted and unsigned processes that run from USB. Stops the 'plug in a malicious USB' attack chain.",
+    whyKey: "intune.baseline.asrUntrustedUsb.why",
+    impactKey: "intune.baseline.asrUntrustedUsb.impact",
+    prerequisitesKey: "intune.baseline.asrUntrustedUsb.prerequisites",
+    rolloutAdviceKey: "intune.baseline.asrUntrustedUsb.rollout",
+    docsUrl:
+      "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference",
+    platform: "Windows",
+  },
+  idempotencyKey: intuneIdempotencyKey("asr-untrusted-usb"),
+};
+export const intuneAsrUntrustedUsb: IntuneBaseline = {
+  ...asrUntrustedUsbBase,
+  buildPolicyBody: () =>
+    buildAsrProfileBody(
+      "asr-untrusted-usb",
+      ASR_RULE.blockUntrustedUnsignedProcessesFromUSB,
+      "ASR: block untrusted/unsigned processes from USB (audit mode).",
+    ),
+};
+
+// -------------------------------------------------------------------
 // Device configuration profile — Windows BitLocker baseline
 // -------------------------------------------------------------------
 

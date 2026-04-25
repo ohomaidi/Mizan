@@ -1708,6 +1708,188 @@ export const DICT = {
     "intune.baseline.windowsBitlocker.rollout":
       "Test on an IT pilot machine first — validate the recovery-key escrow path works by deliberately triggering recovery. Then assign to IT fleet, then to general population. The removable-drive write block causes the most user friction; communicate before assigning.",
 
+    // ---- Phase 14 ASR rules ----
+    "intune.baseline.asrOfficeChildProcesses.title":
+      "ASR — block Office child processes (audit)",
+    "intune.baseline.asrOfficeChildProcesses.body":
+      "Block Office (Word/Excel/PowerPoint/Outlook) from creating child processes. Stops macro-driven cmd.exe / powershell.exe spawning — top initial-access vector across phishing campaigns. Ships in audit mode; flip to Block once you've reviewed Defender telemetry.",
+    "intune.baseline.asrOfficeChildProcesses.why":
+      "Office macro execution chains overwhelmingly start with `winword.exe → cmd.exe`, `excel.exe → powershell.exe`, etc. CISA + Microsoft recommend this rule as the single highest-ROI ASR control.",
+    "intune.baseline.asrOfficeChildProcesses.impact":
+      "Audit mode: Defender logs every block-worthy event but doesn't intervene. Move to Block: legitimate macros that spawn external processes (rare, usually engineering tooling) need to be exempted via Defender ASR exclusions before flipping.",
+    "intune.baseline.asrOfficeChildProcesses.prerequisites":
+      "Defender for Endpoint P1 or P2. Devices onboarded to Defender. Audit telemetry visible in Defender XDR portal.",
+    "intune.baseline.asrOfficeChildProcesses.rollout":
+      "Audit mode 14 days. Review Defender → Reports → Attack surface reduction → Audit events. Whitelist any legitimate macro chains. Flip to Block.",
+
+    "intune.baseline.asrExecutableContentEmail.title":
+      "ASR — block executable content from email (audit)",
+    "intune.baseline.asrExecutableContentEmail.body":
+      "Block executable content (.exe / .scr / .ps1 / .vbs / .js) launched from email and webmail attachments. Ships in audit mode.",
+    "intune.baseline.asrExecutableContentEmail.why":
+      "Email is the #1 malware delivery vector. Even with Defender for Office filtering, occasional executables slip through; this rule provides the endpoint-side safety net.",
+    "intune.baseline.asrExecutableContentEmail.impact":
+      "Audit mode: logs only. Block: users opening legitimate .exe attachments (rare in modern enterprise) get blocked. Communicate before flipping.",
+    "intune.baseline.asrExecutableContentEmail.prerequisites":
+      "Defender for Endpoint. Devices onboarded.",
+    "intune.baseline.asrExecutableContentEmail.rollout":
+      "Audit mode → review for legitimate exceptions → flip to Block.",
+
+    "intune.baseline.asrCredentialTheft.title":
+      "ASR — block credential theft from LSASS (audit)",
+    "intune.baseline.asrCredentialTheft.body":
+      "Block credential stealing from the Windows Local Security Authority Subsystem Service (LSASS). Stops Mimikatz-class tools from reading hashed credentials out of lsass.exe memory. Ships in audit mode.",
+    "intune.baseline.asrCredentialTheft.why":
+      "Credential dumping from LSASS is the canonical post-exploitation step in lateral movement. Mimikatz and its derivatives still work on unpatched / unprotected hosts.",
+    "intune.baseline.asrCredentialTheft.impact":
+      "Audit mode: visibility into any process touching LSASS. Block: legitimate credential-related tooling (most rare, but present in some IT scenarios — backup agents, password managers) needs exemption first.",
+    "intune.baseline.asrCredentialTheft.prerequisites":
+      "Defender for Endpoint. LSA Protection (Credential Guard) ideally also on for defence-in-depth.",
+    "intune.baseline.asrCredentialTheft.rollout":
+      "Audit 30 days — LSASS reads are rarer + slower to surface. Review thoroughly. Then Block.",
+
+    "intune.baseline.asrJsVbsLaunchExe.title":
+      "ASR — block JS/VBS launching downloaded executables (audit)",
+    "intune.baseline.asrJsVbsLaunchExe.body":
+      "Block JavaScript or VBScript from launching executable content downloaded by them. Closes the 'phishing → JS dropper → ransomware' chain. Ships in audit mode.",
+    "intune.baseline.asrJsVbsLaunchExe.why":
+      "JavaScript droppers (`.js` files masquerading as documents) are a recurring initial-access tactic. Native Windows Script Host runs these by default; this rule disables the second-stage execution.",
+    "intune.baseline.asrJsVbsLaunchExe.impact":
+      "Audit mode: log only. Block: legacy line-of-business apps that legitimately use WSH to install update components may break — exempt via Defender.",
+    "intune.baseline.asrJsVbsLaunchExe.prerequisites":
+      "Defender for Endpoint.",
+    "intune.baseline.asrJsVbsLaunchExe.rollout":
+      "Audit 14 days, review, exempt legitimate cases, Block.",
+
+    "intune.baseline.asrPsExecWmi.title":
+      "ASR — block PSExec + WMI process creations (audit)",
+    "intune.baseline.asrPsExecWmi.body":
+      "Block process creations originating from PSExec and WMI commands. Stops common lateral-movement tradecraft. Ships in audit mode.",
+    "intune.baseline.asrPsExecWmi.why":
+      "Both PSExec and WMI are well-documented red-team and ransomware lateral-movement tools. Many enterprises don't legitimately use these on endpoints — auditing first reveals real usage before blocking.",
+    "intune.baseline.asrPsExecWmi.impact":
+      "Audit mode: see who's using PSExec or WMI command-execution legitimately. Common false positives: SCCM client-side actions, some monitoring agents. Exempt before Block.",
+    "intune.baseline.asrPsExecWmi.prerequisites":
+      "Defender for Endpoint.",
+    "intune.baseline.asrPsExecWmi.rollout":
+      "Audit 21 days (longer, because legitimate usage is sporadic). Review thoroughly. Block.",
+
+    "intune.baseline.asrUntrustedUsb.title":
+      "ASR — block untrusted/unsigned USB processes (audit)",
+    "intune.baseline.asrUntrustedUsb.body":
+      "Block untrusted and unsigned processes that run from USB drives. Stops the 'plug in a malicious USB' attack chain. Ships in audit mode.",
+    "intune.baseline.asrUntrustedUsb.why":
+      "USB-borne malware is rare but high-impact. Defender ASR's signed-binary check is fast + low-false-positive.",
+    "intune.baseline.asrUntrustedUsb.impact":
+      "Audit mode: see USB executable activity. Block: legitimate signed installers from USB still work. Unsigned binaries (some custom IT tooling) need exemption.",
+    "intune.baseline.asrUntrustedUsb.prerequisites":
+      "Defender for Endpoint.",
+    "intune.baseline.asrUntrustedUsb.rollout":
+      "Audit 14 days, exempt edge cases, Block.",
+
+    // ---- Phase 11a SharePoint tenant external-sharing ----
+    "sharepoint.title": "SharePoint tenant external-sharing defaults",
+    "sharepoint.subtitle":
+      "Tenant-level SharePoint settings controlling how users share files externally. PATCHes the singleton `/admin/sharepoint/settings`. No rollback button — settings are mutated in place; the audit log captures the before/after diff for manual revert.",
+    "sharepoint.licenseNote":
+      "All baselines target settings that exist in every SharePoint Online tenant — no extra licence required.",
+    "sharepoint.singletonNote":
+      "Heads-up: SharePoint settings are a singleton per tenant, not a separate policy. Pushing a baseline mutates the entity's tenant settings directly. There's no rollback button — the audit log records the before/after; revert manually in the entity's SharePoint admin centre.",
+    "sharepoint.effect": "Effect",
+    "sharepoint.pushCta": "Push to entities",
+
+    "sharepoint.baseline.strictExternalSharing.title":
+      "Strict external sharing — guests only, no anonymous links",
+    "sharepoint.baseline.strictExternalSharing.body":
+      "Cap external sharing at 'authenticated guests only' — no anonymous 'anyone with the link' URLs. Anonymous link expiry hard-set to 30 days as a safety net even when this baseline is later relaxed.",
+    "sharepoint.baseline.strictExternalSharing.why":
+      "Anonymous links are the #1 accidental data leak vector in SharePoint. Forcing authenticated guests means every external recipient is logged + tied to a real identity.",
+    "sharepoint.baseline.strictExternalSharing.impact":
+      "Existing 'anyone with the link' URLs stop working. Users sharing externally will see a sign-in screen for the recipient. Communicate the change widely before pushing.",
+    "sharepoint.baseline.strictExternalSharing.prerequisites":
+      "SharePoint Online active. Plan for any active 'anyone' links in current sites.",
+    "sharepoint.baseline.strictExternalSharing.rollout":
+      "Run an audit query first (`/security/auditLog/queries`) for AnonymousLink usage in the last 30 days. Communicate to active users. Push.",
+
+    "sharepoint.baseline.defaultLinkInternal.title":
+      "Default link type 'Internal' + 'View'",
+    "sharepoint.baseline.defaultLinkInternal.body":
+      "First-click default for sharing is 'Internal' (people in this org) with 'View' permission. Users can still pick external + edit deliberately, but the safe default is internal-view-only.",
+    "sharepoint.baseline.defaultLinkInternal.why":
+      "Most 'oops shared externally' incidents are first-click defaults. Internal+View as the default removes the most common foot-gun.",
+    "sharepoint.baseline.defaultLinkInternal.impact":
+      "Users see 'Internal' selected on every share dialog. They can still change it. Minor friction for users who routinely share externally; meaningful safety lift for everyone else.",
+    "sharepoint.baseline.defaultLinkInternal.prerequisites":
+      "SharePoint Online active.",
+    "sharepoint.baseline.defaultLinkInternal.rollout":
+      "Safe to push directly. Communicate to power users who share externally so they know to change the default per-share.",
+
+    "sharepoint.baseline.domainAllowList.title":
+      "Domain allow-list for guest sharing (placeholder)",
+    "sharepoint.baseline.domainAllowList.body":
+      "Switch sharing-domain mode to allow-list. SHIPS WITH AN EMPTY LIST — operator must add the entity's known partner domains via the SharePoint admin centre or a follow-up Mizan action before pushing this baseline broadly.",
+    "sharepoint.baseline.domainAllowList.why":
+      "Once you know an entity collaborates with N specific external partners, an allow-list cuts off every other external domain — including phishing-impersonator domains.",
+    "sharepoint.baseline.domainAllowList.impact":
+      "Sharing to any domain not on the list fails. With an empty list, ALL external sharing fails. Configure the list before pushing or it'll be a hard kill.",
+    "sharepoint.baseline.domainAllowList.prerequisites":
+      "Inventory of legitimate partner domains the entity collaborates with. Edit the list before pushing.",
+    "sharepoint.baseline.domainAllowList.rollout":
+      "Push only after the partner-domain list is complete. Otherwise this is a self-DoS.",
+
+    "sharepoint.baseline.anonymousLinksOff.title":
+      "Disable anonymous links entirely",
+    "sharepoint.baseline.anonymousLinksOff.body":
+      "Hardest-stance external sharing: only existing external users who've already authenticated to the tenant can be shared with. No new external sharing, no anonymous links.",
+    "sharepoint.baseline.anonymousLinksOff.why":
+      "For high-sensitivity entities (defence, judicial, intelligence), the only acceptable default. No accidental leak path.",
+    "sharepoint.baseline.anonymousLinksOff.impact":
+      "Net new external collaboration via SharePoint stops. Existing external collaborators continue to work. Net new external collaboration must go through admin-mediated B2B invite first.",
+    "sharepoint.baseline.anonymousLinksOff.prerequisites":
+      "Operational maturity to handle B2B invite flow as the only external-collab path.",
+    "sharepoint.baseline.anonymousLinksOff.rollout":
+      "Coordinate widely before pushing. This is a strict baseline; only suitable for the right entity profile.",
+
+    // ---- Phase 14b IOC push ----
+    "ioc.title": "Threat Intelligence — IOC push",
+    "ioc.subtitle":
+      "Push file-hash / URL / domain / IP indicators to the entity's Defender for Endpoint as block lists. Each IOC has its own expiration; pushes are idempotent (Mizan tag in the description); rollback DELETEs the indicator from each tenant.",
+    "ioc.licenseNote":
+      "Requires Defender for Endpoint at each target entity. Indicators that already exist in the tenant (matched by Mizan tag) are no-ops.",
+    "ioc.formTitle": "Add a new indicator",
+    "ioc.field.type": "Indicator type",
+    "ioc.field.value": "Indicator value",
+    "ioc.field.action": "Action on match",
+    "ioc.field.severity": "Severity",
+    "ioc.field.description": "Description (visible in Defender)",
+    "ioc.field.internalNote": "Internal note (Mizan-only)",
+    "ioc.field.expirationDateTime": "Expires (default: 90 days)",
+    "ioc.field.targetTenants": "Push to entities",
+    "ioc.action.allow": "Allow (whitelist)",
+    "ioc.action.alert": "Alert only",
+    "ioc.action.alertAndBlock": "Alert + Block (recommended)",
+    "ioc.action.block": "Block silently",
+    "ioc.severity.informational": "Informational",
+    "ioc.severity.low": "Low",
+    "ioc.severity.medium": "Medium",
+    "ioc.severity.high": "High",
+    "ioc.type.fileHashSha256": "File hash (SHA-256)",
+    "ioc.type.fileHashSha1": "File hash (SHA-1)",
+    "ioc.type.url": "URL",
+    "ioc.type.domainName": "Domain",
+    "ioc.type.ipv4": "IPv4 address",
+    "ioc.type.ipv6": "IPv6 address",
+    "ioc.submit": "Push to {count} entity(ies)",
+    "ioc.recentTitle": "Recent IOCs",
+    "ioc.recentEmpty": "No IOCs pushed yet.",
+    "ioc.col.value": "Value",
+    "ioc.col.action": "Action",
+    "ioc.col.severity": "Severity",
+    "ioc.col.expires": "Expires",
+    "ioc.col.created": "Pushed",
+    "ioc.descriptionHint":
+      "Free-text description; Mizan auto-prefixes with `[Mizan IOC <id>]` so we can find it for rollback.",
+
     // ---- Phase 6 DLP (coming soon — waiting on Microsoft Graph) ----
     "dlp.title": "Data Loss Prevention baselines",
     "dlp.subtitle":
@@ -3911,6 +4093,188 @@ export const DICT = {
       "Intune P1. TPM 1.2+ متوفّر. Windows Pro / Enterprise / Education (BitLocker غير متوفّر في Home). Entra Join أو Hybrid Join (لحفظ المفاتيح).",
     "intune.baseline.windowsBitlocker.rollout":
       "اختبر على جهاز IT تجريبي أولًا — تحقّق من مسار استرداد المفتاح بتحفيز الاسترداد عمدًا. ثم خصّص لأسطول IT، ثم للعموم. حظر كتابة الأقراص القابلة للإزالة الاحتكاك الأكبر؛ تواصل قبل التخصيص.",
+
+    // ---- Phase 14 ASR rules ----
+    "intune.baseline.asrOfficeChildProcesses.title":
+      "ASR — حظر العمليات الفرعية لـ Office (تدقيق)",
+    "intune.baseline.asrOfficeChildProcesses.body":
+      "حظر تطبيقات Office (Word/Excel/PowerPoint/Outlook) من إنشاء عمليات فرعية. يوقف تشغيل cmd.exe / powershell.exe المُحفَّز عبر الماكرو — ناقل وصول أوّل بارز عبر حملات التصيّد. يُشحَن بوضع التدقيق.",
+    "intune.baseline.asrOfficeChildProcesses.why":
+      "سلاسل تنفيذ ماكرو Office تبدأ غالبًا بـ winword.exe → cmd.exe أو excel.exe → powershell.exe. CISA + Microsoft توصي بهذه القاعدة كأعلى ضابط ASR ROI.",
+    "intune.baseline.asrOfficeChildProcesses.impact":
+      "وضع التدقيق: Defender يُسجّل الأحداث دون تدخّل. Block: ماكرو شرعي يُولّد عمليات خارجية (نادر) يحتاج استثناء عبر ASR exclusions قبل التحويل.",
+    "intune.baseline.asrOfficeChildProcesses.prerequisites":
+      "Defender for Endpoint P1 أو P2. أجهزة على Defender. تيليمتري التدقيق ظاهرة في Defender XDR.",
+    "intune.baseline.asrOfficeChildProcesses.rollout":
+      "تدقيق 14 يومًا. راجع Defender → Reports → ASR → Audit. استثنِ السلاسل الشرعية. حوّل إلى Block.",
+
+    "intune.baseline.asrExecutableContentEmail.title":
+      "ASR — حظر المحتوى التنفيذي من البريد (تدقيق)",
+    "intune.baseline.asrExecutableContentEmail.body":
+      "حظر المحتوى التنفيذي (.exe / .scr / .ps1 / .vbs / .js) من إطلاقه عبر مرفقات البريد والبريد الإلكتروني. وضع التدقيق.",
+    "intune.baseline.asrExecutableContentEmail.why":
+      "البريد ناقل البرمجيات الخبيثة الأول. حتى مع تصفية Defender for Office، تتسرّب أحيانًا تنفيذيات؛ هذه القاعدة شبكة أمان النقطة الطرفية.",
+    "intune.baseline.asrExecutableContentEmail.impact":
+      "Audit: تسجيل فقط. Block: المستخدمون الذين يفتحون مرفقات .exe شرعية (نادر) يُحظرون. تواصل قبل التحويل.",
+    "intune.baseline.asrExecutableContentEmail.prerequisites":
+      "Defender for Endpoint. أجهزة على Defender.",
+    "intune.baseline.asrExecutableContentEmail.rollout":
+      "تدقيق → مراجعة → Block.",
+
+    "intune.baseline.asrCredentialTheft.title":
+      "ASR — حظر سرقة الاعتمادات من LSASS (تدقيق)",
+    "intune.baseline.asrCredentialTheft.body":
+      "حظر سرقة الاعتمادات من Windows LSASS. يوقف أدوات Mimikatz من قراءة الاعتمادات المُجزّأة من ذاكرة lsass.exe. وضع التدقيق.",
+    "intune.baseline.asrCredentialTheft.why":
+      "تفريغ اعتمادات LSASS الخطوة المعيارية بعد الاستغلال في الحركة الجانبية. Mimikatz ومشتقّاته يعمل على المضيفين غير المُحدَّثين.",
+    "intune.baseline.asrCredentialTheft.impact":
+      "Audit: رؤية أي عملية تلمس LSASS. Block: أدوات الاعتماد الشرعية (وكلاء النسخ الاحتياطي مثلًا) تحتاج استثناء أولًا.",
+    "intune.baseline.asrCredentialTheft.prerequisites":
+      "Defender for Endpoint. LSA Protection (Credential Guard) مُفعَّل أيضًا للدفاع المتعدّد.",
+    "intune.baseline.asrCredentialTheft.rollout":
+      "تدقيق 30 يومًا. راجع. Block.",
+
+    "intune.baseline.asrJsVbsLaunchExe.title":
+      "ASR — حظر JS/VBS من تشغيل التنفيذيات المُنزَّلة (تدقيق)",
+    "intune.baseline.asrJsVbsLaunchExe.body":
+      "حظر JavaScript أو VBScript من تشغيل المحتوى التنفيذي الذي نزّلوه. يُغلق سلسلة 'تصيّد → JS dropper → برنامج فدية'. وضع التدقيق.",
+    "intune.baseline.asrJsVbsLaunchExe.why":
+      "JS droppers (.js متنكّر كمستندات) تكتيك متكرّر للوصول الأوّل. WSH الأصلي في Windows يُشغّلها افتراضيًا.",
+    "intune.baseline.asrJsVbsLaunchExe.impact":
+      "Audit: تسجيل فقط. Block: تطبيقات قديمة تستخدم WSH لتثبيت مكوّنات تحديث قد تُعطَب — استثنِ عبر Defender.",
+    "intune.baseline.asrJsVbsLaunchExe.prerequisites":
+      "Defender for Endpoint.",
+    "intune.baseline.asrJsVbsLaunchExe.rollout":
+      "تدقيق 14 يومًا، راجع، استثنِ، Block.",
+
+    "intune.baseline.asrPsExecWmi.title":
+      "ASR — حظر إنشاء العمليات عبر PSExec + WMI (تدقيق)",
+    "intune.baseline.asrPsExecWmi.body":
+      "حظر إنشاء العمليات الناشئ عن أوامر PSExec وWMI. يوقف تكتيك حركة جانبية شائع. وضع التدقيق.",
+    "intune.baseline.asrPsExecWmi.why":
+      "PSExec وWMI أدوات حركة جانبية موثَّقة لـ red-team وبرامج الفدية. كثير من المؤسسات لا تستخدمها شرعيًا على النقاط الطرفية.",
+    "intune.baseline.asrPsExecWmi.impact":
+      "Audit: شاهد من يستخدمها شرعيًا. إيجابيات خاطئة شائعة: SCCM، بعض وكلاء المراقبة. استثنِ قبل Block.",
+    "intune.baseline.asrPsExecWmi.prerequisites":
+      "Defender for Endpoint.",
+    "intune.baseline.asrPsExecWmi.rollout":
+      "تدقيق 21 يومًا. راجع. Block.",
+
+    "intune.baseline.asrUntrustedUsb.title":
+      "ASR — حظر العمليات غير الموثوقة/غير الموقّعة من USB (تدقيق)",
+    "intune.baseline.asrUntrustedUsb.body":
+      "حظر العمليات غير الموثوقة وغير الموقّعة التي تعمل من أقراص USB. يوقف سلسلة هجوم 'وصِّل USB خبيث'. وضع التدقيق.",
+    "intune.baseline.asrUntrustedUsb.why":
+      "البرمجيات الخبيثة عبر USB نادرة لكن عالية الأثر. فحص ASR للتوقيعات سريع وقليل الإيجابيات الخاطئة.",
+    "intune.baseline.asrUntrustedUsb.impact":
+      "Audit: شاهد نشاط تنفيذيات USB. Block: المثبّتات الموقّعة الشرعية تعمل. التنفيذيات غير الموقّعة (أدوات IT مخصّصة) تحتاج استثناء.",
+    "intune.baseline.asrUntrustedUsb.prerequisites":
+      "Defender for Endpoint.",
+    "intune.baseline.asrUntrustedUsb.rollout":
+      "تدقيق 14 يومًا، استثنِ، Block.",
+
+    // ---- Phase 11a SharePoint ----
+    "sharepoint.title": "إعدادات SharePoint للمشاركة الخارجية على مستوى المستأجر",
+    "sharepoint.subtitle":
+      "إعدادات SharePoint على مستوى المستأجر تتحكّم بكيفية مشاركة المستخدمين للملفات خارجيًا. PATCH على singleton `/admin/sharepoint/settings`. لا زرّ تراجع — الإعدادات تُعدَّل مباشرةً؛ سجل التدقيق يحتفظ بالفرق before/after للعودة اليدوية.",
+    "sharepoint.licenseNote":
+      "كل القواعد تستهدف إعدادات موجودة في كل مستأجر SharePoint Online — بلا ترخيص إضافي.",
+    "sharepoint.singletonNote":
+      "تنبيه: إعدادات SharePoint singleton لكل مستأجر، ليست سياسة منفصلة. دفع قاعدة يُعدّل إعدادات المستأجر مباشرةً. لا زرّ تراجع — السجل يلتقط before/after؛ التراجع يدوي عبر مركز إدارة SharePoint للجهة.",
+    "sharepoint.effect": "الأثر",
+    "sharepoint.pushCta": "دفع إلى الجهات",
+
+    "sharepoint.baseline.strictExternalSharing.title":
+      "مشاركة خارجية صارمة — ضيوف فقط، بلا روابط مجهولة",
+    "sharepoint.baseline.strictExternalSharing.body":
+      "حدّ المشاركة الخارجية بـ 'الضيوف الموثَّقون فقط' — بلا روابط مجهولة. انتهاء صلاحية الروابط المجهولة 30 يومًا.",
+    "sharepoint.baseline.strictExternalSharing.why":
+      "الروابط المجهولة ناقل تسرّب البيانات الأول في SharePoint. فرض الضيوف الموثَّقين يعني أن كل مستلم خارجي مُسجَّل ومرتبط بهوية حقيقية.",
+    "sharepoint.baseline.strictExternalSharing.impact":
+      "روابط 'anyone' الحالية تتوقّف. المستخدمون الذين يشاركون خارجيًا يرون شاشة تسجيل دخول للمستلم. تواصل قبل الدفع.",
+    "sharepoint.baseline.strictExternalSharing.prerequisites":
+      "SharePoint Online مُفعَّل. خطّط لأي روابط 'anyone' نشطة.",
+    "sharepoint.baseline.strictExternalSharing.rollout":
+      "شغّل استعلام تدقيق لاستخدام AnonymousLink في آخر 30 يومًا. تواصل مع المستخدمين النشطين. ادفع.",
+
+    "sharepoint.baseline.defaultLinkInternal.title":
+      "نوع الرابط الافتراضي 'داخلي' + 'View'",
+    "sharepoint.baseline.defaultLinkInternal.body":
+      "الافتراضي عند أول نقرة 'داخلي' (ضمن المؤسسة) بصلاحية 'View'. يستطيع المستخدمون اختيار خارجي + تعديل عمدًا، لكن الافتراضي الآمن داخلي للقراءة فقط.",
+    "sharepoint.baseline.defaultLinkInternal.why":
+      "معظم حوادث 'مشاركة خارجية بالخطأ' من الافتراضات الأولى. داخلي + View كافتراضي يُزيل الفخ الأشيع.",
+    "sharepoint.baseline.defaultLinkInternal.impact":
+      "يرى المستخدمون 'داخلي' محدَّدًا في كل حوار مشاركة. لا يزال بإمكانهم التغيير. احتكاك بسيط لمن يشاركون خارجيًا اعتياديًا؛ رفع أمان ملموس للبقية.",
+    "sharepoint.baseline.defaultLinkInternal.prerequisites":
+      "SharePoint Online مُفعَّل.",
+    "sharepoint.baseline.defaultLinkInternal.rollout":
+      "آمن للدفع مباشرة. تواصل مع المستخدمين القويّين.",
+
+    "sharepoint.baseline.domainAllowList.title":
+      "قائمة سماح بالنطاقات لمشاركة الضيوف (placeholder)",
+    "sharepoint.baseline.domainAllowList.body":
+      "حوّل وضع نطاقات المشاركة إلى قائمة سماح. تُشحن بقائمة فارغة — على المشغّل إضافة نطاقات شركاء الجهة قبل الدفع الواسع.",
+    "sharepoint.baseline.domainAllowList.why":
+      "إذا كنت تعرف أن الجهة تتعاون مع N شركاء محدّدين، قائمة السماح تقطع كل نطاق آخر — بما فيها نطاقات منتحلي التصيّد.",
+    "sharepoint.baseline.domainAllowList.impact":
+      "المشاركة لأي نطاق ليس على القائمة تفشل. مع قائمة فارغة، كل المشاركة الخارجية تفشل. اضبط القائمة قبل الدفع.",
+    "sharepoint.baseline.domainAllowList.prerequisites":
+      "جرد لنطاقات الشركاء الشرعيين. عدّل القائمة قبل الدفع.",
+    "sharepoint.baseline.domainAllowList.rollout":
+      "ادفع فقط بعد اكتمال قائمة نطاقات الشركاء.",
+
+    "sharepoint.baseline.anonymousLinksOff.title":
+      "تعطيل الروابط المجهولة كليًا",
+    "sharepoint.baseline.anonymousLinksOff.body":
+      "أصرم موقف: المستخدمون الخارجيون الموجودون فقط من سبق وأن صادقوا. لا مشاركة خارجية جديدة، لا روابط مجهولة.",
+    "sharepoint.baseline.anonymousLinksOff.why":
+      "للجهات عالية الحساسية (دفاع، قضائية، استخبارات)، الافتراضي الوحيد المقبول. لا مسار تسرّب عَرضي.",
+    "sharepoint.baseline.anonymousLinksOff.impact":
+      "تعاون خارجي صافي جديد عبر SharePoint يتوقّف. المتعاونون الخارجيون الحاليون يستمرّون. التعاون الخارجي الجديد يمرّ عبر دعوة B2B.",
+    "sharepoint.baseline.anonymousLinksOff.prerequisites":
+      "نضج تشغيلي للتعامل مع B2B كمسار التعاون الخارجي الوحيد.",
+    "sharepoint.baseline.anonymousLinksOff.rollout":
+      "تنسيق واسع قبل الدفع. ملف جهة محدّد فقط.",
+
+    // ---- Phase 14b IOC push ----
+    "ioc.title": "IOC — دفع مؤشّرات التهديد",
+    "ioc.subtitle":
+      "ادفع مؤشّرات (تجزئة ملف / URL / نطاق / IP) إلى Defender for Endpoint للجهة كقوائم حظر. كل IOC له صلاحية انتهاء؛ الدفعات idempotent (وسم Mizan في الوصف)؛ التراجع يحذف المؤشّر من كل مستأجر.",
+    "ioc.licenseNote":
+      "يتطلّب Defender for Endpoint في كل جهة مستهدَفة. المؤشّرات الموجودة (مطابقة بوسم Mizan) لا تُكرَّر.",
+    "ioc.formTitle": "إضافة مؤشّر جديد",
+    "ioc.field.type": "نوع المؤشّر",
+    "ioc.field.value": "قيمة المؤشّر",
+    "ioc.field.action": "الإجراء عند المطابقة",
+    "ioc.field.severity": "الشدّة",
+    "ioc.field.description": "الوصف (يظهر في Defender)",
+    "ioc.field.internalNote": "ملاحظة داخلية (Mizan فقط)",
+    "ioc.field.expirationDateTime": "ينتهي (افتراضي: 90 يومًا)",
+    "ioc.field.targetTenants": "ادفع إلى الجهات",
+    "ioc.action.allow": "السماح (قائمة بيضاء)",
+    "ioc.action.alert": "تنبيه فقط",
+    "ioc.action.alertAndBlock": "تنبيه + حظر (موصى به)",
+    "ioc.action.block": "حظر بصمت",
+    "ioc.severity.informational": "معلوماتي",
+    "ioc.severity.low": "منخفض",
+    "ioc.severity.medium": "متوسط",
+    "ioc.severity.high": "عالٍ",
+    "ioc.type.fileHashSha256": "تجزئة ملف (SHA-256)",
+    "ioc.type.fileHashSha1": "تجزئة ملف (SHA-1)",
+    "ioc.type.url": "URL",
+    "ioc.type.domainName": "نطاق",
+    "ioc.type.ipv4": "عنوان IPv4",
+    "ioc.type.ipv6": "عنوان IPv6",
+    "ioc.submit": "ادفع إلى {count} جهة",
+    "ioc.recentTitle": "آخر IOCs",
+    "ioc.recentEmpty": "لا توجد IOCs مدفوعة بعد.",
+    "ioc.col.value": "القيمة",
+    "ioc.col.action": "الإجراء",
+    "ioc.col.severity": "الشدّة",
+    "ioc.col.expires": "ينتهي",
+    "ioc.col.created": "وقت الدفع",
+    "ioc.descriptionHint":
+      "وصف نصّي حر؛ Mizan يضع بادئة `[Mizan IOC <id>]` تلقائيًا للعثور عليه عند التراجع.",
 
     // ---- Phase 6 DLP (coming soon — waiting on Microsoft Graph) ----
     "dlp.title": "قواعد منع تسرّب البيانات (DLP)",

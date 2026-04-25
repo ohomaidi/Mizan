@@ -283,6 +283,29 @@ Policies ship **un-assigned by default** — the Intune equivalent of CA's repor
 
 License requirement: every target entity must have Intune P1 (Microsoft 365 E3+ / A3+ / standalone). Unlicensed tenants return 403 on push — the push modal surfaces this as `failed` with the Graph error.
 
+**Phase 14 ASR rules** — 6 additional baselines under the same Intune section, all `intune-config` kind (Endpoint Protection profiles): Office child processes, executable content from email, credential theft from LSASS, JS/VBS launch exe, PSExec+WMI, untrusted USB. All ship in **audit mode**; the operator flips a rule to Block in the Defender portal once telemetry is reviewed.
+
+### B.7a SharePoint tenant external-sharing (Phase 11a)
+
+Lives in its own section between Intune and Coming-soon. Four baselines: strict external sharing (guests only, no anonymous), default link Internal+View, domain allow-list (placeholder — operator must add partner domains before pushing), anonymous links off (hardest stance).
+
+**Different push model than CA / Intune** — SharePoint tenant settings are a SINGLETON per tenant. Mizan PATCHes `/admin/sharepoint/settings` directly rather than creating a new resource. Two consequences operators need to know:
+
+- **Idempotency check is by-value**, not by-tag. The push GETs current settings and skips if every key already matches.
+- **Rollback is not supported** — there's no policy id to delete. The audit log captures the full before/after diff in `directive_actions.input_json` / `result_json`. To revert, the entity manually adjusts in their SharePoint admin centre.
+
+The push modal renders the exact JSON patch that will be PATCHed before the operator confirms.
+
+### B.7b Threat Intelligence — IOC push (Phase 14b)
+
+Operator console between SharePoint and the Coming-soon roadmap. Form-based: pick indicator type (file hash / URL / domain / IPv4 / IPv6), enter the value, choose action (alert / alertAndBlock recommended / block / allow), severity, free-text description, expiration in days, target entities. **Push** fans out to each entity's Defender for Endpoint as a `tiIndicator`.
+
+- **Idempotency** by description tag. Mizan auto-prefixes the description with `[Mizan IOC <id>]`; a re-push of the same IOC matches the existing indicator and reports `already_applied`.
+- **Rollback** is supported — each push stores the Defender-assigned indicator id, and rollback DELETEs by id (same modal as CA / Intune rollback).
+- **License:** target entities need Defender for Endpoint. Unlicensed tenants return 403.
+
+Recent IOCs render as a table below the form: type / value / action / severity / expires / created.
+
 ### B.8 Coming-soon roadmap catalogs (Phases 6, 7, 9, 12, 13, 15)
 
 Six phases ship as **catalog + card UI with push disabled**. An accent *"Coming soon"* banner explains each one. The catalog is fully authored — operators can review baseline copy with entities to pre-brief them on the direction of travel.

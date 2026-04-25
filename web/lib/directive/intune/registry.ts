@@ -3,6 +3,12 @@ import type { IntuneBaseline } from "./types";
 import {
   intuneAndroidCompliance,
   intuneAndroidMam,
+  intuneAsrCredentialTheft,
+  intuneAsrExecutableContentEmail,
+  intuneAsrJsVbsLaunchExe,
+  intuneAsrOfficeChildProcesses,
+  intuneAsrPsExecWmi,
+  intuneAsrUntrustedUsb,
   intuneIosCompliance,
   intuneIosMam,
   intuneMacosCompliance,
@@ -31,6 +37,17 @@ export const INTUNE_BASELINES: IntuneBaseline[] = [
   intuneWindowsCompliance,
   intuneWindowsBitLocker,
   intuneMacosCompliance,
+  // Phase 14 — Defender for Endpoint Attack Surface Reduction (ASR)
+  // rules. Each ships in audit mode by default; operator flips to Block
+  // once they've reviewed audit telemetry. Six rules cover the highest-
+  // value Microsoft-recommended set without producing too many false
+  // positives in a typical Office 365 estate.
+  intuneAsrOfficeChildProcesses,
+  intuneAsrExecutableContentEmail,
+  intuneAsrCredentialTheft,
+  intuneAsrJsVbsLaunchExe,
+  intuneAsrPsExecWmi,
+  intuneAsrUntrustedUsb,
 ];
 
 export function getIntuneBaseline(id: string): IntuneBaseline | null {
