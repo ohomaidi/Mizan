@@ -82,33 +82,80 @@ export function iocMizanTag(localId: string): string {
 }
 
 /**
- * Pick a sensible Microsoft `threatType` per IOC observable kind. The
- * docs flag `WatchList` as a generic bucket "partners should not use",
- * so we never default to it — instead we choose the closest specific
- * classification per type:
- *   - file hashes → `Malware` (block-listing a hash means we believe
- *     the file is malicious)
- *   - URLs → `MaliciousUrl`
- *   - domains → `MaliciousUrl` (no separate domain enum — domains are
- *     URL-shaped per Microsoft's mapping)
- *   - IPv4/IPv6 → `C2` (block-listed IPs are most often C2 / botnet
- *     infrastructure; less hand-wavy than `WatchList`)
+ * Map Mizan's internal IOC observable type to the Defender API's
+ * `indicatorType` enum. The Defender API does NOT distinguish IPv4 vs
+ * IPv6 at the type level — both land under `IpAddress` and Defender
+ * inspects the value to figure out which one it is. The Mizan-side
+ * type stays granular (ipv4 / ipv6) for UI rendering + audit clarity.
  *
- * Reference: tiIndicator threatType enum at
- * https://learn.microsoft.com/en-us/graph/api/resources/tiindicator
+ * Reference: https://learn.microsoft.com/en-us/defender-endpoint/api/post-ti-indicator
  */
-export function defaultThreatTypeForIocKind(
+export function mapIocKindToDefenderType(
   kind: z.infer<typeof IocTypeSchema>,
-): string {
+):
+  | "FileSha256"
+  | "FileSha1"
+  | "Url"
+  | "DomainName"
+  | "IpAddress" {
   switch (kind) {
     case "fileHashSha256":
+      return "FileSha256";
     case "fileHashSha1":
-      return "Malware";
+      return "FileSha1";
     case "url":
+      return "Url";
     case "domainName":
-      return "MaliciousUrl";
+      return "DomainName";
     case "ipv4":
     case "ipv6":
-      return "C2";
+      return "IpAddress";
+  }
+}
+
+/**
+ * Map Mizan's internal action enum to Defender's. Defender accepts the
+ * mapped string verbatim. `unknown` falls through to `Audit` so a
+ * defensive misconfigured row never accidentally Blocks.
+ */
+export function mapIocActionToDefender(
+  action: z.infer<typeof IocActionSchema>,
+):
+  | "Allowed"
+  | "Alert"
+  | "AlertAndBlock"
+  | "Block"
+  | "Audit" {
+  switch (action) {
+    case "allow":
+      return "Allowed";
+    case "alert":
+      return "Alert";
+    case "alertAndBlock":
+      return "AlertAndBlock";
+    case "block":
+      return "Block";
+    case "unknown":
+      return "Audit";
+  }
+}
+
+/**
+ * Map Mizan's lowercase severity to Defender's TitleCase enum.
+ * tiIndicator used integer 0–5; Defender uses a string. This is a
+ * straight capitalize.
+ */
+export function mapIocSeverityToDefender(
+  severity: z.infer<typeof IocSeveritySchema>,
+): "Informational" | "Low" | "Medium" | "High" {
+  switch (severity) {
+    case "informational":
+      return "Informational";
+    case "low":
+      return "Low";
+    case "medium":
+      return "Medium";
+    case "high":
+      return "High";
   }
 }

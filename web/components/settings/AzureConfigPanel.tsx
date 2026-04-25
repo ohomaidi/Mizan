@@ -419,6 +419,11 @@ export function AzureConfigPanel() {
   );
 }
 
+// Read-side scopes required for observation mode. Directive mode adds the
+// write-side scopes from `GRAPH_APP_WRITE_PERMISSIONS` (see provisioner).
+// Phase 14b IOC push lives on a SECOND resource (Microsoft Defender for
+// Endpoint API, not Microsoft Graph) — listed separately below so the
+// operator + entity admin see both blocks before clicking consent.
 const PERMISSIONS = [
   "SecurityEvents.Read.All",
   "SecurityIncident.Read.All",
@@ -441,6 +446,11 @@ const PERMISSIONS = [
   "SubjectRightsRequest.Read.All",
   "SharePointTenantSettings.Read.All",
 ];
+
+// Defender for Endpoint resource — separate Entra app role,
+// requested via the data app's second `requiredResourceAccess` block.
+// Only added when the deployment is in directive mode (read+write).
+export const DEFENDER_PERMISSIONS = ["Ti.ReadWrite.All"];
 
 function Walkthrough({
   open,

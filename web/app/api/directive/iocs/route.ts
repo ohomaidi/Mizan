@@ -5,10 +5,10 @@ import {
   gateDirectiveRoute,
 } from "@/lib/directive/engine";
 import {
-  createTiIndicator,
-  findTiIndicatorByMizanTag,
-  type TiIndicatorBody,
-} from "@/lib/directive/graph-writes";
+  createDefenderIndicator,
+  findDefenderIndicatorByMizanTag,
+  type DefenderIndicatorBody,
+} from "@/lib/directive/iocs/defender-api";
 import { getTenant } from "@/lib/db/tenants";
 import {
   createPushRequest,
@@ -19,7 +19,9 @@ import { createIocRow, listIocs } from "@/lib/directive/iocs/store";
 import {
   IocPushBodySchema,
   iocMizanTag,
-  defaultThreatTypeForIocKind,
+  mapIocKindToDefenderType,
+  mapIocActionToDefender,
+  mapIocSeverityToDefender,
   type IocPushBody,
 } from "@/lib/directive/iocs/types";
 
@@ -110,46 +112,26 @@ export async function POST(req: NextRequest) {
     auditId?: number;
   }> = [];
 
-  // Build the Graph body once. Field assignment depends on indicator type.
-  // Required fields per https://learn.microsoft.com/en-us/graph/api/resources/tiindicator
-  // are: action, description, expirationDateTime, targetProduct, threatType,
-  // tlpLevel, plus the type-specific observable. `tlpLevel` was missing on
-  // earlier versions of Mizan — Microsoft would 400 on submit; fixed here
-  // by defaulting to `amber` (the docs' recommended default for limited-
-  // distribution intel). `threatType` was previously hard-coded to
-  // `WatchList`, which the docs explicitly tell partners NOT to use; fixed
-  // by picking the closest specific classification per observable kind.
-  const indicatorPayload: TiIndicatorBody = {
-    targetProduct: "Microsoft Defender ATP",
-    threatType: defaultThreatTypeForIocKind(data.type),
-    tlpLevel: "amber",
-    action: data.action,
-    severity: severityNumber(data.severity),
+  // Build the Defender API body once. v2.0.5+ targets the GA
+  // /api/indicators endpoint at api.security.microsoft.com (replaces
+  // the deprecated Microsoft Graph /security/tiIndicators which
+  // Microsoft is removing this month). Required fields per
+  // https://learn.microsoft.com/en-us/defender-endpoint/api/post-ti-indicator
+  // are indicatorValue, indicatorType, action, title, description.
+  // generateAlert defaults true so blocks always raise an alert in
+  // the entity SOC's Defender XDR portal — silent blocks are an
+  // operational footgun.
+  const indicatorPayload: DefenderIndicatorBody = {
+    indicatorValue: data.value,
+    indicatorType: mapIocKindToDefenderType(data.type),
+    action: mapIocActionToDefender(data.action),
+    severity: mapIocSeverityToDefender(data.severity),
+    title: `Mizan IOC ${localId}`.slice(0, 100),
     description: `${mizanTag} ${data.description}`.slice(0, 100),
-    expirationDateTime: expirationIso,
+    expirationTime: expirationIso,
+    generateAlert: true,
+    application: "Mizan",
   };
-  switch (data.type) {
-    case "fileHashSha256":
-      indicatorPayload.fileHashType = "sha256";
-      indicatorPayload.fileHashValue = data.value;
-      break;
-    case "fileHashSha1":
-      indicatorPayload.fileHashType = "sha1";
-      indicatorPayload.fileHashValue = data.value;
-      break;
-    case "url":
-      indicatorPayload.url = data.value;
-      break;
-    case "domainName":
-      indicatorPayload.domainName = data.value;
-      break;
-    case "ipv4":
-      indicatorPayload.networkDestinationIPv4 = data.value;
-      break;
-    case "ipv6":
-      indicatorPayload.networkDestinationIPv6 = data.value;
-      break;
-  }
 
   for (const tenantId of data.targetTenantIds) {
     const tenant = getTenant(tenantId);
@@ -184,14 +166,20 @@ export async function POST(req: NextRequest) {
         idempotent: false as const,
       },
       run: async ({ tenant }) => {
-        const existing = await findTiIndicatorByMizanTag(tenant, mizanTag);
+        const existing = await findDefenderIndicatorByMizanTag(
+          tenant,
+          mizanTag,
+        );
         if (existing) {
           return {
             indicatorId: existing.id,
             idempotent: true,
           } as const;
         }
-        const created = await createTiIndicator(tenant, indicatorPayload);
+        const created = await createDefenderIndicator(
+          tenant,
+          indicatorPayload,
+        );
         return {
           indicatorId: created.id,
           idempotent: false,
@@ -254,18 +242,3 @@ export async function POST(req: NextRequest) {
   });
 }
 
-/** Map our enum to Microsoft's tiIndicator severity int (0..5 historically). */
-function severityNumber(level: string): number {
-  switch (level) {
-    case "informational":
-      return 1;
-    case "low":
-      return 2;
-    case "medium":
-      return 3;
-    case "high":
-      return 4;
-    default:
-      return 3;
-  }
-}

@@ -8,9 +8,9 @@ import {
 import {
   deleteConditionalAccessPolicy,
   deletePolicyByKind,
-  deleteTiIndicator,
   type PolicyKind,
 } from "@/lib/directive/graph-writes";
+import { deleteDefenderIndicator } from "@/lib/directive/iocs/defender-api";
 import {
   getPushRequest,
   listActionsForPush,
@@ -89,10 +89,10 @@ export async function POST(
 
   const actions = listActionsForPush(pushIdNum);
 
-  // Resolve which Graph DELETE call to dispatch based on the push's
+  // Resolve which DELETE call to dispatch based on the push's
   // baseline_id prefix:
   //   intune:<id>  → deletePolicyByKind(intune-config|compliance|...)
-  //   ioc:<id>     → deleteTiIndicator
+  //   ioc:<id>     → deleteDefenderIndicator (Defender API, NOT Graph)
   //   sharepoint:* → no rollback (singleton settings; skip)
   //   default      → deleteConditionalAccessPolicy (CA baselines + custom)
   let policyKind: Exclude<PolicyKind, "ca"> | null = null;
@@ -147,7 +147,7 @@ export async function POST(
           return { deleted: false, policyId, reason: "sharepoint_singleton" };
         }
         if (isIoc) {
-          await deleteTiIndicator(tenant, policyId);
+          await deleteDefenderIndicator(tenant, policyId);
         } else if (policyKind) {
           // Intune kinds route through the kind-generic helper.
           await deletePolicyByKind(policyKind, tenant, policyId);

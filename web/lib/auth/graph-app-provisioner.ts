@@ -28,6 +28,25 @@ import { invalidateAuthClient } from "@/lib/auth/msal-user";
 const MS_GRAPH = "00000003-0000-0000-c000-000000000000";
 
 /**
+ * Microsoft Defender for Endpoint API service principal — well-known and
+ * stable. Used by Phase 14b IOC push, which submits indicators directly
+ * to Defender via `https://api.security.microsoft.com/api/indicators`.
+ *
+ * This is a SECOND resource on the same Mizan data app — the
+ * `requiredResourceAccess` array on the Entra app object holds one block
+ * per resource, so the entity admin grants Graph + Defender permissions
+ * in a single consent click.
+ *
+ * Why not Microsoft Graph's `tiIndicator`? Microsoft has marked that
+ * resource deprecated for removal "by April 2026" (this month). The
+ * Defender API is GA, supports the same indicator types (file hashes,
+ * URLs, domains, IPv4/IPv6), and has a cleaner body shape (string
+ * severity instead of int 0-5; richer action enum including
+ * BlockAndRemediate). Phase 14b migrated end-to-end in v2.0.5.
+ */
+const WIN_DEFENDER_ATP = "fc780465-2017-40d4-a0c5-307022471b92";
+
+/**
  * Application-permission IDs on Microsoft Graph that correspond to each of
  * the read-only scopes our sync orchestrator depends on. IDs are stable +
  * documented under https://learn.microsoft.com/en-us/graph/permissions-reference.
@@ -113,7 +132,11 @@ const GRAPH_APP_PERMISSIONS: Array<{ name: string; id: string }> = [
  *   - Force sign-out (User.RevokeSessions.All)
  *   - Threat submissions (ThreatSubmission.ReadWrite.All)
  *   - SharePoint tenant settings PATCH (SharePointTenantSettings.ReadWrite.All)
- *   - IOC push (ThreatIndicators.ReadWrite.OwnedBy)
+ *
+ * IOC push (Phase 14b) does NOT live on Microsoft Graph — see the
+ * `DEFENDER_APP_PERMISSIONS` block below. Microsoft deprecated
+ * `/security/tiIndicators` for removal by April 2026 and the GA
+ * replacement is the Defender for Endpoint direct API.
  *
  * Every name + id pair audited 2026-04-25 against the canonical Microsoft
  * Graph permissions reference.
@@ -145,11 +168,25 @@ const GRAPH_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [
   // ADDED 2026-04-25 — required by Phase 11a SharePoint baselines
   // (PATCH /admin/sharepoint/settings).
   { name: "SharePointTenantSettings.ReadWrite.All", id: "19b94e34-907c-4f43-bde9-38b1909ed408" },
-  // IOC push (Phase 14b) — POST/DELETE /security/tiIndicators. `OwnedBy` is
-  // narrower than `All`: the app can only read/update/delete indicators it
-  // created (auto-tagged with its own clientId at creation time). The
-  // entity's own curated TI is untouchable.
-  { name: "ThreatIndicators.ReadWrite.OwnedBy", id: "21792b6c-c986-4ffc-85de-df9da54b52fa" },
+];
+
+/**
+ * Defender for Endpoint API permissions — registered on the same Mizan data
+ * app under a separate `requiredResourceAccess` block (resourceAppId =
+ * WIN_DEFENDER_ATP). The entity admin consents to Graph + Defender in one
+ * click; tokens for each resource are requested separately by audience
+ * (`https://api.securitycenter.microsoft.com/.default` for Defender vs
+ * `https://graph.microsoft.com/.default` for Graph).
+ *
+ * Phase 14b IOC push lives here (v2.0.5+). The previous Graph-side
+ * `ThreatIndicators.ReadWrite.OwnedBy` scope was used against
+ * `/security/tiIndicators` which Microsoft deprecated for removal by
+ * April 2026; we replaced both the endpoint and the scope.
+ */
+const DEFENDER_APP_PERMISSIONS: Array<{ name: string; id: string }> = [
+  // POST/PUT/DELETE https://api.security.microsoft.com/api/indicators
+  // 15,000-indicator-per-tenant ceiling, 100 calls/minute, 1500/hour.
+  { name: "Ti.ReadWrite.All", id: "bc2dd901-9ae8-4d0a-a3a6-bbd4ddf25fa6" },
 ];
 
 /**
@@ -166,6 +203,45 @@ function graphPermissionsForMode(
     return [...GRAPH_APP_PERMISSIONS, ...GRAPH_APP_WRITE_PERMISSIONS];
   }
   return GRAPH_APP_PERMISSIONS;
+}
+
+/**
+ * Return the full multi-resource `requiredResourceAccess` array for the
+ * Mizan data app. In observation mode it's a single block on Microsoft
+ * Graph; in directive mode it adds a second block on the Defender for
+ * Endpoint API resource (for Phase 14b IOC push).
+ *
+ * Anyone reading the app object in Entra sees the same shape Mizan
+ * registered — one entry per resource, scopes listed by id+Role tuple.
+ */
+function requiredResourceAccessForMode(
+  mode: "observation" | "directive",
+): Array<{
+  resourceAppId: string;
+  resourceAccess: Array<{ id: string; type: "Role" }>;
+}> {
+  const blocks: Array<{
+    resourceAppId: string;
+    resourceAccess: Array<{ id: string; type: "Role" }>;
+  }> = [
+    {
+      resourceAppId: MS_GRAPH,
+      resourceAccess: graphPermissionsForMode(mode).map((p) => ({
+        id: p.id,
+        type: "Role",
+      })),
+    },
+  ];
+  if (mode === "directive") {
+    blocks.push({
+      resourceAppId: WIN_DEFENDER_ATP,
+      resourceAccess: DEFENDER_APP_PERMISSIONS.map((p) => ({
+        id: p.id,
+        type: "Role",
+      })),
+    });
+  }
+  return blocks;
 }
 
 /** Delegated OIDC scopes the user-auth app needs. */
@@ -270,7 +346,7 @@ export async function provisionGraphSignalsApp(
   },
 ): Promise<ProvisionResult> {
   const redirectUri = `${opts.dashboardBaseUrl.replace(/\/+$/, "")}/api/auth/consent-callback`;
-  const permissions = graphPermissionsForMode(opts.deploymentMode ?? "observation");
+  const mode = opts.deploymentMode ?? "observation";
 
   const app = await createApp(accessToken, {
     displayName: opts.displayName,
@@ -278,15 +354,7 @@ export async function provisionGraphSignalsApp(
     web: {
       redirectUris: [redirectUri],
     },
-    requiredResourceAccess: [
-      {
-        resourceAppId: MS_GRAPH,
-        resourceAccess: permissions.map((p) => ({
-          id: p.id,
-          type: "Role", // application-level, not delegated
-        })),
-      },
-    ],
+    requiredResourceAccess: requiredResourceAccessForMode(mode),
   });
 
   const secret = await addSecret(accessToken, app.id, "mizan-auto-provisioned");
