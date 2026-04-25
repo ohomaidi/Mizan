@@ -1244,6 +1244,24 @@ export const DICT = {
     "directive.cap.deviceIsolation.title": "Device isolation (MDE direct)",
     "directive.cap.deviceIsolation.body":
       "Request isolation of a compromised endpoint. Requires the Defender for Endpoint direct API (separate Entra app), not in scope for v2.0.",
+    "directive.cap.dlp.title": "Data Loss Prevention baselines",
+    "directive.cap.dlp.body":
+      "Curated DLP catalog (block sensitive external sharing, credential exfil, bulk transfer, labelled-data egress). Push unlocks the day Microsoft Graph exposes the full DLP authoring API — today's beta covers a small subset only.",
+    "directive.cap.labels.title": "Sensitivity labels",
+    "directive.cap.labels.body":
+      "Curated 4-level label hierarchy + auto-labelling rules (internal email, sensitive-info content). Push unlocks once Graph can configure encryption, content marking, publishing, and auto-label rules — today's beta only creates bare labels.",
+    "directive.cap.attackSim.title": "Attack simulation training",
+    "directive.cap.attackSim.body":
+      "Quarterly phishing simulations + new-hire awareness training + repeat-offender retraining. Push unlocks when Microsoft GAs the simulation create + automation API on Graph; reads are wired today.",
+    "directive.cap.pim.title": "PIM + identity governance",
+    "directive.cap.pim.body":
+      "MFA-on-activation, 8-hour activation cap, justification + notification on activation, quarterly access reviews. Held coming-soon until cross-tenant CRUD on role-management policies is reliable.",
+    "directive.cap.appConsent.title": "App consent policies",
+    "directive.cap.appConsent.body":
+      "Restrict consent to verified publishers, enable admin consent workflow, block high-risk permissions, pre-approve low-risk. Closes the OAuth consent phishing surface. Held coming-soon while verified-publisher allowlists stabilise.",
+    "directive.cap.tenantIdentity.title": "Tenant-wide identity defaults",
+    "directive.cap.tenantIdentity.body":
+      "Authentication-methods policy (FIDO2/passkey, deprecate SMS), default user permissions, cross-tenant access trust. Held coming-soon while Graph schemas (FIDO2 → passkey rename, B2B trust rev) settle.",
     "directive.cap.namedLocations.title": "Named locations",
     "directive.cap.namedLocations.body":
       "Already shipped as part of Phase 4.5 — the custom CA wizard's tenant-scoped mode lets the operator pick named locations from the reference tenant. No separate console.",
@@ -3669,6 +3687,24 @@ export const DICT = {
     "directive.cap.deviceIsolation.title": "عزل الجهاز (MDE مباشر)",
     "directive.cap.deviceIsolation.body":
       "طلب عزل جهاز مخترق. يتطلّب واجهة Defender for Endpoint المباشرة (تطبيق Entra منفصل)، خارج نطاق v2.0.",
+    "directive.cap.dlp.title": "قواعد منع تسرّب البيانات (DLP)",
+    "directive.cap.dlp.body":
+      "كتالوج DLP مُنسَّق (حظر المشاركة الخارجية للبيانات الحساسة، تسريب الاعتمادات، النقل الجماعي، خروج البيانات المُصنَّفة). يُفعَّل الدفع يوم تطرح Microsoft واجهة تأليف DLP الكاملة على Graph — الـ beta اليوم يغطي جزءاً صغيراً فقط.",
+    "directive.cap.labels.title": "تصنيفات الحساسية",
+    "directive.cap.labels.body":
+      "هيكل تصنيف من 4 مستويات + قواعد التصنيف التلقائي (بريد داخلي، محتوى معلومات حساسة). يُفعَّل الدفع عندما يستطيع Graph ضبط التشفير وعلامات المحتوى والنشر وقواعد التصنيف التلقائي — الـ beta اليوم يُنشئ تصنيفات فقط.",
+    "directive.cap.attackSim.title": "تدريب محاكاة الهجمات",
+    "directive.cap.attackSim.body":
+      "محاكاة تصيّد ربع سنوية + تدريب توعية للموظفين الجدد + إعادة تدريب المُكرّرين. يُفعَّل الدفع عند GA لواجهة إنشاء + أتمتة المحاكاة على Graph؛ القراءة موصولة اليوم.",
+    "directive.cap.pim.title": "PIM + حوكمة الهوية",
+    "directive.cap.pim.body":
+      "MFA عند التفعيل، حد أقصى 8 ساعات، تبرير + إشعار عند التفعيل، مراجعات وصول ربع سنوية. مُعلَّقة حتى يستقر CRUD عبر المستأجرين على سياسات إدارة الأدوار.",
+    "directive.cap.appConsent.title": "سياسات موافقة التطبيقات",
+    "directive.cap.appConsent.body":
+      "تقييد الموافقة على الناشرين الموثَّقين، تفعيل سير عمل موافقة المسؤول، حظر الصلاحيات عالية الخطورة، اعتماد مسبق للصلاحيات منخفضة الخطورة. تُغلق سطح تصيّد OAuth.",
+    "directive.cap.tenantIdentity.title": "إعدادات الهوية الافتراضية للمستأجر",
+    "directive.cap.tenantIdentity.body":
+      "سياسة طرق المصادقة (FIDO2/passkey، إيقاف SMS)، صلاحيات المستخدم الافتراضية، ثقة الوصول عبر المستأجرين. مُعلَّقة حتى تستقر مخططات Graph (إعادة تسمية FIDO2 → passkey، مراجعة ثقة B2B).",
     "directive.cap.namedLocations.title": "المواقع المُسمّاة",
     "directive.cap.namedLocations.body":
       "تم شحنها كجزء من المرحلة 4.5 — يُتيح وضع المعالج المُقيَّد بمستأجر اختيار المواقع المسماة من المستأجر المرجعي. لا حاجة لمنصّة منفصلة.",

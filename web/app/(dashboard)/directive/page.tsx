@@ -55,85 +55,103 @@ type Capability = {
   icon: typeof Gavel;
   titleKey: DictKey;
   bodyKey: DictKey;
-  /**
-   * Phase number aligned to the canonical roadmap in
-   * project_sharjah_council_backlog.md. Renders as the chip on the card.
-   */
-  phaseLabel: string;
   status: Status;
 };
 
 const CAPABILITIES: Capability[] = [
-  // Phase 2 — reactive directive actions
+  // Available today — these all push live to consented entity tenants.
   {
     icon: ShieldAlert,
     titleKey: "directive.cap.incidentOps.title",
     bodyKey: "directive.cap.incidentOps.body",
-    phaseLabel: "Phase 2",
     status: "available",
   },
   {
     icon: UserX,
     titleKey: "directive.cap.riskyUsers.title",
     bodyKey: "directive.cap.riskyUsers.body",
-    phaseLabel: "Phase 2",
     status: "available",
   },
   {
     icon: Radar,
     titleKey: "directive.cap.threatSubmissions.title",
     bodyKey: "directive.cap.threatSubmissions.body",
-    phaseLabel: "Phase 2",
     status: "available",
   },
-  // Phase 3 + 4 + 4.5 — Conditional Access (12 baselines + custom wizard +
-  // tenant-scoped wizard with named-locations / ToU / custom auth strengths)
   {
     icon: Lock,
     titleKey: "directive.cap.caBaselines.title",
     bodyKey: "directive.cap.caBaselines.body",
-    phaseLabel: "Phase 3 / 4 / 4.5",
     status: "available",
   },
-  // Phase 5 — Intune device posture (compliance + MAM + BitLocker config + ASR rules)
   {
     icon: Package,
     titleKey: "directive.cap.intuneBaselines.title",
     bodyKey: "directive.cap.intuneBaselines.body",
-    phaseLabel: "Phase 5",
     status: "available",
   },
-  // Phase 11a — SharePoint tenant external-sharing
   {
     icon: Gavel,
     titleKey: "directive.cap.sharepointSharing.title",
     bodyKey: "directive.cap.sharepointSharing.body",
-    phaseLabel: "Phase 11a",
     status: "available",
   },
-  // Phase 14b — IOC push (Defender for Endpoint TI Indicators)
   {
     icon: ShieldCheck,
     titleKey: "directive.cap.iocPush.title",
     bodyKey: "directive.cap.iocPush.body",
-    phaseLabel: "Phase 14b",
     status: "available",
   },
-  // Phase 5 (extension) — ASR rules ride on Intune endpoint protection profiles
   {
     icon: ShieldAlert,
     titleKey: "directive.cap.asrRules.title",
     bodyKey: "directive.cap.asrRules.body",
-    phaseLabel: "Phase 14",
     status: "available",
   },
-  // Future — device isolation requires the MDE direct API (separate Entra app),
-  // not in scope for v2.0. Stays Planned until that decision is reopened.
+
+  // On the roadmap — push paths are wired but disabled. Each unlocks the day
+  // Microsoft Graph closes its respective gap, or once Center sign-off lands
+  // for the cross-tenant CRUD surface.
+  {
+    icon: FileWarning,
+    titleKey: "directive.cap.dlp.title",
+    bodyKey: "directive.cap.dlp.body",
+    status: "planned",
+  },
+  {
+    icon: Tag,
+    titleKey: "directive.cap.labels.title",
+    bodyKey: "directive.cap.labels.body",
+    status: "planned",
+  },
+  {
+    icon: Radar,
+    titleKey: "directive.cap.attackSim.title",
+    bodyKey: "directive.cap.attackSim.body",
+    status: "planned",
+  },
+  {
+    icon: Lock,
+    titleKey: "directive.cap.pim.title",
+    bodyKey: "directive.cap.pim.body",
+    status: "planned",
+  },
+  {
+    icon: Package,
+    titleKey: "directive.cap.appConsent.title",
+    bodyKey: "directive.cap.appConsent.body",
+    status: "planned",
+  },
+  {
+    icon: ShieldCheck,
+    titleKey: "directive.cap.tenantIdentity.title",
+    bodyKey: "directive.cap.tenantIdentity.body",
+    status: "planned",
+  },
   {
     icon: Network,
     titleKey: "directive.cap.deviceIsolation.title",
     bodyKey: "directive.cap.deviceIsolation.body",
-    phaseLabel: "Future",
     status: "planned",
   },
 ];
@@ -328,14 +346,9 @@ function OverviewTab({ locale }: { locale: "en" | "ar" }) {
                     <Icon size={14} strokeWidth={1.9} aria-hidden="true" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-[13px] font-semibold text-ink-1">
-                        {t(c.titleKey)}
-                      </h3>
-                      <span className="text-[9.5px] uppercase tracking-[0.08em] font-semibold text-accent border border-accent/40 rounded px-1.5 py-px whitespace-nowrap">
-                        {c.phaseLabel}
-                      </span>
-                    </div>
+                    <h3 className="text-[13px] font-semibold text-ink-1">
+                      {t(c.titleKey)}
+                    </h3>
                     <p className="text-[11.5px] text-ink-2 mt-1 leading-relaxed">
                       {t(c.bodyKey)}
                     </p>
