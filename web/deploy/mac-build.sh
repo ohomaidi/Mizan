@@ -33,7 +33,10 @@ echo "==> Staging artifacts..."
 for item in .next node_modules public package.json package-lock.json; do
     cp -R "${ROOT}/${item}" "${PKG_ROOT}/usr/local/posture-dashboard/"
 done
-cp -R "${ROOT}/lib/db/schema.sql" "${PKG_ROOT}/usr/local/posture-dashboard/lib/db/schema.sql"
+# schema.sql is read at runtime via path.resolve(process.cwd(), "lib/db/schema.sql"),
+# so we have to recreate the lib/db/ directory tree under the staging root.
+mkdir -p "${PKG_ROOT}/usr/local/posture-dashboard/lib/db"
+cp "${ROOT}/lib/db/schema.sql" "${PKG_ROOT}/usr/local/posture-dashboard/lib/db/schema.sql"
 
 cat > "${SCRIPTS_DIR}/postinstall" <<'SHELL'
 #!/bin/bash
