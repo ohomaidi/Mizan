@@ -317,7 +317,7 @@ export const api = {
         clauses: Array<{
           id: string;
           ref: string;
-          classRef?: "Governance" | "Operation" | "Assurance";
+          classRefs?: Array<"Governance" | "Operation" | "Assurance">;
           titleEn: string;
           titleAr: string;
           descriptionEn: string;
@@ -337,7 +337,7 @@ export const api = {
     clauses: Array<{
       id: string;
       ref: string;
-      classRef?: "Governance" | "Operation" | "Assurance";
+      classRefs?: Array<"Governance" | "Operation" | "Assurance">;
       titleEn: string;
       titleAr: string;
       descriptionEn: string;

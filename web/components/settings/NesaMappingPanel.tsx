@@ -11,7 +11,7 @@ import { api } from "@/lib/api/client";
 type Clause = {
   id: string;
   ref: string;
-  classRef?: "Governance" | "Operation" | "Assurance";
+  classRefs?: Array<"Governance" | "Operation" | "Assurance">;
   titleEn: string;
   titleAr: string;
   descriptionEn: string;
@@ -179,12 +179,15 @@ export function NesaMappingPanel() {
             className="rounded-md border border-border bg-surface-2 p-4"
           >
             <div className="flex items-start justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2 min-w-0">
-                {c.classRef ? (
-                  <span className="text-[9.5px] uppercase tracking-[0.08em] font-semibold text-ink-2 border border-border rounded px-1.5 py-px shrink-0 keep-ltr">
-                    {c.classRef}
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                {(c.classRefs ?? []).map((cls) => (
+                  <span
+                    key={cls}
+                    className="text-[9.5px] uppercase tracking-[0.08em] font-semibold text-ink-2 border border-border rounded px-1.5 py-px shrink-0 keep-ltr"
+                  >
+                    {cls}
                   </span>
-                ) : null}
+                ))}
                 <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3 keep-ltr min-w-0 truncate">
                   {c.ref || c.id}
                 </div>

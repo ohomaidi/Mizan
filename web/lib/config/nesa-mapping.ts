@@ -169,7 +169,14 @@ function mergeWithDefaults(input: Partial<ComplianceMapping>): ComplianceMapping
         ? input.clauses.map((c) => ({
             id: c.id,
             ref: c.ref,
-            classRef: c.classRef,
+            classRefs: Array.isArray(c.classRefs)
+              ? c.classRefs.filter(
+                  (r): r is "Governance" | "Operation" | "Assurance" =>
+                    r === "Governance" ||
+                    r === "Operation" ||
+                    r === "Assurance",
+                )
+              : undefined,
             titleEn: c.titleEn,
             titleAr: c.titleAr,
             descriptionEn: c.descriptionEn,

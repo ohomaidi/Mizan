@@ -24,13 +24,18 @@ export const dynamic = "force-dynamic";
 const ClauseSchema = z.object({
   id: z.string().trim().min(1).max(64),
   ref: z.string().trim().min(1).max(200),
-  classRef: z
-    .enum(["Governance", "Operation", "Assurance"])
+  // Optional multi-class membership per ISR v2.0 Table 1: a single
+  // domain may belong to up to all three classes simultaneously
+  // (Governance / Operation / Assurance). NESA-style flat catalogs
+  // omit this field entirely.
+  classRefs: z
+    .array(z.enum(["Governance", "Operation", "Assurance"]))
+    .max(3)
     .optional(),
   titleEn: z.string().trim().min(1).max(200),
   titleAr: z.string().trim().min(1).max(200),
-  descriptionEn: z.string().trim().max(1000).default(""),
-  descriptionAr: z.string().trim().max(1000).default(""),
+  descriptionEn: z.string().trim().max(2000).default(""),
+  descriptionAr: z.string().trim().max(2000).default(""),
   secureScoreControls: z.array(z.string()).default([]),
   weight: z.number().min(0).max(100),
 });

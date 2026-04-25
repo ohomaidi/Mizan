@@ -6,138 +6,129 @@ import type { ComplianceMapping } from "./compliance-framework";
  * Dubai Information Security Regulation (ISR) clause catalog.
  *
  * Published by Dubai Electronic Security Center (DESC). Mandatory for
- * Dubai government entities, semi-government bodies, critical
- * infrastructure operators, cloud service providers serving Dubai
- * clients, and private-sector organizations processing sensitive
- * government / citizen data.
+ * all Dubai Government Entities, including their employees,
+ * consultants, contractors, and visitors. Issued under Dubai Law
+ * No. 11 of 2014 and Resolution No. 13 of 2012.
  *
- * ## Version + structure
+ * ## Source of truth
  *
- * Latest published: **ISR v3.1** (English release; v3.0 launched Aug
- * 2023, builds on v2.0 from 2017). The regulation is organised into 13
- * domains across 3 classes:
+ * Catalog rebuilt 2026-04-26 against the **authoritative DESC ISR
+ * Version 2.0 PDF** (Copyright © 2017 Dubai Electronic Security Center).
+ * Domain titles, objectives, main control references, and class
+ * memberships transcribed verbatim from the PDF. Microsoft 365
+ * Secure Score control IDs hand-mapped to each domain from the
+ * production Secure Score control catalog as evidence anchors.
  *
- *   - **Governance** (1–3): Information Security Management & Governance,
- *     Information & Asset Management, Information Security Risk Management.
- *   - **Operation** (4–8): Incident & Problem Management, Access Control,
- *     Operations / Systems / Communications Management, Business Continuity
- *     Planning, Information Systems Acquisition / Development / Management.
- *   - **Assurance** (9–13): Compliance Management, Human Resources Security,
- *     Physical & Environmental Security, Third Party Management, Monitoring
- *     / Audit / Review.
+ * ## Structure
  *
- * The framework is anchored on **ISO/IEC 27001/27002**, with v3.0 layering
- * in Zero Trust language, synthetic-data protection, and risk-based
- * policy alignment (NIST SP 800-207 / NIST CSF concepts as supporting
- * references — but ISO is the spine).
+ * 13 domains organized across 3 classes — **Governance, Operation,
+ * Assurance**. Each domain may belong to MULTIPLE classes (per Table 1
+ * of the PDF). For example Domain 11 (Compliance and Audit) is both
+ * Governance + Assurance; Domain 7 (BCP) is Governance + Operation.
  *
- * ## Why this catalog ships as draft
+ * The PDF defines the structure as:
+ *   Domain → Objective → Main Controls → Sub Controls
  *
- * The ISR document itself is **controlled distribution** — DESC does NOT
- * publish the official PDF on desc.gov.ae. The catalog below is
- * synthesized from authoritative public secondary sources (Microsoft
- * Azure compliance docs, Complyan, CyberArrow, SecurityScientist,
- * BeyondTrust, Kiteworks compliance guides) and aligns the 13 domains
- * to representative Microsoft 365 Secure Score control names.
+ * This catalog captures domain-level entries with the main-control
+ * roster summarised in the description. Sub-controls (the X.Y.Z and
+ * X.Y.Z.W layers, ~500 in total across the regulation) are not
+ * surfaced here — Mizan's compliance sub-score is computed at the
+ * domain level. Operators with deeper audit needs reference the PDF
+ * directly for sub-control text.
  *
- * Several ISR specifics remain unverified in public sources and are
- * marked `_draft_` in this file's `draftNote`:
- *   1. The official names of all 13 v3.1 domains (2–3 wording
- *      inconsistencies between Complyan and SecurityScientist).
- *   2. The exact classification tier nomenclature (Public / Confidential /
- *      Secret / Top Secret is the working assumption; needs PDF verification).
- *   3. The total + per-tier control count.
- *
- * **Action item for DESC pilot**: when DESC hands over the official ISR
- * v3.1 PDF (or the DESC mapping spreadsheet), one seed-replace lands
- * the authoritative names and IDs without schema churn — the storage
- * key is `isr.mapping`, fully Council-editable through `/settings`.
- *
- * Stored in `app_config.key = 'isr.mapping'`. Override at runtime via
- * Settings → Compliance framework. Catalog fingerprints persist
- * separately from NESA so an operator switching between frameworks
- * keeps their per-framework customizations.
+ * Stored in `app_config.key = 'isr.mapping'`. Council-editable at
+ * runtime via Settings → Compliance framework.
  */
 
 export const DEFAULT_ISR_MAPPING: ComplianceMapping = {
   framework: "dubai-isr",
-  frameworkVersion: "Dubai ISR v3.1 (draft mapping)",
-  status: "draft",
-  draftNote:
-    "Catalog synthesised from public secondary sources pending DESC delivery of the official ISR v3.1 PDF. Domain names and clause text approximate Complyan / CyberArrow / Microsoft Azure compliance reference. Clause IDs prefixed `ISR-` and grouped by class (Governance / Operation / Assurance). Replace this catalog in-place once the authoritative PDF is loaded — storage key is `isr.mapping`.",
+  frameworkVersion: "Dubai ISR Version 2.0 (2017)",
+  status: "official",
   clauses: [
     // ============================================================
-    // CLASS: GOVERNANCE  (Domains 1–3)
+    // DOMAIN 1 — Pure Governance
     // ============================================================
     {
       id: "ISR-1",
-      ref: "ISR-1 — Information Security Management & Governance",
-      classRef: "Governance",
-      titleEn: "Information security management system and governance roles",
-      titleAr: "نظام إدارة أمن المعلومات وأدوار الحوكمة",
+      ref: "Domain 1 — Information Security Management and Governance",
+      classRefs: ["Governance"],
+      titleEn: "Information Security Management and Governance",
+      titleAr: "إدارة وحوكمة أمن المعلومات",
       descriptionEn:
-        "Documented ISMS, accountable Information Security Manager, board-level oversight, formal policies reviewed annually.",
+        "Establishes information security as part of enterprise governance: aligning security with strategic direction, ensuring security objectives are achieved, managing risks appropriately, using resources responsibly, and continuously monitoring the security program. Main controls: 1.1 Roles and Responsibilities of Information Security; 1.2 Information Security Policy.",
       descriptionAr:
-        "نظام موثَّق لإدارة أمن المعلومات، مسؤول أمن معلومات معتمد، إشراف على مستوى الإدارة العليا، سياسات رسمية تُراجَع سنوياً.",
+        "ترسيخ أمن المعلومات ضمن حوكمة المؤسسة: مواءمة الأمن مع التوجه الاستراتيجي، ضمان تحقيق أهداف الأمن، إدارة المخاطر بشكل ملائم، استخدام الموارد بمسؤولية، والمراقبة المستمرة لبرنامج الأمن. الضوابط الرئيسية: 1.1 الأدوار والمسؤوليات؛ 1.2 سياسة أمن المعلومات.",
       secureScoreControls: ["AdminMFAV2", "AdminAccountReview"],
       weight: 8,
     },
+
+    // ============================================================
+    // DOMAIN 2 — Governance + Operation
+    // ============================================================
     {
       id: "ISR-2",
-      ref: "ISR-2 — Information & Asset Management",
-      classRef: "Governance",
-      titleEn: "Information classification and asset register with owners",
-      titleAr: "تصنيف المعلومات وسجل الأصول مع تحديد المالكين",
+      ref: "Domain 2 — Information and Information Assets Management",
+      classRefs: ["Governance", "Operation"],
+      titleEn: "Information and Information Assets Management",
+      titleAr: "إدارة المعلومات وأصول المعلومات",
       descriptionEn:
-        "Living asset register with assigned owners + custodians; classification labels applied to drive access, retention, and disposal.",
+        "Identify and classify information assets and define proper storage, handling, and secure-disposal measures to protect the entity from legal liabilities, losses, and attacks. Main controls: 2.1 Information Assets Management; 2.2 Information Assets Ownership/Custodianship; 2.3 Information Assets Classification; 2.4 Information Assets Labelling and Handling; 2.5 Disposal of Information and Assets; 2.6 Information Assets Responsibility.",
       descriptionAr:
-        "سجل أصول حيّ بمالكين وأمناء مُعيَّنين؛ تصنيفات تُطبَّق لقيادة الوصول والاحتفاظ والتخلّص.",
+        "تحديد وتصنيف أصول المعلومات وتعريف إجراءات التخزين والمعالجة والإتلاف الآمن لحماية الجهة من المسؤوليات القانونية والخسائر والهجمات. الضوابط الرئيسية: 2.1 إدارة الأصول؛ 2.2 ملكية/أمانة الأصول؛ 2.3 تصنيف الأصول؛ 2.4 وسم ومعالجة الأصول؛ 2.5 التخلّص من الأصول؛ 2.6 مسؤولية الأصول.",
       secureScoreControls: [
         "mip_sensitivitylabelspolicies",
         "mip_autosensitivitylabelspolicies",
       ],
       weight: 9,
     },
+
+    // ============================================================
+    // DOMAIN 3 — Governance + Operation
+    // ============================================================
     {
       id: "ISR-3",
-      ref: "ISR-3 — Information Security Risk Management",
-      classRef: "Governance",
-      titleEn: "Risk-based security with documented risk register and treatment plan",
-      titleAr: "أمن قائم على المخاطر مع سجل مخاطر موثَّق وخطة معالجة",
+      ref: "Domain 3 — Information Security Risk Management",
+      classRefs: ["Governance", "Operation"],
+      titleEn: "Information Security Risk Management",
+      titleAr: "إدارة مخاطر أمن المعلومات",
       descriptionEn:
-        "Documented risk methodology, risk register kept current, treatment plan tracking residual risk acceptance.",
+        "Identify and treat risks associated with critical information and information assets through detailed study of business processes, determining threats and vulnerabilities, and applying appropriate risk-treatment plans and controls. Main controls: 3.1 Risk Assessment Methodology and Planning; 3.2 Risk Assessment; 3.3 Risk Treatment and Mitigation; 3.4 Risk Acceptance.",
       descriptionAr:
-        "منهجية مخاطر موثَّقة، سجل مخاطر مُحدَّث، خطة معالجة تتابع قبول المخاطر المتبقّية.",
+        "تحديد ومعالجة المخاطر المرتبطة بالمعلومات والأصول الحرجة عبر دراسة تفصيلية للعمليات وتحديد التهديدات ونقاط الضعف وتطبيق خطط معالجة وضوابط مناسبة. الضوابط الرئيسية: 3.1 منهجية وتخطيط تقييم المخاطر؛ 3.2 تقييم المخاطر؛ 3.3 معالجة وتخفيف المخاطر؛ 3.4 قبول المخاطر.",
       secureScoreControls: ["MFARegistrationV2"],
       weight: 7,
     },
 
     // ============================================================
-    // CLASS: OPERATION  (Domains 4–8)
+    // DOMAIN 4 — Pure Operation
     // ============================================================
     {
       id: "ISR-4",
-      ref: "ISR-4 — Incident & Problem Management",
-      classRef: "Operation",
-      titleEn: "Detection, triage, and response with mean-time-to-acknowledge targets",
-      titleAr: "الاكتشاف والتصنيف والاستجابة مع أهداف لمتوسط زمن الإقرار",
+      ref: "Domain 4 — Incident and Problem Management",
+      classRefs: ["Operation"],
+      titleEn: "Incident and Problem Management",
+      titleAr: "إدارة الحوادث والمشاكل",
       descriptionEn:
-        "Unified incidents across Defender XDR; documented triage workflow; MTTA tracking; post-incident review for high severity.",
+        "Outline a proper process for identification and effective handling of information security incidents to minimize adverse business impact. Main controls: 4.1 Incident Management Planning; 4.2 Information Security Incident Reporting and Escalation; 4.3 Evidence Gathering; 4.4 Information Security Incidents Knowledge Base.",
       descriptionAr:
-        "حوادث موحَّدة عبر Defender XDR؛ سير عمل تصنيف موثَّق؛ تتبّع متوسط زمن الإقرار؛ مراجعة لاحقة للحوادث عالية الخطورة.",
+        "تحديد عملية ملائمة لاكتشاف الحوادث الأمنية والتعامل معها بفعّالية للحدّ من الأثر السلبي على أعمال الجهة. الضوابط الرئيسية: 4.1 تخطيط إدارة الحوادث؛ 4.2 الإبلاغ عن الحوادث وتصعيدها؛ 4.3 جمع الأدلّة؛ 4.4 قاعدة معرفة الحوادث.",
       secureScoreControls: ["AuditLogSearch", "mip_search_auditlog"],
       weight: 9,
     },
+
+    // ============================================================
+    // DOMAIN 5 — Pure Operation
+    // ============================================================
     {
       id: "ISR-5",
-      ref: "ISR-5 — Access Control",
-      classRef: "Operation",
-      titleEn: "Identity-first access with MFA, conditional access, and privileged-access management",
-      titleAr: "وصول قائم على الهوية مع MFA والوصول المشروط وإدارة الوصول المميَّز",
+      ref: "Domain 5 — Access Control",
+      classRefs: ["Operation"],
+      titleEn: "Access Control",
+      titleAr: "ضبط الوصول",
       descriptionEn:
-        "Phish-resistant MFA for privileged users, Conditional Access policies covering legacy auth + risk-based sign-in, PIM for standing admin assignments.",
+        "Secure and protect logical and physical access to the entity's information, information processing facilities, and resources. Main controls: 5.1 Access Control Management Policy/Procedure; 5.2 Logical Access Control (users, system, application, network, OS, segregation, MFA, accountability); 5.3 Information and Documents Access Control; 5.4 Public and External Party Access Control; 5.5 Physical Access Control; 5.6 Access Control Audit and Review.",
       descriptionAr:
-        "MFA مقاوِم للتصيّد للمستخدمين المميَّزين، سياسات الوصول المشروط تغطّي المصادقة القديمة وتسجيل الدخول القائم على المخاطر، PIM لتعيينات المسؤولين الدائمة.",
+        "تأمين وحماية الوصول المنطقي والمادي لمعلومات الجهة ومرافق المعالجة والموارد. الضوابط الرئيسية: 5.1 سياسة/إجراء إدارة ضبط الوصول؛ 5.2 ضبط الوصول المنطقي (المستخدمون، النظام، التطبيق، الشبكة، نظام التشغيل، الفصل، MFA، المساءلة)؛ 5.3 ضبط الوصول للمعلومات والوثائق؛ 5.4 ضبط وصول الأطراف الخارجية؛ 5.5 ضبط الوصول المادي؛ 5.6 تدقيق ومراجعة ضبط الوصول.",
       secureScoreControls: [
         "MFARegistrationV2",
         "BlockLegacyAuthentication",
@@ -146,122 +137,150 @@ export const DEFAULT_ISR_MAPPING: ComplianceMapping = {
       ],
       weight: 12,
     },
+
+    // ============================================================
+    // DOMAIN 6 — Pure Operation
+    // ============================================================
     {
       id: "ISR-6",
-      ref: "ISR-6 — Operations, Systems & Communications Management",
-      classRef: "Operation",
-      titleEn: "Endpoint hardening, secure communications, and cryptography baselines",
-      titleAr: "تقوية النقاط الطرفية، اتصالات آمنة، أُسس التشفير",
+      ref: "Domain 6 — Operations, Systems and Communication Management",
+      classRefs: ["Operation"],
+      titleEn: "Operations, Systems and Communication Management",
+      titleAr: "إدارة العمليات والأنظمة والاتصالات",
       descriptionEn:
-        "All seats managed via Intune with BitLocker, Secure Boot, Defender baseline; mail flow encrypted in transit; cryptographic standards aligned to FIPS / NIST.",
+        "Mitigate risks associated with daily operations of information processing systems, applications, networks, and communication tools used internally and with external parties. Main controls: 6.1 Operations Management (capacity, ops procedures, change management, separation of dev/test/ops, segregation of duties, malicious-code protection, backup, logging and monitoring); 6.2 Communication Management (network controls, mobile devices, teleworking); 6.3 Cryptographic Controls; 6.4 Information Exchange.",
       descriptionAr:
-        "إدارة جميع المقاعد عبر Intune مع BitLocker وSecure Boot وأُسس Defender؛ تشفير تدفّق البريد أثناء النقل؛ معايير تشفير متوافقة مع FIPS / NIST.",
+        "تخفيف المخاطر المرتبطة بالعمليات اليومية لأنظمة معالجة المعلومات والتطبيقات والشبكات وأدوات الاتصال داخلياً ومع الأطراف الخارجية. الضوابط الرئيسية: 6.1 إدارة العمليات (السعة، الإجراءات، إدارة التغيير، فصل البيئات، فصل المهام، الحماية من البرمجيات الخبيثة، النسخ الاحتياطي، السجلات والمراقبة)؛ 6.2 إدارة الاتصالات؛ 6.3 ضوابط التشفير؛ 6.4 تبادل المعلومات.",
       secureScoreControls: [
         "IntuneCompliancePolicies",
         "mdo_safelinksforemail",
         "mdo_safeattachments",
         "mdo_atpprotection",
       ],
-      weight: 10,
+      weight: 11,
     },
+
+    // ============================================================
+    // DOMAIN 7 — Governance + Operation
+    // ============================================================
     {
       id: "ISR-7",
-      ref: "ISR-7 — Business Continuity Planning",
-      classRef: "Operation",
-      titleEn: "Documented BCP with tested recovery objectives",
-      titleAr: "خطة استمرارية أعمال موثَّقة مع أهداف استرداد مُختبَرة",
+      ref: "Domain 7 — Business Continuity Planning",
+      classRefs: ["Governance", "Operation"],
+      titleEn: "Business Continuity Planning",
+      titleAr: "تخطيط استمرارية الأعمال",
       descriptionEn:
-        "Recovery time / point objectives documented per system tier, annual exercise, alternate-site capability for critical services.",
+        "Ensure critical services and business processes within the entity are available; minimize business impact in the event of service disruption; ensure IT services and infrastructure can resist and recover from failures due to errors, planned attacks, or disasters. Main controls: 7.1 Business Impact Analysis; 7.2 Business Continuity Plan; 7.3 Business Continuity Plan Test and Review; 7.4 Backup and Storage Strategies; 7.5 Disaster Recovery.",
       descriptionAr:
-        "أهداف زمن الاسترداد ونقطة الاسترداد موثَّقة لكل طبقة نظام، تمرين سنوي، قدرة موقع بديل للخدمات الحرجة.",
+        "ضمان توافر الخدمات والعمليات الحرجة في الجهة؛ تقليل الأثر التشغيلي عند انقطاع الخدمة؛ ضمان قدرة الخدمات والبنية التحتية على المقاومة والتعافي من الأخطاء أو الهجمات أو الكوارث. الضوابط الرئيسية: 7.1 تحليل أثر الأعمال؛ 7.2 خطة استمرارية الأعمال؛ 7.3 اختبار ومراجعة الخطة؛ 7.4 استراتيجيات النسخ الاحتياطي والتخزين؛ 7.5 التعافي من الكوارث.",
       secureScoreControls: [],
       weight: 6,
     },
+
+    // ============================================================
+    // DOMAIN 8 — Pure Operation
+    // ============================================================
     {
       id: "ISR-8",
-      ref: "ISR-8 — Information Systems Acquisition, Development & Management",
-      classRef: "Operation",
-      titleEn: "Secure-by-design development lifecycle and supplier-supplied system reviews",
-      titleAr: "دورة حياة تطوير آمنة بحكم التصميم ومراجعات أنظمة الموردين",
+      ref: "Domain 8 — Information Systems Acquisition, Development and Management",
+      classRefs: ["Operation"],
+      titleEn: "Information Systems Acquisition, Development and Management",
+      titleAr: "اقتناء وتطوير وإدارة أنظمة المعلومات",
       descriptionEn:
-        "Documented SDLC with security gates, threat modelling for new systems, security review before production rollout, OAuth app consent governance.",
+        "Protect information from unauthorized modification or misuse through integration of information security into the systems acquisition / development life cycle. Main controls: 8.1 Information Systems Acquisition, Development and Management Policy and Procedure (incl. SDLC); 8.2 Information Systems Security Requirements and Specifications; 8.3 Securing Information Systems Files, Source Codes, and Data; 8.4 Managing Changes in Software Development; 8.5 Secure and Correct Processing of Information Systems; 8.6 Security Testing; 8.7 Deployment of Information Systems / Applications; 8.8 Cryptography Controls.",
       descriptionAr:
-        "دورة حياة تطوير موثَّقة بمراحل أمنية، نمذجة تهديدات للأنظمة الجديدة، مراجعة أمنية قبل النشر للإنتاج، حوكمة موافقة تطبيقات OAuth.",
+        "حماية المعلومات من التعديل أو الاستخدام غير المصرّح به عبر دمج أمن المعلومات في دورة حياة اقتناء/تطوير الأنظمة. الضوابط الرئيسية: 8.1 السياسة والإجراء (يشمل SDLC)؛ 8.2 المتطلبات والمواصفات الأمنية؛ 8.3 تأمين الملفات وأكواد المصدر والبيانات؛ 8.4 إدارة التغييرات في التطوير؛ 8.5 المعالجة الآمنة والصحيحة؛ 8.6 الاختبار الأمني؛ 8.7 النشر؛ 8.8 ضوابط التشفير.",
       secureScoreControls: ["exo_oauth2clientprofileenabled"],
       weight: 6,
     },
 
     // ============================================================
-    // CLASS: ASSURANCE  (Domains 9–13)
+    // DOMAIN 9 — Pure Operation
     // ============================================================
     {
       id: "ISR-9",
-      ref: "ISR-9 — Compliance Management",
-      classRef: "Assurance",
-      titleEn: "Continuous compliance against ISR + applicable regulations",
-      titleAr: "امتثال مستمر للائحة ISR واللوائح المعمول بها",
+      ref: "Domain 9 — Environmental and Physical Security",
+      classRefs: ["Operation"],
+      titleEn: "Environmental and Physical Security",
+      titleAr: "الأمن البيئي والمادي",
       descriptionEn:
-        "Compliance evidence repository, mapping ISR clauses to deployed controls, quarterly self-assessment, gap remediation tracking.",
+        "Protect organisation premises, information processing facilities, and resources from physical or environmental damages. Main controls: 9.1 Environmental/Physical Threats Protection Policy and Procedure; 9.2 Protection from Environmental Threats (fire, flood, earthquake, humidity/temperature, water leakage); 9.3 Securing Equipment; 9.4 Secure Working Areas; 9.5 Periodic Testing.",
       descriptionAr:
-        "مستودع أدلّة الامتثال، تطابق بنود ISR مع الضوابط المنشورة، تقييم ذاتي ربعي، تتبّع معالجة الفجوات.",
+        "حماية مقرات الجهة ومرافق معالجة المعلومات والموارد من الأضرار المادية أو البيئية. الضوابط الرئيسية: 9.1 سياسة وإجراء الحماية من التهديدات البيئية/المادية؛ 9.2 الحماية من التهديدات البيئية؛ 9.3 تأمين المعدّات؛ 9.4 مناطق العمل الآمنة؛ 9.5 الاختبار الدوري.",
+      secureScoreControls: [],
+      weight: 5,
+    },
+
+    // ============================================================
+    // DOMAIN 10 — Governance + Operation
+    // ============================================================
+    {
+      id: "ISR-10",
+      ref: "Domain 10 — Roles and Responsibilities of Human Resources",
+      classRefs: ["Governance", "Operation"],
+      titleEn: "Roles and Responsibilities of Human Resources",
+      titleAr: "أدوار ومسؤوليات الموارد البشرية",
+      descriptionEn:
+        "Ensure all employees, contractors, and outsourced employees are aware of their information security obligations and that their roles and responsibilities are defined to secure the entity's information and processing facilities. Main controls: 10.1 Prior to Employment Security Controls (screening, contract clauses, awareness in induction); 10.2 During Employment Security Controls (compliance enforcement, disciplinary action, ongoing awareness); 10.3 Termination/Change of Employment Security Controls (asset return, access revocation).",
+      descriptionAr:
+        "ضمان وعي جميع الموظفين والمتعاقدين والموظفين الخارجيين بالتزاماتهم تجاه أمن المعلومات وتحديد أدوارهم ومسؤولياتهم لحماية معلومات الجهة ومرافقها. الضوابط الرئيسية: 10.1 ضوابط ما قبل التوظيف؛ 10.2 ضوابط أثناء التوظيف؛ 10.3 ضوابط إنهاء/تغيير التوظيف.",
+      secureScoreControls: [],
+      weight: 5,
+    },
+
+    // ============================================================
+    // DOMAIN 11 — Governance + Assurance
+    // ============================================================
+    {
+      id: "ISR-11",
+      ref: "Domain 11 — Compliance and Audit",
+      classRefs: ["Governance", "Assurance"],
+      titleEn: "Compliance and Audit",
+      titleAr: "الامتثال والتدقيق",
+      descriptionEn:
+        "Define compliance and audit requirements to ensure effectiveness of implemented security controls and avoid violations of laws, policies, or controls. Main controls: 11.1 Compliance with Federal and Local Government Legal Requirements (UAE federal laws and Dubai resolutions enumerated in the regulation); 11.2 Compliance Controls (IPR policy, applicable laws); 11.3 Compliance with Information Security Policies and Standards; 11.4 Audit of Information Security Regulation Implementation; 11.5 Protection of Private Information of Individuals and Corporates.",
+      descriptionAr:
+        "تحديد متطلبات الامتثال والتدقيق لضمان فعّالية الضوابط الأمنية وتجنّب أي مخالفات للقوانين والسياسات. الضوابط الرئيسية: 11.1 الامتثال للقوانين الاتحادية والمحلية؛ 11.2 ضوابط الامتثال (سياسة الملكية الفكرية، القوانين المعمول بها)؛ 11.3 الامتثال لسياسات ومعايير أمن المعلومات؛ 11.4 تدقيق تنفيذ لائحة أمن المعلومات؛ 11.5 حماية المعلومات الخاصة للأفراد والمؤسسات.",
       secureScoreControls: ["AuditLogSearch"],
       weight: 8,
     },
-    {
-      id: "ISR-10",
-      ref: "ISR-10 — Human Resources Security",
-      classRef: "Assurance",
-      titleEn: "Joiners-movers-leavers controls with awareness training and screening",
-      titleAr: "ضوابط دخول وانتقال ومغادرة الموظفين مع التوعية والفحص",
-      descriptionEn:
-        "Pre-employment screening, security awareness training (annual + role-specific), prompt revocation of access on termination, attestations of acceptable-use policy.",
-      descriptionAr:
-        "فحص ما قبل التوظيف، تدريب توعية أمنية (سنوي + خاص بالدور)، إلغاء فوري للوصول عند انتهاء الخدمة، إقرارات سياسة الاستخدام المقبول.",
-      secureScoreControls: [],
-      weight: 5,
-    },
-    {
-      id: "ISR-11",
-      ref: "ISR-11 — Physical & Environmental Security",
-      classRef: "Assurance",
-      titleEn: "Physical access controls and environmental safeguards for critical facilities",
-      titleAr: "ضوابط الوصول الفعلي والضمانات البيئية للمنشآت الحرجة",
-      descriptionEn:
-        "Multi-factor physical access, CCTV with retention, environmental monitoring (power, cooling, fire) for data-bearing facilities.",
-      descriptionAr:
-        "وصول فعلي متعدد العوامل، كاميرات مراقبة مع احتفاظ، رصد بيئي (طاقة، تبريد، حريق) للمنشآت الحاوية للبيانات.",
-      secureScoreControls: [],
-      weight: 5,
-    },
+
+    // ============================================================
+    // DOMAIN 12 — Governance + Assurance
+    // ============================================================
     {
       id: "ISR-12",
-      ref: "ISR-12 — Third Party Management",
-      classRef: "Assurance",
-      titleEn: "Supplier security clauses, periodic review, and right-to-audit",
-      titleAr: "بنود أمنية للموردين، مراجعة دورية، وحق التدقيق",
+      ref: "Domain 12 — Information Security Assurance and Performance Assessment",
+      classRefs: ["Governance", "Assurance"],
+      titleEn: "Information Security Assurance and Performance Assessment",
+      titleAr: "ضمان أمن المعلومات وتقييم الأداء",
       descriptionEn:
-        "Security clauses in supplier contracts, periodic supplier security review (annual or higher for criticals), right-to-audit clause exercised on critical suppliers.",
+        "Develop, select, and implement information security measures that facilitate decision-making and improve performance — increasing accountability, improving effectiveness, demonstrating compliance, and providing quantifiable inputs for resource-allocation decisions. Main controls: 12.1 Information Security Key Performance Indicators (KPIs aligned to entity strategy, integrated into annual reporting, used to monitor ISR compliance, regularly reviewed, used for corrective action); 12.2 Information Security Assurance Activities (independent reviews, vulnerability assessments, penetration tests).",
       descriptionAr:
-        "بنود أمنية في عقود الموردين، مراجعة أمنية دورية للموردين (سنوية أو أكثر للحرجين)، ممارسة حق التدقيق على الموردين الحرجين.",
-      secureScoreControls: ["exo_storageproviderrestricted"],
-      weight: 5,
-    },
-    {
-      id: "ISR-13",
-      ref: "ISR-13 — Monitoring, Audit & Review",
-      classRef: "Assurance",
-      titleEn: "Continuous monitoring, audit log retention, and independent review",
-      titleAr: "مراقبة مستمرة، احتفاظ بسجل التدقيق، ومراجعة مستقلة",
-      descriptionEn:
-        "Centralized log collection (SIEM), retention ≥ 2 years for security-relevant logs, independent annual security audit, regular penetration testing.",
-      descriptionAr:
-        "جمع سجلات مركزي (SIEM)، احتفاظ ≥ سنتين للسجلات الأمنية، تدقيق أمني سنوي مستقل، اختبار اختراق دوري.",
+        "تطوير واختيار وتنفيذ مقاييس أمن المعلومات لتسهيل اتخاذ القرار وتحسين الأداء — زيادة المساءلة، تحسين الفعّالية، إثبات الامتثال، وتقديم مدخلات قابلة للقياس لتخصيص الموارد. الضوابط الرئيسية: 12.1 مؤشرات الأداء الرئيسية لأمن المعلومات؛ 12.2 أنشطة ضمان الأمن (المراجعات المستقلة، تقييمات الثغرات، اختبار الاختراق).",
       secureScoreControls: [
         "AuditLogSearch",
         "exo_mailboxaudit",
         "mip_search_auditlog",
       ],
-      weight: 10,
+      weight: 8,
+    },
+
+    // ============================================================
+    // DOMAIN 13 — Operation + Assurance
+    // ============================================================
+    {
+      id: "ISR-13",
+      ref: "Domain 13 — Cloud Security",
+      classRefs: ["Operation", "Assurance"],
+      titleEn: "Cloud Security",
+      titleAr: "أمن الحوسبة السحابية",
+      descriptionEn:
+        "Mitigate risks associated with cloud computing and use of cloud services. Main controls: 13.1 Cloud Security Policy / Procedure; 13.2 Cloud Security Principles (data location — UAE legal jurisdiction required for classified data including CSP backup/DR; data classification and handling; architecture and deployment model; CSP security assessment; isolation of resources; identity and access management; encryption; logging and monitoring; incident management; business continuity; compliance; exit strategy).",
+      descriptionAr:
+        "تخفيف المخاطر المرتبطة بالحوسبة السحابية واستخدام الخدمات السحابية. الضوابط الرئيسية: 13.1 سياسة/إجراء أمن الحوسبة السحابية؛ 13.2 مبادئ أمن السحابة (موقع البيانات — يشترط الاختصاص القانوني لدولة الإمارات للبيانات المُصنَّفة بما في ذلك النسخ الاحتياطي والتعافي من الكوارث؛ تصنيف البيانات والمعالجة؛ نموذج البنية والنشر؛ تقييم أمن مزوّد الخدمة؛ عزل الموارد؛ إدارة الهوية والوصول؛ التشفير؛ السجلات والمراقبة؛ إدارة الحوادث؛ استمرارية الأعمال؛ الامتثال؛ استراتيجية الخروج).",
+      secureScoreControls: ["exo_storageproviderrestricted"],
+      weight: 6,
     },
   ],
 };
@@ -298,14 +317,21 @@ function mergeWithDefaults(input: Partial<ComplianceMapping>): ComplianceMapping
     framework: "dubai-isr",
     frameworkVersion:
       input.frameworkVersion ?? DEFAULT_ISR_MAPPING.frameworkVersion,
-    status: input.status === "official" ? "official" : "draft",
-    draftNote: input.draftNote ?? DEFAULT_ISR_MAPPING.draftNote,
+    status: input.status === "draft" ? "draft" : "official",
+    draftNote: input.draftNote,
     clauses:
       Array.isArray(input.clauses) && input.clauses.length > 0
         ? input.clauses.map((c) => ({
             id: c.id,
             ref: c.ref,
-            classRef: c.classRef,
+            classRefs: Array.isArray(c.classRefs)
+              ? c.classRefs.filter(
+                  (r): r is "Governance" | "Operation" | "Assurance" =>
+                    r === "Governance" ||
+                    r === "Operation" ||
+                    r === "Assurance",
+                )
+              : undefined,
             titleEn: c.titleEn,
             titleAr: c.titleAr,
             descriptionEn: c.descriptionEn,

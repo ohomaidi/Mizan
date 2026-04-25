@@ -32,15 +32,22 @@ import {
  */
 
 /** Common shape every framework's catalog conforms to. */
+export type ComplianceClass = "Governance" | "Operation" | "Assurance";
+
 export type ComplianceClause = {
   id: string;
   ref: string;
   /**
    * For ISR-style frameworks that group domains into classes
    * ("Governance" / "Operation" / "Assurance"). Optional — NESA-style
-   * flat catalogs leave this undefined.
+   * flat catalogs leave this empty.
+   *
+   * Per ISR v2.0 Table 1 a single domain can belong to MULTIPLE classes
+   * simultaneously (e.g. Domain 11 — Compliance and Audit — is both
+   * Governance and Assurance). The UI renders one chip per class so
+   * the multi-class nature is visible without flattening.
    */
-  classRef?: "Governance" | "Operation" | "Assurance";
+  classRefs?: ComplianceClass[];
   titleEn: string;
   titleAr: string;
   descriptionEn: string;
