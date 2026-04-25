@@ -11,6 +11,7 @@ import { api } from "@/lib/api/client";
 type Clause = {
   id: string;
   ref: string;
+  classRef?: "Governance" | "Operation" | "Assurance";
   titleEn: string;
   titleAr: string;
   descriptionEn: string;
@@ -19,7 +20,14 @@ type Clause = {
   weight: number;
 };
 
-type Loaded = { frameworkVersion: string; clauses: Clause[]; updatedAt?: string };
+type Loaded = {
+  framework?: string;
+  frameworkVersion: string;
+  status?: "official" | "draft";
+  draftNote?: string;
+  clauses: Clause[];
+  updatedAt?: string;
+};
 
 const inputClass =
   "w-full h-8 px-2.5 rounded-md border border-border bg-surface-1 text-ink-1 placeholder:text-ink-3 text-[12.5px] outline-none focus:border-council-strong";
@@ -122,13 +130,41 @@ export function NesaMappingPanel() {
       <div className="p-5 border-b border-border">
         <CardHeader
           title={t("nesaCfg.title")}
-          subtitle={t("nesaCfg.subtitle")}
+          subtitle={
+            <span>
+              {t("nesaCfg.subtitle")}
+              {mapping.frameworkVersion ? (
+                <span className="ms-2 text-ink-3">
+                  · <span className="keep-ltr">{mapping.frameworkVersion}</span>
+                </span>
+              ) : null}
+            </span>
+          }
           right={
             <div className="text-[11.5px] tabular text-ink-3">
               {t("nesaCfg.totalWeight", { n: fmt(Math.round(totalWeight * 10) / 10) })}
             </div>
           }
         />
+        {/* Draft-status banner — appears for any framework whose default
+            catalog is flagged `status: "draft"` (currently Dubai ISR until
+            the official PDF lands). Replaces operator confidence in the
+            catalog with the explicit "this is a working approximation"
+            message. Disappears the moment the catalog is stamped
+            "official" by an admin save (or the seed default is updated
+            to status="official"). */}
+        {mapping.status === "draft" ? (
+          <div className="mt-3 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-[12.5px] text-ink-1">
+            <div className="font-semibold text-accent">
+              {t("nesaCfg.draftBanner.title")}
+            </div>
+            {mapping.draftNote ? (
+              <div className="text-ink-2 mt-1 text-[11.5px] leading-relaxed">
+                {mapping.draftNote}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {banner ? (
           <div className="mt-3 rounded-md border border-pos/40 bg-pos/10 px-3 py-2 text-[12.5px] text-ink-1">
             {banner}
@@ -143,12 +179,19 @@ export function NesaMappingPanel() {
             className="rounded-md border border-border bg-surface-2 p-4"
           >
             <div className="flex items-start justify-between gap-2 mb-3">
-              <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3 keep-ltr">
-                {c.ref || c.id}
+              <div className="flex items-center gap-2 min-w-0">
+                {c.classRef ? (
+                  <span className="text-[9.5px] uppercase tracking-[0.08em] font-semibold text-ink-2 border border-border rounded px-1.5 py-px shrink-0 keep-ltr">
+                    {c.classRef}
+                  </span>
+                ) : null}
+                <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3 keep-ltr min-w-0 truncate">
+                  {c.ref || c.id}
+                </div>
               </div>
               <button
                 onClick={() => removeClause(i)}
-                className="inline-flex items-center gap-1 text-[11.5px] text-ink-3 hover:text-neg"
+                className="inline-flex items-center gap-1 text-[11.5px] text-ink-3 hover:text-neg shrink-0"
               >
                 <Trash2 size={12} />
                 {t("nesaCfg.removeClause")}

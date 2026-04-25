@@ -1,12 +1,22 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import {
-  DEFAULT_NESA_MAPPING,
-  getNesaMapping,
-  resetNesaMapping,
-  setNesaMapping,
-  type NesaMapping,
-} from "@/lib/config/nesa-mapping";
+  getActiveComplianceMapping,
+  getActiveComplianceDefaults,
+  setActiveComplianceMapping,
+  resetActiveComplianceMapping,
+  type ComplianceMapping,
+} from "@/lib/config/compliance-framework";
+
+/**
+ * Compliance-framework catalog API.
+ *
+ * Path stayed `/api/config/nesa` for backward compatibility — older
+ * settings panels and any external integrations keep working — but the
+ * route now delegates to the active-framework registry. Whichever
+ * framework is selected via `branding.frameworkId` (NESA, Dubai ISR,
+ * etc.) is the catalog this endpoint reads + writes.
+ */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +24,9 @@ export const dynamic = "force-dynamic";
 const ClauseSchema = z.object({
   id: z.string().trim().min(1).max(64),
   ref: z.string().trim().min(1).max(200),
+  classRef: z
+    .enum(["Governance", "Operation", "Assurance"])
+    .optional(),
   titleEn: z.string().trim().min(1).max(200),
   titleAr: z.string().trim().min(1).max(200),
   descriptionEn: z.string().trim().max(1000).default(""),
@@ -26,14 +39,16 @@ const Schema = z.union([
   z.object({ reset: z.literal(true) }),
   z.object({
     frameworkVersion: z.string().trim().min(1).max(120),
+    status: z.enum(["official", "draft"]).optional(),
+    draftNote: z.string().trim().max(2000).optional(),
     clauses: z.array(ClauseSchema).min(1).max(40),
   }),
 ]);
 
 export async function GET() {
   return NextResponse.json({
-    mapping: getNesaMapping(),
-    defaults: DEFAULT_NESA_MAPPING,
+    mapping: getActiveComplianceMapping(),
+    defaults: getActiveComplianceDefaults(),
   });
 }
 
@@ -52,9 +67,18 @@ export async function PUT(req: NextRequest) {
     );
   }
   if ("reset" in parsed.data) {
-    return NextResponse.json({ mapping: resetNesaMapping() });
+    return NextResponse.json({ mapping: resetActiveComplianceMapping() });
   }
+  // The framework field on the payload is whatever the active framework
+  // is — we don't trust the client to switch frameworks via this
+  // endpoint (that's `branding.frameworkId`'s job). We stamp it from
+  // the active registry entry to prevent cross-framework write.
+  const active = getActiveComplianceMapping();
   return NextResponse.json({
-    mapping: setNesaMapping(parsed.data as NesaMapping),
+    mapping: setActiveComplianceMapping({
+      ...parsed.data,
+      framework: active.framework,
+      status: parsed.data.status ?? active.status,
+    } as ComplianceMapping),
   });
 }

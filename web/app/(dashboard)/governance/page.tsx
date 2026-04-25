@@ -161,7 +161,36 @@ export default function GovernancePage() {
 
       <Card className="p-0">
         <div className="p-5 border-b border-border">
-          <CardHeader title={t("gov.clauses.title")} subtitle={t("gov.clauses.subtitle")} />
+          <CardHeader
+            title={t(frameworkKey)}
+            subtitle={
+              <span>
+                {t("gov.clauses.subtitle")}
+                {nesa.mapping.frameworkVersion ? (
+                  <span className="ms-2 text-ink-3">
+                    · <span className="keep-ltr">{nesa.mapping.frameworkVersion}</span>
+                  </span>
+                ) : null}
+              </span>
+            }
+          />
+          {/* Draft-status banner — surfaced only when the active
+              framework's catalog is flagged as a working approximation
+              (currently Dubai ISR until the official PDF is loaded).
+              Mirrors the same banner on the settings panel so an
+              operator on either page knows the catalog is provisional. */}
+          {nesa.mapping.status === "draft" ? (
+            <div className="mt-3 rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-[12.5px] text-ink-1">
+              <div className="font-semibold text-accent">
+                {t("gov.clauses.draftBanner.title")}
+              </div>
+              {nesa.mapping.draftNote ? (
+                <div className="text-ink-2 mt-1 text-[11.5px] leading-relaxed">
+                  {nesa.mapping.draftNote}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">

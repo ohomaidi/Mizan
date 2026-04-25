@@ -301,13 +301,23 @@ export const api = {
     ),
 
 
+  // Compliance-framework catalog reads + writes. Path stayed
+  // /api/config/nesa for backward compatibility — it now serves
+  // whichever framework is active (NESA, Dubai ISR, etc.) per
+  // branding.frameworkId. Response includes status/draftNote so the
+  // UI can render the "draft" banner and per-clause classRef so ISR
+  // domain groupings (Governance / Operation / Assurance) render.
   getNesaMapping: () =>
     jsonFetch<{
       mapping: {
+        framework?: string;
         frameworkVersion: string;
+        status?: "official" | "draft";
+        draftNote?: string;
         clauses: Array<{
           id: string;
           ref: string;
+          classRef?: "Governance" | "Operation" | "Assurance";
           titleEn: string;
           titleAr: string;
           descriptionEn: string;
@@ -322,9 +332,12 @@ export const api = {
 
   saveNesaMapping: (mapping: {
     frameworkVersion: string;
+    status?: "official" | "draft";
+    draftNote?: string;
     clauses: Array<{
       id: string;
       ref: string;
+      classRef?: "Governance" | "Operation" | "Assurance";
       titleEn: string;
       titleAr: string;
       descriptionEn: string;

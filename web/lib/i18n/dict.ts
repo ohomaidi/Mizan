@@ -210,7 +210,7 @@ export const DICT = {
     "settings.tab.discovery": "Discovery PDF",
     "settings.tab.audit": "Audit log",
     "settings.tab.azure": "App Registration",
-    "settings.tab.nesa": "NESA mapping",
+    "settings.tab.nesa": "Compliance framework",
     "settings.tab.docs": "Documentation",
     "settings.tab.about": "About & updates",
 
@@ -654,6 +654,8 @@ export const DICT = {
     "gov.scope.title": "Scope note",
     "gov.scope.body":
       "This dashboard is read-only observability. Framework alignment is surfaced for measurement; policy authoring and deployment are handled in the entities' own tenants, outside the {orgShort} platform.",
+    "gov.clauses.draftBanner.title":
+      "Draft mapping — pending official catalog verification.",
     "gov.clauses.title": "NESA clause coverage",
     "gov.clauses.subtitle":
       "Per-clause average coverage across consented entities. Each clause is backed by Secure Score controls — editable in Settings → NESA mapping.",
@@ -680,9 +682,11 @@ export const DICT = {
     "dataProt.col.srrs": "SRRs (overdue)",
     "dataProt.col.sharing": "Sharing",
 
-    "nesaCfg.title": "UAE NESA clause mapping",
+    "nesaCfg.title": "Compliance framework — clause mapping",
     "nesaCfg.subtitle":
-      "{orgShort}-editable mapping from UAE NESA clauses to Microsoft Secure Score controls. Compliance sub-score is computed as the weighted average of per-clause coverage. Weights auto-normalize on save.",
+      "{orgShort}-editable mapping from regulatory clauses to Microsoft Secure Score controls for the framework selected in Branding (UAE NESA, Dubai ISR, etc.). Compliance sub-score is computed as the weighted average of per-clause coverage. Weights auto-normalize on save.",
+    "nesaCfg.draftBanner.title":
+      "Draft mapping — pending official catalog verification.",
     "nesaCfg.reset": "Reset to defaults",
     "nesaCfg.save": "Save",
     "nesaCfg.saved": "Saved. Applies to the next maturity compute cycle.",
@@ -2719,7 +2723,7 @@ export const DICT = {
     "settings.tab.discovery": "ملف PDF للاكتشاف",
     "settings.tab.audit": "سجل التدقيق",
     "settings.tab.azure": "تسجيل التطبيق",
-    "settings.tab.nesa": "مواءمة NESA",
+    "settings.tab.nesa": "إطار الامتثال",
     "settings.tab.docs": "التوثيق",
     "settings.tab.about": "حول والتحديثات",
 
@@ -3164,6 +3168,8 @@ export const DICT = {
     "gov.scope.title": "ملاحظة النطاق",
     "gov.scope.body":
       "هذه اللوحة قراءة فقط للملاحظة والمراقبة. تُعرض المواءمة مع الأطر للقياس؛ بينما يبقى تأليف السياسات وتطبيقها ضمن مستأجر كل جهة، خارج نطاق منصة {orgShort}.",
+    "gov.clauses.draftBanner.title":
+      "تطابق مؤقّت — بانتظار التحقّق من الكتالوج الرسمي.",
     "gov.clauses.title": "تغطية بنود NESA",
     "gov.clauses.subtitle":
       "متوسط التغطية لكل بند عبر الجهات الموافِقة. كل بند مدعوم بضوابط Secure Score — قابلة للتعديل في الإعدادات ← مواءمة NESA.",
@@ -3190,9 +3196,11 @@ export const DICT = {
     "dataProt.col.srrs": "طلبات (متأخرة)",
     "dataProt.col.sharing": "المشاركة",
 
-    "nesaCfg.title": "مواءمة بنود NESA الإماراتي",
+    "nesaCfg.title": "إطار الامتثال — تطابق البنود",
+    "nesaCfg.draftBanner.title":
+      "تطابق مؤقّت — بانتظار التحقّق من الكتالوج الرسمي.",
     "nesaCfg.subtitle":
-      "مواءمة قابلة للتحرير من {orgShort} بين بنود NESA الإماراتي وضوابط Microsoft Secure Score. يُحسب المؤشر الفرعي للامتثال كمتوسط موزون لتغطية البنود. يتم تطبيع الأوزان تلقائيًا عند الحفظ.",
+      "تطابق قابل للتحرير من {orgShort} بين بنود الإطار التنظيمي المختار في الهوية (NESA الإماراتي، ISR دبي، إلخ) وضوابط Microsoft Secure Score. يُحسب المؤشر الفرعي للامتثال كمتوسط موزون لتغطية البنود. يتم تطبيع الأوزان تلقائيًا عند الحفظ.",
     "nesaCfg.reset": "إعادة إلى الافتراضي",
     "nesaCfg.save": "حفظ",
     "nesaCfg.saved": "تم الحفظ. يُطبَّق في دورة حساب النضج التالية.",

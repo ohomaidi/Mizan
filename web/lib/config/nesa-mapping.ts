@@ -1,5 +1,6 @@
 import "server-only";
 import { readConfig, writeConfig } from "@/lib/db/config-store";
+import type { ComplianceClause, ComplianceMapping } from "./compliance-framework";
 
 /**
  * UAE NESA (National Electronic Security Authority) clause mapping.
@@ -12,29 +13,23 @@ import { readConfig, writeConfig } from "@/lib/db/config-store";
  *
  * Stored in `app_config.key = 'nesa.mapping'`, Council-editable at runtime via Settings.
  * Defaults below are a starter set — Council standards leadership refines over time.
+ *
+ * Re-typed against the shared `ComplianceMapping` shape introduced in v2.2 so this catalog
+ * sits side-by-side with the Dubai ISR catalog (and any future framework catalogs) under a
+ * single registry. Existing storage key + persisted shape are preserved for backward
+ * compatibility — only the static type narrows.
  */
 
-export type NesaClause = {
-  id: string;
-  ref: string;
-  titleEn: string;
-  titleAr: string;
-  descriptionEn: string;
-  descriptionAr: string;
-  /** Secure Score control names whose pass-state evidences this clause. */
-  secureScoreControls: string[];
-  /** Clause weight (0..100). Auto-normalized to sum to 100 on save. */
-  weight: number;
-};
+/** @deprecated kept for callers still importing the old name. Prefer `ComplianceClause`. */
+export type NesaClause = ComplianceClause;
 
-export type NesaMapping = {
-  frameworkVersion: string;
-  clauses: NesaClause[];
-  updatedAt?: string;
-};
+/** @deprecated kept for callers still importing the old name. Prefer `ComplianceMapping`. */
+export type NesaMapping = ComplianceMapping;
 
-export const DEFAULT_NESA_MAPPING: NesaMapping = {
+export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
+  framework: "nesa",
   frameworkVersion: "UAE NESA IAS 1.0",
+  status: "official",
   clauses: [
     {
       id: "T.1",
@@ -137,12 +132,12 @@ export const DEFAULT_NESA_MAPPING: NesaMapping = {
 
 const KEY = "nesa.mapping";
 
-export function getNesaMapping(): NesaMapping {
-  const stored = readConfig<NesaMapping>(KEY);
+export function getNesaMapping(): ComplianceMapping {
+  const stored = readConfig<ComplianceMapping>(KEY);
   return stored ? mergeWithDefaults(stored) : DEFAULT_NESA_MAPPING;
 }
 
-export function setNesaMapping(input: NesaMapping): NesaMapping {
+export function setNesaMapping(input: ComplianceMapping): ComplianceMapping {
   const clean = mergeWithDefaults(input);
   const totalWeight = clean.clauses.reduce((s, c) => s + (c.weight || 0), 0);
   if (totalWeight > 0) {
@@ -157,20 +152,24 @@ export function setNesaMapping(input: NesaMapping): NesaMapping {
   return clean;
 }
 
-export function resetNesaMapping(): NesaMapping {
+export function resetNesaMapping(): ComplianceMapping {
   const v = { ...DEFAULT_NESA_MAPPING, updatedAt: new Date().toISOString() };
   writeConfig(KEY, v);
   return v;
 }
 
-function mergeWithDefaults(input: Partial<NesaMapping>): NesaMapping {
+function mergeWithDefaults(input: Partial<ComplianceMapping>): ComplianceMapping {
   return {
+    framework: "nesa",
     frameworkVersion: input.frameworkVersion ?? DEFAULT_NESA_MAPPING.frameworkVersion,
+    status: input.status === "draft" ? "draft" : "official",
+    draftNote: input.draftNote,
     clauses:
       Array.isArray(input.clauses) && input.clauses.length > 0
         ? input.clauses.map((c) => ({
             id: c.id,
             ref: c.ref,
+            classRef: c.classRef,
             titleEn: c.titleEn,
             titleAr: c.titleAr,
             descriptionEn: c.descriptionEn,
