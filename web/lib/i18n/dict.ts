@@ -610,6 +610,8 @@ export const DICT = {
     "pdfCfg.save": "Save template",
     "pdfCfg.saved": "Template saved. Re-download any PDF to get the new copy.",
     "pdfCfg.preview": "Preview PDF",
+    "pdfCfg.preview.noTenants":
+      "Onboard at least one entity to preview the personalized letter",
     "pdfCfg.section.brand": "{orgShort} identity + header",
     "pdfCfg.section.title": "Document title + subtitle",
     "pdfCfg.section.contact": "{orgShort} contact",
@@ -3342,6 +3344,8 @@ export const DICT = {
     "pdfCfg.save": "حفظ القالب",
     "pdfCfg.saved": "تم حفظ القالب. أعد تنزيل أي PDF لرؤية النسخة الجديدة.",
     "pdfCfg.preview": "معاينة PDF",
+    "pdfCfg.preview.noTenants":
+      "سجّل جهة واحدة على الأقل لمعاينة الخطاب المخصّص",
     "pdfCfg.section.brand": "هوية {orgShort} والترويسة",
     "pdfCfg.section.title": "عنوان الوثيقة والعنوان الفرعي",
     "pdfCfg.section.contact": "جهة اتصال {orgShort}",

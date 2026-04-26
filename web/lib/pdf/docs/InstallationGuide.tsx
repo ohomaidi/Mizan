@@ -74,8 +74,9 @@ function BodyEn() {
         No inbound open ports required unless exposing the dashboard URL.
       </Bullet>
       <Bullet lang="en">
-        A public hostname the Council staff will use to access the dashboard
-        (e.g. posture.shj-csc.gov.ae). For demo we use a Cloudflare tunnel.
+        A public hostname your staff will use to access the dashboard (e.g.
+        posture.your-org.example). Demo deployments commonly use a Cloudflare
+        tunnel; production uses your own ingress.
       </Bullet>
       <Bullet lang="en">
         For production: Azure subscription in UAE-North with Entra connectivity.
@@ -91,7 +92,8 @@ function BodyEn() {
 
       <H2 lang="en">2.1 Create the app registration</H2>
       <NumBullet lang="en" n={1}>
-        Sign in to entra.microsoft.com as a Council Global Administrator.
+        Sign in to entra.microsoft.com as a Global Administrator of the
+        operator tenant (your organization's own tenant — not any entity's).
       </NumBullet>
       <NumBullet lang="en" n={2}>
         Go to App registrations → New registration.
@@ -106,7 +108,7 @@ function BodyEn() {
       </NumBullet>
       <NumBullet lang="en" n={5}>
         Redirect URI (Web): set to your dashboard's consent callback URL. For
-        example https://posture.shj-csc.gov.ae/api/auth/consent-callback.
+        example https://posture.your-org.example/api/auth/consent-callback.
       </NumBullet>
       <NumBullet lang="en" n={6}>
         Register. Copy the Application (client) ID from the Overview tab —
@@ -475,7 +477,7 @@ function BodyAr() {
       </NumBullet>
       <NumBullet lang="ar" n={5}>
         رابط إعادة التوجيه (Web): اضبطه على رابط استدعاء الموافقة لللوحة،
-        مثال: https://posture.shj-csc.gov.ae/api/auth/consent-callback.
+        مثال: https://posture.your-org.example/api/auth/consent-callback.
       </NumBullet>
       <NumBullet lang="ar" n={6}>
         سجّل. انسخ Application (client) ID من تبويب Overview — ستحتاجه لاحقًا.

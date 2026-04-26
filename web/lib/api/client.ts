@@ -85,6 +85,24 @@ export const api = {
   deleteTenant: (id: string) =>
     jsonFetch<{ ok: true }>(`/api/tenants/${id}`, { method: "DELETE" }),
 
+  /**
+   * Plain list of every tenant — used by Settings → Onboarding PDF
+   * Template's preview button to pick a real tenant id at runtime
+   * (it used to hardcode `shj-police-ghq`, which 404'd on any
+   * deployment without that seed). Sparse shape because callers only
+   * need the id to build a preview URL.
+   */
+  listTenants: () =>
+    jsonFetch<{
+      tenants: Array<{
+        id: string;
+        name_en: string;
+        name_ar: string;
+        consent_status: string;
+        is_demo: number;
+      }>;
+    }>("/api/tenants"),
+
   getConsentUrl: (id: string) =>
     jsonFetch<{
       consentUrl: string | null;

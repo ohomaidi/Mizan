@@ -87,10 +87,10 @@ function BodyEn() {
 
       <H1 lang="en" num={2}>Sign-in and navigation</H1>
       <P lang="en">
-        The dashboard is reached at the Council-hosted URL (e.g.
-        posture.shj-csc.gov.ae). Access is gated by Cloudflare Zero Trust in
-        front of the app; Council staff sign in with their Council Entra
-        account.
+        The dashboard is reached at the operator-hosted URL (e.g.
+        posture.your-org.example). Access is typically gated by Cloudflare
+        Zero Trust or an equivalent identity-aware proxy in front of the app;
+        operator staff sign in with their organization's Entra account.
       </P>
       <H2 lang="en">2.1 Chrome</H2>
       <Bullet lang="en">
@@ -398,9 +398,10 @@ function BodyAr() {
 
       <H1 lang="ar" num={2}>الدخول والتنقّل</H1>
       <P lang="ar">
-        يمكن الوصول إلى اللوحة عبر الرابط الذي يستضيفه المجلس (مثل
-        posture.shj-csc.gov.ae). يُغلَّف الوصول ببوابة Cloudflare Zero Trust
-        أمام التطبيق؛ يدخل موظفو المجلس بحسابات Entra الخاصة بالمجلس.
+        يمكن الوصول إلى اللوحة عبر الرابط الذي تستضيفه جهة التشغيل (مثل
+        posture.your-org.example). يُغلَّف الوصول عادةً ببوابة Cloudflare Zero
+        Trust أو ما يعادلها أمام التطبيق؛ يدخل الموظفون بحسابات Entra الخاصة
+        بجهتهم.
       </P>
       <H2 lang="ar">٢.١ الهيكل</H2>
       <Bullet lang="ar">

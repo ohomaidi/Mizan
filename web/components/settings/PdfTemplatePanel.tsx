@@ -41,10 +41,22 @@ export function PdfTemplatePanel() {
   const [tpl, setTpl] = useState<PdfTemplate | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Preview ID resolves at runtime to the first onboarded tenant. The
+  // panel previously hardcoded `shj-police-ghq` which 404'd on any
+  // deployment whose seed customer wasn't sharjah (e.g. DESC, where the
+  // seeded tenants are dubai-airports / dubai-courts / etc.). Now we
+  // pull the live tenant list and use the first row's id; if there are
+  // no tenants yet, the preview buttons render disabled.
+  const [previewTenantId, setPreviewTenantId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const r = await api.getPdfTemplate();
-    setTpl(r.template as unknown as PdfTemplate);
+    const [tplR, tenantsR] = await Promise.all([
+      api.getPdfTemplate(),
+      api.listTenants().catch(() => ({ tenants: [] as Array<{ id: string }> })),
+    ]);
+    setTpl(tplR.template as unknown as PdfTemplate);
+    const first = (tenantsR as { tenants: Array<{ id: string }> }).tenants[0];
+    setPreviewTenantId(first?.id ?? null);
   }, []);
   useEffect(() => {
     load().catch(() => {});
@@ -247,22 +259,35 @@ export function PdfTemplatePanel() {
             {tpl.updatedAt ? `Last saved: ${new Date(tpl.updatedAt).toISOString().slice(0, 16).replace("T", " ")}` : ""}
           </div>
           <div className="flex items-center gap-2">
-            <a
-              href="/api/tenants/shj-police-ghq/onboarding-letter?lang=en"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[12px]"
-            >
-              <FileText size={13} /> {t("pdfCfg.preview")} EN <ExternalLink size={11} />
-            </a>
-            <a
-              href="/api/tenants/shj-police-ghq/onboarding-letter?lang=ar"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[12px]"
-            >
-              <FileText size={13} /> {t("pdfCfg.preview")} AR <ExternalLink size={11} />
-            </a>
+            {/* Preview buttons fall back to a disabled state when no
+                tenants are onboarded yet — without a real tenant id
+                the API returns 404 (the route looks up the tenant
+                first, then renders the personalized letter). */}
+            {previewTenantId ? (
+              <>
+                <a
+                  href={`/api/tenants/${previewTenantId}/onboarding-letter?lang=en`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[12px]"
+                >
+                  <FileText size={13} /> {t("pdfCfg.preview")} EN <ExternalLink size={11} />
+                </a>
+                <a
+                  href={`/api/tenants/${previewTenantId}/onboarding-letter?lang=ar`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[12px]"
+                >
+                  <FileText size={13} /> {t("pdfCfg.preview")} AR <ExternalLink size={11} />
+                </a>
+              </>
+            ) : (
+              <span className="text-[11.5px] text-ink-3 inline-flex items-center gap-1.5">
+                <FileText size={13} />
+                {t("pdfCfg.preview.noTenants")}
+              </span>
+            )}
           </div>
         </div>
       </Card>
