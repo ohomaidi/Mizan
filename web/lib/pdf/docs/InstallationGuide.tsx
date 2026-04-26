@@ -189,8 +189,8 @@ function BodyEn() {
         For fresh installs where the dashboard isn't running yet, or when
         shipping a pre-configured container image, env vars still work.
       </P>
-      <Code lang="en">{`APP_BASE_URL=https://posture.shj-csc.gov.ae
-DATA_DIR=/var/lib/scsc
+      <Code lang="en">{`APP_BASE_URL=https://posture.your-org.example
+DATA_DIR=/var/lib/mizan
 AZURE_CLIENT_ID=<from step 2.1>
 AZURE_CLIENT_SECRET=<from step 2.3>
 SCSC_SEED_DEMO=false`}</Code>
@@ -220,14 +220,20 @@ SCSC_SEED_DEMO=false`}</Code>
           ["SCSC_RETENTION_DAYS", "90", "Snapshot retention window"],
           ["SCSC_SYNC_SECRET", "(none)", "Shared secret for POST /api/sync"],
           ["SCSC_SEED_DEMO", "false", "Seed 12 demo entities on first boot (dev only)"],
-          ["SCSC_DB_PATH", "$DATA_DIR/scsc.sqlite", "Override SQLite file path"],
+          ["SCSC_DB_PATH", "$DATA_DIR/mizan.sqlite", "Override SQLite file path"],
         ]}
       />
+      <Note lang="en">
+        The SCSC_ prefix on these variable names is historical — Mizan was
+        first built for the Sharjah Cybersecurity Council. The names are kept
+        for backward compatibility with existing deployments. New code may use
+        MIZAN_ aliases over time, but SCSC_ remains the canonical set.
+      </Note>
 
       <H1 lang="en" num={4}>Running the demo environment</H1>
       <H2 lang="en">4.1 Local boot</H2>
-      <Code lang="en">{`git clone <repo-url> sharjah-council-dashboard
-cd sharjah-council-dashboard/web
+      <Code lang="en">{`git clone <repo-url> mizan
+cd mizan/web
 npm install
 cp .env.example .env.local    # edit as per section 3
 npm run build
@@ -243,10 +249,10 @@ npm run start                 # serves on http://127.0.0.1:8787`}</Code>
 
       <H2 lang="en">4.3 Cloudflare tunnel (demo)</H2>
       <P lang="en">
-        The ZaatarLabs demo uses a cloudflared tunnel that maps
-        scscdemo.zaatarlabs.com → 127.0.0.1:8787. This is a development
-        convenience; production deployments do not use LaunchAgent plists or
-        personal cloudflared configs.
+        The reference demos use a cloudflared tunnel that maps a public
+        hostname → 127.0.0.1:8787. This is a development convenience;
+        production deployments do not use LaunchAgent plists or personal
+        cloudflared configs.
       </P>
       <Callout lang="en" title="Required Zero Trust gate">
         Any Cloudflare-tunneled exposure must be gated with Cloudflare Access
@@ -354,7 +360,7 @@ npm run start                 # serves on http://127.0.0.1:8787`}</Code>
 
       <H2 lang="en">7.4 Backup</H2>
       <P lang="en">
-        The SQLite database at $DATA_DIR/scsc.sqlite is the only persistent
+        The SQLite database at $DATA_DIR/mizan.sqlite is the only persistent
         state. Nightly snapshot to Azure Blob storage is sufficient for full
         recovery. Fonts and static assets are reproducible from the repo.
       </P>
@@ -424,7 +430,7 @@ function BodyAr() {
         لا يمكن تشغيل اللوحة بدون أي منها.
       </P>
       <Bullet lang="ar">
-        مستأجر Microsoft 365 E5 يعود لمجلس الشارقة للأمن السيبراني ("مستأجر المجلس").
+        مستأجر Microsoft 365 E5 يعود لجهة التشغيل ("المستأجر التشغيلي").
         يلزم امتلاك صلاحية Global Administrator لخطوات تسجيل التطبيق.
       </Bullet>
       <Bullet lang="ar">
@@ -436,8 +442,8 @@ function BodyAr() {
         لا حاجة لفتح أي منفذ وارد إلا عند كشف رابط اللوحة.
       </Bullet>
       <Bullet lang="ar">
-        اسم مضيف عام يستخدمه موظفو المجلس للوصول إلى اللوحة (مثل
-        posture.shj-csc.gov.ae). نستخدم نفق Cloudflare في بيئة العرض التجريبي.
+        اسم مضيف عام يستخدمه موظفو الجهة للوصول إلى اللوحة (مثل
+        posture.your-org.example). تستخدم بيئات العرض التجريبي نفق Cloudflare.
       </Bullet>
       <Bullet lang="ar">
         للإنتاج: اشتراك Azure في UAE-North مع اتصال Entra. الخدمات الموصى بها:
@@ -446,14 +452,15 @@ function BodyAr() {
 
       <H1 lang="ar" num={2}>تسجيل تطبيق Entra</H1>
       <P lang="ar">
-        يسجّل المجلس تطبيقًا واحدًا متعدد المستأجرين في مستأجره الخاص. تمنح
-        كل جهة حكومية في الشارقة لاحقًا موافقة للقراءة فقط لهذا التطبيق
-        ذاته في مستأجرها.
+        تسجّل الجهة التشغيلية تطبيقًا واحدًا متعدد المستأجرين في مستأجرها الخاص.
+        تمنح كل جهة فرعية لاحقًا موافقة للقراءة فقط لهذا التطبيق ذاته في
+        مستأجرها.
       </P>
 
       <H2 lang="ar">٢.١ إنشاء تسجيل التطبيق</H2>
       <NumBullet lang="ar" n={1}>
-        سجّل الدخول إلى entra.microsoft.com بحساب Global Administrator في مستأجر المجلس.
+        سجّل الدخول إلى entra.microsoft.com بحساب Global Administrator في
+        المستأجر التشغيلي.
       </NumBullet>
       <NumBullet lang="ar" n={2}>
         انتقل إلى App registrations ← New registration.
@@ -549,8 +556,8 @@ function BodyAr() {
         للتثبيتات الجديدة التي لم تعمل فيها اللوحة بعد، أو عند شحن صورة
         حاوية مُعدَّة مسبقًا، ما زالت متغيرات البيئة تعمل.
       </P>
-      <Code lang="ar">{`APP_BASE_URL=https://posture.shj-csc.gov.ae
-DATA_DIR=/var/lib/scsc
+      <Code lang="ar">{`APP_BASE_URL=https://posture.your-org.example
+DATA_DIR=/var/lib/mizan
 AZURE_CLIENT_ID=<من الخطوة ٢.١>
 AZURE_CLIENT_SECRET=<من الخطوة ٢.٣>
 SCSC_SEED_DEMO=false`}</Code>
@@ -579,14 +586,20 @@ SCSC_SEED_DEMO=false`}</Code>
           ["SCSC_RETENTION_DAYS", "90", "نافذة الاحتفاظ باللقطات"],
           ["SCSC_SYNC_SECRET", "(لا يوجد)", "سر مشترك لاستدعاء POST /api/sync"],
           ["SCSC_SEED_DEMO", "false", "بذر ١٢ جهة تجريبية عند أول تشغيل (للتطوير فقط)"],
-          ["SCSC_DB_PATH", "$DATA_DIR/scsc.sqlite", "تجاوز مسار ملف SQLite"],
+          ["SCSC_DB_PATH", "$DATA_DIR/mizan.sqlite", "تجاوز مسار ملف SQLite"],
         ]}
       />
+      <Note lang="ar">
+        بادئة SCSC_ في أسماء هذه المتغيرات تاريخية — بُنيت Mizan أول مرة
+        لمجلس الشارقة للأمن السيبراني. تُحفظ الأسماء كما هي حفاظًا على توافق
+        النشرات القائمة. قد تظهر مرادفات MIZAN_ في المستقبل، لكن SCSC_ يبقى
+        المرجع المعتمد.
+      </Note>
 
       <H1 lang="ar" num={4}>تشغيل بيئة العرض التجريبي</H1>
       <H2 lang="ar">٤.١ التشغيل المحلي</H2>
-      <Code lang="ar">{`git clone <repo-url> sharjah-council-dashboard
-cd sharjah-council-dashboard/web
+      <Code lang="ar">{`git clone <repo-url> mizan
+cd mizan/web
 npm install
 cp .env.example .env.local    # حرّر حسب القسم ٣
 npm run build
@@ -602,8 +615,8 @@ npm run start                 # يخدم على http://127.0.0.1:8787`}</Code>
 
       <H2 lang="ar">٤.٣ نفق Cloudflare (العرض التجريبي)</H2>
       <P lang="ar">
-        يستخدم عرض ZaatarLabs التجريبي نفق cloudflared يربط
-        scscdemo.zaatarlabs.com ← 127.0.0.1:8787. هذه راحة للتطوير فقط؛ لا
+        تستخدم بيئات العرض التجريبي نفق cloudflared يربط اسمًا مضيفًا
+        عامًا ← 127.0.0.1:8787. هذه راحة للتطوير فقط؛ لا
         تستخدم عمليات النشر الإنتاجية LaunchAgent plist أو إعدادات
         cloudflared شخصية.
       </P>
@@ -706,7 +719,7 @@ npm run start                 # يخدم على http://127.0.0.1:8787`}</Code>
 
       <H2 lang="ar">٧.٤ النسخ الاحتياطي</H2>
       <P lang="ar">
-        قاعدة SQLite في $DATA_DIR/scsc.sqlite هي الحالة الدائمة الوحيدة.
+        قاعدة SQLite في $DATA_DIR/mizan.sqlite هي الحالة الدائمة الوحيدة.
         تكفي لقطة ليلية إلى Azure Blob Storage للاسترداد الكامل. الخطوط
         والأصول الثابتة قابلة للاستنساخ من المستودع.
       </P>

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { TopBar } from "@/components/chrome/TopBar";
-import { Sidebar } from "@/components/chrome/Sidebar";
+import { cookies } from "next/headers";
+import { DesktopShell } from "@/components/chrome/DesktopShell";
+import { MobileShell } from "@/components/chrome/MobileShell";
 import { requireUser } from "@/lib/auth/rbac";
 import { getSetupState } from "@/lib/config/setup-config";
 
@@ -9,6 +10,12 @@ import { getSetupState } from "@/lib/config/setup-config";
 // check runs on every request — otherwise Next.js caches the layout at build
 // time while auth is still unconfigured, and enforcing auth later would never
 // take effect for pre-rendered pages.
+//
+// v2.5.0 — also reads the `mizan-device` cookie set by middleware.ts and
+// renders DesktopShell or MobileShell. The desktop branch is byte-for-byte
+// the same chrome as v2.4.x; the mobile branch is the new parallel shell.
+// Page bodies are shared between both shells (responsive within the page
+// where needed). Tablets default to desktop chrome.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({
@@ -25,30 +32,18 @@ export default async function DashboardLayout({
   // locked out. Otherwise an unauthenticated request is bounced to /login.
   const result = await requireUser("viewer");
   if (result.kind === "redirect") redirect(result.to);
-  return (
-    <div className="flex flex-col h-screen">
-      {/*
-        Skip-to-content link for keyboard / screen-reader users. WCAG 2.4.1
-        Bypass Blocks. Visually hidden until focused; first focus stop on
-        every page. Pressing Enter scrolls + focuses the main element.
-      */}
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-council-strong focus:text-white focus:px-3 focus:py-2 focus:rounded-md focus:text-[12px] focus:font-semibold"
-      >
-        Skip to content
-      </a>
-      <TopBar />
-      <div className="flex flex-1 min-h-0">
-        <Sidebar />
-        <main
-          id="main"
-          tabIndex={-1}
-          className="flex-1 overflow-y-auto focus:outline-none"
-        >
-          <div className="mx-auto max-w-[1440px] px-8 py-7">{children}</div>
-        </main>
-      </div>
-    </div>
+
+  // Server-side device class. Falls back to "desktop" when the cookie
+  // is missing (e.g. first request before middleware has written, or
+  // a request that bypassed the matcher). The "missing → desktop"
+  // fallback preserves the v2.4.x experience for any edge case we
+  // haven't accounted for.
+  const device = (await cookies()).get("mizan-device")?.value;
+  const useMobile = device === "mobile";
+
+  return useMobile ? (
+    <MobileShell>{children}</MobileShell>
+  ) : (
+    <DesktopShell>{children}</DesktopShell>
   );
 }

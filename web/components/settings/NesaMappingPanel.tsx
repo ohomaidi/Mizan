@@ -19,17 +19,20 @@ import { useFmtNum } from "@/lib/i18n/num";
 import { api } from "@/lib/api/client";
 
 /**
- * Frameworks the Council can pick from. The list is shared with the
- * BrandingPanel — keeping both sources of truth identical avoids the
- * "what does each option mean?" confusion. Order: most-locally-relevant
- * first, then generic at the end.
+ * Frameworks the Council can pick from. v2.4.x — only NESA + Dubai
+ * ISR are user-selectable. The "nca" / "isr" / "generic" ids still
+ * exist as code fallbacks (a deployment whose frameworkId is one of
+ * those routes through the registry to a default catalog) but they're
+ * hidden from the dropdown to keep the customer choice crisp.
+ *
+ * The hero block below additionally appends the current id back into
+ * the visible options if it's one of the hidden ones — that way a
+ * deployment that's currently set to e.g. "generic" still sees its
+ * own value rendered, just can't switch back to it.
  */
 const FRAMEWORK_OPTIONS = [
   { id: "dubai-isr", labelKey: "branding.framework.dubai-isr" },
   { id: "nesa", labelKey: "branding.framework.nesa" },
-  { id: "nca", labelKey: "branding.framework.nca" },
-  { id: "isr", labelKey: "branding.framework.isr" },
-  { id: "generic", labelKey: "branding.framework.generic" },
 ] as const;
 
 type SecureScoreControl = {
@@ -95,6 +98,12 @@ export function NesaMappingPanel() {
     unscoredTreatment: "skip" | "zero";
   }>({ target: 70, unscoredTreatment: "skip" });
   const [savingCfg, setSavingCfg] = useState(false);
+  // Global OOS marks — set of clause IDs the Council has marked as
+  // not-applicable across the entire deployment (covered by 3rd-party
+  // products, etc.). Per-entity OOS lives on each tenant's Framework
+  // tab; this panel only manages the global tier.
+  const [globalOos, setGlobalOos] = useState<Set<string>>(new Set());
+  const [busyOosId, setBusyOosId] = useState<string | null>(null);
 
   // Quick lookup of registry rows by id, for rendering chips with the
   // human title + live coverage % even when the operator hasn't seen
@@ -107,11 +116,14 @@ export function NesaMappingPanel() {
 
   const load = async () => {
     try {
-      const [m, r, b, cfg] = await Promise.all([
+      const [m, r, b, cfg, oos] = await Promise.all([
         api.getNesaMapping(),
         api.getSecureScoreControls().catch(() => ({ controls: [], total: 0 })),
         api.getBranding().catch(() => null),
         api.getComplianceConfig().catch(() => null),
+        // Pass empty string → global tier only (the panel manages
+        // global OOS marks; per-entity is on the Entity Framework tab).
+        api.listComplianceOos("").catch(() => null),
       ]);
       setMapping(m.mapping);
       setRegistry(r.controls);
@@ -122,10 +134,66 @@ export function NesaMappingPanel() {
           unscoredTreatment: cfg.config.unscoredTreatment,
         });
       }
+      if (oos?.marks) {
+        setGlobalOos(
+          new Set(
+            oos.marks
+              .filter((mk) => mk.scopeKind === "clause")
+              .map((mk) => mk.scopeId),
+          ),
+        );
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Toggle global OOS for one clause. Optimistic — flips the local set
+   * before the API roundtrip so the UI feels instant; rolls back on
+   * failure. Reason field is omitted from this surface for simplicity;
+   * the per-entity tab on each tenant's page is where reasons are
+   * captured (since per-entity OOS is the more politically-sensitive
+   * tier and operators want a paper trail there).
+   */
+  const toggleGlobalOos = async (clauseId: string) => {
+    const wasOos = globalOos.has(clauseId);
+    setBusyOosId(clauseId);
+    // Optimistic flip.
+    setGlobalOos((prev) => {
+      const next = new Set(prev);
+      if (wasOos) next.delete(clauseId);
+      else next.add(clauseId);
+      return next;
+    });
+    try {
+      if (wasOos) {
+        await api.unmarkComplianceOos({
+          tenantId: null,
+          scopeKind: "clause",
+          scopeId: clauseId,
+        });
+      } else {
+        await api.markComplianceOos({
+          tenantId: null,
+          scopeKind: "clause",
+          scopeId: clauseId,
+          reason: null,
+        });
+      }
+    } catch (err) {
+      // Rollback.
+      setGlobalOos((prev) => {
+        const next = new Set(prev);
+        if (wasOos) next.add(clauseId);
+        else next.delete(clauseId);
+        return next;
+      });
+      setError((err as Error).message);
+    } finally {
+      setBusyOosId(null);
     }
   };
 
@@ -335,12 +403,25 @@ export function NesaMappingPanel() {
                 <option key={o.id} value={o.id}>
                   {t(o.labelKey as
                     | "branding.framework.nesa"
-                    | "branding.framework.dubai-isr"
-                    | "branding.framework.nca"
-                    | "branding.framework.isr"
-                    | "branding.framework.generic")}
+                    | "branding.framework.dubai-isr")}
                 </option>
               ))}
+              {/* Render the current value as a read-only-once option
+                  when it's one of the hidden ids (generic / nca / isr).
+                  Lets a mid-flight deployment SEE what it's set to and
+                  switch FORWARD to NESA or Dubai ISR — but the hidden
+                  ids never reappear in the list once switched. */}
+              {activeFrameworkId === "generic" ? (
+                <option value="generic">
+                  {t("branding.framework.generic")}
+                </option>
+              ) : null}
+              {activeFrameworkId === "nca" ? (
+                <option value="nca">{t("branding.framework.nca")}</option>
+              ) : null}
+              {activeFrameworkId === "isr" ? (
+                <option value="isr">{t("branding.framework.isr")}</option>
+              ) : null}
             </select>
             {switchingFramework ? (
               <div className="text-[11px] text-ink-3 inline-flex items-center gap-1">
@@ -495,10 +576,15 @@ export function NesaMappingPanel() {
       </div>
 
       <div className="p-5 flex flex-col gap-4">
-        {mapping.clauses.map((c, i) => (
+        {mapping.clauses.map((c, i) => {
+          const isOos = globalOos.has(c.id);
+          const oosBusy = busyOosId === c.id;
+          return (
           <div
             key={`${c.id}-${i}`}
-            className="rounded-md border border-border bg-surface-2 p-4"
+            className={`rounded-md border bg-surface-2 p-4 ${
+              isOos ? "border-warn/40 bg-warn/5" : "border-border"
+            }`}
           >
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -513,14 +599,36 @@ export function NesaMappingPanel() {
                 <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3 keep-ltr min-w-0 truncate">
                   {c.ref || c.id}
                 </div>
+                {isOos ? (
+                  <span className="text-[9.5px] uppercase tracking-[0.08em] font-semibold text-warn border border-warn/40 bg-warn/10 rounded px-1.5 py-px shrink-0">
+                    {t("nesaCfg.oos.globalChip")}
+                  </span>
+                ) : null}
               </div>
-              <button
-                onClick={() => removeClause(i)}
-                className="inline-flex items-center gap-1 text-[11.5px] text-ink-3 hover:text-neg shrink-0"
-              >
-                <Trash2 size={12} />
-                {t("nesaCfg.removeClause")}
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => toggleGlobalOos(c.id)}
+                  disabled={oosBusy}
+                  title={t("nesaCfg.oos.toggleHelp")}
+                  className={`inline-flex items-center gap-1 text-[11.5px] disabled:opacity-50 ${
+                    isOos
+                      ? "text-warn hover:text-warn/80"
+                      : "text-ink-3 hover:text-ink-1"
+                  }`}
+                >
+                  {oosBusy ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : null}
+                  {isOos ? t("nesaCfg.oos.unmark") : t("nesaCfg.oos.mark")}
+                </button>
+                <button
+                  onClick={() => removeClause(i)}
+                  className="inline-flex items-center gap-1 text-[11.5px] text-ink-3 hover:text-neg"
+                >
+                  <Trash2 size={12} />
+                  {t("nesaCfg.removeClause")}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label={locale === "ar" ? "العنوان (عربي)" : "Title (EN)"}>
@@ -620,7 +728,8 @@ export function NesaMappingPanel() {
               />
             </div>
           </div>
-        ))}
+          );
+        })}
 
         <button
           onClick={addClause}

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { DictKey } from "@/lib/i18n/dict";
+import { api } from "@/lib/api/client";
 
 type SourceKey =
   | "secureScore"
@@ -18,6 +20,8 @@ type HealthResponse = {
   consentedTenants: number;
   sources: Record<SourceKey, { status: Health; coverage: number }>;
 };
+
+type FrameworkId = "nesa" | "dubai-isr" | "nca" | "isr" | "generic";
 
 /**
  * The sidebar's data-sources panel.
@@ -59,6 +63,10 @@ const DOT: Record<Health, string> = {
 export function DataSourcesPanel() {
   const { t } = useI18n();
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  // The "Compliance Mgr." row's detail line used to be a hardcoded
+  // "UAE NESA". With v2.4.0 the active framework is selectable per
+  // deployment, so the label tracks branding.frameworkId at runtime.
+  const [frameworkId, setFrameworkId] = useState<FrameworkId | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,10 +78,28 @@ export function DataSourcesPanel() {
       .catch(() => {
         /* swallow — panel stays at amber, which is the right hedge. */
       });
+    api
+      .whoami()
+      .then((r) => {
+        if (!cancelled) setFrameworkId(r.frameworkId);
+      })
+      .catch(() => {
+        /* whoami failures don't block the rest of the panel. */
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Resolve the active framework's display name from the dict
+  // (`branding.framework.dubai-isr` → "Dubai ISR", etc.). Falls back to
+  // the legacy "UAE NESA" string while whoami is in flight so the row
+  // never renders blank.
+  const complianceDetail = frameworkId
+    ? frameworkId === "generic"
+      ? t("ds.compliance.detail.generic")
+      : t(`branding.framework.${frameworkId}` as DictKey)
+    : t("ds.compliance.detail");
 
   return (
     <div className="border-t border-border p-3 pb-4">
@@ -101,7 +127,9 @@ export function DataSourcesPanel() {
               />
               <div className="min-w-0">
                 <div className="text-[12.5px] text-ink-1 leading-tight">{s.name}</div>
-                <div className="text-[11px] text-ink-3 leading-snug">{t(s.detailKey)}</div>
+                <div className="text-[11px] text-ink-3 leading-snug">
+                  {s.key === "compliance" ? complianceDetail : t(s.detailKey)}
+                </div>
               </div>
             </li>
           );

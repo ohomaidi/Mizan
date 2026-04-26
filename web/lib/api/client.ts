@@ -41,6 +41,7 @@ export const api = {
         percent: number | null;
         clausesScored: number;
         clausesTotal: number;
+        clausesOos: number;
         breakdown: Array<{
           clauseId: string;
           ref: string;
@@ -52,6 +53,7 @@ export const api = {
           samples: number;
           secureScoreControls: string[];
           customEvidenceCount: number;
+          oosState: "in-scope" | "global-oos" | "tenant-oos";
         }>;
       };
     }>(`/api/tenants/${id}`),
@@ -199,6 +201,7 @@ export const api = {
       configured: boolean;
       demoMode: boolean;
       deploymentMode: "observation" | "directive";
+      frameworkId: "nesa" | "dubai-isr" | "nca" | "isr" | "generic";
       graphAppReady: boolean;
       user: {
         id: string;
@@ -439,6 +442,92 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ reset: true }),
     }),
+
+  // Compliance Out-of-Scope (OOS) — v2.4.0. Marks a clause/control as
+  // not applicable so it's excluded from the framework compliance
+  // calculation. Two tiers (global vs per-tenant) — see
+  // `lib/db/compliance-oos.ts`.
+  listComplianceOos: (tenantId?: string | null) => {
+    const qs =
+      tenantId === undefined
+        ? ""
+        : `?tenantId=${encodeURIComponent(tenantId ?? "")}`;
+    return jsonFetch<{
+      frameworkId: string;
+      marks: Array<{
+        id: number;
+        tenantId: string | null;
+        frameworkId: string;
+        scopeKind: "clause" | "control";
+        scopeId: string;
+        reason: string | null;
+        markedByUserId: string | null;
+        markedAt: string;
+      }>;
+    }>(`/api/config/compliance-oos${qs}`);
+  },
+
+  markComplianceOos: (input: {
+    tenantId: string | null;
+    scopeKind: "clause" | "control";
+    scopeId: string;
+    reason?: string | null;
+  }) =>
+    jsonFetch<{ frameworkId: string; mark: unknown }>(
+      "/api/config/compliance-oos",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    ),
+
+  unmarkComplianceOos: (input: {
+    tenantId: string | null;
+    scopeKind: "clause" | "control";
+    scopeId: string;
+  }) =>
+    jsonFetch<{ frameworkId: string; removed: boolean }>(
+      "/api/config/compliance-oos",
+      {
+        method: "DELETE",
+        body: JSON.stringify(input),
+      },
+    ),
+
+  // Directive → Compliance push tab. Returns per-clause coverage rolled
+  // up across the deployment + suggested baselines to push.
+  getComplianceGap: () =>
+    jsonFetch<{
+      frameworkId: string;
+      frameworkVersion: string;
+      target: number;
+      consentedEntities: number;
+      clauses: Array<{
+        clauseId: string;
+        ref: string;
+        titleEn: string;
+        titleAr: string;
+        classRefs: Array<"Governance" | "Operation" | "Assurance">;
+        weight: number;
+        averageCoverage: number | null;
+        entitiesScored: number;
+        entitiesFailing: number;
+        weakestEntities: Array<{
+          tenantId: string;
+          nameEn: string;
+          nameAr: string;
+          coverage: number;
+        }>;
+        secureScoreControls: string[];
+        customEvidenceCount: number;
+        isGlobalOos: boolean;
+        suggestedBaselines: Array<{
+          id: string;
+          titleKey: string;
+          riskTier: string;
+        }>;
+      }>;
+    }>("/api/directive/compliance-gap"),
 
   getPurviewRollup: () =>
     jsonFetch<{

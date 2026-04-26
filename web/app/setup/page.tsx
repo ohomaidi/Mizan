@@ -30,9 +30,13 @@ export default function SetupPage() {
   const [nameAr, setNameAr] = useState("");
   const [shortEn, setShortEn] = useState("");
   const [shortAr, setShortAr] = useState("");
+  // v2.4.x — fresh installs default to NESA. The "generic" / "nca" /
+  // "isr" ids still exist as fallbacks in code but the wizard no
+  // longer offers them as choices, so a new deployment never lands on
+  // a hidden value.
   const [framework, setFramework] = useState<
     "generic" | "nesa" | "dubai-isr" | "nca" | "isr"
-  >("generic");
+  >("nesa");
   const [deploymentMode, setDeploymentMode] = useState<"observation" | "directive">(
     "observation",
   );
@@ -244,19 +248,19 @@ export default function SetupPage() {
   return (
     <div
       dir={locale === "ar" ? "rtl" : "ltr"}
-      className="min-h-screen flex items-center justify-center px-6 py-10 bg-surface-1"
+      className="min-h-screen flex items-start sm:items-center justify-center px-4 sm:px-6 py-6 sm:py-10 bg-surface-1 safe-area-pt safe-area-pb"
     >
       <div className="w-full max-w-[720px]">
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-5 sm:mb-6">
           <Sparkles size={18} className="text-council-strong" />
-          <h1 className="text-[20px] font-semibold text-ink-1">
+          <h1 className="text-[18px] sm:text-[20px] font-semibold text-ink-1">
             {t("setup.title")}
           </h1>
         </div>
 
         <Stepper step={step} />
 
-        <div className="mt-6 rounded-lg border border-border bg-surface-2 p-6">
+        <div className="mt-5 sm:mt-6 rounded-lg border border-border bg-surface-2 p-4 sm:p-6">
           {step === 1 ? (
             <Step1
               nameEn={nameEn}
@@ -464,6 +468,11 @@ function Step1(props: {
           />
         </Field>
         <Field label={t("branding.field.framework")}>
+          {/* v2.4.x — only NESA + Dubai ISR are user-selectable on
+              first install. The other framework ids exist as code
+              fallbacks for legacy deployments but aren't offered to a
+              new operator (see BrandingPanel + NesaMappingPanel for
+              the same pattern). */}
           <select
             value={props.framework}
             onChange={(e) =>
@@ -478,13 +487,10 @@ function Step1(props: {
             }
             className={inputClass}
           >
-            <option value="generic">{t("branding.framework.generic")}</option>
             <option value="nesa">{t("branding.framework.nesa")}</option>
             <option value="dubai-isr">
               {t("branding.framework.dubai-isr")}
             </option>
-            <option value="nca">{t("branding.framework.nca")}</option>
-            <option value="isr">{t("branding.framework.isr")}</option>
           </select>
         </Field>
       </div>

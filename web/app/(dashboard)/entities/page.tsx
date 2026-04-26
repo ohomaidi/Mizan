@@ -174,8 +174,13 @@ export default function EntitiesPage({
       </div>
 
       <Card className="p-0">
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
-          <div className="flex items-center gap-2 h-8 px-3 rounded-md bg-surface-1 border border-border text-ink-2 text-[12.5px] flex-1 max-w-[320px]">
+        {/* Filter bar — wraps to multiple rows on narrow viewports.
+            Search field stays full-width on mobile (flex-1, no max-w
+            cap until lg+); cluster chips wrap to a new row underneath
+            via the parent's flex-wrap; below-target counter wraps
+            last so it doesn't fight for space. */}
+        <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-border flex-wrap">
+          <div className="flex items-center gap-2 h-9 sm:h-8 px-3 rounded-md bg-surface-1 border border-border text-ink-2 text-[12.5px] flex-1 lg:max-w-[320px] min-w-[200px]">
             <Search size={14} />
             <input
               value={search}
@@ -184,11 +189,11 @@ export default function EntitiesPage({
               placeholder={t("entities.search")}
             />
           </div>
-          <div className="flex items-center gap-2 text-[12px]">
+          <div className="flex items-center gap-2 text-[12px] overflow-x-auto scroll-x w-full lg:w-auto">
             <ClusterChips active={clusterFilter} />
           </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2 text-ink-2 text-[12px]">
+          <div className="hidden lg:block flex-1" />
+          <div className="flex items-center gap-2 text-ink-2 text-[12px] ms-auto lg:ms-0">
             <Filter size={13} />
             <span>
               {t("entities.belowTargetLabel")}&nbsp;
@@ -619,10 +624,14 @@ function PendingActions({
 function ClusterChips({ active }: { active?: ClusterId }) {
   const { t, locale } = useI18n();
   return (
+    // shrink-0 on each chip so the parent flex (which is wrapped in
+    // overflow-x-auto on mobile) renders chips in a single horizontally
+    // scrollable row rather than wrapping mid-flow. Each chip stays at
+    // its natural width.
     <div className="flex items-center gap-1">
       <Link
         href="/entities"
-        className={`h-7 px-2.5 text-[11.5px] rounded-md border transition-colors ${!active ? "bg-surface-3 text-ink-1 border-border-strong" : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"}`}
+        className={`h-8 sm:h-7 px-2.5 text-[11.5px] rounded-md border transition-colors shrink-0 inline-flex items-center ${!active ? "bg-surface-3 text-ink-1 border-border-strong" : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"}`}
       >
         {t("cols.all")}
       </Link>
@@ -630,7 +639,7 @@ function ClusterChips({ active }: { active?: ClusterId }) {
         <Link
           key={c.id}
           href={`/entities?cluster=${c.id}`}
-          className={`h-7 px-2.5 text-[11.5px] rounded-md border transition-colors inline-flex items-center ${
+          className={`h-8 sm:h-7 px-2.5 text-[11.5px] rounded-md border transition-colors inline-flex items-center shrink-0 ${
             active === c.id
               ? "bg-surface-3 text-ink-1 border-border-strong"
               : "text-ink-2 border-border hover:text-ink-1 hover:bg-surface-3"

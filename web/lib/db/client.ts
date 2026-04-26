@@ -345,6 +345,63 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 12,
+    name: "add_compliance_out_of_scope",
+    run: (db) => {
+      // v2.4.0 — Out-of-Scope (OOS) markers for the active compliance
+      // framework. Two tiers:
+      //   * tenant_id = NULL   → GLOBAL OOS. The clause/control is treated
+      //                          as not applicable across every entity
+      //                          (e.g. covered by a 3rd-party product the
+      //                          Center accepts). Clauses marked global
+      //                          are subtracted from the denominator on
+      //                          every tenant's framework-compliance %.
+      //   * tenant_id = TEXT   → PER-ENTITY OOS. The clause is removed
+      //                          from THIS entity's denominator only —
+      //                          used when a specific entity has a
+      //                          legitimate carve-out the Center has
+      //                          accepted in writing.
+      //
+      // scope_kind is currently always 'clause' — per-control OOS is a
+      // possible future expansion, hence the column rather than encoding
+      // kind into scope_id. The UNIQUE constraint allows the same scope
+      // to be marked at both global and per-tenant levels (different
+      // tenant_id values), and prevents duplicate marks at the same level.
+      //
+      // Never auto-deleted; an "unmark" is a DELETE row, captured nowhere
+      // beyond the marked_by/marked_at timestamps you see here. (We don't
+      // need an audit ledger for this — push_requests + directive_actions
+      // already carry the heavyweight audit trail; OOS marks are a config.)
+      db.exec(`CREATE TABLE IF NOT EXISTS compliance_out_of_scope (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tenant_id TEXT,
+        framework_id TEXT NOT NULL,
+        scope_kind TEXT NOT NULL CHECK (scope_kind IN ('clause','control')),
+        scope_id TEXT NOT NULL,
+        reason TEXT,
+        marked_by_user_id TEXT,
+        marked_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+      )`);
+      // SQLite UNIQUE doesn't include NULLs the way you'd expect — two rows
+      // with the same (NULL, fw, kind, id) are NOT considered duplicates.
+      // That's actually what we want here: the global row uses NULL, and
+      // the app-side helpers enforce single-row-per-key on the global tier.
+      db.exec(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_oos_tenant_unique ON compliance_out_of_scope(tenant_id, framework_id, scope_kind, scope_id) WHERE tenant_id IS NOT NULL",
+      );
+      db.exec(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_oos_global_unique ON compliance_out_of_scope(framework_id, scope_kind, scope_id) WHERE tenant_id IS NULL",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_oos_tenant_fw ON compliance_out_of_scope(tenant_id, framework_id)",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_oos_global_fw ON compliance_out_of_scope(framework_id) WHERE tenant_id IS NULL",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

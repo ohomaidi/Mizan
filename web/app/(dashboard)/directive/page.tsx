@@ -233,6 +233,7 @@ export default function DirectivePage() {
 
 const TABS = [
   "overview",
+  "compliance",
   "ca",
   "intune",
   "sharepoint",
@@ -283,9 +284,14 @@ function DirectiveTabs({
 
   return (
     <>
+      {/* Mobile: horizontal scroll with no wrap so the 8 tabs stay on
+          one row and scroll into view. Desktop: same flex but with
+          flex-wrap so a narrow desktop window still works. The
+          breakpoint is `lg:` to match where the desktop chrome takes
+          over from MobileShell. */}
       <nav
         aria-label={t("directive.tabs.label")}
-        className="flex flex-wrap gap-1 border-b border-border"
+        className="flex gap-1 border-b border-border overflow-x-auto scroll-x lg:flex-wrap whitespace-nowrap"
       >
         {TABS.map((k) => {
           const isActive = active === k;
@@ -295,7 +301,7 @@ function DirectiveTabs({
               type="button"
               onClick={() => select(k)}
               aria-current={isActive ? "page" : undefined}
-              className={`relative inline-flex items-center gap-1.5 h-9 px-3 text-[12.5px] font-semibold transition-colors ${
+              className={`relative inline-flex items-center gap-1.5 h-9 px-3 text-[12.5px] font-semibold transition-colors shrink-0 ${
                 isActive
                   ? "text-ink-1 after:absolute after:left-0 after:right-0 after:-bottom-px after:h-0.5 after:bg-council-strong"
                   : "text-ink-3 hover:text-ink-1"
@@ -309,6 +315,9 @@ function DirectiveTabs({
 
       {active === "overview" ? (
         <OverviewTab locale={locale} />
+      ) : null}
+      {active === "compliance" ? (
+        <ComplianceTab locale={locale} />
       ) : null}
       {active === "ca" ? (
         <CaTab locale={locale} fmtRelative={fmtRelative} />
@@ -390,6 +399,342 @@ function OverviewTab({ locale }: { locale: "en" | "ar" }) {
           ))}
         </ul>
       </Card>
+    </div>
+  );
+}
+
+// ============================================================================
+// ComplianceTab — v2.4.0. Per-clause compliance gap view across the
+// deployment, with concrete baseline-push suggestions.
+//
+// Three sections:
+//   1) Headline — framework name, average coverage across deployment,
+//      target, count of entities below target.
+//   2) Gap table — every clause sorted by lowest avg coverage first.
+//      Each row shows: avg %, # entities scored, # failing, weakest 3
+//      entities (with click-through), suggested baselines (with deep
+//      links to the CA tab + that baseline's preview).
+//   3) Empty / OOS-only fallback when generic-mode or no consented
+//      tenants exist yet.
+//
+// This is the answer to "in the Directive tab, we need a tab for the
+// selected compliance with controls to push to drive the score higher."
+// The UI doesn't push from here directly — it routes the operator to
+// the matching baseline tab so the existing preview + push flow
+// (which already has rollback + audit) handles the actual write. Less
+// surface area, single source of truth for pushes.
+// ============================================================================
+function ComplianceTab({ locale }: { locale: "en" | "ar" }) {
+  const { t } = useI18n();
+  const fmt = useFmtNum();
+  const [data, setData] = useState<
+    Awaited<ReturnType<typeof api.getComplianceGap>> | null
+  >(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .getComplianceGap()
+      .then((r) => {
+        if (alive) setData(r);
+      })
+      .catch((err) => {
+        if (alive) setError((err as Error).message);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <Card className="p-5">
+        <div className="text-[12.5px] text-neg">{error}</div>
+      </Card>
+    );
+  }
+  if (!data) {
+    return (
+      <Card className="p-5">
+        <div className="text-[12.5px] text-ink-3 inline-flex items-center gap-2">
+          <Loader2 size={13} className="animate-spin" />
+          {t("directive.compliance.loading")}
+        </div>
+      </Card>
+    );
+  }
+
+  const frameworkName = t(
+    `branding.framework.${data.frameworkId}` as DictKey,
+  );
+
+  if (data.frameworkId === "generic") {
+    return (
+      <Card className="p-5">
+        <CardHeader
+          title={t("directive.compliance.title.generic")}
+          subtitle={t("directive.compliance.subtitle.generic")}
+        />
+      </Card>
+    );
+  }
+
+  const target = data.target / 100;
+  const partialFloor = (data.target - 20) / 100;
+
+  const inScope = data.clauses.filter((c) => !c.isGlobalOos);
+  const oosClauses = data.clauses.filter((c) => c.isGlobalOos);
+  const scoredOnly = inScope.filter(
+    (c): c is typeof c & { averageCoverage: number } =>
+      c.averageCoverage !== null,
+  );
+  const overallAvg =
+    scoredOnly.length === 0
+      ? null
+      : (scoredOnly.reduce((a, b) => a + b.averageCoverage, 0) /
+          scoredOnly.length) *
+        100;
+
+  const failingClauseCount = scoredOnly.filter(
+    (c) => c.averageCoverage < target,
+  ).length;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <Card className="p-5">
+        <div className="flex items-end gap-6 flex-wrap">
+          <div className="min-w-0">
+            <div className="eyebrow">
+              {t("directive.compliance.eyebrowFor", { framework: frameworkName })}
+            </div>
+            <h2 className="mt-1 text-[20px] font-semibold tracking-tight text-ink-1">
+              {t("directive.compliance.titleFor", { framework: frameworkName })}
+            </h2>
+            <p className="text-ink-2 text-[12.5px] mt-1 max-w-2xl">
+              {t("directive.compliance.subtitleFor", {
+                framework: frameworkName,
+                version: data.frameworkVersion,
+              })}
+            </p>
+          </div>
+          <div className="flex items-baseline gap-2 ms-auto">
+            <span
+              className={`text-[44px] leading-none font-semibold tabular ${
+                overallAvg === null
+                  ? "text-ink-3"
+                  : overallAvg >= data.target
+                    ? "text-pos"
+                    : overallAvg >= data.target - 15
+                      ? "text-warn"
+                      : "text-neg"
+              }`}
+            >
+              {overallAvg === null ? "—" : fmt(Math.round(overallAvg))}
+            </span>
+            {overallAvg !== null ? (
+              <span className="text-[16px] text-ink-3 tabular">%</span>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Stat
+            label={t("directive.compliance.stat.clausesInScope")}
+            value={fmt(inScope.length)}
+          />
+          <Stat
+            label={t("directive.compliance.stat.failingClauses")}
+            value={fmt(failingClauseCount)}
+            tone={failingClauseCount > 0 ? "warn" : "default"}
+          />
+          <Stat
+            label={t("directive.compliance.stat.consentedEntities")}
+            value={fmt(data.consentedEntities)}
+          />
+          <Stat
+            label={t("directive.compliance.stat.target")}
+            value={`${fmt(data.target)}%`}
+          />
+        </div>
+        {oosClauses.length > 0 ? (
+          <div className="mt-4 text-[11.5px] text-ink-3">
+            {t("directive.compliance.oosNote", { n: fmt(oosClauses.length) })}
+          </div>
+        ) : null}
+      </Card>
+
+      <Card className="p-0">
+        <div className="p-5">
+          <CardHeader
+            title={t("directive.compliance.gap.title")}
+            subtitle={t("directive.compliance.gap.subtitle")}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          {/* Explicit column widths via <colgroup> + per-cell horizontal
+              padding via px-4 so columns don't visually bleed into each
+              other. The clause column flexes; everything else is fixed
+              so numbers + chips sit in predictable lanes regardless of
+              row content. */}
+          <table className="w-full text-[12.5px] table-fixed">
+            <colgroup>
+              <col />
+              <col className="w-[110px]" />
+              <col className="w-[110px]" />
+              <col className="w-[260px]" />
+              <col className="w-[280px]" />
+            </colgroup>
+            <thead>
+              <tr className="text-ink-3 text-[11px] uppercase tracking-[0.06em]">
+                <th className="py-2.5 ps-5 pe-4 text-start font-semibold">
+                  {t("directive.compliance.col.clause")}
+                </th>
+                <th className="py-2.5 px-4 text-end font-semibold">
+                  {t("directive.compliance.col.avgCoverage")}
+                </th>
+                <th className="py-2.5 px-4 text-end font-semibold">
+                  {t("directive.compliance.col.entities")}
+                </th>
+                <th className="py-2.5 px-4 text-start font-semibold">
+                  {t("directive.compliance.col.weakest")}
+                </th>
+                <th className="py-2.5 ps-4 pe-5 text-start font-semibold">
+                  {t("directive.compliance.col.suggestions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {inScope.map((c) => {
+                const cov = c.averageCoverage;
+                const tone =
+                  cov === null
+                    ? "text-ink-3"
+                    : cov >= target
+                      ? "text-pos"
+                      : cov >= partialFloor
+                        ? "text-warn"
+                        : "text-neg";
+                return (
+                  <tr
+                    key={c.clauseId}
+                    className="border-t border-border align-top"
+                  >
+                    <td className="ps-5 pe-4 py-3">
+                      <div className="text-ink-1 font-medium">
+                        {locale === "ar" ? c.titleAr : c.titleEn}
+                      </div>
+                      <div className="text-[11px] text-ink-3 mt-0.5 keep-ltr flex items-center gap-2 flex-wrap">
+                        <span>{c.ref}</span>
+                        {c.classRefs.map((cls) => (
+                          <span
+                            key={cls}
+                            className="text-[9.5px] uppercase tracking-[0.06em] font-semibold text-ink-2 border border-border rounded px-1.5 py-px"
+                          >
+                            {cls}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-end">
+                      <span className={`tabular font-semibold ${tone}`}>
+                        {cov === null
+                          ? "—"
+                          : `${fmt(Math.round(cov * 100))}%`}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-end text-[11.5px] text-ink-2">
+                      <div className="tabular">
+                        {fmt(c.entitiesScored)}
+                      </div>
+                      {c.entitiesFailing > 0 ? (
+                        <div className="text-[10.5px] text-neg mt-0.5 tabular whitespace-nowrap">
+                          {t("directive.compliance.failingN", {
+                            n: fmt(c.entitiesFailing),
+                          })}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      {c.weakestEntities.length === 0 ? (
+                        <span className="text-[11px] text-ink-3">—</span>
+                      ) : (
+                        <ul className="flex flex-col gap-1">
+                          {c.weakestEntities.map((e) => (
+                            <li key={e.tenantId}>
+                              {/* Two-column flex per row so the name
+                                  truncates on the left and the % is
+                                  pinned on the right — no more "name
+                                  smashed into number" rendering. */}
+                              <a
+                                href={`/entities/${e.tenantId}?tab=framework`}
+                                className="flex items-center justify-between gap-3 text-[12px] text-ink-2 hover:text-ink-1"
+                              >
+                                <span className="truncate min-w-0">
+                                  {locale === "ar" ? e.nameAr : e.nameEn}
+                                </span>
+                                <span className="tabular text-neg shrink-0">
+                                  {fmt(Math.round(e.coverage * 100))}%
+                                </span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                    <td className="ps-4 pe-5 py-3">
+                      {c.suggestedBaselines.length === 0 ? (
+                        <span className="text-[11px] text-ink-3">
+                          {t("directive.compliance.noSuggestions")}
+                        </span>
+                      ) : (
+                        <ul className="flex flex-col gap-1">
+                          {c.suggestedBaselines.map((b) => (
+                            <li key={b.id} className="min-w-0">
+                              <a
+                                href="#ca"
+                                className="inline-flex items-center gap-1.5 text-[12px] text-council-strong hover:underline max-w-full"
+                                title={b.id}
+                              >
+                                <Send size={11} className="shrink-0" />
+                                <span className="truncate">
+                                  {t(b.titleKey as DictKey)}
+                                </span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// Local Stat — same idiom as MiniStat used elsewhere, kept inline so
+// the directive page stays self-contained.
+function Stat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "warn" | "neg";
+}) {
+  const c =
+    tone === "warn" ? "text-warn" : tone === "neg" ? "text-neg" : "text-ink-1";
+  return (
+    <div className="rounded-md border border-border bg-surface-1 px-3 py-2.5">
+      <div className={`text-[20px] font-semibold tabular ${c}`}>{value}</div>
+      <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mt-0.5">
+        {label}
+      </div>
     </div>
   );
 }

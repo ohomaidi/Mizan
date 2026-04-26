@@ -7,8 +7,10 @@ import {
   computeTenantFrameworkScore,
   computeClauseCoverageForTenant,
   getActiveComplianceMapping,
+  getActiveFramework,
 } from "@/lib/config/compliance-framework";
 import { getComplianceConfig } from "@/lib/config/compliance-config";
+import { getOosSets } from "@/lib/db/compliance-oos";
 import { getLatestSnapshotsForTenant } from "@/lib/db/signals";
 import type { SecureScorePayload } from "@/lib/graph/signals";
 import type { ClusterId } from "@/lib/data/clusters";
@@ -39,6 +41,12 @@ export type FrameworkComplianceSummary = {
   clausesScored: number;
   /** Total clauses in the active framework's catalog. */
   clausesTotal: number;
+  /**
+   * Clauses excluded from the rollup because they were marked Out-of-Scope
+   * (either globally or for this entity specifically). Surfaced in the UI
+   * as a "X clauses out of scope" caption alongside the score.
+   */
+  clausesOos: number;
 };
 
 export type EntityRow = {
@@ -149,6 +157,7 @@ function frameworkComplianceForTenant(
 ): FrameworkComplianceSummary {
   const mapping = getActiveComplianceMapping();
   const cfg = getComplianceConfig();
+  const { frameworkId } = getActiveFramework();
   const ss = getLatestSnapshotsForTenant(tenantId).secureScore?.payload as
     | SecureScorePayload
     | null
@@ -166,7 +175,11 @@ function frameworkComplianceForTenant(
       });
     }
   }
-  const fw = computeTenantFrameworkScore(ssMap, cfg.unscoredTreatment);
+  // Apply both global + per-tenant OOS marks. Out-of-scope clauses are
+  // pulled out of the rollup entirely so a tenant's % isn't dragged down
+  // by domains the Center has accepted are covered elsewhere.
+  const oos = getOosSets(frameworkId, tenantId);
+  const fw = computeTenantFrameworkScore(ssMap, cfg.unscoredTreatment, oos);
   return {
     frameworkId: mapping.framework,
     frameworkVersion: mapping.frameworkVersion,
@@ -174,6 +187,7 @@ function frameworkComplianceForTenant(
       fw.percent === null ? null : Math.round(fw.percent * 10) / 10,
     clausesScored: fw.clausesScored,
     clausesTotal: fw.clausesTotal,
+    clausesOos: fw.clausesOos,
   };
 }
 

@@ -147,3 +147,27 @@ export function listActionsForPush(pushRequestId: number): PushActionRow[] {
     )
     .all(pushRequestId) as PushActionRow[];
 }
+
+/**
+ * Every directive push that targeted ONE tenant — joined back to the
+ * parent push_request so callers see which baseline drove each row.
+ *
+ * Powers the Entity Detail → Framework tab "Deployed via Directive"
+ * recap so an operator authoring new pushes can see what's already
+ * landed on this entity at a glance.
+ */
+export function listActionsForTenant(
+  tenantId: string,
+  limit = 50,
+): Array<PushActionRow & { baseline_id: string }> {
+  return getDb()
+    .prepare(
+      `SELECT a.*, r.baseline_id
+         FROM directive_push_actions a
+         JOIN directive_push_requests r ON r.id = a.push_request_id
+        WHERE a.tenant_id = ?
+        ORDER BY a.at DESC
+        LIMIT ?`,
+    )
+    .all(tenantId, limit) as Array<PushActionRow & { baseline_id: string }>;
+}

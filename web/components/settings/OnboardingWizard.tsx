@@ -450,7 +450,7 @@ function Step1({
           value={draft.nameEn}
           onChange={(e) => set("nameEn", e.target.value)}
           dir="ltr"
-          placeholder="Sharjah Police General HQ"
+          placeholder={t("settings.field.nameEn.placeholder")}
           className={inputClass}
         />
       </Field>
@@ -459,7 +459,7 @@ function Step1({
           value={draft.nameAr}
           onChange={(e) => set("nameAr", e.target.value)}
           dir="rtl"
-          placeholder="القيادة العامة لشرطة الشارقة"
+          placeholder={t("settings.field.nameAr.placeholder")}
           className={inputClass}
         />
       </Field>

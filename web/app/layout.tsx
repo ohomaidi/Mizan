@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Kufi_Arabic } from "next/font/google";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
@@ -31,6 +31,24 @@ export async function generateMetadata(): Promise<Metadata> {
     description: `${b.taglineEn} — posture, maturity, and incidents on Microsoft Graph.`,
   };
 }
+
+/**
+ * Viewport configuration. `viewport-fit=cover` lets the layout extend
+ * under iOS notches + home-indicator areas, paired with safe-area
+ * padding on the topbar / sidebar / main content (see globals.css).
+ *
+ * `themeColor` keys both light + dark schemes so iOS Safari picks the
+ * correct chrome color in either mode without a flash.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+  ],
+};
 
 // Runs before any React code — applies the persisted theme (or OS preference)
 // to the <html data-theme> attribute so the first paint is correct.

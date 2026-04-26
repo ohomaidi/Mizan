@@ -1,12 +1,34 @@
 # Dashboard UI Specification
 
-**Source of truth for visual design:** slide 6 of `~/Desktop/Sharjah-Council-Executive-Briefing-final.pptx` — the "Maturity overview" mock. This document translates that mock into an implementable UI spec, adds the per-entity drill-down (Entities tab), and defines the shared layout chrome.
+**Source of truth for visual design:** the Maturity Overview mock from the original SCSC executive briefing (slide 6). The spec was authored against that mock; the live product has since been white-labeled and generalized so the chrome, KPIs, and tabs apply to any deployment. This document translates the mock into an implementable UI spec, adds the per-entity drill-down (Entities tab), and defines the shared layout chrome.
 
 ---
 
 ## 1. Global layout
 
-Three zones, consistent across all tabs.
+### 1.0 Parallel-shell architecture (v2.5.0+)
+
+The dashboard ships **two independent layout shells** chosen by the
+device class on every request:
+
+- **`<DesktopShell>`** — used for `desktop` and `tablet` device classes.
+  This is the chrome documented below in §1.1–§1.3 (TopBar + Sidebar +
+  Main). It is byte-for-byte unchanged from v2.4.x.
+- **`<MobileShell>`** — used for the `mobile` device class. Compact
+  topbar with a hamburger trigger + off-canvas drawer, full-width
+  main, safe-area padding for iOS notch + home indicator.
+
+The shell is selected server-side by reading the `mizan-device` cookie
+written by `web/middleware.ts`. Page bodies (everything inside
+`<main>`) are **shared** between the two shells — the responsive
+reflow within page bodies uses Tailwind `lg:` breakpoints. See
+[docs/14-responsive-and-mobile.md](14-responsive-and-mobile.md) for
+the full spec.
+
+The rest of this section documents the **desktop shell**. The mobile
+shell is documented in `docs/14`.
+
+Three zones, consistent across all tabs (desktop shell).
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐

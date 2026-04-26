@@ -12,6 +12,7 @@ import {
   resetIsrMapping,
   DEFAULT_ISR_MAPPING,
 } from "./isr-mapping";
+import { getOosSets, type OosSets } from "@/lib/db/compliance-oos";
 
 /**
  * Unified compliance-framework registry.
@@ -201,15 +202,23 @@ export function getActiveComplianceDefaults(): ComplianceMapping {
  * If a clause has no observable evidence on this tenant the function
  * returns null, signalling "data gap" — the caller decides whether to
  * treat that as a clause skip or a 0%.
+ *
+ * `oos` (optional) carries control-level OOS marks the operator has set
+ * — those control IDs are filtered out before the average is taken,
+ * preserving the clause if other anchors still report. Clause-level OOS
+ * is enforced higher up in {@link computeTenantFrameworkScore} since it
+ * needs to remove the whole clause from the rollup, not just dampen it.
  */
 export function computeClauseCoverageForTenant(
   clause: ComplianceClause,
   ssControls: Map<string, { score: number | null; maxScore: number | null }>,
+  oos?: { controls: Set<string> },
 ): { coverage: number | null; samples: number } {
   let weighted = 0;
   let samples = 0;
 
   for (const id of clause.secureScoreControls) {
+    if (oos?.controls.has(id)) continue;
     const c = ssControls.get(id);
     if (!c) continue;
     if (c.score === null || c.maxScore === null || c.maxScore === 0) continue;
@@ -224,6 +233,24 @@ export function computeClauseCoverageForTenant(
 
   if (samples === 0) return { coverage: null, samples: 0 };
   return { coverage: weighted / samples, samples };
+}
+
+/**
+ * Build a single Set of effective OOS control ids from the global +
+ * per-tenant tiers. Helper so call sites that want to apply OOS once
+ * (e.g. a single-tenant rollup) don't need to merge the sets twice.
+ */
+function effectiveOosControls(sets: OosSets | null | undefined): Set<string> {
+  if (!sets) return new Set();
+  return new Set([...sets.globalControls, ...sets.tenantControls]);
+}
+
+function isClauseOos(
+  clauseId: string,
+  sets: OosSets | null | undefined,
+): boolean {
+  if (!sets) return false;
+  return sets.globalClauses.has(clauseId) || sets.tenantClauses.has(clauseId);
 }
 
 /**
@@ -248,18 +275,32 @@ export function computeClauseCoverageForTenant(
 export function computeTenantFrameworkScore(
   ssControls: Map<string, { score: number | null; maxScore: number | null }>,
   unscoredTreatment: "skip" | "zero" = "skip",
+  oos?: OosSets | null,
 ): {
   percent: number | null;
   clausesScored: number;
   clausesTotal: number;
+  clausesOos: number;
 } {
   const mapping = getActiveComplianceMapping();
+  const oosControls = effectiveOosControls(oos);
   let weightedSum = 0;
   let weightTotal = 0;
   let clausesScored = 0;
+  let clausesOos = 0;
 
   for (const clause of mapping.clauses) {
-    const r = computeClauseCoverageForTenant(clause, ssControls);
+    // Clause-level OOS removes the clause from BOTH numerator and
+    // denominator entirely — the whole point of OOS is "doesn't count
+    // against this entity's score." This applies regardless of
+    // unscoredTreatment.
+    if (isClauseOos(clause.id, oos)) {
+      clausesOos += 1;
+      continue;
+    }
+    const r = computeClauseCoverageForTenant(clause, ssControls, {
+      controls: oosControls,
+    });
     const w = Math.max(0, clause.weight || 0);
     if (r.coverage === null) {
       if (unscoredTreatment === "zero") {
@@ -279,13 +320,36 @@ export function computeTenantFrameworkScore(
       percent: null,
       clausesScored: 0,
       clausesTotal: mapping.clauses.length,
+      clausesOos,
     };
   }
   return {
     percent: (weightedSum / weightTotal) * 100,
     clausesScored,
     clausesTotal: mapping.clauses.length,
+    clausesOos,
   };
+}
+
+/**
+ * Convenience wrapper: load OOS sets for the active framework + tenant
+ * and call {@link computeTenantFrameworkScore}. Pass `tenantId = null`
+ * for an "all-global-OOS-only" view (e.g. when previewing what global
+ * marks do without picking a specific entity).
+ */
+export function computeTenantFrameworkScoreWithOos(
+  ssControls: Map<string, { score: number | null; maxScore: number | null }>,
+  unscoredTreatment: "skip" | "zero",
+  tenantId: string | null,
+): {
+  percent: number | null;
+  clausesScored: number;
+  clausesTotal: number;
+  clausesOos: number;
+} {
+  const { frameworkId } = getActiveFramework();
+  const sets = getOosSets(frameworkId, tenantId);
+  return computeTenantFrameworkScore(ssControls, unscoredTreatment, sets);
 }
 
 /**
@@ -309,14 +373,32 @@ export type ClauseBreakdownRow = {
   secureScoreControls: string[];
   /** Number of operator-managed custom evidence anchors on the clause. */
   customEvidenceCount: number;
+  /**
+   * Out-of-Scope state. "in-scope" = clause counts toward the score.
+   * "global-oos" = clause is OOS at the deployment level (every entity
+   * skips it). "tenant-oos" = clause is OOS for THIS entity only.
+   * The breakdown UI surfaces an OOS chip + dims the row when set.
+   */
+  oosState: "in-scope" | "global-oos" | "tenant-oos";
 };
 
 export function computeTenantClauseBreakdown(
   ssControls: Map<string, { score: number | null; maxScore: number | null }>,
+  oos?: OosSets | null,
 ): ClauseBreakdownRow[] {
   const mapping = getActiveComplianceMapping();
+  const oosControls = effectiveOosControls(oos);
   return mapping.clauses.map((clause) => {
-    const r = computeClauseCoverageForTenant(clause, ssControls);
+    const oosState: "in-scope" | "global-oos" | "tenant-oos" = oos
+      ? oos.globalClauses.has(clause.id)
+        ? "global-oos"
+        : oos.tenantClauses.has(clause.id)
+          ? "tenant-oos"
+          : "in-scope"
+      : "in-scope";
+    const r = computeClauseCoverageForTenant(clause, ssControls, {
+      controls: oosControls,
+    });
     return {
       clauseId: clause.id,
       ref: clause.ref,
@@ -328,6 +410,17 @@ export function computeTenantClauseBreakdown(
       samples: r.samples,
       secureScoreControls: clause.secureScoreControls,
       customEvidenceCount: clause.customEvidence?.length ?? 0,
+      oosState,
     };
   });
+}
+
+/** Convenience wrapper that resolves OOS sets for the active framework + tenant. */
+export function computeTenantClauseBreakdownWithOos(
+  ssControls: Map<string, { score: number | null; maxScore: number | null }>,
+  tenantId: string | null,
+): ClauseBreakdownRow[] {
+  const { frameworkId } = getActiveFramework();
+  const sets = getOosSets(frameworkId, tenantId);
+  return computeTenantClauseBreakdown(ssControls, sets);
 }

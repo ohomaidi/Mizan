@@ -8,8 +8,12 @@ import type {
 } from "@/lib/graph/signals";
 import { getLatestSnapshotsForTenant } from "@/lib/db/signals";
 import { getMaturityConfig } from "@/lib/config/maturity-config";
-import { computeTenantFrameworkScore } from "@/lib/config/compliance-framework";
+import {
+  computeTenantFrameworkScore,
+  getActiveFramework,
+} from "@/lib/config/compliance-framework";
 import { getComplianceConfig } from "@/lib/config/compliance-config";
+import { getOosSets } from "@/lib/db/compliance-oos";
 
 /**
  * Per-entity Maturity Index breakdown.
@@ -55,13 +59,16 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-export function computeFromSnapshots(snapshots: {
-  secureScore?: SecureScorePayload | null;
-  conditionalAccess?: ConditionalAccessPayload | null;
-  riskyUsers?: RiskyUsersPayload | null;
-  devices?: DevicesPayload | null;
-  incidents?: IncidentsPayload | null;
-}): MaturityBreakdown {
+export function computeFromSnapshots(
+  snapshots: {
+    secureScore?: SecureScorePayload | null;
+    conditionalAccess?: ConditionalAccessPayload | null;
+    riskyUsers?: RiskyUsersPayload | null;
+    devices?: DevicesPayload | null;
+    incidents?: IncidentsPayload | null;
+  },
+  options?: { tenantId?: string | null },
+): MaturityBreakdown {
   const ss = snapshots.secureScore ?? null;
   const ca = snapshots.conditionalAccess ?? null;
   const ru = snapshots.riskyUsers ?? null;
@@ -146,9 +153,16 @@ export function computeFromSnapshots(snapshots: {
     for (const c of ss.controls) {
       ssMap.set(c.id, { score: c.score ?? null, maxScore: c.maxScore ?? null });
     }
+    // Resolve OOS sets for this tenant (global tier always; per-entity tier
+    // when tenantId was passed). Clauses & controls marked OOS are skipped
+    // entirely from the score so 3rd-party-covered domains don't drag a
+    // tenant's framework % down.
+    const { frameworkId } = getActiveFramework();
+    const oos = getOosSets(frameworkId, options?.tenantId ?? null);
     const fw = computeTenantFrameworkScore(
       ssMap,
       getComplianceConfig().unscoredTreatment,
+      oos,
     );
     complianceSub =
       fw.percent !== null ? clamp(fw.percent) : clamp(ss.percent * 0.95);
@@ -203,12 +217,15 @@ export function computeFromSnapshots(snapshots: {
 /** Load latest snapshots for a tenant and compute breakdown. */
 export function computeForTenant(tenantId: string): MaturityBreakdown {
   const snaps = getLatestSnapshotsForTenant(tenantId);
-  return computeFromSnapshots({
-    secureScore: (snaps.secureScore?.payload as SecureScorePayload | undefined) ?? null,
-    conditionalAccess:
-      (snaps.conditionalAccess?.payload as ConditionalAccessPayload | undefined) ?? null,
-    riskyUsers: (snaps.riskyUsers?.payload as RiskyUsersPayload | undefined) ?? null,
-    devices: (snaps.devices?.payload as DevicesPayload | undefined) ?? null,
-    incidents: (snaps.incidents?.payload as IncidentsPayload | undefined) ?? null,
-  });
+  return computeFromSnapshots(
+    {
+      secureScore: (snaps.secureScore?.payload as SecureScorePayload | undefined) ?? null,
+      conditionalAccess:
+        (snaps.conditionalAccess?.payload as ConditionalAccessPayload | undefined) ?? null,
+      riskyUsers: (snaps.riskyUsers?.payload as RiskyUsersPayload | undefined) ?? null,
+      devices: (snaps.devices?.payload as DevicesPayload | undefined) ?? null,
+      incidents: (snaps.incidents?.payload as IncidentsPayload | undefined) ?? null,
+    },
+    { tenantId },
+  );
 }

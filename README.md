@@ -38,6 +38,7 @@ Mizan pulls **18 read-only security signals** from every entity's Microsoft 365 
 - **Entra ID sign-in + RBAC** — Admin / Analyst / Viewer, 7-day sliding-window session (configurable 8h / 24h / 7d / 30d) with silent Microsoft SSO re-auth on expiry
 - **White-label** — organization name, logo (auto background-strip, 100% local), colors, tagline, framework — all in Settings
 - **Bilingual** — full English + Arabic, RTL-native
+- **Mobile + tablet ready (v2.5.0)** — middleware classifies the device on every request and renders a mobile-optimized chrome (compact topbar + off-canvas drawer, sheet-style modals, safe-area padding for iOS notch + home indicator) for phones, while tablets and desktops keep the persistent-sidebar dashboard chrome unchanged. Override with `?device=mobile|tablet|desktop` for QA or to force a layout. See [docs/14-responsive-and-mobile.md](docs/14-responsive-and-mobile.md).
 
 ### Directive mode — regulator write tier (optional, v2.0+)
 

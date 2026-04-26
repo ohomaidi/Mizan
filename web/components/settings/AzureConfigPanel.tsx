@@ -58,10 +58,21 @@ export function AzureConfigPanel() {
   const [banner, setBanner] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [walkthroughOpen, setWalkthroughOpen] = useState(true);
   const [redirectCopied, setRedirectCopied] = useState(false);
+  // Deployment mode — drives which Graph + Defender permissions the
+  // walkthrough surfaces. Observation deployments need read-only;
+  // directive deployments need read + the write scopes that power
+  // /directive (CA push, Intune baselines, SharePoint hardening,
+  // incident classify, risky-user confirm, IOC push, etc.).
+  const [deploymentMode, setDeploymentMode] = useState<"observation" | "directive">(
+    "observation",
+  );
 
   const load = useCallback(async () => {
     try {
-      const r = await api.getAzureConfig();
+      const [r, who] = await Promise.all([
+        api.getAzureConfig(),
+        api.whoami().catch(() => null),
+      ]);
       setState({ kind: "ready", config: r.config });
       setClientId(r.config.clientId);
       setClientSecret("");
@@ -73,6 +84,7 @@ export function AzureConfigPanel() {
       setClientCertThumbprint(r.config.clientCertThumbprint);
       setClientCertPrivateKeyPem("");
       setClientCertChainPem("");
+      if (who?.deploymentMode) setDeploymentMode(who.deploymentMode);
     } catch (err) {
       setState({ kind: "error", message: (err as Error).message });
     }
@@ -191,6 +203,7 @@ export function AzureConfigPanel() {
         redirectUri={redirectUri}
         onCopyRedirect={copyRedirect}
         copied={redirectCopied}
+        deploymentMode={deploymentMode}
       />
       <Card>
         <CardHeader
@@ -419,12 +432,15 @@ export function AzureConfigPanel() {
   );
 }
 
-// Read-side scopes required for observation mode. Directive mode adds the
-// write-side scopes from `GRAPH_APP_WRITE_PERMISSIONS` (see provisioner).
-// Phase 14b IOC push lives on a SECOND resource (Microsoft Defender for
-// Endpoint API, not Microsoft Graph) — listed separately below so the
-// operator + entity admin see both blocks before clicking consent.
-const PERMISSIONS = [
+// Microsoft Graph permissions surfaced in the walkthrough. The walkthrough
+// auto-selects the correct list at render time based on `deploymentMode`
+// (whoami exposes it). Keep these arrays in sync with the provisioner's
+// `GRAPH_APP_PERMISSIONS` / `GRAPH_APP_WRITE_PERMISSIONS` in
+// `lib/auth/graph-app-provisioner.ts` — that's the source of truth for
+// what gets registered on the Entra app at provision time.
+//
+// READ scopes are required in BOTH observation and directive deployments.
+const GRAPH_READ_PERMISSIONS = [
   "SecurityEvents.Read.All",
   "SecurityIncident.Read.All",
   "SecurityAlert.Read.All",
@@ -447,10 +463,31 @@ const PERMISSIONS = [
   "SharePointTenantSettings.Read.All",
 ];
 
-// Defender for Endpoint resource — separate Entra app role,
-// requested via the data app's second `requiredResourceAccess` block.
-// Only added when the deployment is in directive mode (read+write).
-export const DEFENDER_PERMISSIONS = ["Ti.ReadWrite.All"];
+// WRITE scopes — added ONLY in directive deployments. These are what the
+// /directive surface uses to push CA / Intune / SharePoint baselines,
+// classify incidents/alerts, confirm/dismiss risky users, revoke sessions,
+// submit threats, etc. Observation deployments must not have these.
+const GRAPH_WRITE_PERMISSIONS = [
+  "Policy.ReadWrite.ConditionalAccess",
+  "Application.Read.All",
+  "DeviceManagementConfiguration.ReadWrite.All",
+  "DeviceManagementManagedDevices.ReadWrite.All",
+  "DeviceManagementManagedDevices.PrivilegedOperations.All",
+  "DeviceManagementApps.ReadWrite.All",
+  "SecurityIncident.ReadWrite.All",
+  "SecurityAlert.ReadWrite.All",
+  "IdentityRiskyUser.ReadWrite.All",
+  "User.RevokeSessions.All",
+  "ThreatSubmission.ReadWrite.All",
+  "SharePointTenantSettings.ReadWrite.All",
+];
+
+// Defender for Endpoint API — second resource block on the same Entra
+// app. Read scope (Machine.Read.All) is required in BOTH modes for the
+// MDE workload-coverage card. Write scope (Ti.ReadWrite.All) powers IOC
+// push and is added ONLY in directive deployments.
+const DEFENDER_READ_PERMISSIONS = ["Machine.Read.All"];
+const DEFENDER_WRITE_PERMISSIONS = ["Ti.ReadWrite.All"];
 
 function Walkthrough({
   open,
@@ -458,14 +495,24 @@ function Walkthrough({
   redirectUri,
   onCopyRedirect,
   copied,
+  deploymentMode,
 }: {
   open: boolean;
   onToggle: () => void;
   redirectUri: string;
   onCopyRedirect: () => void;
   copied: boolean;
+  deploymentMode: "observation" | "directive";
 }) {
-  const { t } = useI18n();
+  const { t, branding } = useI18n();
+  const isDirective = deploymentMode === "directive";
+  // Brand-driven example values so the walkthrough text reflects the
+  // deployment's actual organization name. Falls back to neutral
+  // wording when branding is empty (fresh install before /setup).
+  const orgName = branding.nameEn?.trim() || "Your Organization";
+  const orgShort = branding.shortEn?.trim() || "Mizan";
+  const exampleAppName = `${orgShort} Posture Dashboard`;
+  const exampleSecretDesc = `${orgShort} Posture Dashboard`;
   return (
     <Card className="p-0">
       <button
@@ -490,6 +537,30 @@ function Walkthrough({
 
       {open ? (
         <div className="px-5 pb-5 border-t border-border text-[13px] text-ink-2 leading-relaxed space-y-4">
+          {/* Mode banner — clarifies WHICH permission set the rest of
+              the walkthrough applies to. Without this the operator
+              has no signal that what they're seeing is tailored to
+              their deployment. Directive deployments must register
+              the write scopes too; observation must NOT (overgrant). */}
+          <div
+            className={`rounded-md border p-3 text-[12.5px] ${
+              isDirective
+                ? "border-council-strong/40 bg-council-strong/5 text-ink-1"
+                : "border-border bg-surface-1 text-ink-2"
+            }`}
+          >
+            <div className="font-semibold text-ink-1 mb-0.5">
+              {isDirective
+                ? "Directive deployment — read + write permissions required"
+                : "Observation deployment — read-only permissions"}
+            </div>
+            <div className="text-[12px] text-ink-2">
+              {isDirective
+                ? "This deployment is in directive mode. The Entra app you create below must include both the read and write scopes shown in Step 3 — without the write scopes, the /directive surface (Conditional Access push, Intune baselines, SharePoint hardening, incident classify, IOC push) cannot function."
+                : "This deployment is in observation mode (read-only). The app needs only the read-side scopes shown in Step 3. To unlock the /directive surface later, switch deployment mode and re-register the app — admin consent is scope-wide and cannot be widened in place."}
+            </div>
+          </div>
+
           <div>
             <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3 mb-1.5">
               {t("azureCfg.walkthrough.redirectUri")}
@@ -518,9 +589,10 @@ function Walkthrough({
             >
               entra.microsoft.com
             </a>{" "}
-            and sign in as a <strong>Global Administrator of the Council
-            tenant</strong> (not any entity tenant). Make sure the directory
-            switcher in the top-right is on the Council's directory.
+            and sign in as a <strong>Global Administrator of the operator
+            tenant</strong> — i.e. {orgName}'s own Microsoft 365 tenant, not
+            any entity tenant you'll later onboard. Make sure the directory
+            switcher in the top-right is on your organization's directory.
           </Step>
 
           <Step n={2} title="Create a new app registration">
@@ -529,7 +601,10 @@ function Walkthrough({
             <ul className="list-disc ms-5 mt-2 space-y-1">
               <li>
                 <strong>Name:</strong>{" "}
-                <code className="keep-ltr">Sharjah Council Posture Dashboard</code>
+                <code className="keep-ltr">{exampleAppName}</code>{" "}
+                <span className="text-ink-3">
+                  (any name works; this is just a label inside Entra)
+                </span>
               </li>
               <li>
                 <strong>Supported account types:</strong> Accounts in{" "}
@@ -548,22 +623,97 @@ function Walkthrough({
             </div>
           </Step>
 
-          <Step n={3} title="Grant Graph read permissions">
+          <Step
+            n={3}
+            title={
+              isDirective
+                ? "Grant Graph permissions (read + write)"
+                : "Grant Graph read permissions"
+            }
+          >
             Left nav inside the app → <strong>API permissions</strong> →{" "}
             <strong>+ Add a permission</strong> → <strong>Microsoft Graph</strong>{" "}
             → <strong>Application permissions</strong>. Tick every permission
-            below (use the search box — they're all read-only):
-            <div className="mt-2 rounded-md border border-border bg-surface-1 p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
-              {PERMISSIONS.map((p) => (
-                <code key={p} className="text-[11.5px] text-ink-2 keep-ltr">
-                  {p}
-                </code>
-              ))}
+            below (use the search box). Click <strong>Add permissions</strong>{" "}
+            after each block.
+
+            {/* READ block — required in BOTH modes. */}
+            <div className="mt-3">
+              <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3 mb-1">
+                Microsoft Graph — read scopes ({GRAPH_READ_PERMISSIONS.length}){" "}
+                <span className="normal-case tracking-normal text-ink-3/80">
+                  required in every deployment
+                </span>
+              </div>
+              <div className="rounded-md border border-border bg-surface-1 p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+                {GRAPH_READ_PERMISSIONS.map((p) => (
+                  <code key={p} className="text-[11.5px] text-ink-2 keep-ltr">
+                    {p}
+                  </code>
+                ))}
+              </div>
             </div>
-            <div className="mt-2">
-              Click <strong>Add permissions</strong>, then at the top click{" "}
-              <strong>Grant admin consent for &lt;Council tenant&gt;</strong>.
-              Every permission row should show a green ✓ Granted indicator.
+
+            {/* WRITE block — directive deployments only. */}
+            {isDirective ? (
+              <div className="mt-3">
+                <div className="text-[11px] uppercase tracking-[0.08em] text-council-strong mb-1">
+                  Microsoft Graph — write scopes ({GRAPH_WRITE_PERMISSIONS.length}){" "}
+                  <span className="normal-case tracking-normal text-ink-3/80">
+                    directive mode only · powers /directive
+                  </span>
+                </div>
+                <div className="rounded-md border border-council-strong/40 bg-council-strong/5 p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+                  {GRAPH_WRITE_PERMISSIONS.map((p) => (
+                    <code key={p} className="text-[11.5px] text-ink-1 keep-ltr">
+                      {p}
+                    </code>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Defender for Endpoint API — second resource block.
+                Read scope is required in every deployment (powers
+                the MDE workload-coverage card); the write scope
+                drives IOC push and is directive-only. */}
+            <div className="mt-3">
+              <div className="text-[11px] uppercase tracking-[0.08em] text-ink-3 mb-1">
+                Defender for Endpoint API — separate resource (
+                {isDirective
+                  ? DEFENDER_READ_PERMISSIONS.length +
+                    DEFENDER_WRITE_PERMISSIONS.length
+                  : DEFENDER_READ_PERMISSIONS.length}
+                ){" "}
+                <span className="normal-case tracking-normal text-ink-3/80">
+                  + Add a permission → APIs my organization uses → search{" "}
+                  <code className="keep-ltr">WindowsDefenderATP</code>
+                </span>
+              </div>
+              <div className="rounded-md border border-border bg-surface-1 p-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+                {DEFENDER_READ_PERMISSIONS.map((p) => (
+                  <code key={p} className="text-[11.5px] text-ink-2 keep-ltr">
+                    {p}
+                  </code>
+                ))}
+                {isDirective
+                  ? DEFENDER_WRITE_PERMISSIONS.map((p) => (
+                      <code
+                        key={p}
+                        className="text-[11.5px] text-council-strong keep-ltr"
+                      >
+                        {p}
+                      </code>
+                    ))
+                  : null}
+              </div>
+            </div>
+
+            <div className="mt-3">
+              When all blocks are added, click{" "}
+              <strong>Grant admin consent for &lt;your tenant&gt;</strong> at
+              the top of the API permissions page. Every row should show a
+              green ✓ Granted indicator before you continue.
             </div>
           </Step>
 
@@ -573,7 +723,10 @@ function Walkthrough({
             <ul className="list-disc ms-5 mt-2 space-y-1">
               <li>
                 <strong>Description:</strong>{" "}
-                <code className="keep-ltr">SCSC Dashboard</code>
+                <code className="keep-ltr">{exampleSecretDesc}</code>{" "}
+                <span className="text-ink-3">
+                  (any description works; this is for your own reference)
+                </span>
               </li>
               <li>
                 <strong>Expires:</strong> 24 months (the maximum the UI

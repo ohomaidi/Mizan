@@ -33,7 +33,7 @@ function Inner() {
   return (
     <div
       dir={isAr ? "rtl" : "ltr"}
-      className="min-h-screen flex items-center justify-center px-6 py-10 bg-surface-1"
+      className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10 bg-surface-1 safe-area-pt safe-area-pb"
     >
       <div className="max-w-[420px] w-full">
         <div className="flex items-center gap-3 mb-8">

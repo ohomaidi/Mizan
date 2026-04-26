@@ -130,6 +130,8 @@ export const DICT = {
     "wizard.toggle.useWizard": "Use guided wizard",
     "settings.field.nameEn": "Name (English)",
     "settings.field.nameAr": "Name (Arabic)",
+    "settings.field.nameEn.placeholder": "e.g. Ministry of Health",
+    "settings.field.nameAr.placeholder": "مثال: وزارة الصحة",
     "settings.field.cluster": "Cluster",
     "settings.field.tenantId": "Tenant ID",
     "settings.field.domain": "Primary domain",
@@ -768,6 +770,11 @@ export const DICT = {
     "nesaCfg.totalWeight": "Total weight: {n}",
     "nesaCfg.addClause": "Add clause",
     "nesaCfg.removeClause": "Remove",
+    "nesaCfg.oos.mark": "Mark out-of-scope",
+    "nesaCfg.oos.unmark": "Restore to scope",
+    "nesaCfg.oos.globalChip": "Out of scope",
+    "nesaCfg.oos.toggleHelp":
+      "When out-of-scope, this clause is excluded from every entity's framework compliance score (use when a 3rd-party product covers it).",
 
     "threats.ti.title": "Threat Intelligence",
     "threats.ti.subtitle": "Recent articles from Microsoft Defender TI linked to the {orgShort} feed.",
@@ -1254,9 +1261,39 @@ export const DICT = {
     "tab.data": "Data",
     "tab.devices": "Devices",
     "tab.governance": "Governance",
+    "tab.framework": "Framework",
     "tab.vulnerabilities": "Vulnerabilities",
     "tab.attackSimulation": "Attack Simulation",
     "tab.connection": "Connection",
+    "entity.frameworkTab.eyebrowFor": "{framework} compliance — entity view",
+    "entity.frameworkTab.titleFor": "{framework} controls deployed on this entity",
+    "entity.frameworkTab.subtitleFor":
+      "Per-clause coverage and out-of-scope carve-outs for {entity}. Mark a clause out-of-scope when this entity's controls are covered by a 3rd-party product the Council has accepted.",
+    "entity.frameworkTab.stat.clausesTotal": "Clauses in framework",
+    "entity.frameworkTab.stat.clausesScored": "Clauses scoring",
+    "entity.frameworkTab.stat.clausesOos": "Out of scope",
+    "entity.frameworkTab.stat.target": "Target",
+    "entity.frameworkTab.controls.title": "Per-clause coverage + scope",
+    "entity.frameworkTab.controls.subtitle":
+      "Out-of-scope clauses are excluded from this entity's framework score. Global OOS marks (set in Settings → Compliance framework) cannot be overridden here.",
+    "entity.frameworkTab.col.scope": "Scope",
+    "entity.frameworkTab.scope.markOos": "Mark out of scope",
+    "entity.frameworkTab.scope.restore": "Restore to scope",
+    "entity.frameworkTab.scope.globalLocked": "Global · locked",
+    "entity.frameworkTab.chip.globalOos": "Global OOS",
+    "entity.frameworkTab.chip.tenantOos": "Out of scope",
+    "entity.frameworkTab.reason.title": "Reason for marking out of scope",
+    "entity.frameworkTab.reason.body":
+      "Optional. Captured for the audit trail (covered by 3rd-party product, federal carve-out, etc.). Up to 500 characters.",
+    "entity.frameworkTab.reason.placeholder":
+      "e.g. Endpoint protection covered by federal SOC contract.",
+    "entity.frameworkTab.reason.cancel": "Cancel",
+    "entity.frameworkTab.reason.confirm": "Mark out of scope",
+    "entity.frameworkTab.deployments.title": "Deployed via Directive",
+    "entity.frameworkTab.deployments.subtitle":
+      "Recent baseline pushes that have executed against this entity. New pushes appear here within seconds of completion.",
+    "entity.frameworkTab.deployments.empty":
+      "No directive pushes have executed against this entity yet.",
 
     "tab.controls.title": "Secure Score controls",
     "tab.controls.subtitle": "Per-control implementation status from Microsoft Secure Score.",
@@ -1499,12 +1536,38 @@ export const DICT = {
 
     "directive.tabs.label": "Directive sections",
     "directive.tab.overview": "Overview",
+    "directive.tab.compliance": "Compliance",
     "directive.tab.ca": "Conditional Access",
     "directive.tab.intune": "Intune",
     "directive.tab.sharepoint": "SharePoint",
     "directive.tab.ioc": "Threat indicators",
     "directive.tab.roadmap": "Roadmap",
     "directive.tab.history": "History & audit",
+    "directive.compliance.loading": "Loading compliance gap…",
+    "directive.compliance.title.generic": "No compliance framework selected",
+    "directive.compliance.subtitle.generic":
+      "Pick a regulatory framework in Settings → Compliance framework (Dubai ISR, UAE NESA, etc.) to see per-clause gaps and suggested baselines to push.",
+    "directive.compliance.eyebrowFor": "{framework} compliance — push planning",
+    "directive.compliance.titleFor": "{framework} gap → push suggestions",
+    "directive.compliance.subtitleFor":
+      "Per-clause coverage of {framework} ({version}) rolled up across every consented entity, with the lowest-scoring clauses surfaced first and concrete baselines to push to drive the score up.",
+    "directive.compliance.stat.clausesInScope": "Clauses in scope",
+    "directive.compliance.stat.failingClauses": "Below target",
+    "directive.compliance.stat.consentedEntities": "Consented entities",
+    "directive.compliance.stat.target": "Target",
+    "directive.compliance.oosNote":
+      "{n} clause(s) marked out-of-scope and excluded from this view. Manage in Settings → Compliance framework.",
+    "directive.compliance.gap.title": "Per-clause gap",
+    "directive.compliance.gap.subtitle":
+      "Failing clauses sorted to the top. Click an entity name to jump to that entity's Framework tab; click a baseline to jump to the matching push card.",
+    "directive.compliance.col.clause": "Clause",
+    "directive.compliance.col.avgCoverage": "Avg coverage",
+    "directive.compliance.col.entities": "Entities",
+    "directive.compliance.col.weakest": "Weakest entities",
+    "directive.compliance.col.suggestions": "Suggested pushes",
+    "directive.compliance.failingN": "{n} failing",
+    "directive.compliance.noSuggestions":
+      "No matching baseline yet — covered by custom evidence.",
     "directive.tab.overview.title": "Capability matrix",
     "directive.tab.overview.subtitle":
       "What the Directive engine can push today, what is on deck, and the safety rails that ride along on every action.",
@@ -2655,6 +2718,8 @@ export const DICT = {
       "The views for this surface are specified and scaffolded. They will populate once the per-tenant Graph pipeline is online for the first 10 pilot entities.",
 
     "nav.eyebrow": "Navigate",
+    "nav.menu.open": "Open menu",
+    "nav.menu.close": "Close menu",
     "nav.maturity": "Maturity overview",
     "nav.entities": "Entities",
     "nav.identity": "Identity",
@@ -2674,6 +2739,7 @@ export const DICT = {
     "ds.entra.detail": "identity posture, CA, PIM",
     "ds.intune.detail": "device compliance, MAM",
     "ds.compliance.detail": "UAE NESA",
+    "ds.compliance.detail.generic": "no framework selected",
   },
 
   ar: {
@@ -2777,6 +2843,8 @@ export const DICT = {
     "wizard.toggle.useWizard": "استخدم المعالج الموجَّه",
     "settings.field.nameEn": "الاسم (بالإنجليزية)",
     "settings.field.nameAr": "الاسم (بالعربية)",
+    "settings.field.nameEn.placeholder": "e.g. Ministry of Health",
+    "settings.field.nameAr.placeholder": "مثال: وزارة الصحة",
     "settings.field.cluster": "القطاع",
     "settings.field.tenantId": "معرّف المستأجر",
     "settings.field.domain": "النطاق الرئيسي",
@@ -3416,6 +3484,11 @@ export const DICT = {
     "nesaCfg.totalWeight": "مجموع الأوزان: {n}",
     "nesaCfg.addClause": "إضافة بند",
     "nesaCfg.removeClause": "حذف",
+    "nesaCfg.oos.mark": "خارج النطاق",
+    "nesaCfg.oos.unmark": "إعادة للنطاق",
+    "nesaCfg.oos.globalChip": "خارج النطاق",
+    "nesaCfg.oos.toggleHelp":
+      "عند تعليمها بأنها خارج النطاق، تُستبعد هذه المادة من حساب الامتثال لكل جهة (تُستخدم عندما يغطيها منتج طرف ثالث).",
 
     "threats.ti.title": "استخبارات التهديدات",
     "threats.ti.subtitle": "مقالات حديثة من Microsoft Defender TI مرتبطة بتغذية {orgShort}.",
@@ -3918,9 +3991,39 @@ export const DICT = {
     "tab.data": "البيانات",
     "tab.devices": "الأجهزة",
     "tab.governance": "الحوكمة",
+    "tab.framework": "الإطار",
     "tab.vulnerabilities": "الثغرات",
     "tab.attackSimulation": "محاكاة الهجمات",
     "tab.connection": "الاتصال",
+    "entity.frameworkTab.eyebrowFor": "امتثال {framework} — عرض الجهة",
+    "entity.frameworkTab.titleFor": "ضوابط {framework} المطبّقة على هذه الجهة",
+    "entity.frameworkTab.subtitleFor":
+      "تغطية كل مادة وحالات الاستثناء من النطاق لـ {entity}. ضع المادة خارج النطاق إذا كانت ضوابطها يغطيها منتج طرف ثالث وافق عليه المجلس.",
+    "entity.frameworkTab.stat.clausesTotal": "إجمالي مواد الإطار",
+    "entity.frameworkTab.stat.clausesScored": "مواد محتسبة",
+    "entity.frameworkTab.stat.clausesOos": "خارج النطاق",
+    "entity.frameworkTab.stat.target": "الهدف",
+    "entity.frameworkTab.controls.title": "تغطية المواد ونطاق التطبيق",
+    "entity.frameworkTab.controls.subtitle":
+      "تُستبعد المواد الموسومة بأنها خارج النطاق من حساب امتثال هذه الجهة. الاستثناءات العالمية (المضبوطة من الإعدادات) لا يمكن تجاوزها هنا.",
+    "entity.frameworkTab.col.scope": "النطاق",
+    "entity.frameworkTab.scope.markOos": "خارج النطاق",
+    "entity.frameworkTab.scope.restore": "إعادة للنطاق",
+    "entity.frameworkTab.scope.globalLocked": "عالمي · مقفل",
+    "entity.frameworkTab.chip.globalOos": "خارج النطاق عالميًا",
+    "entity.frameworkTab.chip.tenantOos": "خارج النطاق",
+    "entity.frameworkTab.reason.title": "سبب إخراج المادة من النطاق",
+    "entity.frameworkTab.reason.body":
+      "اختياري — يُحفظ للسجل التدقيقي (مغطّى بمنتج طرف ثالث، استثناء فدرالي، إلخ). حتى 500 حرف.",
+    "entity.frameworkTab.reason.placeholder":
+      "مثال: حماية النقاط الطرفية مشمولة بعقد المركز الفدرالي للعمليات الأمنية.",
+    "entity.frameworkTab.reason.cancel": "إلغاء",
+    "entity.frameworkTab.reason.confirm": "وضع خارج النطاق",
+    "entity.frameworkTab.deployments.title": "المنشور عبر Directive",
+    "entity.frameworkTab.deployments.subtitle":
+      "أحدث عمليات نشر الخطوط الأساسية على هذه الجهة. تظهر الجديدة خلال ثوانٍ من اكتمالها.",
+    "entity.frameworkTab.deployments.empty":
+      "لم يُنفّذ أي توجيه على هذه الجهة بعد.",
 
     "tab.controls.title": "ضوابط Secure Score",
     "tab.controls.subtitle": "حالة تطبيق كل ضابط من Microsoft Secure Score.",
@@ -4165,9 +4268,35 @@ export const DICT = {
     "directive.tab.ca": "الوصول المشروط",
     "directive.tab.intune": "Intune",
     "directive.tab.sharepoint": "SharePoint",
+    "directive.tab.compliance": "الامتثال",
     "directive.tab.ioc": "مؤشّرات التهديد",
     "directive.tab.roadmap": "خارطة الطريق",
     "directive.tab.history": "السجلّ والتدقيق",
+    "directive.compliance.loading": "تحميل فجوة الامتثال…",
+    "directive.compliance.title.generic": "لم يتم اختيار إطار امتثال",
+    "directive.compliance.subtitle.generic":
+      "اختر إطارًا تنظيميًا من الإعدادات → إطار الامتثال (Dubai ISR، UAE NESA، إلخ) لعرض فجوات المواد ومقترحات الخطوط الأساسية للدفع.",
+    "directive.compliance.eyebrowFor": "امتثال {framework} — تخطيط الدفع",
+    "directive.compliance.titleFor": "فجوة {framework} ← مقترحات الدفع",
+    "directive.compliance.subtitleFor":
+      "تغطية مواد {framework} ({version}) عبر كل الجهات المُوافِقة، مع إبراز المواد الأضعف أولًا وخطوط أساسية ملموسة للدفع لرفع النتيجة.",
+    "directive.compliance.stat.clausesInScope": "مواد ضمن النطاق",
+    "directive.compliance.stat.failingClauses": "أقل من الهدف",
+    "directive.compliance.stat.consentedEntities": "جهات مُوافِقة",
+    "directive.compliance.stat.target": "الهدف",
+    "directive.compliance.oosNote":
+      "{n} مادة موسومة خارج النطاق ومُستبعدة من هذا العرض. أدِرها من الإعدادات → إطار الامتثال.",
+    "directive.compliance.gap.title": "فجوة المواد",
+    "directive.compliance.gap.subtitle":
+      "المواد التي لم تبلغ الهدف في الأعلى. اضغط اسم الجهة للانتقال إلى تبويب الإطار الخاص بها؛ اضغط خط أساسي للقفز إلى بطاقة الدفع المطابقة.",
+    "directive.compliance.col.clause": "المادة",
+    "directive.compliance.col.avgCoverage": "متوسط التغطية",
+    "directive.compliance.col.entities": "الجهات",
+    "directive.compliance.col.weakest": "الجهات الأضعف",
+    "directive.compliance.col.suggestions": "خطوط الدفع المقترحة",
+    "directive.compliance.failingN": "{n} غير ممتثلة",
+    "directive.compliance.noSuggestions":
+      "لا يوجد خط أساسي مطابق بعد — تُغطّى عبر أدلّة مخصّصة.",
     "directive.tab.overview.title": "مصفوفة القدرات",
     "directive.tab.overview.subtitle":
       "ما يستطيع محرك التوجيهات دفعه اليوم، وما هو قادم، والضوابط التي ترافق كل إجراء.",
@@ -5318,6 +5447,8 @@ export const DICT = {
       "هذه الواجهات محددة ومُهيكلة. ستظهر البيانات عند تفعيل أنبوب Graph لكل مستأجر بدءاً بالجهات العشر الأولى في التجربة الرائدة.",
 
     "nav.eyebrow": "التنقل",
+    "nav.menu.open": "فتح القائمة",
+    "nav.menu.close": "إغلاق القائمة",
     "nav.maturity": "نظرة عامة على النضج",
     "nav.entities": "الجهات",
     "nav.identity": "الهوية",
@@ -5337,6 +5468,7 @@ export const DICT = {
     "ds.entra.detail": "وضع الهوية، CA، PIM",
     "ds.intune.detail": "امتثال الأجهزة، MAM",
     "ds.compliance.detail": "UAE NESA",
+    "ds.compliance.detail.generic": "لا يوجد إطار محدد",
   },
 } as const;
 

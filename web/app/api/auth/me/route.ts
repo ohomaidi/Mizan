@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/session";
 import { getAuthConfig, isDemoMode } from "@/lib/config/auth-config";
 import { getDeploymentMode } from "@/lib/config/deployment-mode";
+import { getBranding } from "@/lib/config/branding";
 import { config } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -29,6 +30,10 @@ export async function GET() {
   const demoMode = isDemoMode();
   const deploymentMode = getDeploymentMode();
   const graphAppReady = config.isAzureConfigured;
+  // Active framework id (e.g. "dubai-isr") — surfaced here so the
+  // sidebar's data-sources panel can label the "Compliance Mgr." row
+  // with the regulator's actual name instead of a hardcoded "UAE NESA".
+  const frameworkId = getBranding().frameworkId;
   const current = await currentUser();
   if (!current) {
     return NextResponse.json({
@@ -36,6 +41,7 @@ export async function GET() {
       configured,
       demoMode,
       deploymentMode,
+      frameworkId,
       graphAppReady,
       user: null,
     });
@@ -45,6 +51,7 @@ export async function GET() {
     configured,
     demoMode,
     deploymentMode,
+    frameworkId,
     graphAppReady,
     user: {
       id: current.user.id,

@@ -335,18 +335,35 @@ export function BrandingPanel() {
             </div>
           </Field>
           <Field label={t("branding.field.framework")}>
+            {/* v2.4.x — only NESA + Dubai ISR are user-selectable. The
+                "nca" / "isr" / "generic" values still exist as code
+                fallbacks (the registry routes them to a default
+                catalog) but they're hidden from the dropdown to keep
+                the customer choice clear. We render the current value
+                as a read-only option ONLY if it's one of the hidden
+                ids — otherwise dropping a deployment whose
+                frameworkId is e.g. "generic" would render a blank
+                select. */}
             <select
               value={form.frameworkId}
               onChange={(e) => set("frameworkId", e.target.value as FrameworkId)}
               className={inputClass}
             >
-              <option value="generic">{t("branding.framework.generic")}</option>
               <option value="nesa">{t("branding.framework.nesa")}</option>
               <option value="dubai-isr">
                 {t("branding.framework.dubai-isr")}
               </option>
-              <option value="nca">{t("branding.framework.nca")}</option>
-              <option value="isr">{t("branding.framework.isr")}</option>
+              {form.frameworkId === "generic" ? (
+                <option value="generic">
+                  {t("branding.framework.generic")}
+                </option>
+              ) : null}
+              {form.frameworkId === "nca" ? (
+                <option value="nca">{t("branding.framework.nca")}</option>
+              ) : null}
+              {form.frameworkId === "isr" ? (
+                <option value="isr">{t("branding.framework.isr")}</option>
+              ) : null}
             </select>
           </Field>
           <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-2 border-t border-border">

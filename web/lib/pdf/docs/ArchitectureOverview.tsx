@@ -255,12 +255,12 @@ Entity tenant N  ┘                   ▼
         The product reverses an earlier read-only-forever decision. Mizan
         v2.0 ships in either{" "}
         <Text style={{ fontWeight: 700 }}>observation mode</Text> (the
-        original read-only profile, suitable for Sharjah Cybersecurity
-        Center and similar visibility-only customers) or{" "}
+        original read-only profile, suitable for visibility-only customers
+        — boards, central oversight bodies that score posture but don't
+        write to entity tenants) or{" "}
         <Text style={{ fontWeight: 700 }}>directive mode</Text> (the
-        write-tier profile, suitable for regulators like Dubai Electronic
-        Security Center who push baseline policies to consented entities).
-        Mode is fixed at install time via{" "}
+        write-tier profile, suitable for regulators that push baseline
+        policies to consented entities). Mode is fixed at install time via{" "}
         <Text style={{ fontWeight: 700 }}>MIZAN_DEPLOYMENT_MODE</Text>;
         switching is a redeploy. The directive write tier covers
         Conditional Access (Phase 3 — 12 baselines + custom wizard),
@@ -277,10 +277,13 @@ Entity tenant N  ┘                   ▼
       </P>
       <H2 lang="en">8.2 Framework: per-customer config</H2>
       <P lang="en">
-        UAE NESA / KSA NCA / ISR-ISO / generic — chosen at install time
-        per customer, editable at runtime via Settings → Maturity Index
-        and Settings → Framework Mapping. The default for SCSC is NESA;
-        DESC defaults to ISR.
+        UAE NESA / Dubai ISR — chosen at install time per customer,
+        editable at runtime via Settings → Branding (framework selector)
+        and Settings → Compliance framework. The framework drives the
+        per-clause coverage rollup and the dashboard's named compliance
+        score (e.g. "Dubai ISR compliance" instead of generic "framework
+        compliance"). Out-of-Scope marks (v2.4.0+) and the Directive
+        Compliance push tab read from the active framework.
       </P>
       <H2 lang="en">8.3 Daily cadence, not near-real-time</H2>
       <P lang="en">
@@ -510,22 +513,26 @@ function BodyAr() {
       <P lang="ar">
         يعكس المنتج قرار "للقراءة فقط طوال العمر" السابق. Mizan v2.0 يُشحن
         إما في{" "}
-        <Text style={{ fontWeight: 700 }}>وضع المراقبة</Text> (الملف
-        الأصلي للقراءة فقط، يناسب SCSC) أو في{" "}
-        <Text style={{ fontWeight: 700 }}>وضع التوجيه</Text> (ملف طبقة
-        الكتابة، يناسب الجهات التنظيمية مثل DESC). يُحدَّد الوضع عند
-        التثبيت عبر <Text style={{ fontWeight: 700 }}>
-        MIZAN_DEPLOYMENT_MODE</Text>؛ التغيير = إعادة نشر. تغطّي طبقة
-        الكتابة Conditional Access و Intune و SharePoint و IOC للـDefender
-        والإجراءات التفاعلية. DLP والتصنيفات والاحتفاظ وغيرها تُشحن
-        ككتالوجات "قريبًا" تُفعَّل عند نقل Microsoft واجهات تأليفها إلى
-        Graph GA. لا توجد طبقة PowerShell — نمط "قريبًا" يحلّ محلّها.
+        <Text style={{ fontWeight: 700 }}>وضع المراقبة</Text> (للقراءة
+        فقط — يناسب جهات الإشراف التي تحسب الوضع الأمني دون كتابة في
+        مستأجرات الجهات) أو في{" "}
+        <Text style={{ fontWeight: 700 }}>وضع التوجيه</Text> (طبقة
+        الكتابة — يناسب الجهات التنظيمية التي تدفع سياسات أساسية إلى
+        الجهات الموافقة). يُحدَّد الوضع عند التثبيت عبر{" "}
+        <Text style={{ fontWeight: 700 }}>MIZAN_DEPLOYMENT_MODE</Text>؛
+        التغيير = إعادة نشر. تغطّي طبقة الكتابة Conditional Access و
+        Intune و SharePoint و IOC للـDefender والإجراءات التفاعلية. DLP
+        والتصنيفات والاحتفاظ وغيرها تُشحن ككتالوجات "قريبًا" تُفعَّل عند
+        نقل Microsoft واجهات تأليفها إلى Graph GA. لا توجد طبقة PowerShell.
       </P>
       <H2 lang="ar">٨.٢ الإطار: تكوين لكل عميل</H2>
       <P lang="ar">
-        UAE NESA / KSA NCA / ISR-ISO / عام — يُختار عند التثبيت لكل عميل،
-        قابل للتعديل في وقت التشغيل. الافتراضي لـ SCSC هو NESA؛ DESC
-        افتراضيًا ISR.
+        UAE NESA / Dubai ISR — يُختار عند التثبيت لكل عميل، قابل
+        للتعديل في وقت التشغيل من الإعدادات ← العلامة التجارية
+        (محدِّد الإطار) وSettings ← إطار الامتثال. يُسيّر الإطار حساب
+        تغطية المواد ويسمّي درجة الامتثال على لوحة المعلومات (مثلًا
+        "امتثال Dubai ISR" بدل العبارة العامة). يقرأ نظام الاستثناء من
+        النطاق (v2.4.0+) وتبويب الامتثال في Directive من الإطار النشط.
       </P>
       <H2 lang="ar">٨.٣ وتيرة يومية وليست قريبة من الحقيقي</H2>
       <P lang="ar">

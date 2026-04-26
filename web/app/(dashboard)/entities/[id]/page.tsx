@@ -93,6 +93,7 @@ type FrameworkBreakdownRow = {
   samples: number;
   secureScoreControls: string[];
   customEvidenceCount: number;
+  oosState: "in-scope" | "global-oos" | "tenant-oos";
 };
 
 type FrameworkComplianceDetail = {
@@ -103,6 +104,7 @@ type FrameworkComplianceDetail = {
   percent: number | null;
   clausesScored: number;
   clausesTotal: number;
+  clausesOos: number;
   breakdown: FrameworkBreakdownRow[];
 };
 
@@ -120,9 +122,9 @@ type State =
   | { kind: "missing" }
   | { kind: "ready"; detail: Detail };
 
-type SubTab = "overview" | "controls" | "incidents" | "identity" | "data" | "devices" | "governance" | "vulnerabilities" | "attackSimulation" | "connection";
+type SubTab = "overview" | "controls" | "incidents" | "identity" | "data" | "devices" | "governance" | "framework" | "vulnerabilities" | "attackSimulation" | "connection";
 const VALID_TABS: readonly SubTab[] = [
-  "overview", "controls", "incidents", "identity", "data", "devices", "governance", "vulnerabilities", "attackSimulation", "connection",
+  "overview", "controls", "incidents", "identity", "data", "devices", "governance", "framework", "vulnerabilities", "attackSimulation", "connection",
 ] as const;
 
 type IdentityView = "risky" | "privileged" | "sensors";
@@ -307,7 +309,18 @@ function EntityDetailInner({
   const cluster = CLUSTERS.find((c) => c.id === tenant.cluster);
   const clusterLabel = cluster ? (locale === "ar" ? cluster.labelAr : cluster.label) : tenant.cluster;
 
-  const SUB_TABS: Array<{ id: SubTab; labelKey: DictKey }> = [
+  // Framework tab is hidden when no framework is selected ("generic"
+  // or framework data missing). When active, the label tracks the
+  // chosen framework's short name (e.g. "Dubai ISR") so the tab is
+  // self-documenting.
+  const showFramework =
+    !!frameworkCompliance &&
+    frameworkCompliance.frameworkId !== "generic";
+  const frameworkTabLabel = showFramework
+    ? t(`branding.framework.${frameworkCompliance!.frameworkId}` as DictKey)
+    : "";
+
+  const SUB_TABS: Array<{ id: SubTab; labelKey: DictKey; rawLabel?: string }> = [
     { id: "overview", labelKey: "tab.overview" },
     { id: "controls", labelKey: "tab.controls" },
     { id: "incidents", labelKey: "tab.incidents" },
@@ -315,6 +328,15 @@ function EntityDetailInner({
     { id: "data", labelKey: "tab.data" },
     { id: "devices", labelKey: "tab.devices" },
     { id: "governance", labelKey: "tab.governance" },
+    ...(showFramework
+      ? [
+          {
+            id: "framework" as SubTab,
+            labelKey: "tab.framework" as DictKey,
+            rawLabel: frameworkTabLabel,
+          },
+        ]
+      : []),
     { id: "vulnerabilities", labelKey: "tab.vulnerabilities" },
     { id: "attackSimulation", labelKey: "tab.attackSimulation" },
     { id: "connection", labelKey: "tab.connection" },
@@ -550,7 +572,7 @@ function EntityDetailInner({
                   : "border-transparent text-ink-2 hover:text-ink-1"
               }`}
             >
-              {t(sub.labelKey)}
+              {sub.rawLabel ?? t(sub.labelKey)}
             </button>
           );
         })}
@@ -610,6 +632,14 @@ function EntityDetailInner({
           tenantId={id}
           secureScore={signals.secureScore?.payload ?? null}
           maturity={maturity}
+        />
+      ) : null}
+      {tab === "framework" && showFramework ? (
+        <FrameworkTab
+          tenantId={id}
+          fc={frameworkCompliance}
+          tenantNameEn={tenant.name_en}
+          onRefresh={load}
         />
       ) : null}
     </div>
@@ -4155,6 +4185,472 @@ function MiniStat({
       <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mt-0.5">
         {label}
       </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// FrameworkTab — dedicated entity-level Framework view (v2.4.0).
+//
+// Three blocks:
+//   1) Headline pill: framework % + clauses-scored / total / OOS counts
+//   2) Per-clause table identical to the Overview breakdown, but with a
+//      column of OOS toggles so the operator can carve out clauses that
+//      are "covered elsewhere on this entity" — sets a tenant-tier OOS
+//      mark, immediately removing the clause from this entity's score.
+//   3) "Deployed via Directive" recap — a list of pushes the Directive
+//      app has executed against THIS entity, so an operator can see
+//      which baselines are already in flight before authoring more.
+//
+// Per-entity OOS captures a `reason` (free-text) so there's an audit
+// trail. The global tier marked from Settings → Compliance framework
+// is also shown here as a chip on the row but cannot be unmarked from
+// this surface — that lives in Settings.
+// ────────────────────────────────────────────────────────────────────
+type DirectivePushAction = {
+  id: number;
+  push_request_id: number;
+  tenant_id: string;
+  status: "success" | "failed" | "simulated" | "rolledback";
+  graph_policy_id: string | null;
+  error_message: string | null;
+  at: string;
+  baseline_id?: string;
+};
+
+function FrameworkTab({
+  tenantId,
+  fc,
+  tenantNameEn,
+  onRefresh,
+}: {
+  tenantId: string;
+  fc: FrameworkComplianceDetail | undefined;
+  tenantNameEn: string;
+  onRefresh: () => Promise<void> | void;
+}) {
+  const { t, locale } = useI18n();
+  const fmt = useFmtNum();
+  const fmtRelative = useFmtRelative();
+  const [tenantOos, setTenantOos] = useState<Set<string>>(new Set());
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [reasonDraft, setReasonDraft] = useState<{
+    clauseId: string;
+    reason: string;
+  } | null>(null);
+  const [pushHistory, setPushHistory] = useState<DirectivePushAction[]>([]);
+  const [pushHistoryError, setPushHistoryError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load per-tenant OOS marks + this entity's directive push history.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const oos = await api.listComplianceOos(tenantId);
+        if (!alive) return;
+        setTenantOos(
+          new Set(
+            oos.marks
+              .filter((mk) => mk.scopeKind === "clause" && mk.tenantId === tenantId)
+              .map((mk) => mk.scopeId),
+          ),
+        );
+      } catch (err) {
+        if (alive) setError((err as Error).message);
+      }
+    })();
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/directive/push/history?tenantId=${encodeURIComponent(tenantId)}`,
+          { cache: "no-store" },
+        );
+        if (!alive) return;
+        if (r.ok) {
+          const body = (await r.json()) as { actions?: DirectivePushAction[] };
+          setPushHistory(body.actions ?? []);
+        }
+      } catch (err) {
+        if (alive) setPushHistoryError((err as Error).message);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
+  if (!fc) {
+    return (
+      <Card className="p-5">
+        <div className="text-[12.5px] text-ink-3">
+          {t("entity.frameworkCompliance.noData")}
+        </div>
+      </Card>
+    );
+  }
+
+  const target = fc.target / 100;
+  const partialFloor = (fc.target - 20) / 100;
+  const frameworkName = t(
+    `branding.framework.${fc.frameworkId}` as DictKey,
+  );
+
+  const inScopeRows = fc.breakdown.filter(
+    (r) => r.oosState !== "global-oos" && !tenantOos.has(r.clauseId),
+  );
+
+  // Recompute the score locally so the headline reacts instantly when
+  // the operator toggles an OOS — saves a roundtrip and avoids the
+  // "click toggle, score doesn't move" perception bug. Once `onRefresh`
+  // resolves the next breakdown fetch confirms.
+  const localPercent = (() => {
+    const scored = inScopeRows.filter((r) => r.coverage !== null);
+    if (scored.length === 0) return null;
+    const sumW = scored.reduce((a, b) => a + (b.weight || 0), 0);
+    if (sumW === 0) return null;
+    const sumWC = scored.reduce(
+      (a, b) => a + (b.coverage ?? 0) * (b.weight || 0),
+      0,
+    );
+    return (sumWC / sumW) * 100;
+  })();
+
+  const oosCount =
+    fc.breakdown.filter((r) => r.oosState === "global-oos").length +
+    tenantOos.size;
+
+  const toggleTenantOos = async (clauseId: string, reason: string | null) => {
+    const wasOos = tenantOos.has(clauseId);
+    setBusyId(clauseId);
+    setError(null);
+    setTenantOos((prev) => {
+      const next = new Set(prev);
+      if (wasOos) next.delete(clauseId);
+      else next.add(clauseId);
+      return next;
+    });
+    try {
+      if (wasOos) {
+        await api.unmarkComplianceOos({
+          tenantId,
+          scopeKind: "clause",
+          scopeId: clauseId,
+        });
+      } else {
+        await api.markComplianceOos({
+          tenantId,
+          scopeKind: "clause",
+          scopeId: clauseId,
+          reason,
+        });
+      }
+      // Confirm against the server (returns updated framework breakdown
+      // so headlines elsewhere — e.g. the entity's score on the overview
+      // tab — stay in sync).
+      await onRefresh();
+    } catch (err) {
+      // Rollback.
+      setTenantOos((prev) => {
+        const next = new Set(prev);
+        if (wasOos) next.add(clauseId);
+        else next.delete(clauseId);
+        return next;
+      });
+      setError((err as Error).message);
+    } finally {
+      setBusyId(null);
+      setReasonDraft(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Headline strip */}
+      <Card className="p-0">
+        <div className="p-5 flex items-end gap-6 flex-wrap">
+          <div>
+            <div className="eyebrow">
+              {t("entity.frameworkTab.eyebrowFor", {
+                framework: frameworkName,
+              })}
+            </div>
+            <h2 className="mt-1 text-[20px] font-semibold tracking-tight text-ink-1">
+              {t("entity.frameworkTab.titleFor", { framework: frameworkName })}
+            </h2>
+            <p className="text-ink-2 text-[12.5px] mt-1 max-w-xl">
+              {t("entity.frameworkTab.subtitleFor", {
+                framework: frameworkName,
+                entity: tenantNameEn,
+              })}
+            </p>
+          </div>
+          <div className="flex items-baseline gap-2 ms-auto">
+            <span
+              className={`text-[44px] leading-none font-semibold tabular ${
+                localPercent === null
+                  ? "text-ink-3"
+                  : localPercent >= fc.target
+                    ? "text-pos"
+                    : localPercent >= fc.target - 15
+                      ? "text-warn"
+                      : "text-neg"
+              }`}
+            >
+              {localPercent === null ? "—" : fmt(Math.round(localPercent))}
+            </span>
+            {localPercent !== null ? (
+              <span className="text-[16px] text-ink-3 tabular">%</span>
+            ) : null}
+          </div>
+        </div>
+        <div className="px-5 pb-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <MiniStat
+            label={t("entity.frameworkTab.stat.clausesTotal")}
+            value={fmt(fc.clausesTotal)}
+          />
+          <MiniStat
+            label={t("entity.frameworkTab.stat.clausesScored")}
+            value={`${fmt(fc.clausesScored)} / ${fmt(fc.clausesTotal)}`}
+          />
+          <MiniStat
+            label={t("entity.frameworkTab.stat.clausesOos")}
+            value={fmt(oosCount)}
+            tone={oosCount > 0 ? "warn" : undefined}
+          />
+          <MiniStat
+            label={t("entity.frameworkTab.stat.target")}
+            value={`${fmt(fc.target)}%`}
+          />
+        </div>
+        {error ? (
+          <div className="px-5 pb-4">
+            <div className="rounded-md border border-neg/40 bg-neg/10 px-3 py-2 text-[12px] text-neg">
+              {error}
+            </div>
+          </div>
+        ) : null}
+      </Card>
+
+      {/* Per-clause table with OOS toggles */}
+      <Card className="p-0">
+        <div className="p-5">
+          <CardHeader
+            title={t("entity.frameworkTab.controls.title")}
+            subtitle={t("entity.frameworkTab.controls.subtitle")}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]">
+            <thead>
+              <tr className="text-ink-3 text-[11px] uppercase tracking-[0.06em]">
+                <th className="py-2.5 ps-5 text-start font-semibold">
+                  {t("entity.frameworkBreakdown.col.clause")}
+                </th>
+                <th className="py-2.5 text-end font-semibold">
+                  {t("entity.frameworkBreakdown.col.coverage")}
+                </th>
+                <th className="py-2.5 pe-5 text-end font-semibold">
+                  {t("entity.frameworkTab.col.scope")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {fc.breakdown.map((r) => {
+                const isGlobalOos = r.oosState === "global-oos";
+                const isTenantOos = tenantOos.has(r.clauseId);
+                const cov = r.coverage;
+                const tone =
+                  isGlobalOos || isTenantOos
+                    ? "text-ink-3"
+                    : cov === null
+                      ? "text-ink-3"
+                      : cov >= target
+                        ? "text-pos"
+                        : cov >= partialFloor
+                          ? "text-warn"
+                          : "text-neg";
+                const rowDim =
+                  isGlobalOos || isTenantOos ? "opacity-60" : "";
+                return (
+                  <tr
+                    key={r.clauseId}
+                    className={`border-t border-border align-top ${rowDim}`}
+                  >
+                    <td className="ps-5 py-3">
+                      <div className="text-ink-1 font-medium">
+                        {locale === "ar" ? r.titleAr : r.titleEn}
+                      </div>
+                      <div className="text-[11px] text-ink-3 mt-0.5 keep-ltr flex items-center gap-2 flex-wrap">
+                        <span>{r.ref}</span>
+                        {(r.classRefs ?? []).map((cls) => (
+                          <span
+                            key={cls}
+                            className="text-[9.5px] uppercase tracking-[0.06em] font-semibold text-ink-2 border border-border rounded px-1.5 py-px"
+                          >
+                            {cls}
+                          </span>
+                        ))}
+                        {isGlobalOos ? (
+                          <span className="text-[9.5px] uppercase tracking-[0.06em] font-semibold text-warn border border-warn/40 bg-warn/10 rounded px-1.5 py-px">
+                            {t("entity.frameworkTab.chip.globalOos")}
+                          </span>
+                        ) : null}
+                        {isTenantOos ? (
+                          <span className="text-[9.5px] uppercase tracking-[0.06em] font-semibold text-warn border border-warn/40 bg-warn/10 rounded px-1.5 py-px">
+                            {t("entity.frameworkTab.chip.tenantOos")}
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="py-3 text-end">
+                      <span className={`tabular font-semibold ${tone}`}>
+                        {cov === null
+                          ? "—"
+                          : `${fmt(Math.round(cov * 100))}%`}
+                      </span>
+                      <div className="text-[10.5px] text-ink-3 mt-0.5">
+                        {t("entity.frameworkBreakdown.samples", {
+                          n: fmt(r.samples),
+                        })}
+                      </div>
+                    </td>
+                    <td className="pe-5 py-3 text-end">
+                      {isGlobalOos ? (
+                        <span className="text-[10.5px] text-ink-3">
+                          {t("entity.frameworkTab.scope.globalLocked")}
+                        </span>
+                      ) : isTenantOos ? (
+                        <button
+                          onClick={() => toggleTenantOos(r.clauseId, null)}
+                          disabled={busyId === r.clauseId}
+                          className="inline-flex items-center gap-1 text-[11.5px] text-warn hover:text-warn/80 disabled:opacity-50"
+                        >
+                          {busyId === r.clauseId ? (
+                            <Loader2 size={11} className="animate-spin" />
+                          ) : null}
+                          {t("entity.frameworkTab.scope.restore")}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            setReasonDraft({
+                              clauseId: r.clauseId,
+                              reason: "",
+                            })
+                          }
+                          disabled={busyId === r.clauseId}
+                          className="inline-flex items-center gap-1 text-[11.5px] text-ink-3 hover:text-ink-1 disabled:opacity-50"
+                        >
+                          {t("entity.frameworkTab.scope.markOos")}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Reason capture for marking OOS — modal */}
+      {reasonDraft ? (
+        <Modal
+          open
+          onClose={() => setReasonDraft(null)}
+          title={t("entity.frameworkTab.reason.title")}
+        >
+          <div className="text-[12.5px] text-ink-2 mb-3">
+            {t("entity.frameworkTab.reason.body")}
+          </div>
+          <textarea
+            value={reasonDraft.reason}
+            onChange={(e) =>
+              setReasonDraft({
+                ...reasonDraft,
+                reason: e.target.value.slice(0, 500),
+              })
+            }
+            placeholder={t("entity.frameworkTab.reason.placeholder")}
+            rows={4}
+            className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-[12.5px] text-ink-1 outline-none focus:border-council-strong"
+          />
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              onClick={() => setReasonDraft(null)}
+              className="h-8 px-3 rounded-md border border-border text-[12.5px] text-ink-2 hover:text-ink-1"
+            >
+              {t("entity.frameworkTab.reason.cancel")}
+            </button>
+            <button
+              onClick={() =>
+                toggleTenantOos(
+                  reasonDraft.clauseId,
+                  reasonDraft.reason.trim().length > 0
+                    ? reasonDraft.reason.trim()
+                    : null,
+                )
+              }
+              disabled={busyId === reasonDraft.clauseId}
+              className="h-8 px-4 rounded-md bg-council-strong text-white text-[12.5px] font-semibold disabled:opacity-50"
+            >
+              {t("entity.frameworkTab.reason.confirm")}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {/* Deployed-via-Directive recap */}
+      <Card className="p-5">
+        <CardHeader
+          title={t("entity.frameworkTab.deployments.title")}
+          subtitle={t("entity.frameworkTab.deployments.subtitle")}
+        />
+        {pushHistoryError ? (
+          <div className="text-[12px] text-neg">{pushHistoryError}</div>
+        ) : pushHistory.length === 0 ? (
+          <div className="text-[12.5px] text-ink-3 py-2">
+            {t("entity.frameworkTab.deployments.empty")}
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {pushHistory.slice(0, 12).map((p) => (
+              <li
+                key={p.id}
+                className="py-2.5 flex items-start justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="text-[12.5px] text-ink-1 keep-ltr">
+                    {p.baseline_id ?? `push #${p.push_request_id}`}
+                  </div>
+                  <div className="text-[11px] text-ink-3 mt-0.5">
+                    {fmtRelative(p.at)}
+                    {p.error_message ? (
+                      <span className="ms-2 text-neg">
+                        {p.error_message}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <span
+                  className={`text-[10.5px] uppercase tracking-[0.06em] font-semibold rounded px-1.5 py-px shrink-0 ${
+                    p.status === "success"
+                      ? "border border-pos/40 bg-pos/10 text-pos"
+                      : p.status === "simulated"
+                        ? "border border-accent/40 bg-accent/10 text-accent"
+                        : p.status === "rolledback"
+                          ? "border border-border bg-surface-2 text-ink-3"
+                          : "border border-neg/40 bg-neg/10 text-neg"
+                  }`}
+                >
+                  {p.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </div>
   );
 }

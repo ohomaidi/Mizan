@@ -81,25 +81,64 @@ One-time setup per deployment. Do it in the **operator's tenant** (the provider)
 
 ### API permissions
 
-Add these **application permissions** (not delegated) under **API permissions → Add a permission → Microsoft Graph → Application permissions**. All are **read-only**.
+The exact permission set depends on **deployment mode** (`MIZAN_DEPLOYMENT_MODE` env var, locked at first install). Auto-provisioning ([§0](#0-auto-provisioning-recommended)) registers the correct set for you; the manual path below documents both. The dashboard's own walkthrough (Settings → App Registration) renders the right block based on the live deployment mode — read it from inside the dashboard if you're not sure which set applies.
+
+#### Microsoft Graph — read scopes (required in **both** observation and directive)
+
+Add these under **API permissions → Add a permission → Microsoft Graph → Application permissions**:
 
 | Permission | Purpose |
 |---|---|
 | `SecurityEvents.Read.All` | Secure Score + per-control profiles |
 | `SecurityAlert.Read.All` | alerts_v2 |
 | `SecurityIncident.Read.All` | incidents |
-| `ThreatHunting.Read.All` | Advanced Hunting (future) |
+| `ThreatHunting.Read.All` | Advanced Hunting |
+| `SecurityIdentitiesHealth.Read.All` | Defender for Identity sensor health |
+| `AttackSimulation.Read.All` | Attack Simulation rollup |
+| `ThreatIntelligence.Read.All` | Threat Intelligence articles |
 | `IdentityRiskyUser.Read.All` | Identity Protection risky users |
 | `IdentityRiskEvent.Read.All` | Identity Protection risk detections |
 | `Policy.Read.All` | Conditional Access policies |
 | `RoleManagement.Read.Directory` | PIM role assignments |
 | `RoleEligibilitySchedule.Read.Directory` | PIM eligibility |
 | `AuditLog.Read.All` | Directory audit + sign-in logs |
+| `AuditLogsQuery.Read.All` | Async audit log query API (label adoption) |
 | `DeviceManagementManagedDevices.Read.All` | Intune device inventory |
 | `DeviceManagementConfiguration.Read.All` | Intune compliance policies |
-| `Directory.Read.All` | Tenant metadata + user lookup |
+| `InformationProtectionPolicy.Read.All` | Sensitivity labels |
+| `RecordsManagement.Read.All` | Retention labels |
+| `SubjectRightsRequest.Read.All` | DSR cases |
+| `SharePointTenantSettings.Read.All` | SharePoint tenant settings |
 
-Click **Grant admin consent for [provider tenant]** so the Council's own tenant has these (otherwise your own consent screen will block).
+#### Microsoft Graph — write scopes (**directive deployments only**)
+
+Add these on top of the read scopes, under the same Microsoft Graph block. Without them, the `/directive` surface (Conditional Access push, Intune baselines, SharePoint hardening, incident classification, risky-user confirm/dismiss, session revoke, threat submission) cannot function. **Observation deployments must NOT include these — admin consent is scope-wide and over-granting on a read-only deployment violates least-privilege.**
+
+| Permission | Purpose |
+|---|---|
+| `Policy.ReadWrite.ConditionalAccess` | CA policy push + custom CA wizard |
+| `Application.Read.All` | Custom CA "specific application" picker |
+| `DeviceManagementConfiguration.ReadWrite.All` | Intune compliance policy push |
+| `DeviceManagementManagedDevices.ReadWrite.All` | Device action endpoints |
+| `DeviceManagementManagedDevices.PrivilegedOperations.All` | Wipe / retire device actions |
+| `DeviceManagementApps.ReadWrite.All` | Intune MAM iOS + Android baselines |
+| `SecurityIncident.ReadWrite.All` | Incident classify + comment |
+| `SecurityAlert.ReadWrite.All` | Alert classify + comment |
+| `IdentityRiskyUser.ReadWrite.All` | Confirm-compromised / dismiss |
+| `User.RevokeSessions.All` | Force sign-out |
+| `ThreatSubmission.ReadWrite.All` | Threat submission API |
+| `SharePointTenantSettings.ReadWrite.All` | SharePoint hardening baselines |
+
+#### Defender for Endpoint API (separate resource block)
+
+Click **Add a permission → APIs my organization uses → search `WindowsDefenderATP`**. This adds a second `requiredResourceAccess` block on the same Entra app (auth tokens are issued separately per resource at runtime — see `lib/graph/msal.ts`).
+
+| Permission | Mode | Purpose |
+|---|---|---|
+| `Machine.Read.All` | both | MDE workload-coverage card (onboarded device inventory) |
+| `Ti.ReadWrite.All` | directive only | IOC push (Phase 14b — replaces deprecated `tiIndicators`) |
+
+Click **Grant admin consent for [provider tenant]** at the top of the API permissions page once both resource blocks are populated. Every row should show a green ✓ Granted indicator before you proceed.
 
 ### Verify redirect URI
 

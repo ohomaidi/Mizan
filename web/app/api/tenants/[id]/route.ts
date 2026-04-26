@@ -9,8 +9,10 @@ import {
   computeTenantFrameworkScore,
   computeTenantClauseBreakdown,
   getActiveComplianceMapping,
+  getActiveFramework,
 } from "@/lib/config/compliance-framework";
 import { getComplianceConfig } from "@/lib/config/compliance-config";
+import { getOosSets } from "@/lib/db/compliance-oos";
 import type { SecureScorePayload } from "@/lib/graph/signals";
 
 export const runtime = "nodejs";
@@ -44,8 +46,18 @@ export async function GET(
   }
   const fwCfg = getComplianceConfig();
   const fwMapping = getActiveComplianceMapping();
-  const fwScore = computeTenantFrameworkScore(ssMap, fwCfg.unscoredTreatment);
-  const fwBreakdown = computeTenantClauseBreakdown(ssMap);
+  // Resolve OOS sets for THIS tenant — global tier always; per-tenant
+  // tier overlaid on top. Both the headline % and the breakdown rows
+  // need to honor the same set so the panel UI stays internally
+  // consistent (clauses with the OOS chip aren't counted in the score).
+  const { frameworkId } = getActiveFramework();
+  const oos = getOosSets(frameworkId, id);
+  const fwScore = computeTenantFrameworkScore(
+    ssMap,
+    fwCfg.unscoredTreatment,
+    oos,
+  );
+  const fwBreakdown = computeTenantClauseBreakdown(ssMap, oos);
 
   return NextResponse.json({
     tenant,
@@ -63,6 +75,7 @@ export async function GET(
           : Math.round(fwScore.percent * 10) / 10,
       clausesScored: fwScore.clausesScored,
       clausesTotal: fwScore.clausesTotal,
+      clausesOos: fwScore.clausesOos,
       breakdown: fwBreakdown,
     },
   });

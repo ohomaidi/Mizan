@@ -40,7 +40,17 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "Enforce MFA across the workforce; phish-resistant for privileged roles.",
       descriptionAr:
         "فرض المصادقة متعددة العوامل على جميع الموظفين، ومقاومة للتصيد للأدوار المميّزة.",
-      secureScoreControls: ["MFARegisteredPct", "BlockLegacyAuth"],
+      // Five evidence anchors — covers MFA registration coverage,
+      // admin-grade MFA, phishing-resistant strength, password
+      // protection, and the banned-passwords list. Each is an actual
+      // Microsoft Secure Score control id observed in tenant snapshots.
+      secureScoreControls: [
+        "MFARegistrationV2",
+        "AdminMFAV2",
+        "aad_phishing_MFA_strength",
+        "aad_password_protection",
+        "aad_custom_banned_passwords",
+      ],
       weight: 20,
     },
     {
@@ -52,7 +62,15 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "Use Conditional Access + PIM so standing access is rare and audited.",
       descriptionAr:
         "استخدام الوصول المشروط وPIM بحيث يكون الوصول الدائم نادرًا ومُدقَّقًا.",
-      secureScoreControls: ["RequireMFAFromKnownDevices"],
+      // Cloud-only admin separation, role minimisation, third-party
+      // app review, and admin sign-in frequency / session timeout —
+      // the four anchors Microsoft surfaces for least-privilege.
+      secureScoreControls: [
+        "aad_admin_accounts_separate_unassigned_cloud_only",
+        "aad_limited_administrative_roles",
+        "aad_third_party_apps",
+        "aad_sign_in_freq_session_timeout",
+      ],
       weight: 15,
     },
     {
@@ -64,7 +82,11 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "Publish and adopt sensitivity labels; enforce protections by tier.",
       descriptionAr:
         "نشر وتبنّي تصنيفات الحساسية، وفرض الحماية بحسب الفئة.",
-      secureScoreControls: ["EnableMailboxAudit"],
+      secureScoreControls: [
+        "mip_sensitivitylabelspolicies",
+        "mip_autosensitivitylabelspolicies",
+        "mip_purviewlabelconsent",
+      ],
       weight: 12,
     },
     {
@@ -76,7 +98,16 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "Deploy DLP rules for Emirates ID, passport numbers, PII, and payment data.",
       descriptionAr:
         "نشر قواعد DLP للهوية الإماراتية وأرقام الجوازات والبيانات الشخصية وبيانات الدفع.",
-      secureScoreControls: ["SafeLinksForOffice"],
+      // Core DLP policy + exfiltration choke-points: external mail
+      // forwarding (both transport rule + admin-set), restricted
+      // third-party storage providers, and safe-attachments scanning.
+      secureScoreControls: [
+        "dlp_datalossprevention",
+        "exo_blockmailforward",
+        "mdo_blockmailforward",
+        "exo_storageproviderrestricted",
+        "mdo_safeattachments",
+      ],
       weight: 12,
     },
     {
@@ -88,7 +119,16 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "All seats managed via Intune with BitLocker, Secure Boot, and Defender baseline.",
       descriptionAr:
         "إدارة جميع المقاعد عبر Intune مع BitLocker وSecure Boot وأساس Defender.",
-      secureScoreControls: [],
+      // Intune compliance policies + BitLocker required, plus the MDE
+      // sensor turn-on, Defender Antivirus baseline, and Defender
+      // Firewall — all observed in seeded snapshots.
+      secureScoreControls: [
+        "BitLockerRequired",
+        "IntuneCompliancePolicies",
+        "scid_2000",
+        "scid_2010",
+        "scid_2070",
+      ],
       weight: 12,
     },
     {
@@ -100,7 +140,15 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "Unified incidents across Defender XDR; MTTA < 30 min for high severity.",
       descriptionAr:
         "توحيد الحوادث عبر Defender XDR؛ متوسط زمن الاستجابة أقل من ٣٠ دقيقة للحدّة العالية.",
-      secureScoreControls: [],
+      // Defender for Identity (sensor + service), MDE sensor turn-on,
+      // and Tamper Protection — the controls Microsoft scores against
+      // for "can the tenant detect and respond to attacks?".
+      secureScoreControls: [
+        "AATP_DefenderForIdentity",
+        "AATP_Sensor",
+        "scid_2000",
+        "scid_2003",
+      ],
       weight: 11,
     },
     {
@@ -112,7 +160,11 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "Unified audit log retention configured at the tenant; immutable Council-side audit of access.",
       descriptionAr:
         "حفظ سجل التدقيق الموحّد مضبوطٌ على مستوى المستأجر؛ سجل وصول غير قابل للتعديل من جانب المجلس.",
-      secureScoreControls: [],
+      secureScoreControls: [
+        "AuditLogSearch",
+        "exo_mailboxaudit",
+        "mip_search_auditlog",
+      ],
       weight: 10,
     },
     {
@@ -124,7 +176,23 @@ export const DEFAULT_NESA_MAPPING: ComplianceMapping = {
         "Microsoft 365 + Azure workloads bound to UAE-North / UAE-Central.",
       descriptionAr:
         "أعباء Microsoft 365 و Azure مربوطة بـUAE-North / UAE-Central.",
+      // Microsoft Graph has no Secure Score control for tenant-region
+      // residency — the data is true at provisioning time and not
+      // tracked as a daily score. Council records evidence manually
+      // (region attestation letter from Microsoft + procurement
+      // contract clause). Reviewed annually.
       secureScoreControls: [],
+      customEvidence: [
+        {
+          id: "uae-region-attestation",
+          label:
+            "Microsoft tenant-region attestation letter (UAE-North / UAE-Central)",
+          manualPassRate: 0,
+          reviewedAt: "2026-01-01",
+          reviewerNote:
+            "Operator records the attestation letter date + procurement clause reference. Reviewed annually.",
+        },
+      ],
       weight: 8,
     },
   ],

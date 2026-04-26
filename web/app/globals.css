@@ -138,3 +138,74 @@ a:focus-visible,
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+/* ——————————————————————————————————————————————————————————————
+   Mobile / responsive shell.
+   - safe-area-* utilities use env(safe-area-inset-*) so the topbar
+     pulls below the iOS notch and the sidebar drawer extends to the
+     home-indicator on the bottom. Paired with viewport-fit=cover in
+     layout.tsx.
+   - .scroll-x is the standard horizontal scroll wrapper for tables
+     too wide to reflow on mobile (entity grid, ISR breakdown, etc.)
+     — adds momentum scrolling on iOS and a subtle scrollbar.
+   —————————————————————————————————————————————————————————————— */
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-pl {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-pr {
+  padding-right: env(safe-area-inset-right);
+}
+
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Faint scrollbar on overflow only — invisible when content fits. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+
+.scroll-x::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+/* Touch targets — 44×44 is the iOS minimum, 48×48 is the Material
+   minimum. Used by `touch-target` on small icon buttons that would
+   otherwise be 32×32 (too small for thumbs). */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevents iOS Safari from auto-zooming on input focus when the
+   input's font-size is < 16px. Applied to every input inside a
+   form via `text-base` at the small-viewport breakpoint. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* When the mobile drawer is open, lock body scroll so the underlying
+   page doesn't track the user's gesture. Toggled from MobileNav.tsx
+   via the data-scroll-locked attribute on <html>. */
+html[data-scroll-locked="true"] {
+  overflow: hidden;
+  touch-action: none;
+}

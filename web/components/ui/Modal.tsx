@@ -106,11 +106,19 @@ export function Modal({
   if (!open) return null;
   if (typeof document === "undefined") return null;
 
-  const width = size === "wide" ? "max-w-[560px]" : "max-w-[440px]";
+  // Desktop width caps. On mobile (<sm) the modal goes full-bleed so
+  // long forms have room to breathe and small screens don't have a
+  // tiny floating card with horizontal scrollbars. The breakpoint is
+  // viewport-based (CSS-only) rather than cookie-based so the modal
+  // stays correct in both shells AND if a desktop user resizes a
+  // window narrow.
+  const width = size === "wide" ? "sm:max-w-[560px]" : "sm:max-w-[440px]";
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      // Mobile: align to bottom + no padding (full-bleed sheet).
+      // Desktop (sm+): center in viewport with safe inset.
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -130,13 +138,15 @@ export function Modal({
       />
       <div
         ref={containerRef}
-        className={`relative w-full ${width} rounded-lg border border-border bg-surface-1 shadow-xl`}
-        // Make the panel itself focusable as a fallback so the initial-focus
-        // step has something to land on if the modal has no interactive
-        // children at the moment of open (e.g. async data loading).
+        // Mobile: sticks to the bottom with rounded top corners (sheet
+        // pattern), max height of 90vh so the user can always see the
+        // backdrop / drag-handle area to dismiss. Body scrolls if
+        // content overflows.
+        // Desktop: original centered card unchanged.
+        className={`relative w-full ${width} max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-lg border border-border bg-surface-1 shadow-xl safe-area-pb sm:pb-0`}
         tabIndex={-1}
       >
-        <div className="px-5 py-4 border-b border-border">
+        <div className="px-5 py-4 border-b border-border shrink-0">
           <h2
             id={titleId}
             className="text-[15px] font-semibold text-ink-1 m-0"
@@ -144,9 +154,11 @@ export function Modal({
             {title}
           </h2>
         </div>
-        <div className="px-5 py-4 text-[13px] text-ink-2">{children}</div>
+        <div className="px-5 py-4 text-[13px] text-ink-2 overflow-y-auto flex-1 min-h-0">
+          {children}
+        </div>
         {footer ? (
-          <div className="px-5 py-3 border-t border-border flex items-center justify-end gap-2">
+          <div className="px-5 py-3 border-t border-border flex items-center justify-end gap-2 shrink-0">
             {footer}
           </div>
         ) : null}
