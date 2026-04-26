@@ -237,7 +237,7 @@ export const DICT = {
     "settings.about.published": "Released",
     "settings.about.upToDate": "You're on the latest release.",
     "settings.about.updateAvailable":
-      "Update available — v{version}. Pick one command below to upgrade.",
+      "Update available — v{version}.",
     "settings.about.azureCmd": "Azure Container Apps",
     "settings.about.dockerCmd": "Docker / self-hosted",
     "settings.about.openReleaseNotes": "Open release notes on GitHub",
@@ -246,6 +246,22 @@ export const DICT = {
     "settings.about.releaseNotes": "Release notes",
     "settings.about.checkFailedTitle":
       "Couldn't reach GitHub to check for updates",
+    "settings.about.upgradeNow": "Upgrade to v{version}",
+    "settings.about.confirmUpgrade.title":
+      "Upgrade Mizan to v{version}?",
+    "settings.about.confirmUpgrade.body":
+      "This will swap the running container app's image and trigger a rolling revision update. The dashboard stays available — Azure brings the new revision up alongside the old one and shifts traffic when it passes its readiness probe (typically 1–2 minutes). You may need to refresh the page once the new revision is serving.",
+    "settings.about.confirmUpgrade.cancel": "Cancel",
+    "settings.about.confirmUpgrade.confirm": "Upgrade now",
+    "settings.about.upgradeRequested.title":
+      "Upgrade requested — v{from} → v{to}",
+    "settings.about.upgradeRequested.body":
+      "Azure Container Apps is pulling the new image and rolling out a new revision. Refresh the page in 1–2 minutes; the installed version will then read v{to}.",
+    "settings.about.upgradeFailed.title": "Upgrade failed",
+    "settings.about.aca.selfUpgradeNotReady.title":
+      "One-click upgrade not configured",
+    "settings.about.aca.selfUpgradeNotReady.body":
+      "This Container App's managed identity isn't wired to ARM. Re-deploy with the latest azure-container-apps.bicep template (enables system-assigned identity + assigns the Container Apps Contributor role on the resource group + injects MIZAN_AZURE_RESOURCE_ID), or run the manual command below.",
 
     "branding.title": "Branding",
     "branding.subtitle":
@@ -2970,7 +2986,23 @@ export const DICT = {
     "settings.about.published": "تم إصداره",
     "settings.about.upToDate": "أنت تستخدم أحدث إصدار.",
     "settings.about.updateAvailable":
-      "تحديث متاح — v{version}. اختر أحد الأوامر أدناه للترقية.",
+      "تحديث متاح — v{version}.",
+    "settings.about.upgradeNow": "ترقية إلى v{version}",
+    "settings.about.confirmUpgrade.title":
+      "هل تريد ترقية Mizan إلى v{version}؟",
+    "settings.about.confirmUpgrade.body":
+      "ستُستبدل صورة الحاوية للتطبيق الجاري وتُفعَّل عملية تحديث متدرّج لمراجعة الـ Container App. تبقى اللوحة متاحة — يُشغّل Azure المراجعة الجديدة بجانب القديمة ويحوّل حركة المرور عند نجاح فحص الجاهزية (عادةً ١–٢ دقيقة). قد تحتاج إلى تحديث الصفحة بعد بدء المراجعة الجديدة.",
+    "settings.about.confirmUpgrade.cancel": "إلغاء",
+    "settings.about.confirmUpgrade.confirm": "ترقية الآن",
+    "settings.about.upgradeRequested.title":
+      "طُلبت الترقية — v{from} ← v{to}",
+    "settings.about.upgradeRequested.body":
+      "يقوم Azure Container Apps بسحب الصورة الجديدة وإطلاق مراجعة جديدة. أعِد تحميل الصفحة بعد ١–٢ دقيقة؛ سيظهر الإصدار المُثبَّت عندها v{to}.",
+    "settings.about.upgradeFailed.title": "فشلت الترقية",
+    "settings.about.aca.selfUpgradeNotReady.title":
+      "الترقية بنقرة واحدة غير مُهيَّأة",
+    "settings.about.aca.selfUpgradeNotReady.body":
+      "الهوية المُدارة لتطبيق الحاوية هذا غير مرتبطة بـ ARM. أعِد النشر باستخدام أحدث قالب azure-container-apps.bicep (يُفعّل الهوية المُسنَدة-تلقائيًا، ويمنح دور Container Apps Contributor على مجموعة الموارد، ويحقن MIZAN_AZURE_RESOURCE_ID)، أو شغّل الأمر اليدوي أدناه.",
     "settings.about.azureCmd": "Azure Container Apps",
     "settings.about.dockerCmd": "Docker / استضافة ذاتية",
     "settings.about.openReleaseNotes": "فتح ملاحظات الإصدار على GitHub",

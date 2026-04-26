@@ -244,9 +244,18 @@ resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-10-02-previ
 }
 
 // -------------------- Container App --------------------
+// System-assigned managed identity is enabled so the dashboard can
+// upgrade itself in-place via the ARM API. The identity is granted the
+// "Container Apps Contributor" role on this resource group below; that
+// role is the minimum scope required to PATCH a container app's image
+// tag (see /api/updates/apply). MIZAN_AZURE_RESOURCE_ID is injected as
+// an env var so the running app knows which resource to PATCH.
 resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
   name: '${namePrefix}-app-${uniq}'
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     environmentId: acaEnv.id
     workloadProfileName: 'Consumption'
@@ -294,6 +303,17 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
                 name: 'NODE_ENV'
                 value: 'production'
               }
+              // v2.5.6+: full ARM resource ID of this container app, so
+              // the dashboard's /api/updates/apply endpoint knows which
+              // resource to PATCH for self-upgrade. Resolved at deploy
+              // time from this Bicep template's resourceId() function.
+              {
+                name: 'MIZAN_AZURE_RESOURCE_ID'
+                value: resourceId(
+                  'Microsoft.App/containerApps',
+                  '${namePrefix}-app-${uniq}'
+                )
+              }
             ],
             empty(syncSecret)
               ? []
@@ -340,5 +360,28 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
   }
 }
 
+// -------------------- Self-upgrade role assignment --------------------
+// Grant the container app's system-assigned identity the "Container
+// Apps Contributor" role on the resource group. This is the minimum
+// permission needed to PATCH the image tag of a container app via ARM,
+// which is what /api/updates/apply does on the one-click upgrade path.
+//
+// Role definition ID is built-in: 358470bc-b998-42bd-ab17-a7e34c199c0f
+// (Container Apps Contributor). Scope = the RG this template targets,
+// so the identity cannot reach other RGs in the subscription.
+resource selfUpgradeRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, app.id, 'container-apps-contributor')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '358470bc-b998-42bd-ab17-a7e34c199c0f'
+    )
+    principalId: app.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output dashboardUrl string = 'https://${app.properties.configuration.ingress.fqdn}'
 output resourceGroup string = resourceGroup().name
+output containerAppPrincipalId string = app.identity.principalId

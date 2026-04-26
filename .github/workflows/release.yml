@@ -1,4 +1,4 @@
-name: Release — build + push image
+name: Release — build image + publish GitHub Release
 
 on:
   push:
@@ -11,8 +11,8 @@ on:
         required: true
 
 permissions:
-  contents: read
-  packages: write
+  contents: write   # needed for gh release create
+  packages: write   # needed for ghcr push
 
 jobs:
   build-and-push:
@@ -64,3 +64,55 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.title=Mizan — Security Posture, Measured
             org.opencontainers.image.licenses=MIT
+
+      # Extract the matching CHANGELOG entry as the GitHub Release body so
+      # the in-app updater (Settings → About & updates) can show release
+      # notes alongside the version. CHANGELOG entries start with the
+      # version line "- **YYYY-MM-DD — vX.Y.Z (...)**." — we capture
+      # everything from that line up to the next entry's bullet.
+      - name: Extract CHANGELOG section
+        id: notes
+        run: |
+          TAG_VERSION="${{ steps.tag.outputs.value }}"
+          {
+            echo "body<<MIZAN_NOTES_EOF"
+            awk -v tag="v$TAG_VERSION" '
+              /^- \*\*[0-9]{4}-[0-9]{2}-[0-9]{2} — / {
+                if (capture) { exit }
+                if (index($0, tag) > 0) { capture = 1 }
+              }
+              capture { print }
+            ' CHANGELOG.md
+            echo ""
+            echo "Container image: \`ghcr.io/${{ github.repository_owner }}/mizan:$TAG_VERSION\`"
+            echo "MIZAN_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Create the GitHub Release. The in-app updater queries
+      # /repos/{owner}/{repo}/releases/latest — without this step the
+      # docker image goes to ghcr but the dashboard's "About & updates"
+      # panel can't see new versions and stays stuck on "you're on the
+      # latest release" forever. Idempotent: if a release already exists
+      # for this tag (e.g. backfill via workflow_dispatch), update it.
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_VERSION="${{ steps.tag.outputs.value }}"
+          TAG="v$TAG_VERSION"
+          NOTES=$(cat <<'MIZAN_NOTES_BODY'
+          ${{ steps.notes.outputs.body }}
+          MIZAN_NOTES_BODY
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — updating notes."
+            gh release edit "$TAG" \
+              --title "Mizan $TAG" \
+              --notes "$NOTES"
+          else
+            echo "Creating release $TAG."
+            gh release create "$TAG" \
+              --title "Mizan $TAG" \
+              --notes "$NOTES" \
+              --latest
+          fi

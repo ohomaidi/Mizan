@@ -18,13 +18,29 @@ type UpdateInfo = {
   current: string;
   latest: string | null;
   upToDate: boolean;
+  /**
+   * v2.5.6+: explicit "we couldn't check" reason (rate-limit, no
+   * releases, network). Distinct from "we checked and you're up to
+   * date" — null on success, string on failure.
+   */
+  checkError: string | null;
   publishedAt: string | null;
   releaseUrl: string | null;
   notes: string | null;
   containerImage: string;
   fetchedAt: string;
+  /** Detected hosting environment. Drives the upgrade UX (button vs snippet). */
+  runtime: "aca" | "docker" | "unknown";
+  /** True when the ACA managed-identity self-upgrade path is wired up. */
+  selfUpgradeReady: boolean;
   error?: string;
 };
+
+type ApplyResult =
+  | { kind: "idle" }
+  | { kind: "running" }
+  | { kind: "ok"; from: string; to: string }
+  | { kind: "err"; reason: string; detail?: string };
 
 type State =
   | { kind: "loading" }
@@ -45,6 +61,46 @@ export function AboutPanel() {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [checking, setChecking] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  const [apply, setApply] = useState<ApplyResult>({ kind: "idle" });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Fire the in-place upgrade. Two-step UX: click → confirm dialog →
+  // confirm. Posts to /api/updates/apply which uses the container app's
+  // managed identity to PATCH ARM. ACA spins up a new revision and shifts
+  // traffic; the dashboard call from the OLD revision will eventually
+  // 502 as the new revision takes over — at which point the user
+  // refreshes and sees the new version.
+  const onApply = useCallback(async () => {
+    setApply({ kind: "running" });
+    try {
+      const res = await fetch("/api/updates/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const body = (await res.json()) as
+        | { ok: true; from: string; to: string }
+        | { ok: false; reason: string; detail?: string };
+      if (!res.ok || !("ok" in body) || !body.ok) {
+        const errBody = body as { reason?: string; detail?: string };
+        setApply({
+          kind: "err",
+          reason: errBody.reason ?? `HTTP ${res.status}`,
+          detail: errBody.detail,
+        });
+      } else {
+        setApply({ kind: "ok", from: body.from, to: body.to });
+      }
+    } catch (err) {
+      setApply({
+        kind: "err",
+        reason: "network",
+        detail: (err as Error).message,
+      });
+    } finally {
+      setConfirmOpen(false);
+    }
+  }, []);
 
   const load = useCallback(async (force: boolean) => {
     if (force) setChecking(true);
@@ -143,15 +199,22 @@ export function AboutPanel() {
           </div>
         </div>
 
-        {/* Status banner */}
-        {info.error ? (
+        {/* Status banner. Three states (in priority order):
+            (a) checkError set OR error from the route — the GitHub
+                fetch couldn't complete; show the reason and explicitly
+                NOT claim up-to-date.
+            (b) upToDate=true — checked successfully and we're current.
+            (c) upToDate=false with a latest tag — newer release out. */}
+        {info.checkError || info.error ? (
           <div className="rounded-md border border-warn/40 bg-warn/10 p-3 flex items-start gap-3 text-[12.5px] text-ink-1">
             <Info size={14} className="text-warn shrink-0 mt-0.5" />
             <div>
               <div className="font-semibold">
                 {t("settings.about.checkFailedTitle")}
               </div>
-              <div className="text-ink-2 mt-0.5">{info.error}</div>
+              <div className="text-ink-2 mt-0.5">
+                {info.checkError ?? info.error}
+              </div>
             </div>
           </div>
         ) : info.upToDate ? (
@@ -172,21 +235,45 @@ export function AboutPanel() {
               </span>
             </div>
 
-            {/* Platform-aware upgrade commands */}
-            <div className="flex flex-col gap-2">
-              <UpgradeCmd
-                label={t("settings.about.azureCmd")}
-                cmd={azureCmd}
-                copied={copiedCmd === "azure"}
-                onCopy={() => copy("azure", azureCmd)}
+            {/* Three upgrade UXes by runtime + readiness:
+                1. ACA + selfUpgradeReady → one-click button.
+                2. ACA + !selfUpgradeReady → "configure managed identity"
+                   callout pointing at docs, plus the manual snippet.
+                3. Docker / unknown → manual `docker pull` snippet.
+                The point: operators on ACA shouldn't need to copy CLI
+                commands at all once their deployment template is on
+                the v2.5.6+ Bicep. */}
+            {info.runtime === "aca" && info.selfUpgradeReady ? (
+              <UpgradeButtonAca
+                latest={info.latest ?? ""}
+                apply={apply}
+                onClickConfirm={() => setConfirmOpen(true)}
               />
+            ) : info.runtime === "aca" ? (
+              <div className="flex flex-col gap-2">
+                <div className="rounded-md border border-warn/40 bg-warn/10 p-3 text-[12px] text-ink-1">
+                  <div className="font-semibold mb-0.5">
+                    {t("settings.about.aca.selfUpgradeNotReady.title")}
+                  </div>
+                  <div className="text-ink-2">
+                    {t("settings.about.aca.selfUpgradeNotReady.body")}
+                  </div>
+                </div>
+                <UpgradeCmd
+                  label={t("settings.about.azureCmd")}
+                  cmd={azureCmd}
+                  copied={copiedCmd === "azure"}
+                  onCopy={() => copy("azure", azureCmd)}
+                />
+              </div>
+            ) : (
               <UpgradeCmd
                 label={t("settings.about.dockerCmd")}
                 cmd={pullCmd}
                 copied={copiedCmd === "docker"}
                 onCopy={() => copy("docker", pullCmd)}
               />
-            </div>
+            )}
 
             {info.releaseUrl ? (
               <a
@@ -200,6 +287,44 @@ export function AboutPanel() {
             ) : null}
           </div>
         )}
+
+        {/* Confirm dialog — small inline panel, no full Modal needed.
+            Operator double-confirms because the upgrade triggers a
+            revision rollover on the live deployment. */}
+        {confirmOpen && state.kind === "ready" ? (
+          <div className="rounded-md border border-warn/40 bg-warn/5 p-4 flex flex-col gap-3">
+            <div className="text-[13px] text-ink-1 font-semibold">
+              {t("settings.about.confirmUpgrade.title", {
+                version: state.info.latest ?? "",
+              })}
+            </div>
+            <div className="text-[12px] text-ink-2 leading-relaxed">
+              {t("settings.about.confirmUpgrade.body")}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                className="h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 text-[12.5px]"
+              >
+                {t("settings.about.confirmUpgrade.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={onApply}
+                disabled={apply.kind === "running"}
+                className="inline-flex items-center gap-1.5 h-8 px-4 rounded-md bg-accent text-surface-1 text-[12.5px] font-semibold disabled:opacity-50"
+              >
+                {apply.kind === "running" ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Sparkles size={12} />
+                )}
+                {t("settings.about.confirmUpgrade.confirm")}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {/* Actions row */}
         <div className="flex items-center justify-between border-t border-border pt-3">
@@ -265,6 +390,80 @@ function UpgradeCmd({
           {copied ? <Check size={12} /> : <Copy size={12} />}
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One-click ACA upgrade. Renders the prominent "Upgrade now" button +
+ * an inline status pill once an upgrade attempt has fired. Three terminal
+ * states:
+ *   - ok    → green "Upgrade requested. ACA is rolling out the new
+ *             revision; refresh in 1–2 minutes."
+ *   - err   → red banner with reason + detail.
+ *   - idle  → button only.
+ */
+function UpgradeButtonAca({
+  latest,
+  apply,
+  onClickConfirm,
+}: {
+  latest: string;
+  apply: ApplyResult;
+  onClickConfirm: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={onClickConfirm}
+        disabled={apply.kind === "running" || apply.kind === "ok"}
+        className="self-start inline-flex items-center gap-2 h-9 px-4 rounded-md bg-accent text-surface-1 text-[13px] font-semibold disabled:opacity-50"
+      >
+        {apply.kind === "running" ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : (
+          <Sparkles size={14} />
+        )}
+        {t("settings.about.upgradeNow", { version: latest })}
+      </button>
+
+      {apply.kind === "ok" ? (
+        <div className="rounded-md border border-pos/40 bg-pos/10 p-3 text-[12.5px] text-ink-1 flex items-start gap-2">
+          <Check size={14} className="text-pos shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold">
+              {t("settings.about.upgradeRequested.title", {
+                from: apply.from,
+                to: apply.to,
+              })}
+            </div>
+            <div className="text-ink-2 mt-0.5 leading-relaxed">
+              {t("settings.about.upgradeRequested.body")}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {apply.kind === "err" ? (
+        <div className="rounded-md border border-neg/40 bg-neg/10 p-3 text-[12.5px] text-ink-1 flex items-start gap-2">
+          <Info size={14} className="text-neg shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold">
+              {t("settings.about.upgradeFailed.title")}
+            </div>
+            <div className="text-ink-2 mt-0.5">
+              <code className="text-[11.5px] bg-surface-1 px-1.5 py-0.5 rounded border border-border keep-ltr">
+                {apply.reason}
+              </code>
+              {apply.detail ? (
+                <div className="mt-1 leading-relaxed">{apply.detail}</div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
