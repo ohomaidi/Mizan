@@ -1104,6 +1104,8 @@ export const DICT = {
       "Activity proxy (alerts) + tenant policy count from Microsoft Graph beta. Per-workload (Endpoint / Teams / SPO / OneDrive / Exchange) deployment available in the Purview portal.",
 
     "entity.frameworkCompliance.title": "Framework compliance",
+    "entity.frameworkCompliance.titleFor": "{framework} compliance",
+    "entity.frameworkCompliance.titleGeneric": "Framework compliance",
     "entity.frameworkCompliance.subtitle":
       "Single-axis alignment with the active regulatory framework. Separate from the maturity index — answers \u201chow aligned, not how protected\u201d.",
     "entity.frameworkCompliance.subtitleFor": "vs. {framework}",
@@ -1115,6 +1117,7 @@ export const DICT = {
     "entity.frameworkCompliance.noData":
       "No framework data computed yet. The first sync will populate this.",
     "entity.frameworkBreakdown.title": "Framework compliance breakdown",
+    "entity.frameworkBreakdown.titleFor": "{framework} \u2014 per-clause coverage",
     "entity.frameworkBreakdown.subtitleFor":
       "Per-clause coverage against {framework}. Tells you exactly which domains the entity is failing.",
     "entity.frameworkBreakdown.filterBy": "Filter:",
@@ -3766,6 +3769,8 @@ export const DICT = {
       "مؤشر النشاط (التنبيهات) + عدد سياسات المستأجر من Microsoft Graph التجريبي. النشر لكل حِمل (Endpoint / Teams / SPO / OneDrive / Exchange) متاح في بوابة Purview.",
 
     "entity.frameworkCompliance.title": "الامتثال للإطار",
+    "entity.frameworkCompliance.titleFor": "الامتثال لـ{framework}",
+    "entity.frameworkCompliance.titleGeneric": "الامتثال للإطار",
     "entity.frameworkCompliance.subtitle":
       "محور واحد لقياس مدى التماشي مع الإطار التنظيمي الفعّال. منفصل عن مؤشر النضج — يجيب: \u00abمدى التوافق، لا مدى الحماية\u00bb.",
     "entity.frameworkCompliance.subtitleFor": "مقابل {framework}",
@@ -3777,6 +3782,7 @@ export const DICT = {
     "entity.frameworkCompliance.noData":
       "لم تُحسَب بيانات الإطار بعد. سيُملأ هذا في أول مزامنة.",
     "entity.frameworkBreakdown.title": "تفاصيل الامتثال للإطار",
+    "entity.frameworkBreakdown.titleFor": "{framework} \u2014 تغطية البنود",
     "entity.frameworkBreakdown.subtitleFor":
       "تغطية كل بند مقارنةً بـ {framework}. توضّح بدقّة أين تتعثّر الجهة.",
     "entity.frameworkBreakdown.filterBy": "تصفية:",

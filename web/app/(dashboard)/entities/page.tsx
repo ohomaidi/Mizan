@@ -19,6 +19,7 @@ import { HealthDot } from "@/components/ui/HealthDot";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
 import { CLUSTERS, type ClusterId } from "@/lib/data/clusters";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { DictKey } from "@/lib/i18n/dict";
 import { useFmtRelative } from "@/lib/i18n/time";
 import { useFmtNum } from "@/lib/i18n/num";
 import { api } from "@/lib/api/client";
@@ -203,10 +204,23 @@ export default function EntitiesPage({
                 <Th sortKey="entity" current={sortKey} dir={sortDir} onSort={onSort} className="ps-5">{t("cols.entity")}</Th>
                 <Th sortKey="cluster" current={sortKey} dir={sortDir} onSort={onSort}>{t("cols.cluster")}</Th>
                 <Th sortKey="maturity" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.maturity")}</Th>
-                {/* Hide Framework column when no framework is selected. */}
+                {/* Framework column — hidden when no framework is
+                    selected. Header uses the framework's short name
+                    (e.g. "Dubai ISR") rather than the generic phrase
+                    "Framework", so the column self-identifies. */}
                 {rows.length > 0 &&
                 rows[0].frameworkCompliance.frameworkId !== "generic" ? (
-                  <Th sortKey="frameworkCompliance" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.frameworkCompliance")}</Th>
+                  <Th
+                    sortKey="frameworkCompliance"
+                    current={sortKey}
+                    dir={sortDir}
+                    onSort={onSort}
+                    align="end"
+                  >
+                    {t(
+                      `branding.framework.${rows[0].frameworkCompliance.frameworkId}` as DictKey,
+                    )}
+                  </Th>
                 ) : null}
                 <Th sortKey="controls" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.controls")}</Th>
                 <Th sortKey="incidents" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.incidents")}</Th>

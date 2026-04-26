@@ -10,6 +10,7 @@ import { EntityBarChart } from "@/components/charts/EntityBarChart";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
 import { CLUSTERS } from "@/lib/data/clusters";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import type { DictKey } from "@/lib/i18n/dict";
 import { useFmtNum, useFmtDelta } from "@/lib/i18n/num";
 import { api } from "@/lib/api/client";
 import type { ClusterSummary, CouncilKpis, EntityRow } from "@/lib/compute/aggregate";
@@ -84,6 +85,13 @@ export default function MaturityPage() {
         // active (branding.frameworkId === "generic"). When hidden,
         // collapse the grid back to 4 cols so the remaining tiles fill.
         const hideFw = kpis.frameworkCompliance.frameworkId === "generic";
+        // Resolve the active framework's short name (e.g. "Dubai ISR",
+        // "UAE NESA") so the KPI tile label is the regulation itself
+        // rather than the generic phrase "Framework compliance". The
+        // dashboard becomes self-documenting per deployment.
+        const fwLabel = t(
+          `branding.framework.${kpis.frameworkCompliance.frameworkId}` as DictKey,
+        );
         return (
           <div
             className={`grid grid-cols-1 sm:grid-cols-2 ${
@@ -104,7 +112,7 @@ export default function MaturityPage() {
                 aligned are they with our framework?". */}
             {!hideFw ? (
               <KpiTile
-                label={t("kpi.frameworkCompliance")}
+                label={fwLabel}
                 value={fmt(kpis.frameworkCompliance.percent)}
                 suffix="%"
                 accent={

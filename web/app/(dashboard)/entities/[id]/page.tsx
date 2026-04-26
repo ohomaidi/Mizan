@@ -4188,6 +4188,13 @@ function FrameworkBreakdownPanel({
   const target = fc.target / 100;
   const partialFloor = (fc.target - 20) / 100;
 
+  // Same dynamic-name resolution as the headline card — the breakdown
+  // panel title carries the framework name so it ties visually back
+  // to the card it expands.
+  const frameworkName = t(
+    `branding.framework.${fc.frameworkId}` as DictKey,
+  );
+
   const rows = fc.breakdown.filter((r) => {
     if (filterClass && !(r.classRefs ?? []).includes(filterClass)) return false;
     if (filterStatus === "unscored") return r.coverage === null;
@@ -4227,7 +4234,9 @@ function FrameworkBreakdownPanel({
     <Card className="p-0">
       <div className="p-5 flex items-start justify-between gap-3 flex-wrap">
         <CardHeader
-          title={t("entity.frameworkBreakdown.title")}
+          title={t("entity.frameworkBreakdown.titleFor", {
+            framework: frameworkName,
+          })}
           subtitle={t("entity.frameworkBreakdown.subtitleFor", {
             framework: fc.frameworkVersion,
           })}
@@ -4446,7 +4455,7 @@ function FrameworkComplianceCard({
     return (
       <Card className="lg:col-span-1">
         <CardHeader
-          title={t("entity.frameworkCompliance.title")}
+          title={t("entity.frameworkCompliance.titleGeneric")}
           subtitle={t("entity.frameworkCompliance.subtitle")}
         />
         <div className="text-[12.5px] text-ink-3">
@@ -4455,6 +4464,13 @@ function FrameworkComplianceCard({
       </Card>
     );
   }
+
+  // Resolve the framework's short name for the card title — the
+  // dashboard becomes self-documenting per deployment ("Dubai ISR
+  // compliance" instead of "Framework compliance").
+  const frameworkName = t(
+    `branding.framework.${fc.frameworkId}` as DictKey,
+  );
 
   const pct = fc.percent ?? 0;
   const hasScore = fc.percent !== null;
@@ -4477,7 +4493,9 @@ function FrameworkComplianceCard({
   return (
     <Card className="lg:col-span-1">
       <CardHeader
-        title={t("entity.frameworkCompliance.title")}
+        title={t("entity.frameworkCompliance.titleFor", {
+          framework: frameworkName,
+        })}
         subtitle={
           <span>
             {t("entity.frameworkCompliance.subtitleFor", {
