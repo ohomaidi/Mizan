@@ -92,9 +92,9 @@ export const DEFAULT_PDF_TEMPLATE: PdfTemplate = {
       en: "Click the consent URL below from a clean browser window and sign in with a Global Administrator account of your tenant. Review the read-only permissions and click Accept.",
       ar: "انقر رابط الموافقة أدناه من نافذة متصفح نظيفة وسجّل الدخول باستخدام حساب مسؤول عام لمستأجركم. راجع الصلاحيات للقراءة فقط واضغط قبول.",
       noteEn:
-        "After consent, open Entra admin center → Enterprise applications → find the Posture Dashboard app and confirm the service principal exists in your tenant with the listed read-only permissions.",
+        "After consent, open Entra admin center → Enterprise applications → find the Posture Dashboard app and confirm the service principal exists in your tenant with the listed read-only permissions. The same location is also where consent can be revoked at any time — either by deleting the Enterprise Application entirely, or by revoking individual permissions on the Permissions tab. The dashboard auto-detects revocation within one sync cycle and flips the entity's status to 'consent revoked'.",
       noteAr:
-        "بعد الموافقة، افتح Entra admin center → Enterprise applications → ابحث عن تطبيق لوحة الوضع الأمني وتأكد من وجود حساب الخدمة في مستأجركم بالصلاحيات المذكورة للقراءة فقط.",
+        "بعد الموافقة، افتح Entra admin center → Enterprise applications → ابحث عن تطبيق لوحة الوضع الأمني وتأكد من وجود حساب الخدمة في مستأجركم بالصلاحيات المذكورة للقراءة فقط. ومن النافذة نفسها يمكن سحب الموافقة في أي وقت — إما بحذف Enterprise Application بالكامل، أو بسحب صلاحيات منفردة من تبويب Permissions. تكتشف اللوحة السحب تلقائياً خلال دورة مزامنة واحدة وتُبدّل حالة الجهة إلى 'الموافقة مسحوبة'.",
     },
     {
       titleEn: "3. Step 2 — Notify the operator",

@@ -164,6 +164,7 @@ score = weighted_average(clause coverage × clause.weight)`}
       <Q id="cadence" titleKey="faq.q.cadence.title" bodyKey="faq.q.cadence.body" />
       <Q id="belowTarget" titleKey="faq.q.belowTarget.title" bodyKey="faq.q.belowTarget.body" />
       <Q id="data" titleKey="faq.q.data.title" bodyKey="faq.q.data.body" />
+      <Q id="consentLifecycle" titleKey="faq.q.consentLifecycle.title" bodyKey="faq.q.consentLifecycle.body" />
 
       <Card>
         <CardHeader title={t("faq.q.limits.title")} subtitle={t("faq.q.limits.body")} />
