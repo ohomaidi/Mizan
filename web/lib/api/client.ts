@@ -33,6 +33,27 @@ export const api = {
       signals: unknown;
       health: unknown;
       maturity: unknown;
+      frameworkCompliance?: {
+        frameworkId: string;
+        frameworkVersion: string;
+        target: number;
+        unscoredTreatment: "skip" | "zero";
+        percent: number | null;
+        clausesScored: number;
+        clausesTotal: number;
+        breakdown: Array<{
+          clauseId: string;
+          ref: string;
+          classRefs?: Array<"Governance" | "Operation" | "Assurance">;
+          titleEn: string;
+          titleAr: string;
+          weight: number;
+          coverage: number | null;
+          samples: number;
+          secureScoreControls: string[];
+          customEvidenceCount: number;
+        }>;
+      };
     }>(`/api/tenants/${id}`),
 
   createTenant: (draft: {
@@ -390,6 +411,34 @@ export const api = {
       }>;
       total: number;
     }>("/api/config/secure-score-controls"),
+
+  /**
+   * Compliance score config — target + unscored-treatment. Council-
+   * editable settings for the Framework Compliance metric.
+   */
+  getComplianceConfig: () =>
+    jsonFetch<{
+      config: {
+        target: number;
+        unscoredTreatment: "skip" | "zero";
+        updatedAt?: string;
+      };
+    }>("/api/config/compliance"),
+
+  saveComplianceConfig: (patch: {
+    target?: number;
+    unscoredTreatment?: "skip" | "zero";
+  }) =>
+    jsonFetch<{ config: unknown }>("/api/config/compliance", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  resetComplianceConfig: () =>
+    jsonFetch<{ config: unknown }>("/api/config/compliance", {
+      method: "PUT",
+      body: JSON.stringify({ reset: true }),
+    }),
 
   getPurviewRollup: () =>
     jsonFetch<{

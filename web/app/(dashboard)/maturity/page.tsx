@@ -79,26 +79,59 @@ export default function MaturityPage() {
         <TimeRangePills value={range} onChange={setRange} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiTile
-          label={t("kpi.maturityIndex")}
-          value={fmt(kpis.maturityIndex)}
-          accent="council"
-          delta={deltaForRange(kpis, range) ?? undefined}
-          deltaSuffix={captionForRange(range, t)}
-        />
-        <KpiTile label={t("kpi.entities")} value={fmt(kpis.entitiesCount)} />
-        <KpiTile
-          label={t("kpi.belowTarget")}
-          value={fmt(kpis.belowTargetCount)}
-          accent={kpis.belowTargetCount > 10 ? "warn" : "default"}
-        />
-        <KpiTile
-          label={t("kpi.controlsPassing")}
-          value={fmt(kpis.controlsPassingPct)}
-          suffix="%"
-        />
-      </div>
+      {(() => {
+        // Hide the Framework Compliance KPI tile when no framework is
+        // active (branding.frameworkId === "generic"). When hidden,
+        // collapse the grid back to 4 cols so the remaining tiles fill.
+        const hideFw = kpis.frameworkCompliance.frameworkId === "generic";
+        return (
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 ${
+              hideFw ? "lg:grid-cols-4" : "lg:grid-cols-5"
+            } gap-4`}
+          >
+            <KpiTile
+              label={t("kpi.maturityIndex")}
+              value={fmt(kpis.maturityIndex)}
+              accent="council"
+              delta={deltaForRange(kpis, range) ?? undefined}
+              deltaSuffix={captionForRange(range, t)}
+            />
+            {/* Framework Compliance — separate primary KPI alongside
+                the Maturity Index. Hidden entirely when no framework
+                is selected. The Council answers two questions in this
+                row when active: "how protected are entities?" + "how
+                aligned are they with our framework?". */}
+            {!hideFw ? (
+              <KpiTile
+                label={t("kpi.frameworkCompliance")}
+                value={fmt(kpis.frameworkCompliance.percent)}
+                suffix="%"
+                accent={
+                  kpis.frameworkCompliance.percent <
+                  kpis.frameworkCompliance.target
+                    ? "warn"
+                    : "council"
+                }
+              />
+            ) : null}
+            <KpiTile
+              label={t("kpi.entities")}
+              value={fmt(kpis.entitiesCount)}
+            />
+            <KpiTile
+              label={t("kpi.belowTarget")}
+              value={fmt(kpis.belowTargetCount)}
+              accent={kpis.belowTargetCount > 10 ? "warn" : "default"}
+            />
+            <KpiTile
+              label={t("kpi.controlsPassing")}
+              value={fmt(kpis.controlsPassingPct)}
+              suffix="%"
+            />
+          </div>
+        );
+      })()}
 
       <Card>
         <CardHeader

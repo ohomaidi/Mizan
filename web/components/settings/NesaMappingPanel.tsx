@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  CheckCircle2,
   Loader2,
   Plus,
   RotateCcw,
   Save,
   Search,
+  ShieldCheck,
   Trash2,
   X,
 } from "lucide-react";
@@ -15,6 +17,20 @@ import { ErrorState, LoadingState } from "@/components/ui/States";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useFmtNum } from "@/lib/i18n/num";
 import { api } from "@/lib/api/client";
+
+/**
+ * Frameworks the Council can pick from. The list is shared with the
+ * BrandingPanel — keeping both sources of truth identical avoids the
+ * "what does each option mean?" confusion. Order: most-locally-relevant
+ * first, then generic at the end.
+ */
+const FRAMEWORK_OPTIONS = [
+  { id: "dubai-isr", labelKey: "branding.framework.dubai-isr" },
+  { id: "nesa", labelKey: "branding.framework.nesa" },
+  { id: "nca", labelKey: "branding.framework.nca" },
+  { id: "isr", labelKey: "branding.framework.isr" },
+  { id: "generic", labelKey: "branding.framework.generic" },
+] as const;
 
 type SecureScoreControl = {
   id: string;
@@ -67,6 +83,18 @@ export function NesaMappingPanel() {
   const [registry, setRegistry] = useState<SecureScoreControl[]>([]);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+  // Active framework — read from branding so the hero block matches
+  // whatever the deployment selected at /setup. Switching it in the
+  // hero selector below writes back to branding.frameworkId.
+  const [activeFrameworkId, setActiveFrameworkId] = useState<string>("generic");
+  const [switchingFramework, setSwitchingFramework] = useState(false);
+  // Compliance config — target % + unscored-clause treatment. Edits save
+  // immediately; no separate Save button in the hero strip.
+  const [complianceCfg, setComplianceCfg] = useState<{
+    target: number;
+    unscoredTreatment: "skip" | "zero";
+  }>({ target: 70, unscoredTreatment: "skip" });
+  const [savingCfg, setSavingCfg] = useState(false);
 
   // Quick lookup of registry rows by id, for rendering chips with the
   // human title + live coverage % even when the operator hasn't seen
@@ -79,16 +107,81 @@ export function NesaMappingPanel() {
 
   const load = async () => {
     try {
-      const [m, r] = await Promise.all([
+      const [m, r, b, cfg] = await Promise.all([
         api.getNesaMapping(),
         api.getSecureScoreControls().catch(() => ({ controls: [], total: 0 })),
+        api.getBranding().catch(() => null),
+        api.getComplianceConfig().catch(() => null),
       ]);
       setMapping(m.mapping);
       setRegistry(r.controls);
+      if (b?.branding?.frameworkId) setActiveFrameworkId(b.branding.frameworkId);
+      if (cfg?.config) {
+        setComplianceCfg({
+          target: cfg.config.target,
+          unscoredTreatment: cfg.config.unscoredTreatment,
+        });
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveComplianceCfg = async (patch: {
+    target?: number;
+    unscoredTreatment?: "skip" | "zero";
+  }) => {
+    setSavingCfg(true);
+    try {
+      const r = await api.saveComplianceConfig(patch);
+      const c = (r as { config: { target: number; unscoredTreatment: "skip" | "zero" } }).config;
+      setComplianceCfg({
+        target: c.target,
+        unscoredTreatment: c.unscoredTreatment,
+      });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingCfg(false);
+    }
+  };
+
+  /**
+   * Switch the active regulatory framework. Updates `branding.frameworkId`,
+   * which is the single source of truth for which catalog the dashboard
+   * surfaces — `getActiveComplianceMapping()` reads from this. After save,
+   * we reload so the catalog/registry/coverage all repopulate against the
+   * new framework's storage key (e.g. switching from Dubai ISR → NESA
+   * surfaces NESA's clauses, leaving the ISR edits intact under
+   * `isr.mapping` for if/when the operator switches back).
+   *
+   * Choosing "generic" hides framework-related UI everywhere — entity
+   * overview Framework Compliance card, KPI tile, entity grid column.
+   */
+  const onSwitchFramework = async (next: string) => {
+    if (next === activeFrameworkId) return;
+    setSwitchingFramework(true);
+    setBanner(null);
+    try {
+      await api.saveBranding({
+        frameworkId: next as
+          | "nesa"
+          | "dubai-isr"
+          | "nca"
+          | "isr"
+          | "generic",
+      });
+      setActiveFrameworkId(next);
+      // Reload mapping (which now points at the new framework's catalog).
+      const m = await api.getNesaMapping();
+      setMapping(m.mapping);
+      setBanner(t("nesaCfg.frameworkSwitched"));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSwitchingFramework(false);
     }
   };
 
@@ -164,8 +257,197 @@ export function NesaMappingPanel() {
   if (!mapping) return null;
 
   const totalWeight = mapping.clauses.reduce((n, c) => n + (c.weight || 0), 0);
+  const isGeneric = activeFrameworkId === "generic";
 
   return (
+    <div className="flex flex-col gap-4">
+      {/* Active-framework HERO. Sits at the very top of the Compliance
+          Framework tab so the operator + any reviewer sees immediately
+          which regulation is active for this deployment. The selector
+          on the right lets the Council switch frameworks (writing back
+          to branding.frameworkId) — choosing "Generic / no framework"
+          hides framework UI everywhere in the dashboard. */}
+      <Card>
+        <div className="flex items-start gap-4 flex-wrap">
+          <div
+            className={`shrink-0 h-12 w-12 grid place-items-center rounded-lg ${
+              isGeneric
+                ? "bg-surface-3 text-ink-3"
+                : "bg-council-strong/15 text-council-strong"
+            }`}
+          >
+            <ShieldCheck size={22} strokeWidth={2} aria-hidden="true" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10.5px] uppercase tracking-[0.08em] text-ink-3 font-semibold">
+              {t("nesaCfg.hero.eyebrow")}
+            </div>
+            <div className="mt-1 flex items-center gap-3 flex-wrap">
+              <h2 className="text-[20px] leading-tight font-semibold text-ink-1 keep-ltr">
+                {t(
+                  `branding.framework.${activeFrameworkId}` as
+                    | "branding.framework.nesa"
+                    | "branding.framework.dubai-isr"
+                    | "branding.framework.nca"
+                    | "branding.framework.isr"
+                    | "branding.framework.generic",
+                )}
+              </h2>
+              {!isGeneric && mapping.frameworkVersion ? (
+                <span className="text-[12px] text-ink-2 keep-ltr">
+                  {mapping.frameworkVersion}
+                </span>
+              ) : null}
+              {!isGeneric ? (
+                <span className="inline-flex items-center gap-1 text-[10.5px] uppercase tracking-[0.06em] font-semibold text-pos border border-pos/40 bg-pos/10 rounded px-1.5 py-px">
+                  <CheckCircle2 size={11} aria-hidden="true" />
+                  {t("nesaCfg.hero.activeBadge")}
+                </span>
+              ) : null}
+            </div>
+            <p className="text-[12.5px] text-ink-2 mt-1 leading-relaxed max-w-3xl">
+              {isGeneric
+                ? t("nesaCfg.hero.bodyGeneric")
+                : t(
+                    `nesaCfg.hero.body.${activeFrameworkId}` as
+                      | "nesaCfg.hero.body.nesa"
+                      | "nesaCfg.hero.body.dubai-isr"
+                      | "nesaCfg.hero.body.nca"
+                      | "nesaCfg.hero.body.isr",
+                  )}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5 shrink-0">
+            <label
+              htmlFor="framework-selector"
+              className="text-[11px] text-ink-3"
+            >
+              {t("nesaCfg.hero.changeLabel")}
+            </label>
+            <select
+              id="framework-selector"
+              value={activeFrameworkId}
+              onChange={(e) => onSwitchFramework(e.target.value)}
+              disabled={switchingFramework}
+              className="h-9 px-3 pe-8 rounded-md border border-border bg-surface-1 text-ink-1 text-[12.5px] outline-none focus:border-council-strong"
+            >
+              {FRAMEWORK_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {t(o.labelKey as
+                    | "branding.framework.nesa"
+                    | "branding.framework.dubai-isr"
+                    | "branding.framework.nca"
+                    | "branding.framework.isr"
+                    | "branding.framework.generic")}
+                </option>
+              ))}
+            </select>
+            {switchingFramework ? (
+              <div className="text-[11px] text-ink-3 inline-flex items-center gap-1">
+                <Loader2 size={11} className="animate-spin" />
+                {t("nesaCfg.hero.switching")}
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {/* Scoring config — only meaningful when a framework is active.
+            Two knobs: target % (Council pass-mark — entities below
+            are flagged on the grid + KPI) and unscored-clause
+            treatment (skip = exclude from denominator, zero = count
+            as 0%). Saves on change. */}
+        {!isGeneric ? (
+          <div className="mt-5 pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-[11px] text-ink-3 block mb-1">
+                {t("nesaCfg.cfg.targetLabel")}
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={complianceCfg.target}
+                  onChange={(e) =>
+                    setComplianceCfg((c) => ({
+                      ...c,
+                      target: Number(e.target.value),
+                    }))
+                  }
+                  onMouseUp={() =>
+                    saveComplianceCfg({ target: complianceCfg.target })
+                  }
+                  onTouchEnd={() =>
+                    saveComplianceCfg({ target: complianceCfg.target })
+                  }
+                  className="flex-1 accent-council-strong"
+                />
+                <span className="tabular text-[14px] font-semibold text-ink-1 w-12 text-end">
+                  {fmt(complianceCfg.target)}%
+                </span>
+              </div>
+              <div className="text-[10.5px] text-ink-3 mt-1">
+                {t("nesaCfg.cfg.targetHelp")}
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] text-ink-3 block mb-1">
+                {t("nesaCfg.cfg.treatmentLabel")}
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    saveComplianceCfg({ unscoredTreatment: "skip" })
+                  }
+                  className={`flex-1 h-9 px-3 rounded-md border text-[12px] ${
+                    complianceCfg.unscoredTreatment === "skip"
+                      ? "border-council-strong bg-council-strong/10 text-council-strong"
+                      : "border-border bg-surface-1 text-ink-2 hover:text-ink-1"
+                  }`}
+                  disabled={savingCfg}
+                >
+                  {t("nesaCfg.cfg.treatmentSkip")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    saveComplianceCfg({ unscoredTreatment: "zero" })
+                  }
+                  className={`flex-1 h-9 px-3 rounded-md border text-[12px] ${
+                    complianceCfg.unscoredTreatment === "zero"
+                      ? "border-council-strong bg-council-strong/10 text-council-strong"
+                      : "border-border bg-surface-1 text-ink-2 hover:text-ink-1"
+                  }`}
+                  disabled={savingCfg}
+                >
+                  {t("nesaCfg.cfg.treatmentZero")}
+                </button>
+              </div>
+              <div className="text-[10.5px] text-ink-3 mt-1 leading-relaxed">
+                {complianceCfg.unscoredTreatment === "skip"
+                  ? t("nesaCfg.cfg.treatmentSkipHelp")
+                  : t("nesaCfg.cfg.treatmentZeroHelp")}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Generic-mode helper: explains what's hidden right now and how
+            to bring it back. Replaces the catalog editor below since
+            there's no catalog to edit when no framework is selected. */}
+        {isGeneric ? (
+          <div className="mt-4 rounded-md border border-border bg-surface-2 p-3 text-[12.5px] text-ink-2 leading-relaxed">
+            <div className="font-semibold text-ink-1 mb-1">
+              {t("nesaCfg.hero.genericHidden.title")}
+            </div>
+            {t("nesaCfg.hero.genericHidden.body")}
+          </div>
+        ) : null}
+      </Card>
+
+      {/* Catalog editor — only when a real framework is selected. */}
+      {isGeneric ? null : (
     <Card className="p-0">
       <div className="p-5 border-b border-border">
         <CardHeader
@@ -368,6 +650,8 @@ export function NesaMappingPanel() {
         </button>
       </div>
     </Card>
+      )}
+    </div>
   );
 }
 

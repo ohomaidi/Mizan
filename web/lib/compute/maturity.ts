@@ -9,6 +9,7 @@ import type {
 import { getLatestSnapshotsForTenant } from "@/lib/db/signals";
 import { getMaturityConfig } from "@/lib/config/maturity-config";
 import { computeTenantFrameworkScore } from "@/lib/config/compliance-framework";
+import { getComplianceConfig } from "@/lib/config/compliance-config";
 
 /**
  * Per-entity Maturity Index breakdown.
@@ -145,7 +146,10 @@ export function computeFromSnapshots(snapshots: {
     for (const c of ss.controls) {
       ssMap.set(c.id, { score: c.score ?? null, maxScore: c.maxScore ?? null });
     }
-    const fw = computeTenantFrameworkScore(ssMap);
+    const fw = computeTenantFrameworkScore(
+      ssMap,
+      getComplianceConfig().unscoredTreatment,
+    );
     complianceSub =
       fw.percent !== null ? clamp(fw.percent) : clamp(ss.percent * 0.95);
   }

@@ -682,7 +682,36 @@ export const DICT = {
     "dataProt.col.srrs": "SRRs (overdue)",
     "dataProt.col.sharing": "Sharing",
 
-    "nesaCfg.title": "Compliance framework — clause mapping",
+    "nesaCfg.hero.eyebrow": "ACTIVE REGULATORY FRAMEWORK",
+    "nesaCfg.hero.activeBadge": "Selected",
+    "nesaCfg.hero.changeLabel": "Change framework",
+    "nesaCfg.hero.switching": "Switching\u2026",
+    "nesaCfg.frameworkSwitched":
+      "Framework switched. Catalog reloaded against the new selection; dashboard-wide UI updated.",
+    "nesaCfg.hero.body.dubai-isr":
+      "Dubai Information Security Regulation, published by Dubai Electronic Security Center under Dubai Law No. 11 of 2014. Mandatory for all Dubai government entities and critical-sector organisations. 13 domains across 3 classes (Governance, Operation, Assurance) anchored on ISO/IEC 27001 + 27002. Used by DESC for cross-tenant posture roll-up.",
+    "nesaCfg.hero.body.nesa":
+      "UAE NESA Information Assurance Standard, published by the federal National Electronic Security Authority. The federal baseline for UAE government entities. Adopted by Sharjah Cybersecurity Council and other UAE councils that don\u2019t fall under DESC\u2019s Dubai-only scope.",
+    "nesaCfg.hero.body.nca":
+      "Saudi Arabia\u2019s National Cybersecurity Authority controls. Used for KSA-based entities. Catalog ships as a placeholder \u2014 build out per the NCA Essential Cybersecurity Controls (ECC).",
+    "nesaCfg.hero.body.isr":
+      "Generic ISO 27001/27002-aligned controls. Useful for entities that don\u2019t fall under a specific national regulator. Catalog ships as a placeholder \u2014 build out against ISO/IEC 27001:2022 Annex A.",
+    "nesaCfg.hero.bodyGeneric":
+      "No regulatory framework is currently selected. The dashboard hides framework-specific UI: the Framework Compliance card on each entity\u2019s overview, the Framework column on the entity grid, the Framework Compliance KPI tile, and the per-clause breakdown panel. Pick a framework above to bring those back.",
+    "nesaCfg.hero.genericHidden.title": "What\u2019s hidden right now",
+    "nesaCfg.hero.genericHidden.body":
+      "Framework Compliance card on every entity overview, the per-domain breakdown panel, the Framework column on the entity grid, the Framework Compliance KPI tile on the council dashboard, and the framework reference on the governance page. Maturity Index and all other dashboards are unaffected. Pick a framework above to bring everything back.",
+    "nesaCfg.cfg.targetLabel": "Pass-mark (target %)",
+    "nesaCfg.cfg.targetHelp":
+      "Entities scoring below this on Framework Compliance are flagged on the council KPI tile and the entity grid. Default 70.",
+    "nesaCfg.cfg.treatmentLabel": "Unscored-clause treatment",
+    "nesaCfg.cfg.treatmentSkip": "Skip (lenient)",
+    "nesaCfg.cfg.treatmentZero": "Count as 0% (strict)",
+    "nesaCfg.cfg.treatmentSkipHelp":
+      "Clauses with no observable evidence on a tenant are excluded from both numerator and denominator. Default. Best for partial-data tenants.",
+    "nesaCfg.cfg.treatmentZeroHelp":
+      "Clauses with no observable evidence are scored as 0%. Stricter \u2014 \u201cif you can\u2019t prove you have it, you don\u2019t have it.\u201d",
+    "nesaCfg.title": "Clause catalog \u2014 mapping",
     "nesaCfg.subtitle":
       "{orgShort}-editable mapping from regulatory clauses to Microsoft Secure Score controls for the framework selected in Branding (UAE NESA, Dubai ISR, etc.). Compliance sub-score is computed as the weighted average of per-clause coverage. Weights auto-normalize on save.",
     "nesaCfg.draftBanner.title":
@@ -823,6 +852,33 @@ export const DICT = {
     "faq.q.target.body":
       "The {orgShort} set 75 as the benchmark during the executive briefing (slide 6). It reflects 'baseline government-grade posture' — above industry average (around 60 for public sector M365 tenants) but achievable for entities that have completed the standard Microsoft Secure Score hardening playbook. The target is editable in Settings → Maturity Index.",
 
+    "faq.q.frameworkCompliance.title":
+      "How is Framework Compliance calculated?",
+    "faq.q.frameworkCompliance.intro":
+      "Framework Compliance is a separate primary metric, sitting alongside the Maturity Index. Maturity Index answers \u201chow well-protected is this entity?\u201d. Framework Compliance answers \u201chow aligned with the regulator\u2019s specific framework?\u201d (Dubai ISR for DESC, NESA for SCSC). Different question, different number, both visible.",
+    "faq.q.frameworkCompliance.formulaIntro":
+      "For the active framework (set in Settings → Compliance framework), the score is the weighted average of per-clause coverage. Each clause\u2019s coverage is the average of its mapped Microsoft Secure Score pass-rates and any operator-managed \u201ccustom evidence\u201d anchors the Council reviews periodically:",
+    "faq.q.frameworkCompliance.unscoredNote":
+      "Clauses with no observable evidence on a tenant are handled per the Settings → Compliance framework toggle. \u201cSkip\u201d (default) excludes them from the calculation entirely \u2014 fair to entities with partial data. \u201cCount as 0%\u201d is stricter \u2014 \u201cif you can\u2019t prove you have it, you don\u2019t have it.\u201d Both are Council-editable.",
+    "faq.q.frameworkCompliance.coverageHeading":
+      "Coverage from Microsoft \u2014 what we can see vs what we can\u2019t",
+    "faq.q.frameworkCompliance.strong.title":
+      "Strong Microsoft coverage (10 of 13 ISR domains)",
+    "faq.q.frameworkCompliance.strong.body":
+      "ISR-1 Governance, ISR-2 Asset Mgmt, ISR-3 Risk Mgmt, ISR-4 Incident, ISR-5 Access Control, ISR-6 Operations & Comms, ISR-8 Systems Acquisition, ISR-11 Compliance & Audit, ISR-12 Assurance, ISR-13 Cloud. Microsoft 365 Secure Score has 200+ controls evidencing these \u2014 score is driven by real Graph data.",
+    "faq.q.frameworkCompliance.partial.title":
+      "Microsoft has limited visibility",
+    "faq.q.frameworkCompliance.partial.body":
+      "Some ISR sub-controls (e.g. encryption-at-rest specifics, cross-tenant CRUD audit trails) are visible only via the Defender for Cloud Apps portal or Compliance Manager rather than Graph \u2014 Mizan can fetch them but reliability varies. Document the gap with a custom evidence anchor on the affected clauses.",
+    "faq.q.frameworkCompliance.uncovered.title":
+      "Microsoft cannot see (3 of 13 domains)",
+    "faq.q.frameworkCompliance.uncovered.body":
+      "ISR-7 BCP (DR drills, business-impact analyses), ISR-9 Environmental & Physical Security (data center, badges, fire), ISR-10 HR (screening, training, leaver process). Microsoft has no view of any of these. Mizan ships these clauses with operator-managed \u201ccustom evidence\u201d anchors \u2014 the Council reviews each entity\u2019s evidence quarterly and sets a manual pass rate. A stale-review badge appears after 90 days.",
+    "faq.q.frameworkCompliance.tuneHeading":
+      "How to tune it",
+    "faq.q.frameworkCompliance.tuneBody":
+      "Settings → Compliance framework: change the active regulation (Dubai ISR / NESA / others), edit per-clause weights so the framework reflects this Council\u2019s priorities, set the pass-mark target (default 70%), and toggle the unscored-clause treatment. The selector at the top of that tab also lets the Council deselect the framework entirely \u2014 the Framework Compliance card, KPI tile, entity-grid column, and per-clause breakdown all hide automatically when no framework is selected.",
+
     "faq.q.signals.title": "What signals feed the index?",
     "faq.q.signals.body":
       "Five signal families pulled per tenant on each sync cycle:",
@@ -867,6 +923,7 @@ export const DICT = {
     "faq.q.glossary.secureScore": "Secure Score — Microsoft's built-in tenant-level security posture metric, 0 to a dynamic max.",
 
     "kpi.maturityIndex": "Maturity index",
+    "kpi.frameworkCompliance": "Framework compliance",
     "kpi.entities": "Entities",
     "kpi.belowTarget": "Below target",
     "kpi.controlsPassing": "Controls passing",
@@ -909,6 +966,7 @@ export const DICT = {
     "cols.entity": "Entity",
     "cols.cluster": "Cluster",
     "cols.maturity": "Maturity",
+    "cols.frameworkCompliance": "Framework",
     "cols.delta7d": "Δ 7d",
     "cols.target": "Target",
     "cols.controls": "Controls",
@@ -1045,6 +1103,35 @@ export const DICT = {
     "workloadCoverage.dlp.comingSoonNote":
       "Activity proxy (alerts) + tenant policy count from Microsoft Graph beta. Per-workload (Endpoint / Teams / SPO / OneDrive / Exchange) deployment available in the Purview portal.",
 
+    "entity.frameworkCompliance.title": "Framework compliance",
+    "entity.frameworkCompliance.subtitle":
+      "Single-axis alignment with the active regulatory framework. Separate from the maturity index — answers \u201chow aligned, not how protected\u201d.",
+    "entity.frameworkCompliance.subtitleFor": "vs. {framework}",
+    "entity.frameworkCompliance.viewBreakdown": "View breakdown",
+    "entity.frameworkCompliance.clausesScored": "Clauses scored",
+    "entity.frameworkCompliance.unscoredTreatmentLabel": "Unscored",
+    "entity.frameworkCompliance.treatmentSkip": "Skipped",
+    "entity.frameworkCompliance.treatmentZero": "Counted as 0%",
+    "entity.frameworkCompliance.noData":
+      "No framework data computed yet. The first sync will populate this.",
+    "entity.frameworkBreakdown.title": "Framework compliance breakdown",
+    "entity.frameworkBreakdown.subtitleFor":
+      "Per-clause coverage against {framework}. Tells you exactly which domains the entity is failing.",
+    "entity.frameworkBreakdown.filterBy": "Filter:",
+    "entity.frameworkBreakdown.allClasses": "All classes",
+    "entity.frameworkBreakdown.allStatus": "All status",
+    "entity.frameworkBreakdown.statusFailing": "Failing only",
+    "entity.frameworkBreakdown.statusPartial": "Partial only",
+    "entity.frameworkBreakdown.statusPassing": "Passing only",
+    "entity.frameworkBreakdown.statusUnscored": "Unscored only",
+    "entity.frameworkBreakdown.classClauseCount": "across {n} clauses",
+    "entity.frameworkBreakdown.col.clause": "Clause",
+    "entity.frameworkBreakdown.col.class": "Class",
+    "entity.frameworkBreakdown.col.weight": "Weight",
+    "entity.frameworkBreakdown.col.evidence": "Evidence",
+    "entity.frameworkBreakdown.col.coverage": "Coverage",
+    "entity.frameworkBreakdown.samples": "{n} samples",
+    "entity.frameworkBreakdown.noRows": "No clauses match the current filters.",
     "entity.maturityTitle": "Maturity index",
     "entity.maturitySubtitle": "Vs. {orgShort} target {target}",
     "entity.targetMarker": "Target {target}",
@@ -3240,7 +3327,36 @@ export const DICT = {
     "dataProt.col.srrs": "طلبات (متأخرة)",
     "dataProt.col.sharing": "المشاركة",
 
-    "nesaCfg.title": "إطار الامتثال — تطابق البنود",
+    "nesaCfg.hero.eyebrow": "الإطار التنظيمي الفعّال",
+    "nesaCfg.hero.activeBadge": "مُختار",
+    "nesaCfg.hero.changeLabel": "تغيير الإطار",
+    "nesaCfg.hero.switching": "جارٍ التبديل\u2026",
+    "nesaCfg.frameworkSwitched":
+      "تم تبديل الإطار. أُعيد تحميل الكتالوج وفق الاختيار الجديد؛ تحديث الواجهة في جميع أنحاء اللوحة.",
+    "nesaCfg.hero.body.dubai-isr":
+      "اللائحة التنظيمية لأمن المعلومات في دبي، الصادرة عن مركز دبي للأمن الإلكتروني بموجب قانون دبي رقم 11 لسنة 2014. إلزامية على جميع جهات حكومة دبي والمنظّمات في القطاعات الحيوية. 13 نطاقاً عبر 3 فئات (الحوكمة، التشغيل، الضمان) مُؤسَّسة على ISO/IEC 27001 + 27002. تستخدمها DESC لتجميع الوضع الأمني عبر المستأجرين.",
+    "nesaCfg.hero.body.nesa":
+      "معيار ضمان المعلومات NESA الإماراتي، الصادر عن السلطة الوطنية الاتحادية للأمن الإلكتروني. الأساس الاتحادي للجهات الحكومية الإماراتية. متبنّى من مجلس الأمن السيبراني للشارقة وغيرها من المجالس الإماراتية خارج نطاق دبي.",
+    "nesaCfg.hero.body.nca":
+      "ضوابط الهيئة الوطنية للأمن السيبراني السعودية. تُستخدم للجهات السعودية. الكتالوج يأتي كقالب \u2014 يُبنى وفق الضوابط الأساسية للأمن السيبراني (ECC).",
+    "nesaCfg.hero.body.isr":
+      "ضوابط عامة متماشية مع ISO 27001/27002. مفيدة للجهات التي لا تخضع لمنظِّم وطني محدّد. الكتالوج يأتي كقالب \u2014 يُبنى وفق ISO/IEC 27001:2022 الملحق أ.",
+    "nesaCfg.hero.bodyGeneric":
+      "لا يوجد إطار تنظيمي محدَّد حالياً. اللوحة تُخفي الواجهات الخاصة بالإطار: بطاقة الامتثال على نظرة عامة كل جهة، عمود الإطار في شبكة الجهات، بطاقة المؤشر العام، ولوحة تفاصيل البنود. اختر إطاراً أعلاه لإعادتها.",
+    "nesaCfg.hero.genericHidden.title": "ما هو مُخفى حالياً",
+    "nesaCfg.hero.genericHidden.body":
+      "بطاقة الامتثال للإطار على كل صفحة جهة، لوحة التفاصيل لكل نطاق، عمود الإطار في الشبكة، بطاقة KPI الامتثال، ومرجع الإطار في صفحة الحوكمة. مؤشر النضج وكل اللوحات الأخرى غير متأثّرة. اختر إطاراً لإعادة كل ذلك.",
+    "nesaCfg.cfg.targetLabel": "حد النجاح (الهدف ٪)",
+    "nesaCfg.cfg.targetHelp":
+      "الجهات التي يقل امتثالها للإطار عن هذه القيمة تُعلَّم في بطاقة KPI وشبكة الجهات. الافتراضي 70.",
+    "nesaCfg.cfg.treatmentLabel": "معاملة البنود غير المُسجَّلة",
+    "nesaCfg.cfg.treatmentSkip": "تجاوز (متساهل)",
+    "nesaCfg.cfg.treatmentZero": "احتساب 0% (صارم)",
+    "nesaCfg.cfg.treatmentSkipHelp":
+      "البنود التي لا تتوفر لها أدلّة على الجهة تُستبعَد من البسط والمقام معاً. الافتراضي. الأنسب للجهات ذات البيانات الجزئية.",
+    "nesaCfg.cfg.treatmentZeroHelp":
+      "البنود غير المُسجَّلة تُحسَب 0٪. أكثر صرامة \u2014 \u00abإن لم تستطع إثباته فأنت لا تملكه\u00bb.",
+    "nesaCfg.title": "كتالوج البنود \u2014 المواءمة",
     "nesaCfg.draftBanner.title":
       "تطابق مؤقّت — بانتظار التحقّق من الكتالوج الرسمي.",
     "nesaCfg.subtitle":
@@ -3377,6 +3493,32 @@ export const DICT = {
     "faq.q.howCalculated.formula.body":
       "المؤشر = ٠٫٢٥·SecureScore + ٠٫٢٠·Identity + ٠٫١٥·Device + ٠٫١٥·Data + ٠٫١٥·Threat + ٠٫١٠·Framework",
 
+    "faq.q.frameworkCompliance.title":
+      "كيف يُحسَب الامتثال للإطار؟",
+    "faq.q.frameworkCompliance.intro":
+      "الامتثال للإطار مؤشّر رئيسي مستقلّ يقع بجانب مؤشر النضج. مؤشر النضج يجيب \u00abما مدى حماية هذه الجهة؟\u00bb. الامتثال للإطار يجيب \u00abما مدى التماشي مع الإطار التنظيمي للجهة المنظِّمة؟\u00bb (Dubai ISR لـDESC، NESA للشارقة). سؤالان مختلفان، رقمان مختلفان، كلاهما ظاهر.",
+    "faq.q.frameworkCompliance.formulaIntro":
+      "للإطار الفعّال (مُحدَّد في الإعدادات \u2192 إطار الامتثال)، النتيجة هي المتوسّط الموزون لتغطية كل بند. تغطية البند هي متوسّط نسب نجاح ضوابط Microsoft Secure Score المُربَطة + أي أدلّة مُخصّصة يديرها المُشغّل ويراجعها المجلس دورياً:",
+    "faq.q.frameworkCompliance.unscoredNote":
+      "البنود التي لا تتوفّر لها أدلّة على جهة ما تُعالَج وفق المفتاح في الإعدادات → إطار الامتثال. «تجاوز» (الافتراضي) يستبعدها من الحساب — منصف للجهات ذات البيانات الجزئية. «احتساب 0%» أكثر صرامة — «إن لم تستطع إثباته فأنت لا تملكه». كلاهما قابل للتحرير.",
+    "faq.q.frameworkCompliance.coverageHeading":
+      "تغطية Microsoft \u2014 ما نراه وما لا نراه",
+    "faq.q.frameworkCompliance.strong.title":
+      "تغطية Microsoft قويّة (10 من 13 نطاقاً)",
+    "faq.q.frameworkCompliance.strong.body":
+      "نطاقات ISR من 1 إلى 6 و8 و11 و12 و13. لدى Microsoft 365 Secure Score أكثر من 200 ضابط تُغطّي هذه النطاقات \u2014 النتيجة مدفوعة ببيانات Graph حقيقية.",
+    "faq.q.frameworkCompliance.partial.title":
+      "رؤية Microsoft محدودة",
+    "faq.q.frameworkCompliance.partial.body":
+      "بعض البنود الفرعية (مثل تشفير البيانات الساكنة بالتفصيل، مسارات التدقيق عبر المستأجرين) متاحة فقط عبر بوابة Defender for Cloud Apps أو Compliance Manager بدلاً من Graph \u2014 ميزان يجمعها لكن الموثوقية تتفاوت. وثّق الفجوة بأنخر دليل مخصّص.",
+    "faq.q.frameworkCompliance.uncovered.title":
+      "Microsoft لا ترى (3 من 13)",
+    "faq.q.frameworkCompliance.uncovered.body":
+      "ISR-7 استمرارية الأعمال، ISR-9 الأمن المادي والبيئي، ISR-10 الموارد البشرية. لا رؤية لـMicrosoft. يأتي ميزان بهذه البنود مع «أدلّة مخصّصة» يُديرها المُشغّل — يراجع المجلس أدلّة كل جهة ربع سنوياً ويضع نسبة نجاح يدوية. تظهر علامة «مراجعة قديمة» بعد 90 يوماً.",
+    "faq.q.frameworkCompliance.tuneHeading":
+      "كيف تُضبَط",
+    "faq.q.frameworkCompliance.tuneBody":
+      "الإعدادات \u2192 إطار الامتثال: غيّر اللائحة الفعّالة (Dubai ISR / NESA / غيرهما)، حرّر أوزان البنود لتعكس أولويات المجلس، اضبط حدّ النجاح (افتراضي 70٪)، بدّل معاملة البنود غير المُسجَّلة. كما يُتيح المُحدِّد في أعلى التبويبة للمجلس إلغاء اختيار الإطار كلياً \u2014 تختفي تلقائياً بطاقة الامتثال، بطاقة KPI، عمود الشبكة، ولوحة التفاصيل.",
     "faq.q.target.title": "لماذا الهدف ٧٥؟",
     "faq.q.target.body":
       "اعتمد {orgShort} ٧٥ معياراً خلال جلسة العرض التنفيذية (الشريحة ٦). يعكس 'الوضع الأمني الحكومي الأساسي' — أعلى من متوسط القطاع (حوالي ٦٠ لمستأجري M365 في القطاع العام) لكنه قابل للتحقيق للجهات التي أنجزت خطة Microsoft Secure Score الأساسية. يمكن تعديل الهدف من قبل قيادة معايير {orgShort} في المرحلة الثالثة.",
@@ -3425,6 +3567,7 @@ export const DICT = {
     "faq.q.glossary.secureScore": "Secure Score — مقياس الوضع الأمني المضمّن من Microsoft على مستوى المستأجر، من ٠ إلى حد أقصى ديناميكي.",
 
     "kpi.maturityIndex": "مؤشر النضج",
+    "kpi.frameworkCompliance": "الامتثال للإطار",
     "kpi.entities": "الجهات",
     "kpi.belowTarget": "دون الهدف",
     "kpi.controlsPassing": "الضوابط المطابقة",
@@ -3485,6 +3628,7 @@ export const DICT = {
     "cols.entity": "الجهة",
     "cols.cluster": "القطاع",
     "cols.maturity": "النضج",
+    "cols.frameworkCompliance": "الإطار",
     "cols.delta7d": "Δ ٧ أيام",
     "cols.target": "الهدف",
     "cols.controls": "الضوابط",
@@ -3621,6 +3765,35 @@ export const DICT = {
     "workloadCoverage.dlp.comingSoonNote":
       "مؤشر النشاط (التنبيهات) + عدد سياسات المستأجر من Microsoft Graph التجريبي. النشر لكل حِمل (Endpoint / Teams / SPO / OneDrive / Exchange) متاح في بوابة Purview.",
 
+    "entity.frameworkCompliance.title": "الامتثال للإطار",
+    "entity.frameworkCompliance.subtitle":
+      "محور واحد لقياس مدى التماشي مع الإطار التنظيمي الفعّال. منفصل عن مؤشر النضج — يجيب: \u00abمدى التوافق، لا مدى الحماية\u00bb.",
+    "entity.frameworkCompliance.subtitleFor": "مقابل {framework}",
+    "entity.frameworkCompliance.viewBreakdown": "عرض التفاصيل",
+    "entity.frameworkCompliance.clausesScored": "البنود المُسجَّلة",
+    "entity.frameworkCompliance.unscoredTreatmentLabel": "غير مسجَّلة",
+    "entity.frameworkCompliance.treatmentSkip": "تُتجاوَز",
+    "entity.frameworkCompliance.treatmentZero": "تُحسَب 0٪",
+    "entity.frameworkCompliance.noData":
+      "لم تُحسَب بيانات الإطار بعد. سيُملأ هذا في أول مزامنة.",
+    "entity.frameworkBreakdown.title": "تفاصيل الامتثال للإطار",
+    "entity.frameworkBreakdown.subtitleFor":
+      "تغطية كل بند مقارنةً بـ {framework}. توضّح بدقّة أين تتعثّر الجهة.",
+    "entity.frameworkBreakdown.filterBy": "تصفية:",
+    "entity.frameworkBreakdown.allClasses": "كل الفئات",
+    "entity.frameworkBreakdown.allStatus": "كل الحالات",
+    "entity.frameworkBreakdown.statusFailing": "المتعثّرة فقط",
+    "entity.frameworkBreakdown.statusPartial": "الجزئية فقط",
+    "entity.frameworkBreakdown.statusPassing": "الناجحة فقط",
+    "entity.frameworkBreakdown.statusUnscored": "غير المُسجَّلة",
+    "entity.frameworkBreakdown.classClauseCount": "عبر {n} بند",
+    "entity.frameworkBreakdown.col.clause": "البند",
+    "entity.frameworkBreakdown.col.class": "الفئة",
+    "entity.frameworkBreakdown.col.weight": "الوزن",
+    "entity.frameworkBreakdown.col.evidence": "الأدلّة",
+    "entity.frameworkBreakdown.col.coverage": "التغطية",
+    "entity.frameworkBreakdown.samples": "{n} عيّنات",
+    "entity.frameworkBreakdown.noRows": "لا توجد بنود تطابق التصفية الحالية.",
     "entity.maturityTitle": "مؤشر النضج",
     "entity.maturitySubtitle": "مقارنة بهدف {orgShort} {target}",
     "entity.targetMarker": "الهدف {target}",

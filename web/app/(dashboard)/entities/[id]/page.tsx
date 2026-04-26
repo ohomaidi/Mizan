@@ -77,11 +77,41 @@ type EndpointHealth = {
   throttle_count_24h: number;
 };
 
+/**
+ * Per-clause framework breakdown — populated by the entity-detail
+ * API. Powers the "ISR Compliance breakdown" panel and the headline
+ * Framework Compliance card on overview.
+ */
+type FrameworkBreakdownRow = {
+  clauseId: string;
+  ref: string;
+  classRefs?: Array<"Governance" | "Operation" | "Assurance">;
+  titleEn: string;
+  titleAr: string;
+  weight: number;
+  coverage: number | null;
+  samples: number;
+  secureScoreControls: string[];
+  customEvidenceCount: number;
+};
+
+type FrameworkComplianceDetail = {
+  frameworkId: string;
+  frameworkVersion: string;
+  target: number;
+  unscoredTreatment: "skip" | "zero";
+  percent: number | null;
+  clausesScored: number;
+  clausesTotal: number;
+  breakdown: FrameworkBreakdownRow[];
+};
+
 type Detail = {
   tenant: TenantRow;
   maturity: MaturityBreakdown;
   signals: Signals;
   health: EndpointHealth[];
+  frameworkCompliance?: FrameworkComplianceDetail;
 };
 
 type State =
@@ -272,7 +302,8 @@ function EntityDetailInner({
   if (state.kind === "error") return <ErrorState message={state.message} onRetry={load} />;
   if (state.kind === "missing") return <EmptyState />;
 
-  const { tenant, maturity, signals, health } = state.detail;
+  const { tenant, maturity, signals, health, frameworkCompliance } =
+    state.detail;
   const cluster = CLUSTERS.find((c) => c.id === tenant.cluster);
   const clusterLabel = cluster ? (locale === "ar" ? cluster.labelAr : cluster.label) : tenant.cluster;
 
@@ -672,7 +703,20 @@ function EntityDetailInner({
           </div>
         </Card>
 
-        <Card className="lg:col-span-2">
+        {/* Framework Compliance — separate primary metric, sits next to
+            Maturity Index. Not a subscore of maturity — answers a
+            different question: "how aligned is this entity with the
+            regulator's specific framework?". Computed as the weighted
+            average of per-clause coverage (Microsoft Secure Score
+            pass-rates + operator-managed custom evidence).
+            Hidden entirely when no framework is selected
+            (branding.frameworkId === "generic"). */}
+        {frameworkCompliance &&
+        frameworkCompliance.frameworkId !== "generic" ? (
+          <FrameworkComplianceCard fc={frameworkCompliance} />
+        ) : null}
+
+        <Card className="lg:col-span-1">
           <CardHeader title={t("subscores.title")} subtitle={t("subscores.subtitle")} />
           <ul className="flex flex-col gap-3">
             {subScores.map((s) => (
@@ -704,6 +748,18 @@ function EntityDetailInner({
             })}
           </div>
         </Card>
+
+        {/* Framework Compliance breakdown — per-clause coverage so
+            operators can see exactly where this entity is failing
+            ISR. Anchor `#isr-breakdown` makes the "View breakdown"
+            link in the headline card scroll here. Hidden when no
+            framework is selected. */}
+        {frameworkCompliance &&
+        frameworkCompliance.frameworkId !== "generic" ? (
+          <div className="lg:col-span-3" id="isr-breakdown">
+            <FrameworkBreakdownPanel fc={frameworkCompliance} />
+          </div>
+        ) : null}
 
         {/* Maturity trend — full-width below the index/sub-score cards. */}
         <div className="lg:col-span-3">
@@ -4100,5 +4156,377 @@ function MiniStat({
         {label}
       </div>
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// FrameworkBreakdownPanel — per-clause coverage for the active
+// regulatory framework. Sits below the headline cards. Operators
+// answer "where is this entity failing ISR?" without leaving the
+// overview. Filterable by class (Governance / Operation / Assurance)
+// + by status (failing / partial / passing). Each row expands to
+// show the Microsoft Secure Score evidence anchors + custom
+// evidence anchors that contributed to the score.
+// ────────────────────────────────────────────────────────────────────
+function FrameworkBreakdownPanel({
+  fc,
+}: {
+  fc: FrameworkComplianceDetail | undefined;
+}) {
+  const { t, locale } = useI18n();
+  const fmt = useFmtNum();
+  const [filterClass, setFilterClass] =
+    useState<"" | "Governance" | "Operation" | "Assurance">("");
+  const [filterStatus, setFilterStatus] = useState<
+    "" | "failing" | "partial" | "passing" | "unscored"
+  >("");
+
+  if (!fc) {
+    return null;
+  }
+
+  const target = fc.target / 100;
+  const partialFloor = (fc.target - 20) / 100;
+
+  const rows = fc.breakdown.filter((r) => {
+    if (filterClass && !(r.classRefs ?? []).includes(filterClass)) return false;
+    if (filterStatus === "unscored") return r.coverage === null;
+    if (filterStatus === "passing") {
+      return r.coverage !== null && r.coverage >= target;
+    }
+    if (filterStatus === "partial") {
+      return (
+        r.coverage !== null &&
+        r.coverage >= partialFloor &&
+        r.coverage < target
+      );
+    }
+    if (filterStatus === "failing") {
+      return r.coverage !== null && r.coverage < partialFloor;
+    }
+    return true;
+  });
+
+  // Class summary chips at the top so an operator scanning the panel
+  // can see "Governance is fine, Assurance is weak" at a glance.
+  const classBuckets: Array<{
+    cls: "Governance" | "Operation" | "Assurance";
+    avg: number | null;
+    n: number;
+  }> = (["Governance", "Operation", "Assurance"] as const).map((cls) => {
+    const inCls = fc.breakdown.filter(
+      (r) => (r.classRefs ?? []).includes(cls) && r.coverage !== null,
+    );
+    if (inCls.length === 0) return { cls, avg: null, n: 0 };
+    const avg =
+      inCls.reduce((a, b) => a + (b.coverage ?? 0), 0) / inCls.length;
+    return { cls, avg, n: inCls.length };
+  });
+
+  return (
+    <Card className="p-0">
+      <div className="p-5 flex items-start justify-between gap-3 flex-wrap">
+        <CardHeader
+          title={t("entity.frameworkBreakdown.title")}
+          subtitle={t("entity.frameworkBreakdown.subtitleFor", {
+            framework: fc.frameworkVersion,
+          })}
+        />
+        <div className="flex items-center gap-2 text-[11.5px] flex-wrap">
+          <span className="text-ink-3">
+            {t("entity.frameworkBreakdown.filterBy")}
+          </span>
+          <select
+            value={filterClass}
+            onChange={(e) =>
+              setFilterClass(
+                e.target.value as
+                  | ""
+                  | "Governance"
+                  | "Operation"
+                  | "Assurance",
+              )
+            }
+            className="h-7 px-2 rounded border border-border bg-surface-2 text-ink-1 text-[11.5px]"
+          >
+            <option value="">
+              {t("entity.frameworkBreakdown.allClasses")}
+            </option>
+            <option value="Governance">Governance</option>
+            <option value="Operation">Operation</option>
+            <option value="Assurance">Assurance</option>
+          </select>
+          <select
+            value={filterStatus}
+            onChange={(e) =>
+              setFilterStatus(
+                e.target.value as
+                  | ""
+                  | "failing"
+                  | "partial"
+                  | "passing"
+                  | "unscored",
+              )
+            }
+            className="h-7 px-2 rounded border border-border bg-surface-2 text-ink-1 text-[11.5px]"
+          >
+            <option value="">
+              {t("entity.frameworkBreakdown.allStatus")}
+            </option>
+            <option value="failing">
+              {t("entity.frameworkBreakdown.statusFailing")}
+            </option>
+            <option value="partial">
+              {t("entity.frameworkBreakdown.statusPartial")}
+            </option>
+            <option value="passing">
+              {t("entity.frameworkBreakdown.statusPassing")}
+            </option>
+            <option value="unscored">
+              {t("entity.frameworkBreakdown.statusUnscored")}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      {/* Class summary strip — three pills, one per ISR class.
+          Communicates the macro story before the per-clause detail. */}
+      <div className="px-5 pb-3 flex items-stretch gap-2 flex-wrap">
+        {classBuckets.map((b) => {
+          const tone =
+            b.avg === null
+              ? "border-border bg-surface-2 text-ink-3"
+              : b.avg >= target
+                ? "border-pos/40 bg-pos/10 text-pos"
+                : b.avg >= partialFloor
+                  ? "border-warn/40 bg-warn/10 text-warn"
+                  : "border-neg/40 bg-neg/10 text-neg";
+          return (
+            <div
+              key={b.cls}
+              className={`flex-1 min-w-[120px] rounded-md border ${tone} px-3 py-2`}
+            >
+              <div className="text-[10.5px] uppercase tracking-[0.06em] font-semibold">
+                {b.cls}
+              </div>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-[20px] tabular font-semibold">
+                  {b.avg === null ? "—" : `${fmt(Math.round(b.avg * 100))}%`}
+                </span>
+                <span className="text-[10.5px] opacity-70">
+                  {t("entity.frameworkBreakdown.classClauseCount", {
+                    n: fmt(b.n),
+                  })}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="text-ink-3 text-[11px] uppercase tracking-[0.06em]">
+              <th className="py-2.5 ps-5 text-start font-semibold">
+                {t("entity.frameworkBreakdown.col.clause")}
+              </th>
+              <th className="py-2.5 text-start font-semibold">
+                {t("entity.frameworkBreakdown.col.class")}
+              </th>
+              <th className="py-2.5 text-end font-semibold">
+                {t("entity.frameworkBreakdown.col.weight")}
+              </th>
+              <th className="py-2.5 text-end font-semibold">
+                {t("entity.frameworkBreakdown.col.evidence")}
+              </th>
+              <th className="py-2.5 pe-5 font-semibold text-end">
+                {t("entity.frameworkBreakdown.col.coverage")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-5 py-6 text-center text-[12px] text-ink-3"
+                >
+                  {t("entity.frameworkBreakdown.noRows")}
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => {
+                const cov = r.coverage;
+                const tone =
+                  cov === null
+                    ? "text-ink-3"
+                    : cov >= target
+                      ? "text-pos"
+                      : cov >= partialFloor
+                        ? "text-warn"
+                        : "text-neg";
+                return (
+                  <tr
+                    key={r.clauseId}
+                    className="border-t border-border align-top"
+                  >
+                    <td className="ps-5 py-2.5">
+                      <div className="text-ink-1 font-medium">
+                        {locale === "ar" ? r.titleAr : r.titleEn}
+                      </div>
+                      <div className="text-[11px] text-ink-3 mt-0.5 keep-ltr">
+                        {r.ref}
+                      </div>
+                    </td>
+                    <td className="py-2.5">
+                      <div className="flex flex-wrap gap-1">
+                        {(r.classRefs ?? []).map((cls) => (
+                          <span
+                            key={cls}
+                            className="text-[9.5px] uppercase tracking-[0.06em] font-semibold text-ink-2 border border-border rounded px-1.5 py-px keep-ltr"
+                          >
+                            {cls}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-2.5 text-end tabular">
+                      {fmt(Math.round(r.weight * 10) / 10)}
+                    </td>
+                    <td className="py-2.5 text-end text-ink-2 text-[11px]">
+                      <div className="keep-ltr">
+                        {fmt(r.secureScoreControls.length)} M365
+                        {r.customEvidenceCount > 0 ? (
+                          <span className="ms-1 text-accent">
+                            +{fmt(r.customEvidenceCount)} custom
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="text-[10.5px] text-ink-3">
+                        {t("entity.frameworkBreakdown.samples", {
+                          n: fmt(r.samples),
+                        })}
+                      </div>
+                    </td>
+                    <td className="pe-5 py-2.5 text-end">
+                      <span className={`tabular font-semibold ${tone}`}>
+                        {cov === null ? "—" : `${fmt(Math.round(cov * 100))}%`}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// FrameworkComplianceCard — primary metric, sits next to the Maturity
+// Index. Shows the % alignment with the active framework (Dubai ISR
+// for DESC, NESA for SCSC), with a target marker, a below/at/above
+// indicator, and clauses-scored progress. Clicking the card scrolls
+// to the breakdown panel below the row (separate component).
+// ────────────────────────────────────────────────────────────────────
+function FrameworkComplianceCard({
+  fc,
+}: {
+  fc: FrameworkComplianceDetail | undefined;
+}) {
+  const { t } = useI18n();
+  const fmt = useFmtNum();
+
+  // No-data fallback — never happens on a fresh sync but covers tests
+  // / brand-new deployments where the entity row has no signals yet.
+  if (!fc) {
+    return (
+      <Card className="lg:col-span-1">
+        <CardHeader
+          title={t("entity.frameworkCompliance.title")}
+          subtitle={t("entity.frameworkCompliance.subtitle")}
+        />
+        <div className="text-[12.5px] text-ink-3">
+          {t("entity.frameworkCompliance.noData")}
+        </div>
+      </Card>
+    );
+  }
+
+  const pct = fc.percent ?? 0;
+  const hasScore = fc.percent !== null;
+  const aboveTarget = hasScore && pct >= fc.target;
+  const tone = !hasScore
+    ? "text-ink-3"
+    : aboveTarget
+      ? "text-pos"
+      : pct >= fc.target - 15
+        ? "text-warn"
+        : "text-neg";
+  const barTone = !hasScore
+    ? "bg-surface-3"
+    : aboveTarget
+      ? "bg-pos"
+      : pct >= fc.target - 15
+        ? "bg-warn"
+        : "bg-neg";
+
+  return (
+    <Card className="lg:col-span-1">
+      <CardHeader
+        title={t("entity.frameworkCompliance.title")}
+        subtitle={
+          <span>
+            {t("entity.frameworkCompliance.subtitleFor", {
+              framework: fc.frameworkVersion,
+            })}
+          </span>
+        }
+        right={
+          <a
+            href="#isr-breakdown"
+            className="text-[11px] text-ink-3 hover:text-ink-1"
+          >
+            {t("entity.frameworkCompliance.viewBreakdown")} →
+          </a>
+        }
+      />
+      <div className="flex items-baseline gap-3">
+        <span className={`text-[56px] leading-none font-semibold tabular ${tone}`}>
+          {hasScore ? fmt(Math.round(pct)) : "—"}
+        </span>
+        {hasScore ? (
+          <span className="text-[18px] text-ink-3 tabular">%</span>
+        ) : null}
+      </div>
+      <div className="mt-4 h-1.5 rounded-full bg-surface-3 overflow-hidden">
+        <div
+          className={`h-full ${barTone}`}
+          style={{ width: `${Math.min(100, hasScore ? pct : 0)}%` }}
+        />
+      </div>
+      <div className="mt-1 flex items-center justify-between text-[11px] text-ink-3 tabular">
+        <span>{fmt(0)}</span>
+        <span>{t("entity.targetMarker", { target: fmt(fc.target) })}</span>
+        <span>{fmt(100)}</span>
+      </div>
+      <div className="mt-5 grid grid-cols-2 gap-3 text-center">
+        <MiniStat
+          label={t("entity.frameworkCompliance.clausesScored")}
+          value={`${fmt(fc.clausesScored)} / ${fmt(fc.clausesTotal)}`}
+        />
+        <MiniStat
+          label={t("entity.frameworkCompliance.unscoredTreatmentLabel")}
+          value={
+            fc.unscoredTreatment === "zero"
+              ? t("entity.frameworkCompliance.treatmentZero")
+              : t("entity.frameworkCompliance.treatmentSkip")
+          }
+        />
+      </div>
+    </Card>
   );
 }

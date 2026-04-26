@@ -230,18 +230,29 @@ export function computeClauseCoverageForTenant(
  * Tenant-level compliance score against the active framework.
  *
  * Sums (clause coverage × clause weight) across every clause that has
- * evidence on the tenant. Clauses with no evidence are excluded from
- * BOTH the numerator and denominator — this is intentional: an entity
- * that genuinely doesn't have on-prem AD shouldn't be penalised on
- * MDI-related clauses where Microsoft has nothing to report. The
- * denominator is the sum of weights of clauses that DID contribute.
+ * evidence on the tenant. Two behaviours for clauses with no evidence:
  *
- * Returns 0..100. Returns null when no clause had evidence (entity has
- * literally no Secure Score data + no operator-managed evidence yet).
+ *   - **skip** (default): excludes from BOTH numerator and denominator.
+ *     An entity that genuinely doesn't have on-prem AD shouldn't be
+ *     penalised on MDI-related clauses where Microsoft has nothing
+ *     to report. Denominator is the sum of weights of clauses that
+ *     DID contribute. Returns null when nothing scored.
+ *
+ *   - **zero**: counts unscored clauses as 0%. Stricter — "if you
+ *     can't prove you have it, you don't have it." Denominator
+ *     becomes the sum of all clause weights. Never returns null.
+ *
+ * Mode is read from `compliance.config.unscoredTreatment` (Council-
+ * editable via Settings → Compliance score). Default: "skip".
  */
 export function computeTenantFrameworkScore(
   ssControls: Map<string, { score: number | null; maxScore: number | null }>,
-): { percent: number | null; clausesScored: number; clausesTotal: number } {
+  unscoredTreatment: "skip" | "zero" = "skip",
+): {
+  percent: number | null;
+  clausesScored: number;
+  clausesTotal: number;
+} {
   const mapping = getActiveComplianceMapping();
   let weightedSum = 0;
   let weightTotal = 0;
@@ -249,8 +260,15 @@ export function computeTenantFrameworkScore(
 
   for (const clause of mapping.clauses) {
     const r = computeClauseCoverageForTenant(clause, ssControls);
-    if (r.coverage === null) continue;
     const w = Math.max(0, clause.weight || 0);
+    if (r.coverage === null) {
+      if (unscoredTreatment === "zero") {
+        // Count as 0% — adds nothing to numerator, but full weight to denominator.
+        weightTotal += w;
+      }
+      // Otherwise skip: contributes to neither side.
+      continue;
+    }
     weightedSum += r.coverage * w;
     weightTotal += w;
     clausesScored += 1;
@@ -268,4 +286,48 @@ export function computeTenantFrameworkScore(
     clausesScored,
     clausesTotal: mapping.clauses.length,
   };
+}
+
+/**
+ * Per-clause breakdown for one tenant — used by the entity-detail
+ * "ISR Compliance breakdown" panel so operators can drill into which
+ * specific domains are failing. Returns an array aligned 1:1 with the
+ * active framework's clauses.
+ */
+export type ClauseBreakdownRow = {
+  clauseId: string;
+  ref: string;
+  classRefs?: ComplianceClass[];
+  titleEn: string;
+  titleAr: string;
+  weight: number;
+  /** 0..1 coverage; null when no evidence sample. */
+  coverage: number | null;
+  /** Number of evidence samples that contributed (Microsoft + custom). */
+  samples: number;
+  /** Microsoft Secure Score control IDs that the clause maps to (for drill-down). */
+  secureScoreControls: string[];
+  /** Number of operator-managed custom evidence anchors on the clause. */
+  customEvidenceCount: number;
+};
+
+export function computeTenantClauseBreakdown(
+  ssControls: Map<string, { score: number | null; maxScore: number | null }>,
+): ClauseBreakdownRow[] {
+  const mapping = getActiveComplianceMapping();
+  return mapping.clauses.map((clause) => {
+    const r = computeClauseCoverageForTenant(clause, ssControls);
+    return {
+      clauseId: clause.id,
+      ref: clause.ref,
+      classRefs: clause.classRefs,
+      titleEn: clause.titleEn,
+      titleAr: clause.titleAr,
+      weight: clause.weight,
+      coverage: r.coverage,
+      samples: r.samples,
+      secureScoreControls: clause.secureScoreControls,
+      customEvidenceCount: clause.customEvidence?.length ?? 0,
+    };
+  });
 }

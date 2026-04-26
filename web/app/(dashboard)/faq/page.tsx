@@ -88,6 +88,68 @@ export default function FaqPage() {
 
       <Q id="target" titleKey="faq.q.target.title" bodyKey="faq.q.target.body" />
 
+      {/* Framework Compliance — separate primary metric from the
+          Maturity Index. Three blocks: how it's calculated, which
+          ISR domains Microsoft can see vs not, how to interpret it. */}
+      <div id="frameworkCompliance" />
+      <Card>
+        <CardHeader
+          title={t("faq.q.frameworkCompliance.title")}
+          subtitle={t("faq.q.frameworkCompliance.intro")}
+        />
+        <div className="text-[13px] text-ink-2 leading-relaxed space-y-3">
+          <p>{t("faq.q.frameworkCompliance.formulaIntro")}</p>
+          <pre className="text-[12px] tabular bg-surface-2 border border-border rounded-md p-3 overflow-x-auto keep-ltr">
+{`for each clause in the active framework:
+  coverage = avg(
+    Microsoft Secure Score pass-rates of mapped controls,
+    operator-managed custom evidence (manualPassRate / 100)
+  )
+score = weighted_average(clause coverage × clause.weight)`}
+          </pre>
+          <p>{t("faq.q.frameworkCompliance.unscoredNote")}</p>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-border">
+          <div className="eyebrow mb-2">
+            {t("faq.q.frameworkCompliance.coverageHeading")}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[12.5px]">
+            <div className="rounded-md border border-pos/40 bg-pos/10 p-3">
+              <div className="text-pos font-semibold mb-1.5">
+                {t("faq.q.frameworkCompliance.strong.title")}
+              </div>
+              <div className="text-ink-2 leading-relaxed">
+                {t("faq.q.frameworkCompliance.strong.body")}
+              </div>
+            </div>
+            <div className="rounded-md border border-warn/40 bg-warn/10 p-3">
+              <div className="text-warn font-semibold mb-1.5">
+                {t("faq.q.frameworkCompliance.partial.title")}
+              </div>
+              <div className="text-ink-2 leading-relaxed">
+                {t("faq.q.frameworkCompliance.partial.body")}
+              </div>
+            </div>
+            <div className="rounded-md border border-neg/40 bg-neg/10 p-3">
+              <div className="text-neg font-semibold mb-1.5">
+                {t("faq.q.frameworkCompliance.uncovered.title")}
+              </div>
+              <div className="text-ink-2 leading-relaxed">
+                {t("faq.q.frameworkCompliance.uncovered.body")}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-border text-[12.5px] text-ink-2 leading-relaxed">
+          <div className="eyebrow mb-2">
+            {t("faq.q.frameworkCompliance.tuneHeading")}
+          </div>
+          <p>{t("faq.q.frameworkCompliance.tuneBody")}</p>
+        </div>
+      </Card>
+
       <Card>
         <CardHeader title={t("faq.q.signals.title")} subtitle={t("faq.q.signals.body")} />
         <ul className="text-[13px] text-ink-2 space-y-2 ms-5 list-disc marker:text-council-strong">

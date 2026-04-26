@@ -34,6 +34,7 @@ type SortKey =
   | "entity"
   | "cluster"
   | "maturity"
+  | "frameworkCompliance"
   | "controls"
   | "incidents"
   | "riskyUsers"
@@ -202,6 +203,11 @@ export default function EntitiesPage({
                 <Th sortKey="entity" current={sortKey} dir={sortDir} onSort={onSort} className="ps-5">{t("cols.entity")}</Th>
                 <Th sortKey="cluster" current={sortKey} dir={sortDir} onSort={onSort}>{t("cols.cluster")}</Th>
                 <Th sortKey="maturity" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.maturity")}</Th>
+                {/* Hide Framework column when no framework is selected. */}
+                {rows.length > 0 &&
+                rows[0].frameworkCompliance.frameworkId !== "generic" ? (
+                  <Th sortKey="frameworkCompliance" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.frameworkCompliance")}</Th>
+                ) : null}
                 <Th sortKey="controls" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.controls")}</Th>
                 <Th sortKey="incidents" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.incidents")}</Th>
                 <Th sortKey="riskyUsers" current={sortKey} dir={sortDir} onSort={onSort} align="end">{t("cols.riskyUsers")}</Th>
@@ -263,6 +269,26 @@ export default function EntitiesPage({
                     <td className="py-3 text-end pe-2">
                       <MaturityCell value={e.maturity.index} hasData={e.maturity.hasData} />
                     </td>
+                    {/* Framework column — same gate as the header. */}
+                    {e.frameworkCompliance.frameworkId !== "generic" ? (
+                      <td className="py-3 text-end tabular">
+                        {e.frameworkCompliance.percent !== null ? (
+                          <span
+                            className={
+                              e.frameworkCompliance.percent >= 70
+                                ? "text-pos font-semibold"
+                                : e.frameworkCompliance.percent >= 50
+                                  ? "text-warn font-semibold"
+                                  : "text-neg font-semibold"
+                            }
+                          >
+                            {fmt(e.frameworkCompliance.percent)}%
+                          </span>
+                        ) : (
+                          <span className="text-ink-3">—</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td className="py-3 text-end tabular">
                       {e.maturity.hasData ? `${fmt(e.maturity.controlsPassingPct)}%` : "—"}
                     </td>
@@ -333,6 +359,8 @@ function sortRows(
         return (CONNECTION_RANK[a.connection] - CONNECTION_RANK[b.connection]) * mul;
       case "maturity":
         return push(a, b, (r) => (r.maturity.hasData ? r.maturity.index : null));
+      case "frameworkCompliance":
+        return push(a, b, (r) => r.frameworkCompliance.percent);
       case "controls":
         return push(a, b, (r) => (r.maturity.hasData ? r.maturity.controlsPassingPct : null));
       case "incidents":
