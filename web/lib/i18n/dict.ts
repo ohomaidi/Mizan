@@ -104,7 +104,13 @@ export const DICT = {
       "This entity is subject to Center directive actions: baseline Conditional Access policies, Intune compliance pushes, named locations, incident classification, forced sign-out, and indicator blocks. Every write is previewed, approved, and auditable on both sides.",
     "wizard.step3.demoToggle.title": "Onboard as a demo / simulated entity",
     "wizard.step3.demoToggle.body":
-      "Marks this entity as a demo tenant. The Microsoft Entra consent flow is bypassed and every directive write against the row is simulated. Use this to walk through the wizard end-to-end without a real Entra app. Untick to onboard a real tenant — that requires the Center's Entra app credentials to be configured in Settings → Azure first.",
+      "OFF (default): the wizard generates a real Microsoft Entra admin-consent URL — the entity admin must sign in and grant consent for sync to start. ON: the entity is auto-consented, marked is_demo, and every directive write against the row is simulated. Tick this only when you want to walk through the UI without a real Entra app.",
+    "wizard.step3.demoToggle.statusReal": "Real tenant — Entra consent required",
+    "wizard.step3.demoToggle.statusDemo": "Demo tenant — consent simulated",
+    "wizard.step3.demoToggle.realRequires.title":
+      "Heads up — Entra credentials must be configured",
+    "wizard.step3.demoToggle.realRequires.body":
+      "The wizard will generate a real Microsoft consent URL. That URL only redeems if the operator's Entra app credentials are set in",
     "wizard.step4.title": "Await admin consent",
     "wizard.step4.subtitle":
       "Forward the onboarding letter to the entity's Global Administrator. This page live-polls consent status every 5 seconds. You can close the window — consent continues to be captured by the redirect handler.",
@@ -115,6 +121,13 @@ export const DICT = {
     "wizard.step4.status.failed": "Consent flow failed",
     "wizard.step4.demoBypass":
       "Demo mode — consent simulated. The new entity has been marked as a demo tenant and auto-consented; no real Microsoft Entra registration was attempted. Continue to the final step.",
+    "wizard.step4.demoBypass.title": "Consent simulated — this is a demo tenant",
+    "wizard.step4.demoBypass.body":
+      "You ticked the demo toggle on the previous step, so the wizard skipped the Microsoft Entra consent round-trip and stamped the entity as is_demo=1. Sync will return synthesised signals; directive writes will be simulated. The entity carries a DEMO chip everywhere it appears.",
+    "wizard.step4.demoBypass.realInstead.title":
+      "Wanted a real tenant?",
+    "wizard.step4.demoBypass.realInstead.body":
+      "Cancel this wizard, delete the new row from Settings → Entities, then start over with the demo toggle UNticked on step 3.",
     "wizard.step5.title": "First sync + verify",
     "wizard.step5.subtitle":
       "Trigger an initial Graph pull to prove the pipeline. Once Secure Score returns a value, the entity moves into the live dashboard.",
@@ -2810,7 +2823,13 @@ export const DICT = {
     "wizard.step3.done": "تم الإنشاء. رابط الموافقة وملفات PDF جاهزة أدناه.",
     "wizard.step3.demoToggle.title": "تسجيل كجهة تجريبية / محاكاة",
     "wizard.step3.demoToggle.body":
-      "يعلّم هذه الجهة كجهة تجريبية. يُتجاوز مسار موافقة Microsoft Entra، وتُحاكى كل عمليات الكتابة التوجيهية على هذه الجهة. استخدمه للسير عبر المعالج بالكامل بدون تطبيق Entra حقيقي. أزِل التحديد لتسجيل جهة حقيقية — وذلك يتطلّب تهيئة بيانات تطبيق Entra الخاص بالمركز من الإعدادات → Azure أولاً.",
+      "متوقّف (افتراضيًا): ينشئ المعالج رابط موافقة Microsoft Entra حقيقيًا — على المسؤول العام للجهة تسجيل الدخول ومنح الموافقة كي تبدأ المزامنة. مُفعّل: تتم الموافقة تلقائيًا، تُعلَّم الجهة بـ is_demo=1، وتُحاكى كل عمليات الكتابة التوجيهية. لا تفعّل هذا إلا إذا كنت تريد المرور بالواجهة دون تطبيق Entra حقيقي.",
+    "wizard.step3.demoToggle.statusReal": "جهة حقيقية — تتطلّب موافقة Entra",
+    "wizard.step3.demoToggle.statusDemo": "جهة تجريبية — الموافقة محاكاة",
+    "wizard.step3.demoToggle.realRequires.title":
+      "تنبيه — يجب تهيئة بيانات اعتماد Entra",
+    "wizard.step3.demoToggle.realRequires.body":
+      "سينشئ المعالج رابط موافقة Microsoft حقيقيًا. لا يعمل هذا الرابط إلا إذا كانت بيانات تطبيق Entra الخاصة بجهة التشغيل مضبوطة من",
     "wizard.mode.title": "التوجيه على هذه الجهة",
     "wizard.mode.observation.title": "لا — مراقبة فقط",
     "wizard.mode.observation.body":
@@ -2828,6 +2847,13 @@ export const DICT = {
     "wizard.step4.status.failed": "فشل مسار الموافقة",
     "wizard.step4.demoBypass":
       "وضع العرض التجريبي — الموافقة محاكاة. تم تعليم الجهة الجديدة كجهة تجريبية والموافقة عليها تلقائياً؛ لم تُجرَ أي عملية تسجيل تطبيق Entra حقيقية. تابع إلى الخطوة الأخيرة.",
+    "wizard.step4.demoBypass.title": "الموافقة محاكاة — هذه جهة تجريبية",
+    "wizard.step4.demoBypass.body":
+      "حدّدت خيار الجهة التجريبية في الخطوة السابقة، فتجاوز المعالج جولة موافقة Microsoft Entra ووسم الجهة بـ is_demo=1. ستعيد المزامنة إشارات مركّبة، وستُحاكى عمليات الكتابة التوجيهية. تحمل الجهة شارة DEMO في كل مكان تظهر فيه.",
+    "wizard.step4.demoBypass.realInstead.title":
+      "كنت تريد جهة حقيقية؟",
+    "wizard.step4.demoBypass.realInstead.body":
+      "ألغِ هذا المعالج، احذف السجل الجديد من الإعدادات → الجهات، ثم ابدأ من جديد مع إلغاء تحديد خيار الجهة التجريبية في الخطوة الثالثة.",
     "wizard.step5.title": "المزامنة الأولى والتحقق",
     "wizard.step5.subtitle":
       "شغّل سحبًا أوليًا من Graph لإثبات جاهزية خط الأنابيب. بمجرد رجوع قيمة Secure Score، تظهر الجهة في اللوحة الحيّة.",

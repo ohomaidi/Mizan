@@ -34,10 +34,13 @@ type Draft = {
   /**
    * Operator opt-in: mark this entity as a demo / simulated tenant.
    * Hidden in production deployments (MIZAN_DEMO_MODE=false). Defaults
-   * to true on demo deployments because most onboardings on a demo
-   * install ARE demo entities, but the operator can untoggle it to
-   * onboard a real tenant against the same install (Center Entra app
-   * must be configured for the real path to succeed).
+   * to FALSE on every deployment — even MIZAN_DEMO_MODE=true demo
+   * environments — because the most common reason an operator clicks
+   * through the wizard is to onboard a real tenant. Demo-mode deployments
+   * already ship with 12 pre-seeded demo entities; the operator who
+   * needs more demo rows can tick the toggle on step 3 explicitly.
+   * The previous "default ON" behavior surprised operators who didn't
+   * notice the toggle and ended up with auto-simulated tenants.
    */
   isDemo: boolean;
 };
@@ -94,12 +97,13 @@ export function OnboardingWizard({ onDone }: { onDone?: () => void }) {
         if (!alive) return;
         setDeploymentMode(r.deploymentMode);
         setDemoMode(r.demoMode);
-        // Demo deployments default the toggle ON because most onboardings
-        // are simulated; operator unticks it to onboard a real tenant.
-        // Production deployments leave it OFF and never show the toggle.
-        if (r.demoMode) {
-          setDraft((d) => ({ ...d, isDemo: true }));
-        }
+        // The demo toggle defaults to OFF on every deployment. The most
+        // common reason an operator clicks through the wizard is to
+        // onboard a real tenant, so the path of least resistance must
+        // produce a real consent flow. Operators who want to add a demo
+        // row tick the toggle on step 3 explicitly. Hiding the toggle
+        // on production deployments still happens via the `demoMode`
+        // check on the rendered UI block.
       })
       .catch(() => {});
     return () => {
@@ -630,13 +634,34 @@ function Step3({
       ) : null}
 
       {/* Demo-entity toggle — visible only on deployments with
-          MIZAN_DEMO_MODE=true. Defaults ON because most onboardings on
-          a demo install ARE simulated; operator unticks it to onboard
-          a real tenant against the same install. The server-side guard
-          on /api/tenants ensures production deployments cannot accept
-          isDemo=true even via a forged request. */}
+          MIZAN_DEMO_MODE=true. Defaults OFF (the most common intent
+          on the wizard is "onboard a real tenant"). The server-side
+          guard on /api/tenants ensures production deployments cannot
+          accept isDemo=true even via a forged request.
+
+          Real-tenant path on a demo deployment: the operator leaves
+          the toggle OFF, the server hits the real Entra consent flow.
+          That requires app credentials configured in
+          Settings → App Registration first; we surface a warning when
+          the operator picks real but creds aren't set, so they don't
+          sleepwalk into a consent URL that won't work. */}
       {demoMode ? (
-        <div className="rounded-md border border-accent/40 bg-accent/10 p-4">
+        <div
+          className={`rounded-md border p-4 ${
+            draft.isDemo
+              ? "border-accent/40 bg-accent/10"
+              : "border-pos/40 bg-pos/10"
+          }`}
+        >
+          <div
+            className={`text-[11px] uppercase tracking-[0.08em] font-semibold mb-2 ${
+              draft.isDemo ? "text-accent" : "text-pos"
+            }`}
+          >
+            {draft.isDemo
+              ? t("wizard.step3.demoToggle.statusDemo")
+              : t("wizard.step3.demoToggle.statusReal")}
+          </div>
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -653,6 +678,28 @@ function Step3({
               </div>
             </div>
           </label>
+          {/* When the operator picks "real tenant" on a demo
+              deployment, remind them the consent URL only works once
+              Entra credentials are configured. We don't block — the
+              wizard will still generate a URL — but the URL won't
+              redeem successfully without credentials. Linking to the
+              Settings panel where they can paste the credentials. */}
+          {!draft.isDemo ? (
+            <div className="mt-3 pt-3 border-t border-pos/30 text-[11.5px] text-ink-2 leading-relaxed">
+              <span className="font-semibold text-ink-1">
+                {t("wizard.step3.demoToggle.realRequires.title")}
+              </span>
+              {": "}
+              {t("wizard.step3.demoToggle.realRequires.body")}{" "}
+              <a
+                href="/settings#azure"
+                className="text-council-strong hover:underline keep-ltr"
+              >
+                Settings → App Registration
+              </a>
+              .
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -745,8 +792,20 @@ function Step4({
         </span>
       </div>
       {generated.demoBypass ? (
-        <div className="rounded-md border border-pos/40 bg-pos/10 p-3 text-[12.5px] text-pos">
-          {t("wizard.step4.demoBypass")}
+        <div className="rounded-md border border-accent/40 bg-accent/10 p-4 text-[12.5px]">
+          <div className="font-semibold text-accent mb-1">
+            {t("wizard.step4.demoBypass.title")}
+          </div>
+          <div className="text-ink-2 leading-relaxed">
+            {t("wizard.step4.demoBypass.body")}
+          </div>
+          <div className="text-ink-2 mt-2 leading-relaxed">
+            <span className="font-semibold text-ink-1">
+              {t("wizard.step4.demoBypass.realInstead.title")}
+            </span>
+            {": "}
+            {t("wizard.step4.demoBypass.realInstead.body")}
+          </div>
         </div>
       ) : generated.consentUrl ? (
         <div className="rounded-md border border-border bg-surface-2 p-4 flex flex-col gap-2">
