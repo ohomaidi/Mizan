@@ -26,6 +26,8 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-27 — v2.5.28 (drop CvssScore column from vulnerability KQL)**. v2.5.27's MTP fix moved auth from broken-403 to real KQL execution. Microsoft's MTP Advanced Hunting parser returned `'summarize' operator: Failed to resolve scalar expression named 'CvssScore'` on the live OzTenant query, even though the official schema docs list `CvssScore` as a column on `DeviceTvmSoftwareVulnerabilities`. Either Microsoft rolled back the column on the unified XDR parser (without updating the docs) or it's gated behind some licensing tier we can't detect ahead of time. The UI already handles `cvssScore: null` as an em-dash, so v2.5.28 just drops the column from both KQL queries (`MaxCvss = max(CvssScore)` and `CvssScore = max(CvssScore)`). Severity counts, affected-device counts, exploit-availability flags, and CVE ids all still land — that's the bulk of the actionable signal.
+
 - **2026-04-27 — v2.5.27 (Microsoft Threat Protection — FINAL fix for vulnerability hunting)**. v2.5.26 reverted the Defender hostname to legacy on the assumption Microsoft kept role checks per-hostname. Wrong — Microsoft converged the role check across BOTH hostnames. The error stayed identical: *"Missing application roles. API required roles: AdvancedHunting.Read.All, application roles: Machine.Read.All, AdvancedQuery.Read.All."*
 
   `/api/advancedhunting/run` now requires `AdvancedHunting.Read.All` on the **Microsoft Threat Protection** service principal (`8ee8fdad-f234-4243-8f3b-15c294843740`) — a separate SP with its own audience and role set, distinct from WindowsDefenderATP. v2.5.27 adds proper MTP support:

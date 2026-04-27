@@ -1804,7 +1804,6 @@ const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
     High = countif(VulnerabilitySeverityLevel == "High"),
     Medium = countif(VulnerabilitySeverityLevel == "Medium"),
     Low = countif(VulnerabilitySeverityLevel == "Low"),
-    MaxCvss = max(CvssScore),
     OsPlatform = any(OSPlatform)
   by DeviceId, DeviceName
 | top 50 by Critical desc`;
@@ -1814,11 +1813,19 @@ const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
 //     replaced with `countif(IsExploitAvailable == true) > 0` — flatter
 //     expression, no nested iff. Returns the same boolean.
 //   - Multi-key `top 50 by A desc, B desc` reduced to single key.
+//
+// v2.5.28 — `CvssScore` column dropped. MTP's Advanced Hunting parser
+// returns "Failed to resolve scalar expression named 'CvssScore'" on
+// real tenants even though Microsoft's published schema for
+// DeviceTvmSoftwareVulnerabilities lists it as a column. Possibly a
+// schema-rollback that the docs haven't caught up to, or a tenant-
+// licensing condition we can't detect in advance. The UI already
+// renders `cvssScore: null` as an em-dash, so dropping the column is
+// graceful — severity, exploit, affected-device counts all still land.
 const VULN_KQL_TOP_CVES = `DeviceTvmSoftwareVulnerabilities
 | summarize
     AffectedDevices = dcount(DeviceId),
     Severity = any(VulnerabilitySeverityLevel),
-    CvssScore = max(CvssScore),
     HasExploit = countif(IsExploitAvailable == true) > 0,
     PublishedDateTime = any(VulnerabilityPublishedDate)
   by CveId
