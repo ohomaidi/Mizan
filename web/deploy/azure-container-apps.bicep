@@ -303,8 +303,24 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
                 name: 'APP_BASE_URL'
                 value: appBaseUrl
               }
+              // v2.5.17 split: DATA_DIR keeps the persistent NFS mount for
+              // long-lived files (uploaded logos, branding assets). The
+              // SQLite database moves to /local-data (EmptyDir, fast local
+              // disk) via SCSC_DB_PATH. MIZAN_DB_BACKUP_DIR points the
+              // backup loop at /data so the DB is snapshotted to NFS every
+              // 5 minutes + on graceful shutdown. Boot-time restore copies
+              // the latest snapshot back to local disk if the EmptyDir
+              // volume was wiped (which happens on every revision swap).
               {
                 name: 'DATA_DIR'
+                value: '/data'
+              }
+              {
+                name: 'SCSC_DB_PATH'
+                value: '/local-data/scsc.sqlite'
+              }
+              {
+                name: 'MIZAN_DB_BACKUP_DIR'
                 value: '/data'
               }
               {
@@ -334,8 +350,19 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
           )
           volumeMounts: [
             {
+              // Persistent NFS mount — uploaded logos, branding assets,
+              // and the SQLite backup target (`MIZAN_DB_BACKUP_DIR`).
+              // Survives revision swaps and pod restarts.
               volumeName: 'data'
               mountPath: '/data'
+            }
+            {
+              // v2.5.17: ephemeral fast-local volume for the live SQLite
+              // file (`SCSC_DB_PATH`). EmptyDir is wiped on every
+              // revision swap; the boot-time restore + 5-minute backup
+              // loop in lib/db/client.ts keep the database durable.
+              volumeName: 'local-data'
+              mountPath: '/local-data'
             }
           ]
           probes: [
@@ -368,9 +395,21 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
       }
       volumes: [
         {
+          // Persistent NFS Azure Files share — backups, logos, branding.
+          // No longer hosts the live SQLite file (perf + corruption fix
+          // in v2.5.17).
           name: 'data'
           storageType: 'NfsAzureFile'
           storageName: envStorage.name
+        }
+        {
+          // v2.5.17: ephemeral fast-local volume for the live SQLite
+          // file. ACA EmptyDir is tied to the container's lifecycle —
+          // wiped on every revision swap and pod restart. The 5-minute
+          // backup loop in lib/db/client.ts persists the data to the
+          // /data NFS mount above so it survives swaps.
+          name: 'local-data'
+          storageType: 'EmptyDir'
         }
       ]
     }

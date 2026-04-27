@@ -3801,21 +3801,26 @@ function BaselinePushModal({
                     : tenant.nameEn
                   : r.tenantId;
                 return (
-                  <li
-                    key={r.tenantId}
-                    className="flex items-center gap-2 justify-between"
-                  >
-                    <span className="text-ink-1 truncate flex-1 min-w-0">
-                      {name}
-                    </span>
-                    {r.status === "already_applied" && r.currentState ? (
-                      <CaStateChip state={r.currentState} />
-                    ) : null}
-                    <PushStatusChip status={r.status} />
-                    {r.error ? (
-                      <span className="text-[10.5px] text-neg max-w-[180px] truncate">
-                        {r.error}
+                  <li key={r.tenantId} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 justify-between">
+                      <span className="text-ink-1 truncate flex-1 min-w-0">
+                        {name}
                       </span>
+                      {r.status === "already_applied" && r.currentState ? (
+                        <CaStateChip state={r.currentState} />
+                      ) : null}
+                      <PushStatusChip status={r.status} />
+                    </div>
+                    {/* v2.5.17: full error text, wrapped not truncated.
+                        The previous `max-w-[180px] truncate` swallowed
+                        everything past the first ~30 chars (e.g. the
+                        Graph endpoint path AND the actual HTTP status +
+                        error body), forcing operators to dig through
+                        push-history JSON to debug. */}
+                    {r.error ? (
+                      <pre className="text-[10.5px] text-neg whitespace-pre-wrap break-words bg-neg/5 border border-neg/20 rounded px-2 py-1.5 font-mono leading-relaxed">
+                        {r.error}
+                      </pre>
                     ) : null}
                   </li>
                 );
@@ -4366,7 +4371,7 @@ function AuditLogSection({
                   <td className="py-2 pe-5">
                     <AuditStatusChip status={r.status} />
                     {r.status === "failed" && r.errorMessage ? (
-                      <div className="text-[10.5px] text-neg mt-0.5 truncate max-w-[220px]">
+                      <div className="text-[10.5px] text-neg mt-0.5 whitespace-pre-wrap break-words font-mono leading-relaxed">
                         {r.errorMessage}
                       </div>
                     ) : null}

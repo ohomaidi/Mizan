@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "2439431908301046078"
+      "templateHash": "5859977255577794"
     }
   },
   "parameters": {
@@ -327,11 +327,15 @@
                 "cpu": "[json(parameters('cpuCores'))]",
                 "memory": "[parameters('memoryGi')]"
               },
-              "env": "[concat(createArray(createObject('name', 'APP_BASE_URL', 'value', parameters('appBaseUrl')), createObject('name', 'DATA_DIR', 'value', '/data'), createObject('name', 'NODE_ENV', 'value', 'production'), createObject('name', 'MIZAN_AZURE_RESOURCE_ID', 'value', resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))))), if(empty(parameters('syncSecret')), createArray(), createArray(createObject('name', 'SCSC_SYNC_SECRET', 'secretRef', 'sync-secret'))))]",
+              "env": "[concat(createArray(createObject('name', 'APP_BASE_URL', 'value', parameters('appBaseUrl')), createObject('name', 'DATA_DIR', 'value', '/data'), createObject('name', 'SCSC_DB_PATH', 'value', '/local-data/scsc.sqlite'), createObject('name', 'MIZAN_DB_BACKUP_DIR', 'value', '/data'), createObject('name', 'NODE_ENV', 'value', 'production'), createObject('name', 'MIZAN_AZURE_RESOURCE_ID', 'value', resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))))), if(empty(parameters('syncSecret')), createArray(), createArray(createObject('name', 'SCSC_SYNC_SECRET', 'secretRef', 'sync-secret'))))]",
               "volumeMounts": [
                 {
                   "volumeName": "data",
                   "mountPath": "/data"
+                },
+                {
+                  "volumeName": "local-data",
+                  "mountPath": "/local-data"
                 }
               ],
               "probes": [
@@ -358,6 +362,10 @@
               "name": "data",
               "storageType": "NfsAzureFile",
               "storageName": "mizandata"
+            },
+            {
+              "name": "local-data",
+              "storageType": "EmptyDir"
             }
           ]
         }

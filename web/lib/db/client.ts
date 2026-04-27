@@ -6,31 +6,21 @@ import { config } from "@/lib/config";
 import { seedDemoTenantsIfEmpty } from "./seed";
 
 let _db: Database.Database | null = null;
+let _backupTimer: ReturnType<typeof setInterval> | null = null;
+let _shutdownHooked = false;
 
 /**
  * Detect whether the directory containing the SQLite file is on a networked
  * filesystem (NFS / SMB / CIFS). Returns `false` if detection fails for any
  * reason — the safer fallback assumes local disk.
  *
- * Why this matters: SQLite's WAL journal mode uses `mmap`'d shared memory
- * (`*.sqlite-shm`) which is documented incompatible with networked
- * filesystems by the SQLite project itself. When two processes (e.g. two ACA
- * pods during a revision swap) both have the file open over NFS, their
- * shared-memory views diverge and writes corrupt the database
- * (`SQLITE_IOERR_SHORT_READ` → `SQLITE_NOTADB`). DELETE mode (the SQLite
- * default — per-write rollback journal, no shared memory) works correctly
- * on networked FS at the cost of slightly slower writes. For Mizan's write
- * volume (a few writes per sync cycle, single-replica deployment) the
- * performance delta is invisible.
- *
- * Detection reads `/proc/mounts` and finds the longest mount-point prefix
- * that contains the DB directory, then checks if the filesystem type starts
- * with `nfs`, `cifs`, or `smb`. ACA's `nfsAzureFile` storage type mounts as
- * `nfs4` — caught by the prefix match. Mac/Windows hosts (`darwin`/`win32`)
- * never have `/proc/mounts` and short-circuit to `false`.
- *
- * Operators on exotic setups can force the safe mode via
- * `MIZAN_DB_NETWORK_FS=true` env var.
+ * v2.5.17: kept as a defensive fallback. The recommended deployment topology
+ * (introduced in v2.5.17) puts the SQLite file on the container's local
+ * `EmptyDir` volume and uses Azure Files NFS only as a backup target —
+ * meaning `isOnNetworkedFs(dbPath)` should return `false` on a properly
+ * configured ACA install. If an operator misconfigures `SCSC_DB_PATH` to
+ * point back at NFS, this detector still kicks in and falls back to the
+ * slow-but-safe DELETE-journal mode rather than corrupting the database.
  */
 function isOnNetworkedFs(dbPath: string): boolean {
   if ((process.env.MIZAN_DB_NETWORK_FS ?? "").toLowerCase() === "true") {
@@ -47,9 +37,6 @@ function isOnNetworkedFs(dbPath: string): boolean {
       if (parts.length < 3) continue;
       const mountPoint = parts[1];
       const fsType = parts[2];
-      // Mount must be a path-prefix of our target directory. Avoid spurious
-      // matches like /data2 matching /data — require an exact-or-followed-by-/
-      // boundary.
       const isPrefix =
         target === mountPoint ||
         target.startsWith(mountPoint + (mountPoint.endsWith("/") ? "" : "/"));
@@ -65,18 +52,156 @@ function isOnNetworkedFs(dbPath: string): boolean {
 }
 
 /**
- * Singleton SQLite connection. Lazy — created on first call, migrations applied, demo data
- * seeded if DB is empty.
+ * Resolve the directory where periodic backups of the SQLite file are
+ * written. Set via `MIZAN_DB_BACKUP_DIR` (the ACA Bicep wires this to the
+ * existing Azure Files NFS mount at `/data` so backups persist across
+ * pod restarts). Returns `null` to disable the backup loop entirely —
+ * desirable for Mac / Docker self-hosted installs where the SQLite file
+ * already lives on durable local disk.
+ */
+function backupDir(): string | null {
+  const dir = (process.env.MIZAN_DB_BACKUP_DIR ?? "").trim();
+  return dir.length > 0 ? dir : null;
+}
+
+function backupFilePath(): string | null {
+  const dir = backupDir();
+  return dir ? path.join(dir, "scsc.sqlite") : null;
+}
+
+/**
+ * On boot: if the live DB file doesn't exist locally, restore from the
+ * latest backup. Idempotent — does nothing when the local file already
+ * exists or when no backup is configured.
  *
- * Journal mode is auto-tuned based on storage type:
- *   - **Local disk** (Mac, Docker w/ local volume): WAL mode for speed.
- *   - **Networked FS** (ACA's NFS Azure Files mount): DELETE mode for safety.
+ * This is what makes the EmptyDir-volume strategy work: the container's
+ * local disk is wiped on every revision swap, but the backup on Azure
+ * Files NFS persists, so the new pod boots with the old pod's last good
+ * snapshot.
+ */
+function restoreFromBackupIfNeeded(localDbPath: string): void {
+  if (fs.existsSync(localDbPath)) return;
+  const bkp = backupFilePath();
+  if (!bkp || !fs.existsSync(bkp)) return;
+  try {
+    fs.mkdirSync(path.dirname(localDbPath), { recursive: true });
+    fs.copyFileSync(bkp, localDbPath);
+    console.log(
+      `[mizan/db] restored from backup: ${bkp} → ${localDbPath} (${fs.statSync(localDbPath).size} bytes)`,
+    );
+  } catch (e) {
+    console.error(`[mizan/db] backup restore failed`, e);
+  }
+}
+
+/**
+ * Take an online backup using better-sqlite3's `db.backup()` API. The
+ * backup is transactional + page-by-page, doesn't block writers, and
+ * produces a consistent snapshot even mid-transaction. Atomic via
+ * tmp-file + rename so a partially-written backup never replaces a good
+ * one. Errors are logged but never thrown — backup failure must NEVER
+ * interrupt a request flow.
+ */
+async function takeBackup(db: Database.Database): Promise<void> {
+  const bkp = backupFilePath();
+  if (!bkp) return;
+  const tmp = `${bkp}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.mkdirSync(path.dirname(bkp), { recursive: true });
+    await db.backup(tmp);
+    fs.renameSync(tmp, bkp);
+  } catch (e) {
+    console.error(`[mizan/db] backup failed`, e);
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      /* tmp may not exist */
+    }
+  }
+}
+
+/**
+ * Schedule the periodic backup loop + a final-backup-on-SIGTERM hook.
+ * Idempotent — safe to call multiple times; only the first call wires
+ * timers.
+ */
+function startBackupLoop(db: Database.Database): void {
+  if (!backupDir()) return;
+  if (_backupTimer || _shutdownHooked) return;
+
+  // Periodic backup. 5-minute interval is the bound on data-loss-window for
+  // a pod hard-crash (SIGKILL with no grace period). Soft restarts (SIGTERM)
+  // get a final backup via the shutdown hook below, so they lose nothing.
+  const intervalMs = Math.max(
+    60_000, // floor: never less than 1 minute (avoid accidental tight loops)
+    Number(process.env.MIZAN_DB_BACKUP_INTERVAL_MS ?? 5 * 60_000),
+  );
+  _backupTimer = setInterval(() => {
+    takeBackup(db).catch(() => {
+      /* takeBackup already logs */
+    });
+  }, intervalMs);
+  // Don't keep the event loop alive just for the timer.
+  if (typeof _backupTimer.unref === "function") _backupTimer.unref();
+
+  // Final backup on graceful shutdown. ACA sends SIGTERM with a 30s grace
+  // period before SIGKILL — plenty of time for one backup. Re-emit the
+  // signal at the end so any other shutdown handlers still run.
+  const onShutdown = (signal: NodeJS.Signals) => {
+    if (_backupTimer) {
+      clearInterval(_backupTimer);
+      _backupTimer = null;
+    }
+    takeBackup(db)
+      .catch(() => {
+        /* logged */
+      })
+      .finally(() => {
+        // Re-raise the signal so the process actually exits.
+        process.removeListener(signal, onShutdown);
+        process.kill(process.pid, signal);
+      });
+  };
+  process.once("SIGTERM", onShutdown);
+  process.once("SIGINT", onShutdown);
+  _shutdownHooked = true;
+
+  console.log(
+    `[mizan/db] backup loop started: every ${Math.round(intervalMs / 1000)}s → ${backupFilePath()}`,
+  );
+}
+
+/**
+ * Singleton SQLite connection. Lazy — created on first call, migrations
+ * applied, demo data seeded if DB is empty, periodic backup scheduled.
  *
- * v2.5.16 fix: prior versions hard-coded WAL, which corrupted the database
- * on ACA deployments whenever two pods briefly co-existed during a revision
- * swap (rolling-update overlap window). DELETE mode + `synchronous = FULL`
- * + `busy_timeout = 30000` makes concurrent access safe — the second
- * writer blocks on the lock instead of corrupting via shared-memory drift.
+ * **v2.5.17 architecture (the perf fix):** the SQLite file lives on the
+ * container's local filesystem (an `EmptyDir` volume on ACA, or the host
+ * filesystem on Mac / Docker), where it gets full POSIX semantics + WAL
+ * mode + microsecond locks. The Azure Files NFS share — which used to host
+ * the live DB and was the root of every perf and corruption issue — is
+ * relegated to a backup target.
+ *
+ * Boot sequence:
+ *   1. If no local DB exists yet, copy the latest snapshot from
+ *      `MIZAN_DB_BACKUP_DIR` (the NFS mount) into place.
+ *   2. Open the local DB. WAL mode for speed; safe because the storage is
+ *      genuinely local.
+ *   3. Schedule periodic `db.backup()` to the NFS share every 5 minutes
+ *      (configurable via `MIZAN_DB_BACKUP_INTERVAL_MS`).
+ *   4. Register a SIGTERM hook that takes one final backup before exit.
+ *
+ * Failure modes:
+ *   - Pod hard-crashes (SIGKILL): up to N minutes of writes lost (default 5).
+ *   - Pod soft-restarts (SIGTERM via revision swap, deploy, scale event):
+ *     no data loss — the shutdown hook backs up before exit.
+ *   - Backup write fails: logged, retried on next tick. The live DB is
+ *     unaffected; only the backup target is degraded.
+ *
+ * Self-hosted Mac / Docker installs typically don't set
+ * `MIZAN_DB_BACKUP_DIR` — the SQLite file already lives on durable local
+ * disk and doesn't need a separate backup target. The backup loop short-
+ * circuits in that case.
  */
 export function getDb(): Database.Database {
   if (_db) return _db;
@@ -85,19 +210,27 @@ export function getDb(): Database.Database {
   const dir = path.dirname(dbPath);
   fs.mkdirSync(dir, { recursive: true });
 
+  // Restore from backup BEFORE opening — `new Database(path)` creates an
+  // empty file at the path if it doesn't exist, which would defeat the
+  // restore-when-missing check.
+  restoreFromBackupIfNeeded(dbPath);
+
   const db = new Database(dbPath);
 
   if (isOnNetworkedFs(dbPath)) {
-    // Networked FS — must NOT use WAL. Rollback journal is the only safe
-    // mode. FULL synchronous gives the strongest durability guarantee at
-    // the cost of one extra fsync per write — acceptable on Mizan's write
-    // volume. busy_timeout makes concurrent writers wait for the lock
-    // instead of erroring with SQLITE_BUSY.
+    // Defensive: this code path should never fire in v2.5.17+ deployments
+    // (the SQLite file should be on local disk). Kept as a safety net for
+    // misconfigurations — falls back to the v2.5.16 slow-but-safe pragmas.
     db.pragma("journal_mode = DELETE");
     db.pragma("synchronous = FULL");
     db.pragma("busy_timeout = 30000");
+    console.warn(
+      `[mizan/db] WARNING: SQLite file is on a networked filesystem (${dbPath}). ` +
+        `Performance will be poor and concurrent writes may corrupt the database. ` +
+        `Set SCSC_DB_PATH to a local-disk path and configure MIZAN_DB_BACKUP_DIR for persistence.`,
+    );
   } else {
-    // Local disk — WAL is faster and safe.
+    // Local disk — WAL mode for fast concurrent reads + writes.
     db.pragma("journal_mode = WAL");
     db.pragma("synchronous = NORMAL");
     db.pragma("busy_timeout = 5000");
@@ -108,6 +241,11 @@ export function getDb(): Database.Database {
   seedDemoTenantsIfEmpty(db);
 
   _db = db;
+
+  // Schedule backups AFTER migrations land so the very first backup
+  // already includes the schema at the current version.
+  startBackupLoop(db);
+
   return db;
 }
 
