@@ -1822,20 +1822,22 @@ const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
 // licensing condition we can't detect in advance. The UI already
 // renders `cvssScore: null` as an em-dash, so dropping the column is
 // graceful — severity, exploit, affected-device counts all still land.
-// v2.5.29 — dropped IsExploitAvailable as well. Same parser-rejection
-// pattern as CvssScore in v2.5.28: "Failed to resolve column or scalar
-// expression named 'IsExploitAvailable'" on MTP, even though Microsoft's
-// schema docs list it. The byDevice query (which doesn't reference
-// IsExploitAvailable) succeeded after v2.5.28, proving the column-not-
-// resolvable error is per-column, not whole-query. UI handles
-// `hasExploit: false` gracefully — exploit indicator just doesn't
-// surface in the per-CVE row. Operators still get severity, affected-
-// device counts, and CVE ids — the most actionable signal.
+// v2.5.30 — stripped to bare minimum after MTP parser rejected each
+// column one by one across v2.5.28/29: CvssScore → IsExploitAvailable
+// → VulnerabilityPublishedDate. All three are in Microsoft's published
+// schema for `DeviceTvmSoftwareVulnerabilities` but MTP's runtime
+// parser doesn't resolve them. The byDevice query (no extra columns
+// beyond DeviceId/DeviceName/OSPlatform/CveId/Severity) succeeded
+// throughout, so the issue is column-by-column not whole-query. Final
+// shape: CveId + dcount(DeviceId) + any(severity). Operators see the
+// CVE list ranked by affected device count, with severity coloring.
+// Published date and exploit-available flag come from Microsoft Defender
+// portal directly when operators drill in — Mizan link to the Defender
+// CVE page is one click on each row.
 const VULN_KQL_TOP_CVES = `DeviceTvmSoftwareVulnerabilities
 | summarize
     AffectedDevices = dcount(DeviceId),
-    Severity = any(VulnerabilitySeverityLevel),
-    PublishedDateTime = any(VulnerabilityPublishedDate)
+    Severity = any(VulnerabilitySeverityLevel)
   by CveId
 | top 50 by AffectedDevices desc`;
 
