@@ -33,6 +33,18 @@ const GRAPH_AUDIENCE = "https://graph.microsoft.com/.default";
 const DEFENDER_AUDIENCE = "https://api.securitycenter.microsoft.com/.default";
 
 /**
+ * Microsoft Threat Protection (Defender XDR) audience. Needed for
+ * `/api/advancedhunting/run` because Microsoft converged the role check
+ * across both legacy and unified Defender hostnames — the WindowsDefenderATP
+ * token's `AdvancedQuery.Read.All` claim is no longer accepted; the API
+ * requires `AdvancedHunting.Read.All` on the MTP service principal
+ * (`8ee8fdad-f234-4243-8f3b-15c294843740`). Mizan acquires this token
+ * separately for hunting-only paths; all other Defender calls keep using
+ * the WindowsDefenderATP token (DEFENDER_AUDIENCE above). v2.5.27.
+ */
+const MTP_AUDIENCE = "https://api.security.microsoft.com/.default";
+
+/**
  * Build the MSAL `auth` block from the active config. Prefers cert when both
  * cert + secret are configured (production-hardening default). Public so the
  * user-auth client builder can reuse exactly the same logic.
@@ -128,6 +140,19 @@ export async function getDefenderTokenForTenant(
   tenantGuid: string,
 ): Promise<string> {
   return acquireToken(tenantGuid, DEFENDER_AUDIENCE, "Defender");
+}
+
+/**
+ * Acquire an app-only Microsoft Threat Protection (Defender XDR) token
+ * for a customer tenant. Used specifically for `/api/advancedhunting/run`,
+ * which Microsoft routes through the MTP role check. Requires
+ * `AdvancedHunting.Read.All` on the Microsoft Threat Protection service
+ * principal (`8ee8fdad-f234-4243-8f3b-15c294843740`). v2.5.27.
+ */
+export async function getMtpTokenForTenant(
+  tenantGuid: string,
+): Promise<string> {
+  return acquireToken(tenantGuid, MTP_AUDIENCE, "MTP");
 }
 
 /**

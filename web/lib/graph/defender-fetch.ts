@@ -1,5 +1,5 @@
 import "server-only";
-import { getDefenderTokenForTenant } from "./msal";
+import { getDefenderTokenForTenant, getMtpTokenForTenant } from "./msal";
 import { recordEndpointHealth } from "@/lib/db/signals";
 import { GraphError } from "./fetch";
 
@@ -163,6 +163,133 @@ export async function defenderFetch<T>(
   throw lastErr instanceof Error
     ? lastErr
     : new Error("defenderFetch: retries exhausted");
+}
+
+/**
+ * Microsoft Threat Protection (Defender XDR) unified API root. Owns
+ * `/api/advancedhunting/run` — Microsoft enforces the MTP role check
+ * here regardless of which Defender hostname the request originates
+ * from, so even though `api.securitycenter.microsoft.com/api/advancedhunting/run`
+ * exists as a path, its role-check converged onto MTP. Mizan uses the
+ * unified hostname directly with an MTP-audience token. v2.5.27.
+ */
+const MTP_API_ROOT = "https://api.security.microsoft.com/api";
+
+type MtpFetchOptions = {
+  tenantGuid: string;
+  ourTenantId: string;
+  path: string;
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  body?: unknown;
+  retries?: number;
+};
+
+/**
+ * Call the Microsoft Threat Protection / Defender XDR API for a given
+ * customer tenant. Mirrors `defenderFetch` but acquires an MTP-audience
+ * token (carries `AdvancedHunting.Read.All` claim) and targets the
+ * unified hostname. Used by `fetchVulnerabilities` for `/advancedhunting/run`. v2.5.27.
+ */
+export async function mtpFetch<T>(opts: MtpFetchOptions): Promise<T> {
+  const retries = opts.retries ?? 3;
+  const endpoint = `defender:${opts.path.split("?")[0]}`;
+
+  let attempt = 0;
+  let lastErr: unknown = null;
+
+  while (attempt <= retries) {
+    attempt++;
+    let token: string;
+    try {
+      token = await getMtpTokenForTenant(opts.tenantGuid);
+    } catch (err) {
+      recordEndpointHealth({
+        tenantId: opts.ourTenantId,
+        endpoint,
+        ok: false,
+        throttled: false,
+        errorMessage: (err as Error).message,
+      });
+      throw err;
+    }
+
+    let res: Response;
+    try {
+      res = await fetch(`${MTP_API_ROOT}${opts.path}`, {
+        method: opts.method ?? "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+        cache: "no-store",
+      });
+    } catch (err) {
+      lastErr = err;
+      recordEndpointHealth({
+        tenantId: opts.ourTenantId,
+        endpoint,
+        ok: false,
+        throttled: false,
+        errorMessage: (err as Error).message,
+      });
+      await sleep(backoffMs(attempt));
+      continue;
+    }
+
+    if (res.ok) {
+      recordEndpointHealth({
+        tenantId: opts.ourTenantId,
+        endpoint,
+        ok: true,
+        throttled: false,
+      });
+      if (res.status === 204) return undefined as unknown as T;
+      const text = await res.text();
+      if (!text) return undefined as unknown as T;
+      return JSON.parse(text) as T;
+    }
+
+    const throttled = res.status === 429;
+    const retryAfterRaw = res.headers.get("Retry-After");
+    const retryAfterSeconds = retryAfterRaw ? Number(retryAfterRaw) : null;
+    let bodyText: string | undefined;
+    let body: unknown = null;
+    try {
+      bodyText = await res.text();
+      body = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      body = bodyText ?? null;
+    }
+
+    recordEndpointHealth({
+      tenantId: opts.ourTenantId,
+      endpoint,
+      ok: false,
+      throttled,
+      errorMessage: summarize(body, bodyText, res.status),
+    });
+
+    const retryable = throttled || (res.status >= 500 && res.status < 600);
+    if (retryable && attempt <= retries) {
+      const waitMs =
+        retryAfterSeconds !== null
+          ? retryAfterSeconds * 1000
+          : backoffMs(attempt);
+      await sleep(waitMs);
+      continue;
+    }
+
+    throw new GraphError(
+      `Defender ${opts.method ?? "GET"} ${opts.path} failed with ${res.status}`,
+      { status: res.status, body, throttled, retryAfterSeconds },
+    );
+  }
+
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error("mtpFetch: retries exhausted");
 }
 
 function backoffMs(attempt: number): number {

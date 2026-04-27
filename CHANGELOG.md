@@ -26,6 +26,18 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-27 — v2.5.27 (Microsoft Threat Protection — FINAL fix for vulnerability hunting)**. v2.5.26 reverted the Defender hostname to legacy on the assumption Microsoft kept role checks per-hostname. Wrong — Microsoft converged the role check across BOTH hostnames. The error stayed identical: *"Missing application roles. API required roles: AdvancedHunting.Read.All, application roles: Machine.Read.All, AdvancedQuery.Read.All."*
+
+  `/api/advancedhunting/run` now requires `AdvancedHunting.Read.All` on the **Microsoft Threat Protection** service principal (`8ee8fdad-f234-4243-8f3b-15c294843740`) — a separate SP with its own audience and role set, distinct from WindowsDefenderATP. v2.5.27 adds proper MTP support:
+
+  - **Third `requiredResourceAccess` block** on the data app for the MTP service principal with role id `7734e8e5-8dde-42fc-b5ae-6eafea078693` (AdvancedHunting.Read.All). Verified via `az ad sp show --id 8ee8fdad-... --query "appRoles[?value=='AdvancedHunting.Read.All']"`.
+  - **`MTP_AUDIENCE`** = `https://api.security.microsoft.com/.default` added to msal.ts; new `getMtpTokenForTenant()` helper acquires app-only tokens scoped to MTP. Cached separately from the Defender token under its own audience key (the cache fix from v2.5.24 already handles per-audience eviction correctly).
+  - **`mtpFetch()`** in defender-fetch.ts — mirror of `defenderFetch` but acquires the MTP audience token and posts to the unified hostname (`api.security.microsoft.com/api`). Used specifically for `/advancedhunting/run` calls.
+  - **`fetchVulnerabilities` switched** from `defenderFetch` to `mtpFetch`. All other Defender calls (`/machines`, `/indicators`) keep using WindowsDefenderATP audience + legacy hostname unchanged — those endpoints work fine with the existing scope set.
+  - **Source app on Entra updated** to include the MTP block (run alongside the deploy: `az ad app update --id <sourceAppId> --required-resource-accesses @rra.json`). Future consent flows pick up the new role automatically.
+
+  **Tenant action required**: tenants onboarded before v2.5.27 still have entity-side SPs without the `7734e8e5-...` appRoleAssignment. Their entity admin needs to re-grant admin consent on the Mizan SP via Enterprise Applications — Microsoft reads the source app's current `requiredResourceAccess` and provisions the new role assignment. Then `mtpFetch` succeeds and vulnerabilities populate.
+
 - **2026-04-27 — v2.5.26 (Defender API root reverted to legacy hostname — REAL actual cause of the empty vulnerabilities)**. v2.5.25 corrected the `AdvancedQuery.Read.All` GUID and got the role onto the entity SP. The token issued for `https://api.securitycenter.microsoft.com/.default` correctly carried both `Machine.Read.All` and `AdvancedQuery.Read.All`. But `/advancedhunting/run` was STILL returning 403 with: *"Missing application roles. API required roles: AdvancedHunting.Read.All, application roles: Machine.Read.All, AdvancedQuery.Read.All."*
 
   Microsoft's full error revealed the actual problem: `api.security.microsoft.com` (unified Defender XDR hostname) is a separate service principal — **Microsoft Threat Protection** (`8ee8fdad-f234-4243-8f3b-15c294843740`) — with its own role set. `/api/advancedhunting/run` on the unified host requires `AdvancedHunting.Read.All` on MTP. The legacy hostname `api.securitycenter.microsoft.com` is **WindowsDefenderATP** (`fc780465-…`) and accepts `AdvancedQuery.Read.All` for the same path. Mizan was acquiring tokens for the legacy SP and sending them to the unified host — accepted at the gateway, rejected by the role check.

@@ -27,6 +27,18 @@ import { invalidateAuthClient } from "@/lib/auth/msal-user";
 
 // Microsoft Graph resource app ID — fixed.
 const MS_GRAPH = "00000003-0000-0000-c000-000000000000";
+/**
+ * Microsoft Threat Protection (Defender XDR unified API) service principal.
+ * Distinct from WindowsDefenderATP — owns `api.security.microsoft.com` and
+ * the unified Advanced Hunting endpoints. v2.5.27 — required because
+ * `/api/advancedhunting/run` rejects WindowsDefenderATP-audience tokens
+ * with `Missing application roles. API required roles: AdvancedHunting.Read.All`,
+ * even on the legacy hostname (Microsoft converged the role check). Mizan
+ * acquires a separate token for this audience and uses it specifically
+ * for advanced-hunting calls; all other Defender endpoints stay on the
+ * WindowsDefenderATP token.
+ */
+const MICROSOFT_THREAT_PROTECTION = "8ee8fdad-f234-4243-8f3b-15c294843740";
 
 /**
  * Microsoft Defender for Endpoint API service principal — well-known and
@@ -218,6 +230,24 @@ const DEFENDER_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [
 ];
 
 /**
+ * Microsoft Threat Protection (Defender XDR) read-only scopes — needed for
+ * `/api/advancedhunting/run` on both legacy and unified hostnames. Microsoft
+ * converged the role check across hostnames; the WindowsDefenderATP-audience
+ * token's `AdvancedQuery.Read.All` claim is no longer accepted on this path
+ * — Microsoft now requires `AdvancedHunting.Read.All` on the MTP service
+ * principal regardless of which hostname is called. Mizan acquires a
+ * separate MTP-audience token specifically for advanced-hunting requests.
+ * v2.5.27.
+ */
+const MTP_APP_READ_PERMISSIONS: Array<{ name: string; id: string }> = [
+  // POST /api/advancedhunting/run — vulnerability + threat hunting via
+  // Defender XDR Advanced Hunting. Verified via:
+  //   az ad sp show --id 8ee8fdad-f234-4243-8f3b-15c294843740 \
+  //     --query "appRoles[?value=='AdvancedHunting.Read.All']"
+  { name: "AdvancedHunting.Read.All", id: "7734e8e5-8dde-42fc-b5ae-6eafea078693" },
+];
+
+/**
  * Pick the permission set to register on the Graph app based on deployment
  * mode. Read-only deployments get the classic 18-scope read set. Read+write
  * deployments get that set PLUS the directive write scopes above. The choice
@@ -266,6 +296,13 @@ function requiredResourceAccessForMode(
     {
       resourceAppId: WIN_DEFENDER_ATP,
       resourceAccess: defenderPerms.map((p) => ({
+        id: p.id,
+        type: "Role",
+      })),
+    },
+    {
+      resourceAppId: MICROSOFT_THREAT_PROTECTION,
+      resourceAccess: MTP_APP_READ_PERMISSIONS.map((p) => ({
         id: p.id,
         type: "Role",
       })),

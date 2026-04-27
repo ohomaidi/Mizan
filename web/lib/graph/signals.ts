@@ -1,6 +1,6 @@
 import "server-only";
 import { graphFetch, graphFetchAll, GraphError } from "./fetch";
-import { defenderFetch } from "./defender-fetch";
+import { defenderFetch, mtpFetch } from "./defender-fetch";
 
 export type SignalCallCtx = {
   tenantGuid: string;
@@ -1880,14 +1880,21 @@ export async function fetchVulnerabilities(
   let byDeviceRes: { Results?: RawVulnByDeviceRow[] };
   let topCveRes: { Results?: RawVulnCveRow[] };
   try {
+    // v2.5.27 — `/advancedhunting/run` requires AdvancedHunting.Read.All on
+    // the Microsoft Threat Protection SP, NOT AdvancedQuery.Read.All on
+    // WindowsDefenderATP. Microsoft converged the role check across both
+    // hostnames, so even the legacy hostname now demands the MTP claim.
+    // mtpFetch acquires a token with audience https://api.security.microsoft.com/.default
+    // and posts to the unified hostname. Tenants need the MTP role granted
+    // (added to source app's requiredResourceAccess in v2.5.27).
     [byDeviceRes, topCveRes] = await Promise.all([
-      defenderFetch<{ Results?: RawVulnByDeviceRow[] }>({
+      mtpFetch<{ Results?: RawVulnByDeviceRow[] }>({
         ...ctx,
         path: "/advancedhunting/run",
         method: "POST",
         body: { Query: VULN_KQL_BY_DEVICE },
       }),
-      defenderFetch<{ Results?: RawVulnCveRow[] }>({
+      mtpFetch<{ Results?: RawVulnCveRow[] }>({
         ...ctx,
         path: "/advancedhunting/run",
         method: "POST",
