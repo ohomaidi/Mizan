@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 
 /**
  * Provisions Entra app registrations on the customer's behalf using a
@@ -486,6 +487,32 @@ export function extractUserFromToken(accessToken: string): TokenIdentity | null 
     email ||
     "Administrator";
   return { oid, tenantId: tid, email, displayName };
+}
+
+/**
+ * Compute a stable, mode-aware hash of the data app's required scope set.
+ * Each entity tenant's `consented_scope_hash` row carries the hash that was
+ * current at the time their admin granted consent (or last re-verified).
+ * Comparing live `currentScopeHash(mode)` against the stored value tells the
+ * dashboard which tenants need to be re-prompted to grant consent on newly
+ * added scopes. v2.5.24.
+ *
+ * Hashed over scope NAMES (sorted), not GUIDs — adding a new scope changes
+ * the hash; fixing a typo in an existing GUID does not. The 12-hex-char
+ * truncation is plenty for collision-resistance across the small set of
+ * scope-set versions a deployment will see in its lifetime.
+ */
+export function currentScopeHash(
+  mode: "observation" | "directive",
+): string {
+  const graphScopes = graphPermissionsForMode(mode).map((p) => p.name);
+  const defenderScopes = (
+    mode === "directive"
+      ? [...DEFENDER_APP_READ_PERMISSIONS, ...DEFENDER_APP_WRITE_PERMISSIONS]
+      : DEFENDER_APP_READ_PERMISSIONS
+  ).map((p) => p.name);
+  const combined = [...graphScopes, ...defenderScopes].sort().join("|");
+  return createHash("sha256").update(combined).digest("hex").slice(0, 12);
 }
 
 function decodeJwtClaims(token: string): Record<string, unknown> | null {

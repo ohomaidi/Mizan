@@ -160,6 +160,20 @@ export const DICT = {
     "settings.list.clusterHeader": "Cluster",
     "settings.list.status": "Status",
 
+    "settings.deleteEntity.title": "Delete {name}?",
+    "settings.deleteEntity.summary":
+      "This removes {name} from this dashboard, including its sync history and any directive push records. The action is permanent.",
+    "settings.deleteEntity.spWarning.heading":
+      "The service principal in the entity tenant remains",
+    "settings.deleteEntity.spWarning.body":
+      "Deleting this row does NOT remove {name}'s service principal from their Microsoft Entra tenant. If you re-onboard them later, the consent URL will hit AADSTS650051 because the SP still exists. To avoid that, delete the service principal from their Enterprise Applications first — or use the AADSTS650051 recovery flow when re-onboarding (admin grants consent on the existing SP, then clicks Verify and complete).",
+    "settings.deleteEntity.spWarning.openLink":
+      "Open Enterprise Apps in entity tenant",
+    "settings.deleteEntity.alternative":
+      "If you only want to pause syncing, use Suspend instead — that keeps the consent intact and re-enabling later is one click.",
+    "settings.deleteEntity.confirm": "Delete from Mizan",
+    "common.cancel": "Cancel",
+
     "state.loading": "Loading…",
     "state.error": "Something went wrong.",
     "state.retry": "Retry",
@@ -1003,6 +1017,13 @@ export const DICT = {
     "entities.search": "Search entities, domain, CISO…",
     "entities.belowTargetLabel": "Below target:",
     "entities.noMatches": "No entities match your search.",
+    "entities.scopeStale.title":
+      "{count} tenants need re-consent for newly added permissions",
+    "entities.scopeStale.body":
+      "A recent release added Microsoft Graph or Defender scopes that these tenants haven't been consented for yet. Until they re-consent, sync will run with the old permission set and some signals (e.g. vulnerability hunting) won't return data.",
+    "entities.scopeStale.reverify": "Re-verify",
+    "entities.scopeStale.hint":
+      "If Re-verify still fails, the entity admin must open Enterprise Applications in their tenant, find the Mizan app, and click Grant admin consent — that picks up the new scopes from the source app definition. Then click Re-verify here.",
     "entities.pending.copyLink": "Copy consent link",
     "entities.pending.copied": "Copied",
     "entities.pending.cancel": "Cancel onboarding",
@@ -2927,6 +2948,20 @@ export const DICT = {
     "settings.list.clusterHeader": "القطاع",
     "settings.list.status": "الحالة",
 
+    "settings.deleteEntity.title": "حذف {name}؟",
+    "settings.deleteEntity.summary":
+      "ستتم إزالة {name} من هذه اللوحة، بما يشمل سجل المزامنة وأي عمليات دفع توجيهية. هذا الإجراء نهائي.",
+    "settings.deleteEntity.spWarning.heading":
+      "يبقى الـ service principal في مستأجر الجهة",
+    "settings.deleteEntity.spWarning.body":
+      "حذف هذا السجل لا يُزيل الـ service principal الخاص بـ {name} من مستأجر Microsoft Entra لديهم. إذا أعدت تسجيلهم لاحقًا فسيُصدر رابط الموافقة الخطأ AADSTS650051 لأن الـ SP لا يزال موجودًا. لتفادي ذلك، احذف الـ service principal من Enterprise Applications لديهم أولاً — أو استخدم تدفق الإصلاح AADSTS650051 عند إعادة التسجيل (يمنح المسؤول الموافقة على الـ SP الحالي، ثم يضغط على «التحقق وإتمام الربط»).",
+    "settings.deleteEntity.spWarning.openLink":
+      "فتح Enterprise Apps في مستأجر الجهة",
+    "settings.deleteEntity.alternative":
+      "إذا كنتم تريدون فقط إيقاف المزامنة مؤقتًا، استخدموا «تعليق» بدلاً من ذلك — يحافظ على الموافقة قائمة وإعادة التفعيل لاحقًا تتم بضغطة واحدة.",
+    "settings.deleteEntity.confirm": "حذف من Mizan",
+    "common.cancel": "إلغاء",
+
     "state.loading": "جارٍ التحميل…",
     "state.error": "حدث خطأ ما.",
     "state.retry": "إعادة المحاولة",
@@ -3788,6 +3823,13 @@ export const DICT = {
     "entities.search": "بحث عن جهة أو نطاق أو مسؤول أمن…",
     "entities.belowTargetLabel": "دون الهدف:",
     "entities.noMatches": "لا توجد جهات تطابق بحثك.",
+    "entities.scopeStale.title":
+      "{count} جهة تحتاج إلى إعادة الموافقة على صلاحيات أُضيفت حديثًا",
+    "entities.scopeStale.body":
+      "أضافت إصدارة حديثة صلاحيات Microsoft Graph أو Defender لم توافق عليها هذه الجهات بعد. حتى إعادة الموافقة، ستعمل المزامنة بمجموعة الصلاحيات القديمة ولن تُرجع بعض الإشارات (مثل تتبّع الثغرات) أي بيانات.",
+    "entities.scopeStale.reverify": "إعادة التحقق",
+    "entities.scopeStale.hint":
+      "إذا استمر فشل إعادة التحقق، يجب على مسؤول الجهة فتح «التطبيقات المؤسسية» في مستأجره، واختيار تطبيق Mizan، والضغط على «منح موافقة المسؤول» — هذا يلتقط الصلاحيات الجديدة من تعريف التطبيق المصدر. ثم اضغطوا «إعادة التحقق» هنا.",
     "entities.pending.copyLink": "نسخ رابط الموافقة",
     "entities.pending.copied": "تم النسخ",
     "entities.pending.cancel": "إلغاء التهيئة",

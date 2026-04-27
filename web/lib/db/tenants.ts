@@ -27,6 +27,13 @@ export type TenantRow = {
   consent_status: ConsentStatus;
   consented_at: string | null;
   consent_state: string | null;
+  /**
+   * Hash of the scope set the entity was last consented under, computed via
+   * `currentScopeHash(consent_mode)`. NULL = unknown (pre-v2.5.24 onboarding
+   * or row never re-verified). The dashboard compares this against the live
+   * hash to flag tenants that need re-consent for newly added scopes. v2.5.24.
+   */
+  consented_scope_hash: string | null;
   /** Per-entity directive posture. See ConsentMode. */
   consent_mode: ConsentMode;
   /** Timestamp the entity granted consent to the Directive write app, if ever. */
@@ -173,6 +180,24 @@ export function markConsented(id: string): void {
        WHERE id = ?`,
     )
     .run(id);
+}
+
+/**
+ * Stamp the scope hash the tenant is currently verified against. Called
+ * from any code path that proves consent works end-to-end against the
+ * current scope set — the consent-callback success path, the verify
+ * endpoint's self-heal, the consent-recheck endpoint. Lets the dashboard
+ * stop showing the "needs re-verification" banner for this tenant. v2.5.24.
+ */
+export function stampConsentedScopeHash(id: string, hash: string): void {
+  getDb()
+    .prepare(
+      `UPDATE tenants
+         SET consented_scope_hash = ?,
+             updated_at = datetime('now')
+       WHERE id = ?`,
+    )
+    .run(hash, id);
 }
 
 export function markConsentFailed(id: string, reason: string): void {

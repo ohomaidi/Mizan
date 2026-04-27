@@ -2,11 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   getTenantByState,
   markConsented,
+  stampConsentedScopeHash,
 } from "@/lib/db/tenants";
 import { fetchSecureScore } from "@/lib/graph/signals";
 import { syncTenant } from "@/lib/sync/orchestrator";
 import { GraphError } from "@/lib/graph/fetch";
 import { assertAzureConfigured } from "@/lib/config";
+import { currentScopeHash } from "@/lib/auth/graph-app-provisioner";
+import { invalidateTenantToken } from "@/lib/graph/msal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +55,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Drop any cached MSAL token for this tenant before the verification
+  // call. If consent was just re-granted (e.g. AADSTS650051 recovery flow),
+  // any token already in the in-memory cache was issued under the previous
+  // (smaller) role set and won't carry the newly granted claims. We have
+  // to evict before fetchSecureScore so even the verify call lands on a
+  // fresh token. v2.5.24.
+  invalidateTenantToken(tenant.tenant_id);
+
   try {
     await fetchSecureScore({
       tenantGuid: tenant.tenant_id,
@@ -69,6 +80,9 @@ export async function POST(req: NextRequest) {
   if (tenant.consent_status !== "consented") {
     markConsented(tenant.id);
   }
+  // Tenant is provably consented under the live scope set; record the hash
+  // so the dashboard's "needs re-verification" banner clears. v2.5.24.
+  stampConsentedScopeHash(tenant.id, currentScopeHash(tenant.consent_mode));
 
   syncTenant({ ...tenant, consent_status: "consented" }).catch(() => {
     // errors land in signal_snapshots + markSyncResult

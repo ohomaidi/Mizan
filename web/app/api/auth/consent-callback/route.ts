@@ -3,10 +3,13 @@ import {
   getTenantByState,
   markConsentFailed,
   markConsented,
+  stampConsentedScopeHash,
 } from "@/lib/db/tenants";
 import { syncTenant } from "@/lib/sync/orchestrator";
 import { resolveAppBaseUrl } from "@/lib/config/base-url";
 import { config } from "@/lib/config";
+import { currentScopeHash } from "@/lib/auth/graph-app-provisioner";
+import { invalidateTenantToken } from "@/lib/graph/msal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,6 +75,13 @@ export async function GET(req: NextRequest) {
   }
 
   markConsented(tenant.id);
+  // Stamp the live scope hash so the dashboard knows this tenant is up to
+  // date with the current scope set. Cleared by the next scope-set change. v2.5.24.
+  stampConsentedScopeHash(tenant.id, currentScopeHash(tenant.consent_mode));
+  // Drop any cached MSAL token for this tenant so the immediate sync below
+  // acquires a fresh one — the previous token (if any) was issued before
+  // the just-granted role assignments, so it's missing the new claims. v2.5.24.
+  invalidateTenantToken(tenant.tenant_id);
 
   // Fire-and-forget initial sync — the entity admin has already been redirected by then.
   syncTenant(tenant).catch(() => {

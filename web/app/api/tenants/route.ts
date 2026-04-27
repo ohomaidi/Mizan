@@ -12,6 +12,7 @@ import { config } from "@/lib/config";
 import { buildConsentUrl } from "@/lib/config/consent-url";
 import { isDirectiveDeployment } from "@/lib/config/deployment-mode";
 import { isDemoMode } from "@/lib/config/auth-config";
+import { currentScopeHash } from "@/lib/auth/graph-app-provisioner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,20 @@ const DraftSchema = z.object({
 });
 
 export async function GET() {
-  return NextResponse.json({ tenants: listTenants() });
+  // Decorate each row with `scopeStale` — true when the tenant's stored
+  // consent hash differs from the live scope set for its consent_mode.
+  // Demo tenants and revoked/suspended tenants are never marked stale —
+  // the banner is for tenants the operator can actually act on. v2.5.24.
+  const tenants = listTenants().map((t) => {
+    const live = currentScopeHash(t.consent_mode);
+    const stale =
+      t.is_demo === 0 &&
+      t.consent_status === "consented" &&
+      t.suspended_at === null &&
+      (t.consented_scope_hash === null || t.consented_scope_hash !== live);
+    return { ...t, scopeStale: stale };
+  });
+  return NextResponse.json({ tenants });
 }
 
 export async function POST(req: NextRequest) {

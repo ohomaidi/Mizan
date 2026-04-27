@@ -130,9 +130,28 @@ export async function getDefenderTokenForTenant(
   return acquireToken(tenantGuid, DEFENDER_AUDIENCE, "Defender");
 }
 
-/** Clear cache for a tenant (e.g. after consent revocation). */
+/**
+ * Clear cache for a tenant (e.g. after consent revocation, or after a fresh
+ * consent grant introduces new app role assignments that aren't yet in the
+ * cached token's claims).
+ *
+ * v2.5.24 — was buggy: tokenCache keys are `${tenantGuid}::${audience}`
+ * (per-audience), but the previous `tokenCache.delete(tenantGuid)` deleted
+ * a key literally named `tenantGuid` — i.e. nothing. Result: after consent
+ * was re-granted with a new scope (the v2.5.22 `AdvancedQuery.Read.All`
+ * situation), the stale Defender token without that role claim stayed
+ * cached for ~55 min, the next vulnerability hunt fired with the stale
+ * token, and Microsoft returned `Forbidden — application is missing
+ * role(s): AdvancedQuery.Read.All` even though consent was actually live
+ * on the SP. Now iterates and deletes every cache entry whose key
+ * starts with `${tenantGuid}::`, so both Graph and Defender tokens for
+ * the tenant are evicted in one call.
+ */
 export function invalidateTenantToken(tenantGuid: string): void {
-  tokenCache.delete(tenantGuid);
+  const prefix = `${tenantGuid}::`;
+  for (const k of Array.from(tokenCache.keys())) {
+    if (k.startsWith(prefix)) tokenCache.delete(k);
+  }
   clientCache.delete(tenantGuid);
 }
 

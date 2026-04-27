@@ -20,6 +20,7 @@ import { AzureConfigPanel } from "@/components/settings/AzureConfigPanel";
 import { NesaMappingPanel } from "@/components/settings/NesaMappingPanel";
 import { DocumentationPanel } from "@/components/settings/DocumentationPanel";
 import { OnboardingWizard } from "@/components/settings/OnboardingWizard";
+import { DeleteEntityModal } from "@/components/settings/DeleteEntityModal";
 import { BrandingPanel } from "@/components/settings/BrandingPanel";
 import { AuthConfigPanel } from "@/components/settings/AuthConfigPanel";
 import { UsersPanel } from "@/components/settings/UsersPanel";
@@ -197,8 +198,30 @@ function SettingsPageInner() {
     }
   };
 
+  // v2.5.24 — replaced the bare confirm() prompt with a real modal that
+  // tells operators about the orphan SP that gets left behind in the
+  // entity tenant. Without that warning, every delete-and-reonboard
+  // workflow silently lands on AADSTS650051 because the entity-side SP
+  // wasn't cleaned up.
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    nameEn: string;
+    nameAr: string;
+    tenantId: string;
+  } | null>(null);
+
   const onDeleteEntity = async (id: string) => {
-    if (!confirm(locale === "ar" ? "حذف هذه الجهة؟" : "Remove this entity?")) return;
+    const target = entities?.find((e) => e.id === id);
+    if (!target) return;
+    setDeleteTarget({
+      id: target.id,
+      nameEn: target.nameEn,
+      nameAr: target.nameAr,
+      tenantId: target.tenantId,
+    });
+  };
+
+  const onConfirmDelete = async (id: string) => {
     setBusyId(id);
     try {
       await api.deleteTenant(id);
@@ -404,6 +427,13 @@ function SettingsPageInner() {
           </form>
         </Card>
       )}
+
+      <DeleteEntityModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        entity={deleteTarget}
+        onConfirmed={onConfirmDelete}
+      />
 
       <Card className="p-0">
         <div className="p-5">

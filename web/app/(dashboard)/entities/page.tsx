@@ -13,6 +13,8 @@ import {
   Check,
   X,
   Loader2,
+  AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { HealthDot } from "@/components/ui/HealthDot";
@@ -173,6 +175,13 @@ export default function EntitiesPage({
         </div>
       </div>
 
+      {state.kind === "ready" ? (
+        <ScopeStaleBanner entities={state.entities} onChanged={async () => {
+          const r = await api.getEntities();
+          setState({ kind: "ready", entities: r.entities });
+        }} />
+      ) : null}
+
       <Card className="p-0">
         {/* Filter bar — wraps to multiple rows on narrow viewports.
             Search field stays full-width on mobile (flex-1, no max-w
@@ -328,9 +337,19 @@ export default function EntitiesPage({
                       {e.maturity.hasData ? `${fmt(e.maturity.deviceCompliancePct)}%` : "—"}
                     </td>
                     <td className="py-3 align-top">
-                      {e.consentStatus === "pending" ? (
+                      {/*
+                       * v2.5.24 — failed-status tenants now also surface
+                       * the same recovery actions (Copy consent link +
+                       * Cancel) as pending. Before this, a tenant whose
+                       * consent URL hit AADSTS650051 dropped into the
+                       * bare "Pending consent" text branch with no way
+                       * to retry the URL without recreating the row.
+                       */}
+                      {e.consentStatus === "pending" ||
+                      e.consentStatus === "failed" ? (
                         <PendingActions
                           tenantId={e.id}
+                          consentStatus={e.consentStatus}
                           onCancelled={() => onCancelled(e.id)}
                         />
                       ) : e.connection === "pending" ? (
@@ -548,9 +567,11 @@ function MaturityCell({ value, hasData }: { value: number; hasData: boolean }) {
 
 function PendingActions({
   tenantId,
+  consentStatus,
   onCancelled,
 }: {
   tenantId: string;
+  consentStatus: string;
   onCancelled: () => void;
 }) {
   const { t } = useI18n();
@@ -588,10 +609,17 @@ function PendingActions({
     }
   };
 
+  const isFailed = consentStatus === "failed";
   return (
     <div className="flex flex-col gap-1.5 items-start">
-      <span className="text-[11px] uppercase tracking-[0.06em] text-warn">
-        {t("consent.status.pending")}
+      <span
+        className={`text-[11px] uppercase tracking-[0.06em] ${
+          isFailed ? "text-neg" : "text-warn"
+        }`}
+      >
+        {isFailed
+          ? t("consent.status.failed")
+          : t("consent.status.pending")}
       </span>
       <div className="flex items-center gap-1.5">
         <button
@@ -626,6 +654,109 @@ function PendingActions({
           {cancelling ? <Loader2 size={11} className="animate-spin" /> : <X size={11} />}
           {t("entities.pending.cancel")}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Banner that surfaces tenants whose `consented_scope_hash` doesn't match
+ * the live scope set. Triggered after a release adds new scopes (the
+ * v2.5.22 `AdvancedQuery.Read.All` situation) — those tenants need their
+ * admins to grant the new permission via Enterprise Apps, then click
+ * Verify (or have the operator click Re-verify) so v2.5.23's recheck
+ * stamps the fresh hash. v2.5.24.
+ */
+function ScopeStaleBanner({
+  entities,
+  onChanged,
+}: {
+  entities: EntityRow[];
+  onChanged: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const fmt = useFmtNum();
+  const stale = entities.filter((e) => e.scopeStale);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  if (stale.length === 0) return null;
+
+  async function onReverify(id: string) {
+    setBusyId(id);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    try {
+      const r = await api.verifyTenant(id);
+      if (!r.ok) {
+        setErrors((prev) => ({ ...prev, [id]: r.message ?? "verify_failed" }));
+      } else {
+        await onChanged();
+      }
+    } catch (err) {
+      setErrors((prev) => ({
+        ...prev,
+        [id]: err instanceof Error ? err.message : String(err),
+      }));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-warn/40 bg-warn/[0.06] p-4">
+      <div className="flex items-start gap-3">
+        <div className="h-8 w-8 rounded-full bg-warn/20 text-warn grid place-items-center shrink-0 mt-0.5">
+          <ShieldAlert size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13.5px] font-semibold text-ink-1">
+            {t("entities.scopeStale.title", { count: fmt(stale.length) })}
+          </div>
+          <p className="text-[12.5px] text-ink-2 leading-relaxed mt-1">
+            {t("entities.scopeStale.body")}
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            {stale.map((e) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-3 flex-wrap rounded border border-border bg-surface-1 px-3 py-2"
+              >
+                <div className="flex-1 min-w-[180px]">
+                  <div className="text-[12.5px] text-ink-1 font-medium truncate">
+                    {e.nameEn}
+                  </div>
+                  <div className="text-[11px] text-ink-3 tabular keep-ltr truncate">
+                    {e.tenantId}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onReverify(e.id)}
+                  disabled={busyId === e.id}
+                  className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-border bg-surface-2 hover:bg-surface-3 text-[11.5px] text-ink-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {busyId === e.id ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Check size={12} />
+                  )}
+                  {t("entities.scopeStale.reverify")}
+                </button>
+                {errors[e.id] ? (
+                  <div className="basis-full text-[11px] text-warn keep-ltr leading-relaxed">
+                    {errors[e.id]}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-ink-3 mt-3 leading-relaxed">
+            {t("entities.scopeStale.hint")}
+          </p>
+        </div>
       </div>
     </div>
   );

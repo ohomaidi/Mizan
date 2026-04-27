@@ -622,6 +622,27 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 13,
+    name: "add_consented_scope_hash",
+    run: (db) => {
+      // v2.5.24 — track which scope-set version each entity was last
+      // consented under, so the dashboard can flag tenants that need to be
+      // re-prompted to grant consent after a release adds new scopes (the
+      // v2.5.22 `AdvancedQuery.Read.All` situation).
+      //
+      // NULL = unknown (existing tenant onboarded before this column
+      // existed, or onboarded by a code path that hasn't been updated to
+      // stamp the hash). Treated as "needs verification" — the next
+      // successful Verify call backfills it.
+      const cols = db
+        .prepare("PRAGMA table_info(tenants)")
+        .all() as Array<{ name: string }>;
+      if (!cols.some((c) => c.name === "consented_scope_hash")) {
+        db.exec("ALTER TABLE tenants ADD COLUMN consented_scope_hash TEXT");
+      }
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

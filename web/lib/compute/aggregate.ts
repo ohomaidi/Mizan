@@ -1,5 +1,6 @@
 import "server-only";
 import { listTenants } from "@/lib/db/tenants";
+import { currentScopeHash } from "@/lib/auth/graph-app-provisioner";
 import { computeForTenant, type MaturityBreakdown } from "./maturity";
 import { computeMaturityAsOf, deltaFromAsOf } from "./deltas";
 import { getMaturityConfig } from "@/lib/config/maturity-config";
@@ -77,6 +78,14 @@ export type EntityRow = {
   delta90d: number | null;
   /** YTD ≈ 180 days ago (half-year approximation). */
   delta180d: number | null;
+  /**
+   * True when the tenant's recorded `consented_scope_hash` doesn't match
+   * the live scope set for its `consent_mode` — i.e. a release has added
+   * new scopes since this tenant last consented (or last passed Verify).
+   * Drives the dashboard's "X tenants need to re-grant consent" banner.
+   * Only set on consented, non-demo, non-suspended rows. v2.5.24.
+   */
+  scopeStale: boolean;
 };
 
 export type CouncilKpis = {
@@ -236,6 +245,12 @@ export function loadEntities(): EntityRow[] {
       delta30d: deltaFromAsOf(maturity.index, asOf30),
       delta90d: deltaFromAsOf(maturity.index, asOf90),
       delta180d: deltaFromAsOf(maturity.index, asOf180),
+      scopeStale:
+        t.is_demo === 0 &&
+        t.consent_status === "consented" &&
+        t.suspended_at === null &&
+        (t.consented_scope_hash === null ||
+          t.consented_scope_hash !== currentScopeHash(t.consent_mode)),
     };
   });
 }

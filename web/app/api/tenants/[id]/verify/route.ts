@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
-import { getTenant, markConsented } from "@/lib/db/tenants";
+import {
+  getTenant,
+  markConsented,
+  stampConsentedScopeHash,
+} from "@/lib/db/tenants";
 import { fetchSecureScore } from "@/lib/graph/signals";
 import { writeSnapshot } from "@/lib/db/signals";
 import { GraphError } from "@/lib/graph/fetch";
 import { assertAzureConfigured } from "@/lib/config";
+import { currentScopeHash } from "@/lib/auth/graph-app-provisioner";
+import { invalidateTenantToken } from "@/lib/graph/msal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +44,11 @@ export async function POST(
     );
   }
 
+  // Drop any cached MSAL token before verifying. Stale tokens from before
+  // a scope grant can pass the existing-scope checks but still 403 on the
+  // new resource the operator is verifying against. v2.5.24.
+  invalidateTenantToken(tenant.tenant_id);
+
   const started = Date.now();
   try {
     const payload = await fetchSecureScore({
@@ -58,6 +69,9 @@ export async function POST(
     if (tenant.consent_status !== "consented") {
       markConsented(tenant.id);
     }
+    // Stamp the scope hash the tenant is now provably consented under.
+    // Clears the "needs re-verification" banner for this tenant. v2.5.24.
+    stampConsentedScopeHash(tenant.id, currentScopeHash(tenant.consent_mode));
     return NextResponse.json({
       ok: true,
       durationMs: Date.now() - started,
