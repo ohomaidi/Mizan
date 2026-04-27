@@ -57,15 +57,24 @@ export async function GET(
 
   const { Component, slug } = DOCS[id as DocId];
   const prefix = slugify(getBranding().shortEn);
-  const buf = await renderToBuffer(<Component lang={lang} />);
-  const body = new Uint8Array(buf);
+  try {
+    const buf = await renderToBuffer(<Component lang={lang} />);
+    const body = new Uint8Array(buf);
 
-  return new NextResponse(body, {
-    status: 200,
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${prefix}-${slug}-${lang}.pdf"`,
-      "Cache-Control": "no-store",
-    },
-  });
+    return new NextResponse(body, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${prefix}-${slug}-${lang}.pdf"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (err) {
+    const message = (err as Error).message ?? String(err);
+    console.error(`[docs/${id}] PDF render failed:`, message);
+    return NextResponse.json(
+      { error: "pdf_render_failed", message },
+      { status: 500 },
+    );
+  }
 }

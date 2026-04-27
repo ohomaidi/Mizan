@@ -41,6 +41,13 @@ COPY --from=builder --chown=app:app /app/node_modules ./node_modules
 COPY --from=builder --chown=app:app /app/public ./public
 COPY --from=builder --chown=app:app /app/package.json ./package.json
 COPY --from=builder --chown=app:app /app/lib/db/schema.sql ./lib/db/schema.sql
+# PDF fonts. `lib/pdf/fonts.ts` reads these via `process.cwd()+assets/fonts/...`
+# at request time (every PDF endpoint calls `ensureFontsRegistered()`).
+# Next does NOT bundle them — `@react-pdf/renderer`'s `Font.register({ src })`
+# wants real disk paths — so they must be copied to the runtime image
+# explicitly. Missing them was the cause of "internal server error" on
+# every PDF download in v2.5.0–v2.5.6 Azure deployments. Fixed in v2.5.7.
+COPY --from=builder --chown=app:app /app/assets ./assets
 
 # DATA_DIR holds the SQLite file + DATA_DIR/branding/logo.png. Mount a
 # persistent volume here so customer data survives container restarts.
