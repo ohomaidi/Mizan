@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTenant } from "@/lib/db/tenants";
+import { getTenant, markConsented } from "@/lib/db/tenants";
 import { fetchSecureScore } from "@/lib/graph/signals";
 import { writeSnapshot } from "@/lib/db/signals";
 import { GraphError } from "@/lib/graph/fetch";
@@ -50,6 +50,14 @@ export async function POST(
       ok: true,
       payload,
     });
+    // Self-heal: a tenant stuck in `failed` (typically AADSTS650051 — admin
+    // manually granted consent in Enterprise Apps after the URL flow errored)
+    // gets flipped to `consented` once a real Graph call proves the SP is
+    // alive. Without this, the dashboard's Sync button stays gated by the
+    // orchestrator's `consent_status !== "consented"` guard. v2.5.23.
+    if (tenant.consent_status !== "consented") {
+      markConsented(tenant.id);
+    }
     return NextResponse.json({
       ok: true,
       durationMs: Date.now() - started,

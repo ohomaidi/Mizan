@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { AlertTriangle, ExternalLink, Copy, Check } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, ExternalLink, Copy, Check, Loader2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { BrandingMark } from "@/components/chrome/BrandingMark";
 
@@ -46,6 +46,7 @@ function Inner() {
   const description = sp.get("description") ?? "";
   const tenantGuid = sp.get("tenantGuid") ?? "";
   const appId = sp.get("appId") ?? "";
+  const state = sp.get("state") ?? "";
 
   // AADSTS650051 — "service principal already present for the tenant".
   // We match on the error code itself rather than the prose because Microsoft
@@ -84,6 +85,7 @@ function Inner() {
             appId={appId}
             description={description}
             reason={reason}
+            state={state}
             orgName={orgName}
             isAr={isAr}
             t={t}
@@ -187,6 +189,7 @@ function OrphanSpRecovery({
   appId,
   description,
   reason,
+  state,
   orgName,
   isAr,
   t,
@@ -196,11 +199,43 @@ function OrphanSpRecovery({
   appId: string;
   description: string;
   reason: string;
+  state: string;
   orgName: string;
   isAr: boolean;
   t: (en: string, ar: string) => string;
   tTpl: (en: string, ar: string, params: Record<string, string>) => string;
 }) {
+  const router = useRouter();
+  const [verifyState, setVerifyState] = useState<
+    "idle" | "running" | "error"
+  >("idle");
+  const [verifyError, setVerifyError] = useState<string>("");
+
+  async function onVerify() {
+    if (!state) return;
+    setVerifyState("running");
+    setVerifyError("");
+    try {
+      const r = await fetch(
+        `/api/auth/consent-recheck?state=${encodeURIComponent(state)}`,
+        { method: "POST" },
+      );
+      const data = (await r.json()) as {
+        ok: boolean;
+        message?: string;
+        error?: string;
+      };
+      if (data.ok) {
+        router.replace("/consent-success");
+        return;
+      }
+      setVerifyState("error");
+      setVerifyError(data.message ?? data.error ?? "verify_failed");
+    } catch (err) {
+      setVerifyState("error");
+      setVerifyError(err instanceof Error ? err.message : String(err));
+    }
+  }
   // Deep-link straight to the Enterprise Applications "All applications" view
   // in the entity's own tenant, with a search filter prefilling the appId.
   // The portal honors `searchKeyword` on the EnterpriseApplicationsList blade,
@@ -281,15 +316,60 @@ function OrphanSpRecovery({
           </li>
           <li>
             {tTpl(
-              "Once every permission row reads “Granted for {tenant}”, the link to {orgName} is live. No further action needed.",
-              "عندما تظهر كل صلاحية بحالة «مَمنوحة لـ{tenant}»، يصبح الربط مع {orgName} نشطًا. لا حاجة لأي خطوة إضافية.",
+              "Once every permission row reads “Granted for {tenant}”, return here and click Verify and complete.",
+              "عندما تظهر كل صلاحية بحالة «مَمنوحة لـ{tenant}»، عودوا هنا واضغطوا «التحقق وإتمام الربط».",
               {
                 tenant: t("your tenant", "مستأجركم"),
-                orgName,
               },
             )}
           </li>
         </ol>
+
+        {/* Verify-and-complete button. v2.5.23 — closes the loop so Mizan
+            actually flips consent_status from `failed` to `consented` after
+            the admin grants consent in Enterprise Apps. Before this, the
+            recovery instructions worked on Microsoft's side but Mizan never
+            knew; the entity was permanently stuck in failed state. */}
+        {state ? (
+          <div className="mt-5 pt-5 border-t border-pos/30">
+            <button
+              onClick={onVerify}
+              disabled={verifyState === "running"}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-pos text-white hover:bg-pos/90 disabled:opacity-60 disabled:cursor-not-allowed text-[13px] font-medium transition"
+            >
+              {verifyState === "running" ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  {t("Verifying…", "جاري التحقق…")}
+                </>
+              ) : (
+                <>
+                  <Check size={14} />
+                  {t("Verify and complete", "التحقق وإتمام الربط")}
+                </>
+              )}
+            </button>
+            {verifyState === "error" ? (
+              <div className="mt-3 rounded-md border border-warn/40 bg-warn/[0.06] p-3 text-[12px] text-ink-1">
+                <div className="font-medium mb-1">
+                  {t(
+                    "Verification didn't pass yet",
+                    "لم يكتمل التحقق بعد",
+                  )}
+                </div>
+                <div className="text-[11.5px] text-ink-3 leading-relaxed keep-ltr">
+                  {verifyError}
+                </div>
+                <div className="mt-2 text-[11.5px] text-ink-3 leading-relaxed">
+                  {t(
+                    "Most common cause: admin consent wasn't granted on every permission row. Re-check Enterprise Applications → Permissions, then click Verify again.",
+                    "السبب الأكثر شيوعًا: لم يتم منح موافقة المسؤول على جميع الصلاحيات. تحقّقوا من صفحة Enterprise Applications ← Permissions ثم اضغطوا «التحقق» مرة أخرى.",
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {/* Tenant ID + App ID — for the admin's reference */}

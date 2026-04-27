@@ -53,6 +53,9 @@ export async function GET(req: NextRequest) {
       description: errorDescription ?? "",
       tenantGuid: tenantGuid ?? tenant.tenant_id ?? "",
       appId: config.azure.clientId ?? "",
+      // Forward `state` so the OrphanSpRecovery card can call /api/auth/consent-recheck
+      // after the admin grants consent in Enterprise Applications. v2.5.23.
+      state,
     });
     return NextResponse.redirect(
       new URL(`/consent-error?${params.toString()}`, base),
