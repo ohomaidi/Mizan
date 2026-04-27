@@ -1,4 +1,4 @@
-name: Release — build image + Mac/Windows installers + publish GitHub Release
+name: Release — build image + Mac installer + publish GitHub Release
 
 on:
   push:
@@ -165,67 +165,12 @@ jobs:
           # the same filename — safe for `workflow_dispatch` re-runs.
           gh release upload "$TAG" "$PKG" --clobber
 
-  # ---------- Windows .msi installer (DISABLED in v2.5.13) ----------
-  # Five consecutive build failures across v2.5.8 → v2.5.12 chasing WiX
-  # 4 schema quirks against GitHub's CI runner. Each fix passed local
-  # syntax-check but failed at the linker on the Windows runner with a
-  # different error class:
-  #   v2.5.8  — `wix harvest` removed in v4
-  #   v2.5.9  — v7 OSMF EULA + flag layout changes
-  #   v2.5.10 — <Files Include> rejected as direct child of <Feature>
-  #   v2.5.11 — <Files Include> rejected as child of <ComponentGroup>
-  #   v2.5.12 — PowerShell harvester emitted DirectoryRef ids the linker
-  #             couldn't resolve
-  # Stopped patching in the dark. Job is `if: false`-gated until we can
-  # reproduce + fix locally on a Windows host. The dashboard's About
-  # panel checks the runtime and shows the manual upgrade snippet for
-  # Windows installs in the meantime — no broken Download button. The
-  # ACA + Mac + Docker upgrade paths are unaffected.
-  build-windows-msi:
-    needs: build-and-push
-    runs-on: windows-latest
-    if: false
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Resolve tag
-        id: tag
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "value=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up Node 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install WiX Toolset v4
-        # Pin to v4. Latest is currently v7 which (a) requires OSMF EULA
-        # acceptance the headless CI can't click through, (b) has
-        # breaking schema changes from v4. Pinned v4.0.5 is stable + has
-        # everything windows-build.ps1 needs.
-        run: dotnet tool install --global wix --version 4.0.5
-
-      - name: Build .msi
-        env:
-          MIZAN_VERSION: ${{ steps.tag.outputs.value }}
-        shell: pwsh
-        run: |
-          cd web
-          ./deploy/windows-build.ps1 -Version $env:MIZAN_VERSION
-          dir deploy/dist
-
-      - name: Upload .msi to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          TAG="v${{ steps.tag.outputs.value }}"
-          MSI="web/deploy/dist/mizan-${{ steps.tag.outputs.value }}.msi"
-          gh release upload "$TAG" "$MSI" --clobber
+# Windows (.msi) build was removed in v2.5.14. Five consecutive build
+# failures (v2.5.8 → v2.5.12) chasing WiX 4 schema quirks against
+# GitHub's CI runner, plus the underlying script had bit-rotted (last
+# successfully run locally years ago, never run in CI). Decision: drop
+# Windows support entirely. Mizan ships on Azure Container Apps, Mac
+# .pkg, and self-hosted Docker only. windows-build.ps1 deleted.
+# Re-introducing Windows support would mean a clean-room rebuild of
+# the installer pipeline against a real Windows host — not on the
+# roadmap.

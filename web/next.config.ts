@@ -8,9 +8,9 @@ import type { NextConfig } from "next";
  * pointing distDir to a stable location outside the watched tree.
  *
  * Setting NEXT_DIST_DIR=/tmp/mizan-next (or similar) on the demo Mac
- * keeps the build intact across `next start`. Packaged installers
- * (mac-build.sh / windows-build.ps1) don't set this — default `.next`
- * is fine on a clean customer machine.
+ * keeps the build intact across `next start`. The packaged installer
+ * (mac-build.sh) doesn't set this — default `.next` is fine on a
+ * clean customer machine.
  */
 const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR

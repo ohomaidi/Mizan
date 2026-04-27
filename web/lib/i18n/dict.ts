@@ -265,9 +265,6 @@ export const DICT = {
     "settings.about.downloadPkg": "Download Mizan-{version}.pkg",
     "settings.about.downloadPkg.help":
       "Run the installer once it downloads. It upgrades in place — your data directory and configuration survive. The dashboard restarts automatically.",
-    "settings.about.downloadMsi": "Download Mizan-{version}.msi",
-    "settings.about.downloadMsi.help":
-      "Run the installer once it downloads. WiX handles the in-place upgrade — the Mizan service is stopped, files are replaced, the service is restarted. Your data directory survives.",
     "settings.about.installerMissing":
       "The v{version} installer for your platform isn't available yet on GitHub. Try \"Check now\" in a minute, or use the manual command above.",
 
@@ -3014,9 +3011,6 @@ export const DICT = {
     "settings.about.downloadPkg": "تنزيل Mizan-{version}.pkg",
     "settings.about.downloadPkg.help":
       "شغّل المثبّت بعد تنزيله. تجري الترقية بدون فقد للبيانات — مجلد البيانات والإعدادات يبقى كما هو، ويُعاد تشغيل اللوحة تلقائيًا.",
-    "settings.about.downloadMsi": "تنزيل Mizan-{version}.msi",
-    "settings.about.downloadMsi.help":
-      "شغّل المثبّت بعد تنزيله. يتولّى WiX الترقية في مكانها — توقف خدمة Mizan، تُستبدل الملفات، تعود الخدمة للعمل. مجلد البيانات يبقى محفوظًا.",
     "settings.about.installerMissing":
       "مثبّت الإصدار v{version} لمنصّتك غير متاح بعد على GitHub. جرّب \"افحص الآن\" بعد دقيقة، أو استخدم الأمر اليدوي أعلاه.",
     "settings.about.azureCmd": "Azure Container Apps",

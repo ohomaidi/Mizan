@@ -1,12 +1,13 @@
 # Deployment
 
-Three shipping formats for the Posture & Maturity Dashboard, all from one codebase:
+Two shipping formats for the Posture & Maturity Dashboard, all from one codebase:
 
 | Target | Use case | Artifact | Build script |
 |---|---|---|---|
 | **Azure Container Apps** | Recommended for most customers, UAE-North data residency | Bicep deploy | `az deployment sub create -f deploy/azure-container-apps.bicep …` |
 | **macOS** | On-prem labs, airgapped review stations | `.pkg` installer → LaunchAgent | `bash deploy/mac-build.sh` |
-| **Windows** | On-prem government desktops | `.msi` installer → Windows Service | `powershell deploy/windows-build.ps1` |
+
+> **Windows native install** was attempted briefly in v2.5.8–v2.5.12 (`.msi` via WiX) and dropped in v2.5.14. Operators on Windows hosts run Mizan inside Docker Desktop or WSL2 — same image, same upgrade path as Linux Docker.
 
 ## Docker image
 
@@ -117,21 +118,15 @@ xcrun notarytool submit --wait posture-dashboard-<ver>-signed.pkg \
     --apple-id … --team-id … --password …
 ```
 
-## Windows installer
+## Windows (Docker only)
 
-`deploy/windows-build.ps1` produces an MSI via WiX Toolset v4:
-
-- Installs to `C:\Program Files\Posture Dashboard\`
-- Creates `%ProgramData%\Posture Dashboard\data\`
-- Registers "Posture Dashboard" Windows Service (starts on boot)
-- Adds a desktop shortcut → `http://localhost:8787`
-
-Signing:
+Native Windows install is no longer shipped (dropped in v2.5.14). Operators on Windows hosts run the same Docker image as Linux:
 
 ```powershell
-signtool sign /fd SHA256 /a /tr http://timestamp.digicert.com /td SHA256 `
-    posture-dashboard-<ver>.msi
+docker run -d -p 8787:8787 -v mizan_data:/data ghcr.io/ohomaidi/mizan:latest
 ```
+
+Upgrade by `docker pull` + recreate. The `mizan_data` volume survives.
 
 ## Post-install UX
 

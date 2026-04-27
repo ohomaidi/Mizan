@@ -1,19 +1,19 @@
 # Self-Upgrade — One-click upgrades across every supported platform
 
-**Shipped:** v2.5.6 — ACA self-upgrade (2026-04-27). v2.5.8 — Mac/Windows installer downloads (2026-04-27).
-**Applies to:** Mizan deployments on **Azure Container Apps**, **macOS (.pkg)**, and **Windows (.msi)**.
+**Shipped:** v2.5.6 — ACA self-upgrade (2026-04-27). v2.5.8 — Mac installer download (2026-04-27). v2.5.14 — Windows support dropped (2026-04-27).
+**Applies to:** Mizan deployments on **Azure Container Apps** and **macOS (.pkg)**.
 **Goal:** an admin can upgrade the dashboard from one Mizan version to another with a single click in `Settings → About & updates` — no shell access required for the common path.
 
 This is the canonical reference for how the one-click upgrade works on each platform, what each requires, how to enable it on an existing deployment, and how to debug it when it doesn't.
 
 ## Platform matrix
 
-| Runtime              | Detection signal               | Upgrade UX                            | Self-upgrade-ready? |
-|----------------------|--------------------------------|---------------------------------------|---------------------|
-| Azure Container Apps | `CONTAINER_APP_NAME` env var   | **Upgrade now** button → ARM PATCH    | yes (v2.5.6+ Bicep) |
-| macOS .pkg install   | `MIZAN_RUNTIME=mac` (LaunchAgent env) | **Download Mizan-X.Y.Z.pkg** button | always              |
-| Windows .msi install | `MIZAN_RUNTIME=windows` (Service env) | **Download Mizan-X.Y.Z.msi** button | always              |
-| Self-hosted Docker   | none of the above              | Manual `docker pull` + recreate snippet | no — by design    |
+| Runtime              | Detection signal                     | Upgrade UX                              | Self-upgrade-ready? |
+|----------------------|--------------------------------------|-----------------------------------------|---------------------|
+| Azure Container Apps | `CONTAINER_APP_NAME` env var         | **Upgrade now** button → ARM PATCH      | yes (v2.5.6+ Bicep) |
+| macOS .pkg install   | `MIZAN_RUNTIME=mac` (LaunchAgent env)| **Download Mizan-X.Y.Z.pkg** button     | always              |
+| Self-hosted Docker   | none of the above                    | Manual `docker pull` + recreate snippet | no — by design      |
+| **Windows**          | n/a                                  | **Not supported** (v2.5.14+ — run inside Docker Desktop or WSL2) | n/a                 |
 
 ---
 
@@ -50,18 +50,11 @@ When the operator clicks **Download Mizan-X.Y.Z.pkg**:
 4. `DATA_DIR` lives at `~/Library/Application Support/posture-dashboard/` — outside the install root — so the SQLite database, uploaded logo, and config survive the upgrade untouched.
 5. After ~5 seconds the dashboard is back at `http://localhost:8787`. Settings → About now reports the new installed version.
 
-### 1C. Windows .msi install (v2.5.8+)
+### 1C. Windows — not supported (v2.5.14+)
 
-When the operator clicks **Download Mizan-X.Y.Z.msi**:
+Native Windows install was briefly attempted in v2.5.8–v2.5.12 (.msi via WiX) and dropped in v2.5.14 after the build pipeline failed in CI five times in a row across three different rewrite attempts. Operators on Windows hosts run Mizan inside Docker Desktop or WSL2 — same image, same upgrade path as the self-hosted Docker section below.
 
-1. The browser downloads the `.msi`. Operator runs it (UAC prompts).
-2. WiX MajorUpgrade machinery handles the upgrade in place:
-   - `<ServiceControl Stop="both">` — Windows Service Control Manager stops the **Mizan** service.
-   - `<MajorUpgrade>` removes the previous version's files (only the install root, not `%ProgramData%\Mizan\data\`).
-   - The new files are laid down under `C:\Program Files\Mizan\`.
-   - `<ServiceControl Start="install">` — the service starts again with the new binaries.
-3. `DATA_DIR` at `%ProgramData%\Mizan\data\` survives untouched.
-4. The desktop shortcut (`Mizan Dashboard` → `http://localhost:8787`) keeps pointing at the same URL.
+(Original Windows install detail removed — kept here as a placeholder so existing links to §1C don't 404.)
 
 ---
 

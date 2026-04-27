@@ -12,10 +12,6 @@
   <a href="#macos">
     <img src="https://img.shields.io/badge/macOS-.pkg-silver?logo=apple" alt="macOS" />
   </a>
-  &nbsp;
-  <a href="#windows">
-    <img src="https://img.shields.io/badge/Windows-.msi-blue?logo=windows" alt="Windows" />
-  </a>
 </p>
 
 <p align="center">
@@ -282,30 +278,13 @@ Double-clicking the `.pkg` on the target Mac:
 
 ---
 
-### <a name="windows"></a>🪟 Windows
+### Windows
 
-For on-prem government desktops.
-
-**Build prerequisite:** WiX Toolset v4 — `dotnet tool install --global wix` on the build machine.
-
-The Windows installer is built on Windows (cross-compile from macOS isn't supported because WiX is Windows-only). Run on a Windows machine with Node 22 + WiX:
+**Native Windows install is not supported (dropped in v2.5.14).** Operators on Windows hosts run Mizan inside Docker Desktop or WSL2 — same image, same upgrade path as Linux Docker. The `.msi` packaging pipeline was repeatedly broken in CI and we made the call to remove it rather than ship a half-working installer.
 
 ```powershell
-git clone https://github.com/ohomaidi/Mizan.git
-cd Mizan
-powershell -File web/deploy/windows-build.ps1 -Version 2.0.0
-# Output: web\deploy\dist\posture-dashboard-2.0.0.msi
-#
-# Note: same legacy-name caveat as the Mac .pkg. The UI is Mizan-branded,
-# the .msi internals carry the pre-rebrand "Posture Dashboard" name.
+docker run -p 8787:8787 -v mizan_data:/data ghcr.io/ohomaidi/mizan:latest
 ```
-
-Double-clicking the `.msi`:
-
-- Installs to `C:\Program Files\Mizan\`
-- Registers "Mizan" Windows Service (starts on boot)
-- Creates `%ProgramData%\Mizan\data\` for SQLite + uploaded logos
-- Adds a Desktop shortcut → http://localhost:8787
 
 ---
 
@@ -336,21 +315,16 @@ az containerapp update \
 
 A new revision rolls in ~30–60 s; your `/data` Azure Files mount carries the SQLite database + uploaded logo untouched — no data migration step.
 
-### macOS / Windows on-prem installers
+### macOS on-prem installer
 
-Re-run the builder script from the latest `main`, then re-install the produced `.pkg` / `.msi`. The installer places files over the existing install and preserves `~/Library/Application Support/mizan/` (macOS) / `%ProgramData%\Mizan\data\` (Windows) so the SQLite DB and logo survive.
+Re-run the builder script from the latest `main`, then re-install the produced `.pkg`. The installer places files over the existing install and preserves `~/Library/Application Support/mizan/` so the SQLite DB and logo survive.
 
 ```sh
-# macOS
 git pull && bash web/deploy/mac-build.sh
 sudo installer -pkg web/deploy/dist/mizan-1.1.2.pkg -target /
 ```
 
-```powershell
-# Windows
-git pull; powershell -File web\deploy\windows-build.ps1
-msiexec /i web\deploy\dist\mizan-1.1.2.msi /quiet
-```
+(Or just download the latest `.pkg` from the GitHub Releases page — the in-app **Settings → About** panel surfaces a one-click download button.)
 
 ### Upgrading from v1.0.x to v1.1 — one breaking change
 
@@ -499,7 +473,7 @@ Azure Container Apps (the one-click deploy):
 - **Daily sync** — one `POST /api/sync` per day pulls all 18 Graph signals from every consented entity with a 5-worker pool.
 - **Two deployment modes** — `observation` uses only `.Read` Graph scopes. `directive` provisions a second Entra app with write scopes for the shipped directive surfaces (reactive actions + Conditional Access policy push + rollback). Mode is fixed at install time via `MIZAN_DEPLOYMENT_MODE` and cannot be toggled at runtime — switching modes is a redeploy.
 
-**On the Mac/Windows installers**: same Next.js app + SQLite, but `DATA_DIR` points at `~/Library/Application Support/mizan/` or `%ProgramData%\Mizan\data\` respectively. No VNet, no NFS — local filesystem directly.
+**On the Mac installer**: same Next.js app + SQLite, but `DATA_DIR` points at `~/Library/Application Support/mizan/`. No VNet, no NFS — local filesystem directly.
 
 See [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) for the full breakdown including the multi-tenant Graph auth model, throttling envelope, failure modes, and production hardening checklist.
 

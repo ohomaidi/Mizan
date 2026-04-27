@@ -1,8 +1,8 @@
 # Local / self-hosted reference deployment for Posture & Maturity Dashboard.
 #
 # For Azure use deploy/azure-container-apps.bicep instead.
-# For Mac/Windows double-click installers see deploy/mac-build.sh and
-# deploy/windows-build.ps1.
+# For the Mac double-click installer see deploy/mac-build.sh.
+# Windows hosts run this same image via Docker Desktop or WSL2.
 
 services:
   dashboard:

@@ -27,7 +27,15 @@ type GithubRelease = {
   prerelease?: boolean;
 };
 
-type Runtime = "aca" | "mac" | "windows" | "docker" | "unknown";
+// Windows support dropped in v2.5.14. Mizan ships on Azure Container
+// Apps, Mac .pkg, and self-hosted Docker only. A `process.platform ===
+// "win32"` host falls through to "docker" — operators on Windows are
+// expected to run the dashboard inside Docker Desktop or WSL2. The
+// `MIZAN_RUNTIME=windows` marker the old Windows Service wrapper used
+// to set is also unsupported; if encountered (legacy installs from a
+// briefly-shipped pre-v2.5.13 .msi that we since took down) we treat
+// it as docker too.
+type Runtime = "aca" | "mac" | "docker" | "unknown";
 
 type UpdateInfo = {
   current: string;
@@ -46,19 +54,18 @@ type UpdateInfo = {
   containerImage: string;
   fetchedAt: string;
   /**
-   * Detected hosting environment (v2.5.6+, extended in v2.5.8). Drives
-   * the upgrade UX:
+   * Detected hosting environment.
    *   - "aca"     → ACA managed-identity auto-upgrade button is shown.
    *                 Detected via the `CONTAINER_APP_NAME` env var that
    *                 Azure injects on every container at runtime.
    *   - "mac"     → "Download Mizan-X.Y.Z.pkg" button. Detected via the
    *                 `MIZAN_RUNTIME=mac` env var the LaunchAgent
    *                 installed by mac-build.sh sets.
-   *   - "windows" → "Download Mizan-X.Y.Z.msi" button. Detected via
-   *                 `MIZAN_RUNTIME=windows` from the Windows Service
-   *                 wrapper installed by windows-build.ps1.
    *   - "docker"  → manual `docker pull + recreate` snippet (one-click
    *                 can't work without exposing the docker socket).
+   *                 Windows hosts (v2.5.14+) fall here too — Mizan no
+   *                 longer ships a Windows installer; operators run
+   *                 Docker Desktop or WSL2 instead.
    *   - "unknown" → fallback. Treated like "docker" by the UI.
    */
   runtime: Runtime;
@@ -80,24 +87,21 @@ type UpdateInfo = {
 };
 
 function detectRuntime(): Runtime {
-  // Explicit env override always wins. Both the Mac LaunchAgent and the
-  // Windows Service wrapper set MIZAN_RUNTIME at install time, which is
-  // more reliable than process.platform alone (a Mac laptop running the
-  // image inside Docker would still report platform=darwin but is
-  // really a Docker install). Only mac/windows are honoured here —
-  // forcing "aca" via env would skip the safety checks below.
+  // Explicit env override (Mac LaunchAgent sets MIZAN_RUNTIME=mac at
+  // install time). More reliable than process.platform alone — a Mac
+  // laptop running the image inside Docker would still report
+  // platform=darwin but is really a Docker install.
   const override = process.env.MIZAN_RUNTIME?.trim().toLowerCase();
-  if (override === "mac" || override === "windows") return override;
+  if (override === "mac") return "mac";
 
   // ACA detection is independent — Azure injects CONTAINER_APP_NAME on
   // every container regardless of any operator-set env vars.
   if (process.env.CONTAINER_APP_NAME) return "aca";
 
-  // Fallback: trust process.platform on installs that don't set the
-  // explicit MIZAN_RUNTIME marker (older mac/windows installers). Linux
-  // outside ACA is treated as Docker — the most common case.
+  // Fallback by host platform. Windows isn't a supported install
+  // target as of v2.5.14; treat win32 hosts as Docker (operators run
+  // Mizan inside Docker Desktop or WSL2). Linux defaults to Docker.
   if (process.platform === "darwin") return "mac";
-  if (process.platform === "win32") return "windows";
   return "docker";
 }
 
@@ -129,7 +133,6 @@ function buildInstallerUrl(
   const tag = `v${latestVersion}`;
   const base = `https://github.com/${GITHUB_REPO}/releases/download/${tag}`;
   if (rt === "mac") return `${base}/mizan-${latestVersion}.pkg`;
-  if (rt === "windows") return `${base}/mizan-${latestVersion}.msi`;
   return null;
 }
 
