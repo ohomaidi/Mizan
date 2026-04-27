@@ -94,6 +94,12 @@ $ServiceCmd | Out-File -Encoding ASCII -FilePath (Join-Path $StageDir "start-miz
 
 Write-Host "==> Writing WiX source..."
 $WxsPath = Join-Path $StageDir "mizan.wxs"
+# WiX v4 native pattern. The `<Files Include="...">` element walks the
+# staged directory at build time and creates one Component per file
+# automatically — no separate `wix harvest` step required (that was a
+# WiX v3 feature, dropped in v4). The path is passed via the
+# `-d StageDir=...` switch on `wix build` below so the .wxs stays
+# host-agnostic and reusable across CI + local builds.
 @"
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
@@ -107,18 +113,12 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
     <MajorUpgrade DowngradeErrorMessage="A newer version of Mizan is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <Feature Id="Main" Title="Mizan" Level="1">
-      <ComponentGroupRef Id="AppFiles" />
-      <ComponentRef Id="DesktopShortcut" />
-      <ComponentRef Id="MizanService" />
-    </Feature>
-
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Mizan" />
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder">
-      <Component Id="DesktopShortcut" Guid="*">
+      <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="*">
         <Shortcut Id="MizanShortcut" Name="Mizan Dashboard"
                   Description="Open the Mizan dashboard in your browser"
                   Target="http://localhost:8787" />
@@ -133,7 +133,7 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
          ServiceControl handles stop-before-replace + start-after-install
          so a major upgrade swaps binaries without manual intervention. -->
     <Component Id="MizanService" Directory="INSTALLFOLDER" Guid="*">
-      <File Id="ServiceCmd" Source="start-mizan.cmd" KeyPath="yes" />
+      <File Id="ServiceCmd" Source="!(bindpath.StageDir)\start-mizan.cmd" KeyPath="yes" />
       <ServiceInstall Id="MizanServiceInstall" Type="ownProcess"
                       Name="Mizan" DisplayName="Mizan Dashboard"
                       Description="Mizan security posture dashboard. Listens on 127.0.0.1:8787."
@@ -147,19 +147,29 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
                       Wait="yes" />
     </Component>
 
-    <!-- Harvested app payload is injected by `wix build` below. -->
+    <Feature Id="Main" Title="Mizan" Level="1">
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="MizanService" />
+      <!-- v2.5.8 — auto-harvest the staged directory tree into the
+           install folder. WiX v4's <Files> element replaces the
+           old `wix harvest` workflow: it creates one Component per
+           file at build time, scoped to the parent Feature. -->
+      <Files Include="!(bindpath.StageDir)\**" />
+    </Feature>
   </Package>
 </Wix>
 "@ | Out-File -Encoding UTF8 -FilePath $WxsPath
 
-Write-Host "==> Harvesting files..."
-# `wix harvest` — generate a ComponentGroup from the staged directory.
-$HarvestedPath = Join-Path $StageDir "app-files.wxs"
-wix harvest --directory $StageDir --output $HarvestedPath --var INSTALLFOLDER --componentGroup AppFiles --scope perMachine
-
 Write-Host "==> Building MSI..."
 $MsiPath = Join-Path $OutDir "mizan-$Version.msi"
-wix build $WxsPath $HarvestedPath --arch x64 --output $MsiPath
+# `wix build` resolves !(bindpath.StageDir) via the `-bindpath` switch
+# below — that's how v4 substitutes the staging directory into both
+# `<Files Include>` and `<File Source>` references. The output goes
+# directly to the OutDir; no separate harvest pass needed.
+wix build $WxsPath `
+    -arch x64 `
+    -bindpath "StageDir=$StageDir" `
+    -out $MsiPath
 
 Write-Host "==> Done: $MsiPath"
 Write-Host ""

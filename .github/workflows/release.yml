@@ -194,7 +194,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Install WiX Toolset v4
-        run: dotnet tool install --global wix
+        # Pin to v4. Latest is currently v7 which (a) requires OSMF EULA
+        # acceptance the headless CI can't click through, (b) has
+        # breaking schema changes from v4. Pinned v4.0.5 is stable + has
+        # everything windows-build.ps1 needs.
+        run: dotnet tool install --global wix --version 4.0.5
 
       - name: Build .msi
         env:
