@@ -165,14 +165,26 @@ jobs:
           # the same filename — safe for `workflow_dispatch` re-runs.
           gh release upload "$TAG" "$PKG" --clobber
 
-  # ---------- Windows .msi installer ----------
-  # Same shape as the Mac job: build the installer on a windows-latest
-  # runner, attach it to the same GitHub Release as a downloadable
-  # asset. Unsigned for now; customers signing locally can run signtool
-  # against the .msi from web/deploy/dist/.
+  # ---------- Windows .msi installer (DISABLED in v2.5.13) ----------
+  # Five consecutive build failures across v2.5.8 → v2.5.12 chasing WiX
+  # 4 schema quirks against GitHub's CI runner. Each fix passed local
+  # syntax-check but failed at the linker on the Windows runner with a
+  # different error class:
+  #   v2.5.8  — `wix harvest` removed in v4
+  #   v2.5.9  — v7 OSMF EULA + flag layout changes
+  #   v2.5.10 — <Files Include> rejected as direct child of <Feature>
+  #   v2.5.11 — <Files Include> rejected as child of <ComponentGroup>
+  #   v2.5.12 — PowerShell harvester emitted DirectoryRef ids the linker
+  #             couldn't resolve
+  # Stopped patching in the dark. Job is `if: false`-gated until we can
+  # reproduce + fix locally on a Windows host. The dashboard's About
+  # panel checks the runtime and shows the manual upgrade snippet for
+  # Windows installs in the meantime — no broken Download button. The
+  # ACA + Mac + Docker upgrade paths are unaffected.
   build-windows-msi:
     needs: build-and-push
     runs-on: windows-latest
+    if: false
     steps:
       - uses: actions/checkout@v4
 

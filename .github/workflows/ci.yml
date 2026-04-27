@@ -21,3 +21,27 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm run build
+
+      # v2.5.13+ — fail CI if the compiled ARM JSON drifts from the
+      # Bicep source. The "Deploy to Azure" button on the README pulls
+      # the JSON, not the Bicep, so a stale JSON silently ships
+      # incomplete templates to every new customer (this is exactly
+      # how mizandirective2 ended up without managed identity in
+      # v2.5.10). Any commit that touches the .bicep MUST also commit
+      # the regenerated .json — this check catches the drift before
+      # it lands on main.
+      - name: Verify Bicep -> ARM JSON is up to date
+        working-directory: ${{ github.workspace }}
+        run: |
+          cd web/deploy
+          # `az` is preinstalled on ubuntu-latest. `az bicep build` uses
+          # the bundled bicep compiler (auto-fetched on first invocation).
+          az bicep build --file azure-container-apps.bicep --outfile /tmp/regenerated.json
+          if ! diff -q azure-container-apps.json /tmp/regenerated.json >/dev/null; then
+            echo "::error::azure-container-apps.json is stale relative to azure-container-apps.bicep."
+            echo "Run \`az bicep build --file web/deploy/azure-container-apps.bicep --outfile web/deploy/azure-container-apps.json\` and commit the result."
+            echo "--- diff ---"
+            diff azure-container-apps.json /tmp/regenerated.json | head -80 || true
+            exit 1
+          fi
+          echo "✓ Bicep + JSON in sync."

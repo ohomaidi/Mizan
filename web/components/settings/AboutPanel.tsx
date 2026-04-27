@@ -282,12 +282,46 @@ export function AboutPanel() {
                   onCopy={() => copy("azure", azureCmd)}
                 />
               </div>
-            ) : info.runtime === "mac" || info.runtime === "windows" ? (
+            ) : info.runtime === "mac" ? (
+              // Mac .pkg builds successfully in CI and is attached to
+              // every GitHub Release — we surface the download button.
               <DownloadInstallerButton
                 runtime={info.runtime}
                 latest={info.latest ?? ""}
                 installerUrl={info.installerUrl}
               />
+            ) : info.runtime === "windows" ? (
+              // v2.5.13 — Windows .msi build is currently disabled in
+              // CI (5 consecutive WiX 4 schema failures across
+              // v2.5.8–v2.5.12; reproducing locally before re-enabling).
+              // Surface the manual upgrade path so the dashboard tells
+              // the truth: there's no .msi to download until the
+              // packaging issue is resolved. ACA + Mac one-click flows
+              // are unaffected.
+              <div className="flex flex-col gap-2">
+                <div className="rounded-md border border-warn/40 bg-warn/10 p-3 text-[12px] text-ink-1">
+                  <div className="font-semibold mb-0.5">
+                    Windows installer temporarily unavailable
+                  </div>
+                  <div className="text-ink-2 leading-relaxed">
+                    The .msi for v
+                    {info.latest ?? ""} couldn&rsquo;t be built in CI
+                    (WiX schema issue under investigation). Until it
+                    ships, upgrade manually: stop the &ldquo;Mizan&rdquo; service,
+                    replace the install root with the latest source
+                    drop from{" "}
+                    <a
+                      href={`https://github.com/ohomaidi/Mizan/releases/tag/v${info.latest ?? ""}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-council-strong hover:underline"
+                    >
+                      the v{info.latest ?? ""} GitHub Release
+                    </a>
+                    , then start the service again.
+                  </div>
+                </div>
+              </div>
             ) : (
               <UpgradeCmd
                 label={t("settings.about.dockerCmd")}

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "11227980145745594642"
+      "templateHash": "12394804985695993805"
     }
   },
   "parameters": {
@@ -297,6 +297,9 @@
       "apiVersion": "2024-10-02-preview",
       "name": "[format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))]",
       "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
       "properties": {
         "environmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
         "workloadProfileName": "Consumption",
@@ -323,7 +326,7 @@
                 "cpu": "[json(parameters('cpuCores'))]",
                 "memory": "[parameters('memoryGi')]"
               },
-              "env": "[concat(createArray(createObject('name', 'APP_BASE_URL', 'value', parameters('appBaseUrl')), createObject('name', 'DATA_DIR', 'value', '/data'), createObject('name', 'NODE_ENV', 'value', 'production')), if(empty(parameters('syncSecret')), createArray(), createArray(createObject('name', 'SCSC_SYNC_SECRET', 'secretRef', 'sync-secret'))))]",
+              "env": "[concat(createArray(createObject('name', 'APP_BASE_URL', 'value', parameters('appBaseUrl')), createObject('name', 'DATA_DIR', 'value', '/data'), createObject('name', 'NODE_ENV', 'value', 'production'), createObject('name', 'MIZAN_AZURE_RESOURCE_ID', 'value', resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))))), if(empty(parameters('syncSecret')), createArray(), createArray(createObject('name', 'SCSC_SYNC_SECRET', 'secretRef', 'sync-secret'))))]",
               "volumeMounts": [
                 {
                   "volumeName": "data",
@@ -362,6 +365,19 @@
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
         "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')), 'mizandata')]"
       ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), 'container-apps-contributor')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '358470bc-b998-42bd-ab17-a7e34c199c0f')]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq')))]"
+      ]
     }
   ],
   "outputs": {
@@ -372,6 +388,10 @@
     "resourceGroup": {
       "type": "string",
       "value": "[resourceGroup().name]"
+    },
+    "containerAppPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview', 'full').identity.principalId]"
     }
   }
 }
