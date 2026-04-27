@@ -260,6 +260,14 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
     environmentId: acaEnv.id
     workloadProfileName: 'Consumption'
     configuration: {
+      // v2.5.16: 'Single' mode is REQUIRED for SQLite-on-NFS deployments.
+      // In 'Multiple' mode (the historical default for older api versions),
+      // ACA could keep the previous revision running alongside the new one
+      // for traffic-shifting. Two pods with SQLite open on the same NFS
+      // mount = WAL shared-memory drift = corruption. 'Single' mode kills
+      // the old revision when the new one becomes active — short blip
+      // (~5s), no overlap, no concurrent writers.
+      activeRevisionsMode: 'Single'
       ingress: {
         external: true
         targetPort: 8787
@@ -346,8 +354,17 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
         }
       ]
       scale: {
+        // v2.5.16: pinned to exactly one replica. SQLite is single-writer
+        // by design — two replicas writing to the same DB file (even on
+        // local disk, but especially on NFS where WAL semantics break)
+        // corrupts the database. Mizan's write workload is modest (a few
+        // writes per sync cycle, single-customer per deployment) so 1
+        // replica is more than enough headroom. If a future scale-out is
+        // needed, that's the moment to migrate from SQLite to Postgres
+        // (see backlog) — horizontal scale + SQLite is fundamentally
+        // incompatible.
         minReplicas: 1
-        maxReplicas: 2
+        maxReplicas: 1
       }
       volumes: [
         {

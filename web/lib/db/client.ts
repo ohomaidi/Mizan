@@ -8,8 +8,75 @@ import { seedDemoTenantsIfEmpty } from "./seed";
 let _db: Database.Database | null = null;
 
 /**
+ * Detect whether the directory containing the SQLite file is on a networked
+ * filesystem (NFS / SMB / CIFS). Returns `false` if detection fails for any
+ * reason — the safer fallback assumes local disk.
+ *
+ * Why this matters: SQLite's WAL journal mode uses `mmap`'d shared memory
+ * (`*.sqlite-shm`) which is documented incompatible with networked
+ * filesystems by the SQLite project itself. When two processes (e.g. two ACA
+ * pods during a revision swap) both have the file open over NFS, their
+ * shared-memory views diverge and writes corrupt the database
+ * (`SQLITE_IOERR_SHORT_READ` → `SQLITE_NOTADB`). DELETE mode (the SQLite
+ * default — per-write rollback journal, no shared memory) works correctly
+ * on networked FS at the cost of slightly slower writes. For Mizan's write
+ * volume (a few writes per sync cycle, single-replica deployment) the
+ * performance delta is invisible.
+ *
+ * Detection reads `/proc/mounts` and finds the longest mount-point prefix
+ * that contains the DB directory, then checks if the filesystem type starts
+ * with `nfs`, `cifs`, or `smb`. ACA's `nfsAzureFile` storage type mounts as
+ * `nfs4` — caught by the prefix match. Mac/Windows hosts (`darwin`/`win32`)
+ * never have `/proc/mounts` and short-circuit to `false`.
+ *
+ * Operators on exotic setups can force the safe mode via
+ * `MIZAN_DB_NETWORK_FS=true` env var.
+ */
+function isOnNetworkedFs(dbPath: string): boolean {
+  if ((process.env.MIZAN_DB_NETWORK_FS ?? "").toLowerCase() === "true") {
+    return true;
+  }
+  if (process.platform !== "linux") return false;
+  try {
+    const mounts = fs.readFileSync("/proc/mounts", "utf8");
+    const target = path.resolve(path.dirname(dbPath));
+    let bestType = "";
+    let bestLen = 0;
+    for (const line of mounts.split("\n")) {
+      const parts = line.split(/\s+/);
+      if (parts.length < 3) continue;
+      const mountPoint = parts[1];
+      const fsType = parts[2];
+      // Mount must be a path-prefix of our target directory. Avoid spurious
+      // matches like /data2 matching /data — require an exact-or-followed-by-/
+      // boundary.
+      const isPrefix =
+        target === mountPoint ||
+        target.startsWith(mountPoint + (mountPoint.endsWith("/") ? "" : "/"));
+      if (isPrefix && mountPoint.length > bestLen) {
+        bestLen = mountPoint.length;
+        bestType = fsType;
+      }
+    }
+    return /^(nfs|nfs4|cifs|smb|smb3|smbfs)$/i.test(bestType);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Singleton SQLite connection. Lazy — created on first call, migrations applied, demo data
  * seeded if DB is empty.
+ *
+ * Journal mode is auto-tuned based on storage type:
+ *   - **Local disk** (Mac, Docker w/ local volume): WAL mode for speed.
+ *   - **Networked FS** (ACA's NFS Azure Files mount): DELETE mode for safety.
+ *
+ * v2.5.16 fix: prior versions hard-coded WAL, which corrupted the database
+ * on ACA deployments whenever two pods briefly co-existed during a revision
+ * swap (rolling-update overlap window). DELETE mode + `synchronous = FULL`
+ * + `busy_timeout = 30000` makes concurrent access safe — the second
+ * writer blocks on the lock instead of corrupting via shared-memory drift.
  */
 export function getDb(): Database.Database {
   if (_db) return _db;
@@ -19,7 +86,22 @@ export function getDb(): Database.Database {
   fs.mkdirSync(dir, { recursive: true });
 
   const db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
+
+  if (isOnNetworkedFs(dbPath)) {
+    // Networked FS — must NOT use WAL. Rollback journal is the only safe
+    // mode. FULL synchronous gives the strongest durability guarantee at
+    // the cost of one extra fsync per write — acceptable on Mizan's write
+    // volume. busy_timeout makes concurrent writers wait for the lock
+    // instead of erroring with SQLITE_BUSY.
+    db.pragma("journal_mode = DELETE");
+    db.pragma("synchronous = FULL");
+    db.pragma("busy_timeout = 30000");
+  } else {
+    // Local disk — WAL is faster and safe.
+    db.pragma("journal_mode = WAL");
+    db.pragma("synchronous = NORMAL");
+    db.pragma("busy_timeout = 5000");
+  }
   db.pragma("foreign_keys = ON");
 
   applyMigrations(db);
