@@ -190,14 +190,24 @@ const DEFENDER_APP_READ_PERMISSIONS: Array<{ name: string; id: string }> = [
   // Workload Coverage card — MDE onboarded device inventory). Read-only.
   { name: "Machine.Read.All", id: "ea8291d3-4b9a-44b5-bc3a-6cea3026dc79" },
   // POST https://api.security.microsoft.com/api/advancedhunting/run —
-  // ADDED v2.5.22 to power the Vulnerabilities tab (DeviceTvmSoftware-
-  // Vulnerabilities table queries). Microsoft Graph's runHuntingQuery has a
-  // restricted KQL parser that rejects valid TVM queries; the DfE direct
-  // API uses the same parser as the Defender portal's Advanced Hunting
-  // console. Tenants onboarded BEFORE v2.5.22 must re-consent for this
-  // scope to take effect — the SP's existing app role assignments don't
-  // auto-pick up new requiredResourceAccess entries.
-  { name: "AdvancedQuery.Read.All", id: "dd98c7f5-2d42-42d3-a0e4-633161547251" },
+  // powers the Vulnerabilities tab (DeviceTvmSoftwareVulnerabilities table).
+  // v2.5.25 — corrected GUID. v2.5.22 introduced this with id
+  // `dd98c7f5-2d42-42d3-a0e4-633161547251`, which is actually
+  // `ThreatHunting.Read.All` on **Microsoft Graph** — registering it on the
+  // WindowsDefenderATP resource block accomplished nothing: Microsoft
+  // accepted the registration but issued no role claim because the GUID
+  // doesn't correspond to any role on the Defender resource. Result: every
+  // /advancedhunting/run call returned 403 "Missing application roles.
+  // Required: AdvancedQuery.Read.All" even after consent was re-granted.
+  // Real `AdvancedQuery.Read.All` GUID on WindowsDefenderATP service
+  // principal (`fc780465-2017-40d4-a0c5-307022471b92`):
+  //   `93489bf5-0fbc-4f2d-b901-33f2fe08ff05`
+  // Verified via `az ad sp show --id fc780465... --query "appRoles[?value=='AdvancedQuery.Read.All']"`.
+  // Tenants onboarded under v2.5.22..v2.5.24 need the entity admin to
+  // re-grant admin consent in Enterprise Apps so the new GUID lands on
+  // the SP's appRoleAssignments. The dashboard's scope-stale banner
+  // (v2.5.24) flags affected tenants automatically.
+  { name: "AdvancedQuery.Read.All", id: "93489bf5-0fbc-4f2d-b901-33f2fe08ff05" },
 ];
 
 /** Defender API write-side scopes — directive deployments only. */
