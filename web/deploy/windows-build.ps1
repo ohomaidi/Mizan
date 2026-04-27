@@ -147,14 +147,21 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
                       Wait="yes" />
     </Component>
 
+    <!-- v2.5.10+ — auto-harvest the staged directory tree into the
+         install folder. WiX v4's <Files> element replaces the old
+         `wix harvest` workflow: it creates one Component per file at
+         build time. Important: <Files> can NOT be a direct child of
+         <Feature> in WiX v4 (that was the v2.5.8/9/10-build-1 error,
+         WIX0005). It must live inside a <ComponentGroup>; the Feature
+         then references the ComponentGroup by id. -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.StageDir)\**" />
+    </ComponentGroup>
+
     <Feature Id="Main" Title="Mizan" Level="1">
       <ComponentRef Id="DesktopShortcut" />
       <ComponentRef Id="MizanService" />
-      <!-- v2.5.8 — auto-harvest the staged directory tree into the
-           install folder. WiX v4's <Files> element replaces the
-           old `wix harvest` workflow: it creates one Component per
-           file at build time, scoped to the parent Feature. -->
-      <Files Include="!(bindpath.StageDir)\**" />
+      <ComponentGroupRef Id="AppFiles" />
     </Feature>
   </Package>
 </Wix>

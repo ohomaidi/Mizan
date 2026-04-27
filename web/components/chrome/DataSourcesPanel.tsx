@@ -13,12 +13,15 @@ type SourceKey =
   | "intune"
   | "compliance";
 
-type Health = "green" | "amber" | "red";
+type Health = "green" | "amber" | "red" | "unavailable";
 
 type HealthResponse = {
   lookbackHours: number;
   consentedTenants: number;
-  sources: Record<SourceKey, { status: Health; coverage: number }>;
+  sources: Record<
+    SourceKey,
+    { status: Health; coverage: number; licenseGated?: number }
+  >;
 };
 
 type FrameworkId = "nesa" | "dubai-isr" | "nca" | "isr" | "generic";
@@ -54,10 +57,15 @@ const ROWS: Array<{
   { key: "compliance", name: "Compliance Mgr.", detailKey: "ds.compliance.detail" },
 ];
 
+// Colour-coded dot per status. v2.5.11+ — `unavailable` is its own
+// state for license-gated sources (every consented tenant returned
+// 4xx, meaning the SKU isn't owned). It renders dim grey because
+// "we don't read this" isn't a problem to alarm on, just a fact.
 const DOT: Record<Health, string> = {
   green: "bg-pos",
   amber: "bg-warn",
   red: "bg-neg",
+  unavailable: "bg-ink-3/50",
 };
 
 export function DataSourcesPanel() {
@@ -112,23 +120,40 @@ export function DataSourcesPanel() {
       <ul className="flex flex-col gap-1.5 px-1">
         {ROWS.map((s) => {
           // Default while the fetch is in flight: amber (honest "unknown").
-          const status: Health = health?.sources[s.key]?.status ?? "amber";
-          const coverage = health?.sources[s.key]?.coverage;
+          const entry = health?.sources[s.key];
+          const status: Health = entry?.status ?? "amber";
+          const coverage = entry?.coverage;
+          const licenseGated = entry?.licenseGated ?? 0;
+          // Tooltip text is status-aware: "unavailable" sources get a
+          // human explanation rather than a percent that would always
+          // read 0%.
+          const tooltip =
+            status === "unavailable"
+              ? `Not provisioned in ${licenseGated} consented entit${licenseGated === 1 ? "y" : "ies"}. The Microsoft SKU for this data source isn't owned — Mizan can't read what isn't there.`
+              : coverage != null
+                ? `${coverage}% of provisioned entities returned data in the last ${health?.lookbackHours ?? 72}h`
+                : undefined;
           return (
             <li key={s.key} className="flex items-start gap-2 px-1.5 py-1">
               <span
                 className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${DOT[status]}`}
                 aria-hidden
-                title={
-                  coverage != null
-                    ? `${coverage}% of consented entities in the last ${health?.lookbackHours ?? 48}h`
-                    : undefined
-                }
+                title={tooltip}
               />
               <div className="min-w-0">
-                <div className="text-[12.5px] text-ink-1 leading-tight">{s.name}</div>
+                <div
+                  className={`text-[12.5px] leading-tight ${
+                    status === "unavailable" ? "text-ink-3" : "text-ink-1"
+                  }`}
+                >
+                  {s.name}
+                </div>
                 <div className="text-[11px] text-ink-3 leading-snug">
-                  {s.key === "compliance" ? complianceDetail : t(s.detailKey)}
+                  {s.key === "compliance"
+                    ? complianceDetail
+                    : status === "unavailable"
+                      ? "not provisioned"
+                      : t(s.detailKey)}
                 </div>
               </div>
             </li>
