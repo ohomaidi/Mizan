@@ -42,9 +42,8 @@ export function PdfTemplatePanel() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // Preview ID resolves at runtime to the first onboarded tenant. The
-  // panel previously hardcoded `shj-police-ghq` which 404'd on any
-  // deployment whose seed customer wasn't sharjah (e.g. DESC, where the
-  // seeded tenants are dubai-airports / dubai-courts / etc.). Now we
+  // panel previously hardcoded a specific seed-customer id which 404'd
+  // on any deployment whose seed catalogue used different ids. Now we
   // pull the live tenant list and use the first row's id; if there are
   // no tenants yet, the preview buttons render disabled.
   const [previewTenantId, setPreviewTenantId] = useState<string | null>(null);

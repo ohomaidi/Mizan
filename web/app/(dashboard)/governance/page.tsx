@@ -150,6 +150,7 @@ export default function GovernancePage() {
                         }`}
                       >
                         {fmt(Math.round(e.maturity.index))}
+                        <span className="text-ink-3 text-[10px] ms-0.5">%</span>
                       </span>
                     </li>
                   );

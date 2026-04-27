@@ -101,6 +101,7 @@ export default function MaturityPage() {
             <KpiTile
               label={t("kpi.maturityIndex")}
               value={fmt(kpis.maturityIndex)}
+              suffix="%"
               accent="council"
               delta={deltaForRange(kpis, range) ?? undefined}
               deltaSuffix={captionForRange(range, t)}

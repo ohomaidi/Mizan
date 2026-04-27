@@ -1,5 +1,6 @@
 import "server-only";
 import { graphFetch, graphFetchAll, GraphError } from "./fetch";
+import { defenderFetch } from "./defender-fetch";
 
 export type SignalCallCtx = {
   tenantGuid: string;
@@ -708,7 +709,19 @@ async function fetchPurviewAlertsByService(
   const path = `/security/alerts_v2?$filter=serviceSource eq '${serviceSource}'&$top=50&$orderby=lastUpdateDateTime desc`;
   let rows: RawAlertV2[];
   try {
-    rows = await graphFetchAll<RawAlertV2>({ ...ctx, path }, 10);
+    // v2.5.22 — pinned to beta. The granular Purview serviceSource enum
+    // values (`microsoftPurviewDataLossPrevention`,
+    // `microsoftPurviewInsiderRiskManagement`,
+    // `microsoftPurviewCommunicationCompliance`) only exist on the beta
+    // alerts_v2 schema. v1.0 returned `400 — Invalid filter clause: The
+    // string '...' is not a valid enumeration type constant.` on every
+    // Purview alert query. v2.5.19's switch from short-form
+    // (`microsoftDataLossPrevention`) to long-form was correct — but the
+    // long forms only resolve on beta.
+    rows = await graphFetchAll<RawAlertV2>(
+      { ...ctx, path, version: "beta" },
+      10,
+    );
   } catch (err) {
     if (isProductUnavailable(err)) {
       return { total: 0, active: 0, resolved: 0, bySeverity: {}, alerts: [] };
@@ -1542,7 +1555,7 @@ export async function fetchLabelAdoption(
         version: "beta",
         method: "POST",
         body: {
-          displayName: "SCSC Label Adoption",
+          displayName: "Mizan Label Adoption",
           filterStartDateTime: new Date(now - 7 * 86_400_000).toISOString(),
           filterEndDateTime: new Date(now).toISOString(),
           recordTypeFilters: MIP_RECORD_TYPES,
@@ -1766,16 +1779,24 @@ function emptyVulnerabilitiesPayload(error: string | null = null): Vulnerabiliti
 // table where each software version has `EndOfSupportStatus`, or leave it
 // at 0 for tenants where that doesn't resolve either. The UI renders "—"
 // in that case rather than implying zero patching happened.
-// v2.5.19 fix: `dcountif` is not in MDE Advanced Hunting's restricted KQL
-// dialect. The endpoint returned `400 — The incomplete fragment is
-// unexpected. Fix syntax errors in your query.` because the parser tripped
-// on the function name. Replaced with `countif` (which IS supported) — the
-// semantic shifts slightly (counts vulnerability ROWS, not distinct CVEs),
-// so the same CVE attributable to two software versions on one device
-// counts twice in the severity tallies. Acceptable for ranking devices by
-// exposure; over-count is bounded by the per-device row count and rarely
-// material. `CveCount = dcount(CveId)` is preserved (dcount itself IS
-// supported) so the headline distinct-CVE figure stays accurate.
+//
+// v2.5.22 — additional KQL simplifications for the MDE Advanced Hunting
+// restricted dialect. Even after the v2.5.21 body-shape fix
+// (`Query` → `query`) the query was still returning `400 — The incomplete
+// fragment is unexpected`. The companion pack queries (failedAdminSignIns)
+// started succeeding under the same body-shape fix, isolating the failure
+// to constructs unique to this query:
+//   - `make_set(CveId, 100)` — the two-arg `make_set(expr, maxSize)` form
+//     is documented in standard Kusto but appears to be rejected by MDE's
+//     restricted parser. Dropped entirely; the per-device CveIds list isn't
+//     consumed by the UI today, so removing the column is harmless.
+//   - `top 50 by A desc, B desc, C desc` — multi-key `top` is documented
+//     in standard Kusto but again may not survive MDE's parser. Reduced
+//     to a single sort key (`Critical desc`); ties on Critical fall back
+//     to the natural row order which is already roughly severity-sorted.
+//   - v2.5.19 fix retained: `dcountif` → `countif` (counts vulnerability
+//     rows, not distinct CVEs) since `dcountif` isn't in the dialect at
+//     all. `CveCount = dcount(CveId)` preserved for the headline.
 const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
 | summarize
     CveCount = dcount(CveId),
@@ -1784,20 +1805,24 @@ const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
     Medium = countif(VulnerabilitySeverityLevel == "Medium"),
     Low = countif(VulnerabilitySeverityLevel == "Low"),
     MaxCvss = max(CvssScore),
-    OsPlatform = any(OSPlatform),
-    CveIds = make_set(CveId, 100)
+    OsPlatform = any(OSPlatform)
   by DeviceId, DeviceName
-| top 50 by Critical desc, High desc, CveCount desc`;
+| top 50 by Critical desc`;
 
+// v2.5.22 simplifications (same rationale as VULN_KQL_BY_DEVICE):
+//   - `iff(max(iff(IsExploitAvailable == true, 1, 0)) > 0, true, false)`
+//     replaced with `countif(IsExploitAvailable == true) > 0` — flatter
+//     expression, no nested iff. Returns the same boolean.
+//   - Multi-key `top 50 by A desc, B desc` reduced to single key.
 const VULN_KQL_TOP_CVES = `DeviceTvmSoftwareVulnerabilities
 | summarize
     AffectedDevices = dcount(DeviceId),
     Severity = any(VulnerabilitySeverityLevel),
     CvssScore = max(CvssScore),
-    HasExploit = iff(max(iff(IsExploitAvailable == true, 1, 0)) > 0, true, false),
+    HasExploit = countif(IsExploitAvailable == true) > 0,
     PublishedDateTime = any(VulnerabilityPublishedDate)
   by CveId
-| top 50 by AffectedDevices desc, CvssScore desc`;
+| top 50 by AffectedDevices desc`;
 
 // NOTE: remediated counts on live tenants cannot be computed from this
 // single endpoint — TVM only returns currently-exposed findings. A future
@@ -1830,38 +1855,62 @@ type RawVulnCveRow = {
 export async function fetchVulnerabilities(
   ctx: SignalCallCtx,
 ): Promise<VulnerabilitiesPayload> {
-  // Two hunting queries in parallel — cheaper than two serial KQL executions
-  // given the per-tenant runHuntingQuery throttle is already generous.
-  let byDeviceRes: { results?: RawVulnByDeviceRow[] };
-  let topCveRes: { results?: RawVulnCveRow[] };
+  // v2.5.22 — vulnerability hunting moved off Microsoft Graph's
+  // /security/runHuntingQuery and onto the Defender for Endpoint direct API
+  // at /api/advancedhunting/run. Why:
+  //   - Graph's restricted KQL parser kept rejecting valid TVM-table queries
+  //     ("incomplete fragment is unexpected") even after every reasonable
+  //     simplification — make_set was dropped, multi-key top reduced, the
+  //     dcountif → countif rewrite, the body-shape `Query` → `query` fix,
+  //     and the response shape was correct. Five different rewrites, same
+  //     400 every time.
+  //   - The DfE direct API uses the same KQL but a less-restricted parser
+  //     (the same one the security.microsoft.com Advanced Hunting console
+  //     in the Defender portal uses), so the tenant's portal-side queries
+  //     and Mizan's queries become byte-identical.
+  //   - DfE direct API requires a different scope (AdvancedQuery.Read.All
+  //     on the WindowsDefenderATP service principal) — registered on the
+  //     Mizan data app in v2.5.22. Existing entity tenants need to
+  //     re-consent before the new scope takes effect.
+  //
+  // Body shape note: DfE direct API uses capital `Query` (legacy DfE format
+  // that the Microsoft Graph migration cargo-culted but inverted to
+  // lowercase). Response is `{ Schema, Results }` (capital), not Graph's
+  // lowercase `{ schema, results }`.
+  let byDeviceRes: { Results?: RawVulnByDeviceRow[] };
+  let topCveRes: { Results?: RawVulnCveRow[] };
   try {
     [byDeviceRes, topCveRes] = await Promise.all([
-      graphFetch<{ results?: RawVulnByDeviceRow[] }>({
+      defenderFetch<{ Results?: RawVulnByDeviceRow[] }>({
         ...ctx,
-        path: "/security/runHuntingQuery",
+        path: "/advancedhunting/run",
         method: "POST",
-        // v2.5.21: lowercase `query` — see comment in fetchAdvancedHunting.
-        body: { query: VULN_KQL_BY_DEVICE },
+        body: { Query: VULN_KQL_BY_DEVICE },
       }),
-      graphFetch<{ results?: RawVulnCveRow[] }>({
+      defenderFetch<{ Results?: RawVulnCveRow[] }>({
         ...ctx,
-        path: "/security/runHuntingQuery",
+        path: "/advancedhunting/run",
         method: "POST",
-        body: { query: VULN_KQL_TOP_CVES },
+        body: { Query: VULN_KQL_TOP_CVES },
       }),
     ]);
   } catch (err) {
-    // Common failure: tenant has no Defender VM license → "Failed to resolve
-    // table or column DeviceTvmSoftwareVulnerabilities". Treat any GraphError
-    // as "feature unavailable" and return the empty payload.
+    // Common failure: tenant has no Defender VM license OR hasn't yet
+    // re-consented for the AdvancedQuery.Read.All scope → 401/403/400 from
+    // the DfE API. Treat any GraphError-shaped error as "feature
+    // unavailable" and return the empty payload so the rest of the sync
+    // proceeds.
     if (err instanceof GraphError) {
       return emptyVulnerabilitiesPayload(err.message);
     }
     throw err;
   }
+  // Normalise to lowercase shape the rest of the function expects.
+  const byDeviceResults = byDeviceRes.Results;
+  const topCveResults = topCveRes.Results;
 
-  const byDeviceRows = byDeviceRes.results ?? [];
-  const topCveRows = topCveRes.results ?? [];
+  const byDeviceRows = byDeviceResults ?? [];
+  const topCveRows = topCveResults ?? [];
 
   const byDevice: VulnDevice[] = byDeviceRows.map((r) => ({
     deviceId: r.DeviceId ?? "",

@@ -226,10 +226,9 @@ SCSC_SEED_DEMO=false`}</Code>
         ]}
       />
       <Note lang="en">
-        The SCSC_ prefix on these variable names is historical — Mizan was
-        first built for the Sharjah Cybersecurity Council. The names are kept
-        for backward compatibility with existing deployments. New code may use
-        MIZAN_ aliases over time, but SCSC_ remains the canonical set.
+        The `SCSC_` prefix on these variable names is historical — kept for
+        backward compatibility with existing deployments. New code may use
+        `MIZAN_` aliases over time, but `SCSC_` remains the canonical set.
       </Note>
 
       <H1 lang="en" num={4}>Running the demo environment</H1>
@@ -592,10 +591,9 @@ SCSC_SEED_DEMO=false`}</Code>
         ]}
       />
       <Note lang="ar">
-        بادئة SCSC_ في أسماء هذه المتغيرات تاريخية — بُنيت Mizan أول مرة
-        لمجلس الشارقة للأمن السيبراني. تُحفظ الأسماء كما هي حفاظًا على توافق
-        النشرات القائمة. قد تظهر مرادفات MIZAN_ في المستقبل، لكن SCSC_ يبقى
-        المرجع المعتمد.
+        بادئة `SCSC_` في أسماء هذه المتغيرات تاريخية — تُحفظ كما هي حفاظًا على
+        توافق النشرات القائمة. قد تظهر مرادفات `MIZAN_` في المستقبل، لكن
+        `SCSC_` يبقى المرجع المعتمد.
       </Note>
 
       <H1 lang="ar" num={4}>تشغيل بيئة العرض التجريبي</H1>

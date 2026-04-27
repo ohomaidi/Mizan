@@ -280,20 +280,30 @@ async function fetchSubscribedSkus(
 async function fetchOrganizationSummary(
   ctx: SignalCallCtx,
 ): Promise<{ mdmAuthority: string | null; userCountFloor: number | null }> {
+  // v2.5.22: dropped `mobileDeviceManagementAuthority` from $select.
+  // Including that field caused Graph to proxy the request through to
+  // Intune's `StatelessOnboardingService.organization` endpoint, which
+  // requires `DeviceManagementServiceConfiguration.Read.All` — a scope
+  // Mizan doesn't register and would need re-consent for. The error
+  // looked like a generic `/organization` failure but was actually
+  // Intune-side. Without the field we only get `assignedPlans`, which
+  // is enough to detect Intune licensing; the MDM-authority badge falls
+  // back to "infer Intune as authority if any enrolled devices exist".
   try {
     const r = await graphFetch<{
       value: Array<{
-        mobileDeviceManagementAuthority?: string;
         assignedPlans?: Array<{ service: string; capabilityStatus: string }>;
       }>;
     }>({
       ...ctx,
-      path: "/organization?$select=mobileDeviceManagementAuthority,assignedPlans",
+      path: "/organization?$select=assignedPlans",
     });
-    const org = r.value?.[0];
+    // Field is no longer queried; the workload-coverage card downstream
+    // resolves it from Intune's enrolled-device count instead.
+    void r;
     return {
-      mdmAuthority: org?.mobileDeviceManagementAuthority ?? null,
-      userCountFloor: null, // populated separately if needed; deferred for now
+      mdmAuthority: null,
+      userCountFloor: null,
     };
   } catch {
     return { mdmAuthority: null, userCountFloor: null };
@@ -384,14 +394,17 @@ async function fetchIntuneCounts(ctx: SignalCallCtx): Promise<{
     /* leave null */
   }
   try {
-    const r = await graphFetch<{ "@odata.count"?: number; value: unknown[] }>({
+    // v2.5.22 fix: dropped `$count=true` — the beta endpoint rejects it
+    // (`400 — Query option 'Count' is not allowed`). We don't need an
+    // exact count for the workload-coverage card; "more than zero
+    // configuration policies exist" is the actual signal. Bump $top to
+    // 200 (a generous ceiling) and use `value.length` as the count.
+    const r = await graphFetch<{ value: unknown[] }>({
       ...ctx,
-      // v2.5.20 fix: Settings Catalog endpoint is beta-only; v1.0 returns
-      // `400 — Resource not found for the segment 'configurationPolicies'`.
-      path: "/deviceManagement/configurationPolicies?$count=true&$top=1",
+      path: "/deviceManagement/configurationPolicies?$top=200",
       version: "beta",
     });
-    out.settingsCatalogProfileCount = r["@odata.count"] ?? r.value?.length ?? 0;
+    out.settingsCatalogProfileCount = r.value?.length ?? 0;
   } catch {
     /* leave null */
   }
@@ -621,29 +634,15 @@ async function fetchDlpCounts(ctx: SignalCallCtx): Promise<{
     alertsLast30d: null as number | null,
     error: null as string | null,
   };
-  try {
-    const r = await graphFetch<{ value: Array<{ id: string }> }>({
-      ...ctx,
-      path: "/security/dataLossPreventionPolicies?$top=100",
-      version: "beta",
-    });
-    out.policyCount = r.value?.length ?? 0;
-  } catch (err) {
-    // v2.5.20: Microsoft removed (or never published) `/security/
-    // dataLossPreventionPolicies` on Graph — tenants now get
-    // `400 — Resource not found for the segment 'dataLossPreventionPolicies'`.
-    // Treat 400 the same as 403/404 (endpoint unavailable, not an error).
-    // Tenant-level DLP policy count may eventually return via a different
-    // endpoint; until then null falls through to the alert-count proxy.
-    if (
-      err instanceof GraphError &&
-      (err.status === 400 || err.status === 403 || err.status === 404)
-    ) {
-      out.policyCount = 0;
-    } else {
-      out.error = errorMessage(err);
-    }
-  }
+  // v2.5.22: skip `/security/dataLossPreventionPolicies` entirely —
+  // Microsoft never published this endpoint on Graph (returns
+  // `400 — Resource not found for the segment` on both v1.0 and beta).
+  // The catch-and-tolerate path from v2.5.20 still left a red entry in
+  // endpoint_health every sync. Until Microsoft ships an actual DLP
+  // policy-listing endpoint, the tenant-level DLP signal comes purely
+  // from the alert-count proxy below — non-zero alerts in 30d means DLP
+  // is active even when we can't see the policies themselves.
+  out.policyCount = null;
   // v2.5.20: long-form serviceSource enum (matches the v2.5.19 fix in signals.ts).
   const a = await fetchAlertCount(ctx, "microsoftPurviewDataLossPrevention");
   out.alertsLast30d = a.count;

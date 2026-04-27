@@ -538,7 +538,10 @@ function MaturityCell({ value, hasData }: { value: number; hasData: boolean }) {
       <div className="h-1.5 w-16 rounded-full bg-surface-3 overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-ink-1 font-semibold tabular w-8 text-end">{fmt(Math.round(value))}</span>
+      <span className="text-ink-1 font-semibold tabular w-12 text-end">
+        {fmt(Math.round(value))}
+        <span className="text-ink-3 text-[10px] ms-0.5">%</span>
+      </span>
     </div>
   );
 }

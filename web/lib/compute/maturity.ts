@@ -217,9 +217,56 @@ export function computeFromSnapshots(
 /** Load latest snapshots for a tenant and compute breakdown. */
 export function computeForTenant(tenantId: string): MaturityBreakdown {
   const snaps = getLatestSnapshotsForTenant(tenantId);
+
+  // v2.5.22: honor control-tier Out-of-Scope marks. The operator can mark
+  // individual Microsoft Secure Score controls as OOS on the Controls tab
+  // when the entity covers them via a non-Microsoft tool. OOS controls
+  // are filtered out of the secure-score payload BEFORE the compute, so
+  // they don't contribute to:
+  //   - `controlsPassingPct` (headline rollup on the entity overview)
+  //   - the framework-compliance sub-score's per-clause coverage map
+  //
+  // Microsoft's reported `secureScore.percent` (used for the 0.25-weighted
+  // secureScore sub-score) stays unfiltered — that number is Microsoft's
+  // own roll-up across all tracked controls and Mizan can't recompute it
+  // without re-implementing Microsoft's weighting model. The operator
+  // sees this trade-off honestly: marking a control OOS removes it from
+  // Mizan's pass-rate calculations but doesn't change Microsoft's headline
+  // secure score.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getActiveFramework } = require("@/lib/config/compliance-framework") as {
+    getActiveFramework: () => { frameworkId: string };
+  };
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getOosSets } = require("@/lib/db/compliance-oos") as {
+    getOosSets: (
+      frameworkId: string,
+      tenantId: string | null,
+    ) => {
+      globalControls: Set<string>;
+      tenantControls: Set<string>;
+    };
+  };
+  const { frameworkId } = getActiveFramework();
+  const oos = getOosSets(frameworkId, tenantId);
+  const oosControlIds = new Set<string>([
+    ...oos.globalControls,
+    ...oos.tenantControls,
+  ]);
+
+  const rawSs =
+    (snaps.secureScore?.payload as SecureScorePayload | undefined) ?? null;
+  const filteredSs =
+    rawSs && oosControlIds.size > 0
+      ? {
+          ...rawSs,
+          controls: rawSs.controls.filter((c) => !oosControlIds.has(c.id)),
+        }
+      : rawSs;
+
   return computeFromSnapshots(
     {
-      secureScore: (snaps.secureScore?.payload as SecureScorePayload | undefined) ?? null,
+      secureScore: filteredSs,
       conditionalAccess:
         (snaps.conditionalAccess?.payload as ConditionalAccessPayload | undefined) ?? null,
       riskyUsers: (snaps.riskyUsers?.payload as RiskyUsersPayload | undefined) ?? null,

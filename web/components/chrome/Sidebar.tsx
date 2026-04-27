@@ -40,7 +40,7 @@ const NAV: NavItem[] = [
   { href: "/devices", labelKey: "nav.devices", icon: MonitorSmartphone },
   { href: "/governance", labelKey: "nav.governance", icon: Scale },
   // Directive-only. Absent from the sidebar on observation-mode deployments
-  // (SCSC) so the existing experience is byte-for-byte unchanged there.
+  // so the existing read-only experience is byte-for-byte unchanged there.
   {
     href: "/directive",
     labelKey: "nav.directive",

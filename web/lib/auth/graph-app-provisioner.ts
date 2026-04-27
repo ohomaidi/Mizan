@@ -188,6 +188,15 @@ const DEFENDER_APP_READ_PERMISSIONS: Array<{ name: string; id: string }> = [
   // GET https://api.security.microsoft.com/api/machines (Phase 16
   // Workload Coverage card — MDE onboarded device inventory). Read-only.
   { name: "Machine.Read.All", id: "ea8291d3-4b9a-44b5-bc3a-6cea3026dc79" },
+  // POST https://api.security.microsoft.com/api/advancedhunting/run —
+  // ADDED v2.5.22 to power the Vulnerabilities tab (DeviceTvmSoftware-
+  // Vulnerabilities table queries). Microsoft Graph's runHuntingQuery has a
+  // restricted KQL parser that rejects valid TVM queries; the DfE direct
+  // API uses the same parser as the Defender portal's Advanced Hunting
+  // console. Tenants onboarded BEFORE v2.5.22 must re-consent for this
+  // scope to take effect — the SP's existing app role assignments don't
+  // auto-pick up new requiredResourceAccess entries.
+  { name: "AdvancedQuery.Read.All", id: "dd98c7f5-2d42-42d3-a0e4-633161547251" },
 ];
 
 /** Defender API write-side scopes — directive deployments only. */

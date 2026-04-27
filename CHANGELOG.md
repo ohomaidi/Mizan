@@ -26,6 +26,42 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-27 — v2.5.22 (DfE-direct vulnerability hunting + 6 connection-tab fixes + per-control OOS + Maturity %)**. Big batch.
+
+  **Vulnerabilities — switched from Microsoft Graph to Defender for Endpoint direct API.** Five rounds of KQL simplification (`dcountif`→`countif`, `Query`→`query` body shape, removed `make_set(expr, n)`, multi-key `top`, nested `iff`) all hit the same `400 — incomplete fragment is unexpected` error from Microsoft Graph's `/security/runHuntingQuery`. The advanced-hunting packs that share the endpoint succeeded under those same fixes — proving the failure was specific to TVM-table queries against Graph's restricted KQL parser, not the body shape or KQL itself. Solution: route vulnerability hunting through `defenderFetch()` against the Defender for Endpoint direct API at `https://api.security.microsoft.com/api/advancedhunting/run` — same endpoint the Defender portal's Advanced Hunting console uses, with a less-restricted parser. New scope `AdvancedQuery.Read.All` (`dd98c7f5-…`) registered on the WindowsDefenderATP service principal in `DEFENDER_APP_READ_PERMISSIONS`. Body shape on the DfE direct API uses capital `Query` (legacy DfE convention). Existing entity tenants need to **re-consent** for the new scope to take effect.
+
+  **6 connection-tab endpoints brought back to green:**
+  1. `/security/alerts_v2` → pinned to `version: "beta"`. The granular Purview enum values (`microsoftPurviewDataLossPrevention`, `microsoftPurviewInsiderRiskManagement`) only exist on beta — v2.5.19's switch to long-form was correct but blocked by the v1.0 enum. Fixed.
+  2. `/deviceManagement/configurationPolicies` → dropped unsupported `$count=true` query param. Beta endpoint rejects `$count`; counting via `value.length` works.
+  3. `/security/dataLossPreventionPolicies` → skipped entirely. Microsoft never published this endpoint on Graph; we relied on the alert-count proxy anyway.
+  4. `/organization` → dropped `$select=mobileDeviceManagementAuthority`. Including that field caused Graph to proxy through to Intune's `StatelessOnboardingService` which requires `DeviceManagementServiceConfiguration.Read.All` — a scope Mizan doesn't hold. Without the field the call goes through cleanly with the existing scopes.
+  5. Vulnerability KQL simplifications (kept since some MDE parsers are still restrictive) — `dcountif`→`countif`, dropped `make_set(CveId, 100)`, replaced nested `iff`/`max` with `countif > 0`, single-key `top`.
+
+  **Per-control Out-of-Scope (Controls tab).** The Dubai ISR / framework tab already had per-clause OOS toggles. Now the Microsoft Secure Score Controls tab gets the same — operators can mark individual controls out of scope when "Done using a non-Microsoft tool" (e.g. CrowdStrike Falcon covering endpoint hardening that Microsoft Secure Score can't observe). UI mirrors the framework-tab pattern: per-row "Mark out of scope" / "Restore to scope" button, optimistic state flip, reason-capture modal, OOS chip on dimmed rows. The data layer (`lib/db/compliance-oos.ts`) was already plumbed for `scope_kind = "control"`; only the UI + maturity compute filter needed wiring. `computeForTenant` now reads the OOS control set for the active framework + tenant and excludes those control IDs from `controlsPassingPct` and the framework compliance sub-score's coverage map. Microsoft's reported `secureScore.percent` (used for the 0.25-weighted secureScore sub-score) stays unfiltered — Mizan can't recompute Microsoft's own roll-up without re-implementing their weighting model. Captions added to BOTH tabs explaining "Mark out of scope = covered by a non-Microsoft tool, will be excluded from the Maturity Index calculation".
+
+  **Maturity Index now renders as a percentage everywhere.** It IS a 0–100 weighted sum of sub-scores, but historically rendered without the `%` suffix while Dubai ISR / Controls Passing rendered with it — visually misleading. Added `%` on:
+  - `/maturity` KPI tile
+  - Entity detail page header big number (e.g. `54%` instead of `54`)
+  - Entity-list table column (e.g. `54%` next to the bar)
+  - Governance page "By entity" rollup
+
+  **Dubai ISR tab layout fix.** The headline `56%` was floating top-right with `items-end` + `ms-auto`, leaving an awkward gap between the title block on the left and the percent on the right. Switched to `items-start` + `flex-1`/`shrink-0`, so the headline number aligns with the title's top baseline rather than the description's bottom — consistent with the Maturity overview headline.
+
+  **Entity-name scrub.** The user flagged hardcoded "DESC" / "SCSC" / "Sharjah Cybersecurity Council" / "Dubai Electronic Security Center" references in user-visible copy as inappropriate for a generic product. Removed from:
+  - FAQ — `faq.q.frameworkCompliance.intro` (removed "Dubai ISR for DESC, NESA for SCSC" parenthetical)
+  - `nesaCfg.hero.body.dubai-isr` description (removed "Used by DESC for cross-tenant posture roll-up")
+  - `nesaCfg.hero.body.nesa` description (removed "Adopted by Sharjah Cybersecurity Council")
+  - `nesaCfg.cfg.addCustom.help` (removed "DESC publishes" → "the regulator publishes")
+  - `faq.q.demo.body` (removed "The {orgShort} can wipe..." → "An admin can wipe...")
+  - `InstallationGuide.tsx` PDF — removed "Mizan was first built for the Sharjah Cybersecurity Council"
+  - `signals.ts` — `displayName: "SCSC Label Adoption"` audit-query (was leaking the council name into every entity's audit log) → `"Mizan Label Adoption"`
+  - Code comments in Sidebar / BrandingMark / PdfTemplatePanel
+  EN + AR. Strings listing multiple frameworks as documentation examples (e.g. "(Dubai ISR / NESA / others)") kept as-is.
+
+  **Upgrade-toast `{to}` placeholder bug.** `settings.about.upgradeRequested.body` rendered `v{to}` literally because the t() call wasn't passing the params. Fixed.
+
+  **Documentation sweep.** `docs/10-deployment.md`, `web/deploy/README.md`, root `README.md`, `web/README.md` brought in line with the v2.5.17+ EmptyDir + NFS-backup architecture. Removed stale "SQLite lives on NFS" descriptions; current docs accurately describe live-on-EmptyDir + 5-min-snapshot-to-NFS.
+
 - **2026-04-27 — v2.5.21 (Two showstopper fixes: runHuntingQuery body shape + UTC timestamp parsing)**.
 
   **runHuntingQuery — `Query` (capital Q) → `query` (lowercase).** The single biggest reason Mizan reported "Defender Vulnerability Management not available" + "advanced hunting failed" on every E5-licensed tenant: `lib/graph/signals.ts` was sending the request body as `{ Query: "..." }` (capital Q). That's the **legacy Defender for Endpoint API** body shape (`api.security.microsoft.com/api/advancedhunting/run`). Microsoft Graph's `/security/runHuntingQuery` expects **`{ query: "..." }`** (lowercase). Graph silently ignored the unrecognized field, fell back to a default empty query, and returned `400 — The incomplete fragment is unexpected. Fix syntax errors in your query.` for every single hunting call. EVERY pack execution AND both vulnerability KQL queries failed with this since the Graph migration. v2.5.19's `dcountif → countif` rewrite was correct but couldn't help because the queries weren't reaching the parser at all. Vulnerabilities + advanced hunting now actually run.

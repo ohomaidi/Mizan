@@ -727,9 +727,9 @@ export const DICT = {
     "nesaCfg.frameworkSwitched":
       "Framework switched. Catalog reloaded against the new selection; dashboard-wide UI updated.",
     "nesaCfg.hero.body.dubai-isr":
-      "Dubai Information Security Regulation, published by Dubai Electronic Security Center under Dubai Law No. 11 of 2014. Mandatory for all Dubai government entities and critical-sector organisations. 13 domains across 3 classes (Governance, Operation, Assurance) anchored on ISO/IEC 27001 + 27002. Used by DESC for cross-tenant posture roll-up.",
+      "Dubai Information Security Regulation, published under Dubai Law No. 11 of 2014. Mandatory for Dubai government entities and critical-sector organisations. 13 domains across 3 classes (Governance, Operation, Assurance) anchored on ISO/IEC 27001 + 27002.",
     "nesaCfg.hero.body.nesa":
-      "UAE NESA Information Assurance Standard, published by the federal National Electronic Security Authority. The federal baseline for UAE government entities. Adopted by Sharjah Cybersecurity Council and other UAE councils that don\u2019t fall under DESC\u2019s Dubai-only scope.",
+      "UAE NESA Information Assurance Standard, published by the federal National Electronic Security Authority. The federal baseline for UAE government entities outside Dubai's regulatory scope.",
     "nesaCfg.hero.body.nca":
       "Saudi Arabia\u2019s National Cybersecurity Authority controls. Used for KSA-based entities. Catalog ships as a placeholder \u2014 build out per the NCA Essential Cybersecurity Controls (ECC).",
     "nesaCfg.hero.body.isr":
@@ -773,7 +773,7 @@ export const DICT = {
     "nesaCfg.picker.available": "available",
     "nesaCfg.picker.custom": "Custom…",
     "nesaCfg.picker.customLabel":
-      "Add a control ID by hand. Useful when DESC publishes a new ISR sub-control before our registry has caught up — the chip will show with no live coverage data until a tenant reports it.",
+      "Add a control ID by hand. Useful when the regulator publishes a new sub-control before our registry has caught up — the chip will show with no live coverage data until a tenant reports it.",
     "nesaCfg.picker.customPlaceholder": "e.g. ISR-Custom-001",
     "nesaCfg.picker.cancel": "Cancel",
     "nesaCfg.picker.add": "Add",
@@ -898,7 +898,7 @@ export const DICT = {
     "faq.q.frameworkCompliance.title":
       "How is Framework Compliance calculated?",
     "faq.q.frameworkCompliance.intro":
-      "Framework Compliance is a separate primary metric, sitting alongside the Maturity Index. Maturity Index answers \u201chow well-protected is this entity?\u201d. Framework Compliance answers \u201chow aligned with the regulator\u2019s specific framework?\u201d (Dubai ISR for DESC, NESA for SCSC). Different question, different number, both visible.",
+      "Framework Compliance is a separate primary metric, sitting alongside the Maturity Index. Maturity Index answers \u201chow well-protected is this entity?\u201d. Framework Compliance answers \u201chow aligned with the active regulatory framework?\u201d. Different question, different number, both visible.",
     "faq.q.frameworkCompliance.formulaIntro":
       "For the active framework (set in Settings → Compliance framework), the score is the weighted average of per-clause coverage. Each clause\u2019s coverage is the average of its mapped Microsoft Secure Score pass-rates and any operator-managed \u201ccustom evidence\u201d anchors the Council reviews periodically:",
     "faq.q.frameworkCompliance.unscoredNote":
@@ -962,7 +962,7 @@ export const DICT = {
 
     "faq.q.demo.title": "Why do some entities show a 'Demo' badge?",
     "faq.q.demo.body":
-      "Demo-flagged entities carry pre-baked signals and are never synced against real Graph endpoints. They're there so the dashboard shows populated data before real tenants are onboarded. Production installs ship with seeding disabled by default (set SCSC_SEED_DEMO=true to enable). The {orgShort} can wipe all demo entities at any time with `npm run purge-demo` — real tenants are untouched.",
+      "Demo-flagged entities carry pre-baked signals and are never synced against real Graph endpoints. They're there so the dashboard shows populated data before real tenants are onboarded. Production installs ship with seeding disabled by default (set `SCSC_SEED_DEMO=true` to enable). An admin can wipe all demo entities at any time with `npm run purge-demo` — real tenants are untouched.",
 
     "faq.q.glossary.title": "Glossary",
     "faq.q.glossary.tenant": "Tenant — one entity's Microsoft 365 organization, identified by an Entra GUID.",
@@ -1316,7 +1316,7 @@ export const DICT = {
     "entity.frameworkTab.stat.target": "Target",
     "entity.frameworkTab.controls.title": "Per-clause coverage + scope",
     "entity.frameworkTab.controls.subtitle":
-      "Out-of-scope clauses are excluded from this entity's framework score. Global OOS marks (set in Settings → Compliance framework) cannot be overridden here.",
+      "Mark a clause out of scope when it's covered by a non-Microsoft tool — it'll be excluded from this entity's framework score. Global OOS marks (set in Settings → Compliance framework) cannot be overridden here.",
     "entity.frameworkTab.col.scope": "Scope",
     "entity.frameworkTab.scope.markOos": "Mark out of scope",
     "entity.frameworkTab.scope.restore": "Restore to scope",
@@ -1337,11 +1337,12 @@ export const DICT = {
       "No directive pushes have executed against this entity yet.",
 
     "tab.controls.title": "Secure Score controls",
-    "tab.controls.subtitle": "Per-control implementation status from Microsoft Secure Score.",
+    "tab.controls.subtitle": "Per-control implementation status from Microsoft Secure Score. Mark a control out of scope when it's covered by a non-Microsoft tool — it'll be excluded from the Maturity Index calculation.",
     "tab.controls.col.name": "Control",
     "tab.controls.col.category": "Category",
     "tab.controls.col.score": "Score",
     "tab.controls.col.status": "Status",
+    "tab.controls.col.scope": "Scope",
     "tab.controls.implemented": "Implemented",
     "tab.controls.notImplemented": "Not implemented",
     "tab.controls.partial": "Partial",
@@ -1352,6 +1353,21 @@ export const DICT = {
     "tab.controls.filter.uncategorized": "Uncategorized",
     "tab.controls.filter.empty":
       "No controls match this category.",
+    // v2.5.22: per-control Out-of-Scope marks. Removes the control from
+    // Mizan's Maturity Index calculation when it's covered by a non-Microsoft tool.
+    "tab.controls.scope.markOos": "Mark out of scope",
+    "tab.controls.scope.restore": "Restore to scope",
+    "tab.controls.scope.oosChip": "Out of scope",
+    "tab.controls.scope.help":
+      "Mark out of scope = Done using a non-Microsoft tool. Removes this control from the Maturity Index calculation.",
+    "tab.controls.scope.reason.title": "Mark this control out of scope",
+    "tab.controls.scope.reason.body":
+      "Out of scope means this control is covered by a non-Microsoft tool. Removing it from the calculation tells Mizan not to penalise this entity for a control Microsoft can't see. Add a short reason so future reviewers understand the carve-out.",
+    "tab.controls.scope.reason.placeholder":
+      "e.g. CrowdStrike Falcon covers endpoint hardening — Microsoft Secure Score can't observe it.",
+    "tab.controls.scope.reason.cancel": "Cancel",
+    "tab.controls.scope.reason.confirm": "Mark out of scope",
+    "tab.controls.scope.reason.saving": "Saving…",
 
     "tab.incidents.title": "Security incidents",
     "tab.incidents.subtitle": "Unified from Microsoft Defender XDR.",
@@ -3479,9 +3495,9 @@ export const DICT = {
     "nesaCfg.frameworkSwitched":
       "تم تبديل الإطار. أُعيد تحميل الكتالوج وفق الاختيار الجديد؛ تحديث الواجهة في جميع أنحاء اللوحة.",
     "nesaCfg.hero.body.dubai-isr":
-      "اللائحة التنظيمية لأمن المعلومات في دبي، الصادرة عن مركز دبي للأمن الإلكتروني بموجب قانون دبي رقم 11 لسنة 2014. إلزامية على جميع جهات حكومة دبي والمنظّمات في القطاعات الحيوية. 13 نطاقاً عبر 3 فئات (الحوكمة، التشغيل، الضمان) مُؤسَّسة على ISO/IEC 27001 + 27002. تستخدمها DESC لتجميع الوضع الأمني عبر المستأجرين.",
+      "اللائحة التنظيمية لأمن المعلومات في دبي، الصادرة بموجب قانون دبي رقم 11 لسنة 2014. إلزامية على جهات حكومة دبي والمنظّمات في القطاعات الحيوية. 13 نطاقاً عبر 3 فئات (الحوكمة، التشغيل، الضمان) مُؤسَّسة على ISO/IEC 27001 + 27002.",
     "nesaCfg.hero.body.nesa":
-      "معيار ضمان المعلومات NESA الإماراتي، الصادر عن السلطة الوطنية الاتحادية للأمن الإلكتروني. الأساس الاتحادي للجهات الحكومية الإماراتية. متبنّى من مجلس الأمن السيبراني للشارقة وغيرها من المجالس الإماراتية خارج نطاق دبي.",
+      "معيار ضمان المعلومات NESA الإماراتي، الصادر عن السلطة الوطنية الاتحادية للأمن الإلكتروني. الأساس الاتحادي للجهات الحكومية الإماراتية خارج نطاق دبي التنظيمي.",
     "nesaCfg.hero.body.nca":
       "ضوابط الهيئة الوطنية للأمن السيبراني السعودية. تُستخدم للجهات السعودية. الكتالوج يأتي كقالب \u2014 يُبنى وفق الضوابط الأساسية للأمن السيبراني (ECC).",
     "nesaCfg.hero.body.isr":
@@ -3525,7 +3541,7 @@ export const DICT = {
     "nesaCfg.picker.available": "متاح",
     "nesaCfg.picker.custom": "مخصّص…",
     "nesaCfg.picker.customLabel":
-      "أضف معرّف ضابط يدوياً. مفيد عندما تنشر DESC ضابطاً فرعياً جديداً قبل تحديث سجلّنا — ستظهر الرقاقة بلا بيانات تغطية حيّة حتى تُبلّغ إحدى الجهات عنه.",
+      "أضف معرّف ضابط يدوياً. مفيد عندما تنشر الجهة المنظِّمة ضابطاً فرعياً جديداً قبل تحديث سجلّنا — ستظهر الرقاقة بلا بيانات تغطية حيّة حتى تُبلّغ إحدى الجهات عنه.",
     "nesaCfg.picker.customPlaceholder": "مثال: ISR-Custom-001",
     "nesaCfg.picker.cancel": "إلغاء",
     "nesaCfg.picker.add": "إضافة",
@@ -3713,7 +3729,7 @@ export const DICT = {
 
     "faq.q.demo.title": "لماذا تحمل بعض الجهات شارة 'تجريبي'؟",
     "faq.q.demo.body":
-      "الجهات الموسومة كتجريبية تحمل إشارات مُعدّة مسبقاً ولا تُزامن أبداً مع نقاط Graph الحقيقية. وجودها لعرض لوحة مأهولة قبل تسجيل جهات حقيقية. عمليات التثبيت الإنتاجية تُشحن بتعطيل البذر افتراضياً (اضبط SCSC_SEED_DEMO=true لتفعيله). يمكن للمجلس مسح كل الجهات التجريبية في أي وقت عبر الأمر `npm run purge-demo` — الجهات الحقيقية لا تُمس.",
+      "الجهات الموسومة كتجريبية تحمل إشارات مُعدّة مسبقاً ولا تُزامن أبداً مع نقاط Graph الحقيقية. وجودها لعرض لوحة مأهولة قبل تسجيل جهات حقيقية. عمليات التثبيت الإنتاجية تُشحن بتعطيل البذر افتراضياً (اضبط `SCSC_SEED_DEMO=true` لتفعيله). يمكن للمسؤول مسح كل الجهات التجريبية في أي وقت عبر الأمر `npm run purge-demo` — الجهات الحقيقية لا تُمس.",
 
     "faq.q.glossary.title": "مسرد المصطلحات",
     "faq.q.glossary.tenant": "مستأجر — مؤسسة Microsoft 365 لجهة واحدة، يُعرّف بـ GUID في Entra.",
@@ -4084,7 +4100,7 @@ export const DICT = {
     "entity.frameworkTab.stat.target": "الهدف",
     "entity.frameworkTab.controls.title": "تغطية المواد ونطاق التطبيق",
     "entity.frameworkTab.controls.subtitle":
-      "تُستبعد المواد الموسومة بأنها خارج النطاق من حساب امتثال هذه الجهة. الاستثناءات العالمية (المضبوطة من الإعدادات) لا يمكن تجاوزها هنا.",
+      "عيِّن المادة خارج النطاق إذا كانت مغطّاة بأداة غير تابعة لـ Microsoft — ستُستبعد من حساب امتثال هذه الجهة. الاستثناءات العالمية (المضبوطة من الإعدادات) لا يمكن تجاوزها هنا.",
     "entity.frameworkTab.col.scope": "النطاق",
     "entity.frameworkTab.scope.markOos": "خارج النطاق",
     "entity.frameworkTab.scope.restore": "إعادة للنطاق",
@@ -4105,11 +4121,12 @@ export const DICT = {
       "لم يُنفّذ أي توجيه على هذه الجهة بعد.",
 
     "tab.controls.title": "ضوابط Secure Score",
-    "tab.controls.subtitle": "حالة تطبيق كل ضابط من Microsoft Secure Score.",
+    "tab.controls.subtitle": "حالة تطبيق كل ضابط من Microsoft Secure Score. عيِّن الضابط خارج النطاق إذا كان مغطّى بأداة غير تابعة لـ Microsoft — سيُستبعد من حساب مؤشر النضج.",
     "tab.controls.col.name": "الضابط",
     "tab.controls.col.category": "الفئة",
     "tab.controls.col.score": "النقاط",
     "tab.controls.col.status": "الحالة",
+    "tab.controls.col.scope": "النطاق",
     "tab.controls.implemented": "مُطبَّق",
     "tab.controls.notImplemented": "غير مُطبَّق",
     "tab.controls.partial": "جزئي",
@@ -4118,6 +4135,19 @@ export const DICT = {
     "tab.controls.implCost": "تكلفة التطبيق",
     "tab.controls.filter.label": "الفئة",
     "tab.controls.filter.uncategorized": "غير مُصنَّف",
+    "tab.controls.scope.markOos": "وضع خارج النطاق",
+    "tab.controls.scope.restore": "إعادة إلى النطاق",
+    "tab.controls.scope.oosChip": "خارج النطاق",
+    "tab.controls.scope.help":
+      "خارج النطاق = منفَّذ بأداة غير تابعة لـ Microsoft. يستبعد هذا الضابط من حساب مؤشر النضج.",
+    "tab.controls.scope.reason.title": "تعيين الضابط خارج النطاق",
+    "tab.controls.scope.reason.body":
+      "خارج النطاق يعني أن هذا الضابط مغطّى بأداة غير تابعة لـ Microsoft. استبعاده من الحساب يُعفي هذه الجهة من العقوبة على ضابط لا تراه Microsoft. أضِف سببًا قصيرًا ليفهم المراجعون لاحقًا أساس الاستثناء.",
+    "tab.controls.scope.reason.placeholder":
+      "مثال: CrowdStrike Falcon يغطّي تأمين نقاط النهاية — لا يستطيع Microsoft Secure Score رصده.",
+    "tab.controls.scope.reason.cancel": "إلغاء",
+    "tab.controls.scope.reason.confirm": "وضع خارج النطاق",
+    "tab.controls.scope.reason.saving": "جارٍ الحفظ…",
     "tab.controls.filter.empty": "لا توجد ضوابط تطابق هذه الفئة.",
 
     "tab.incidents.title": "الحوادث الأمنية",

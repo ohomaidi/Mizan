@@ -710,6 +710,7 @@ function EntityDetailInner({
             <span className="text-[56px] leading-none font-semibold tabular">
               {fmt(Math.round(maturity.index))}
             </span>
+            <span className="text-[18px] text-ink-3 tabular">%</span>
           </div>
           <div className="mt-4 h-1.5 rounded-full bg-surface-3 overflow-hidden">
             <div
@@ -908,6 +909,92 @@ function EntityDetailInner({
     // early-return so React sees the same hook order on every render.
     const [activeCategory, setActiveCategory] = useState<string>("all");
 
+    // v2.5.22: per-control Out-of-Scope state. Mirrors the FrameworkTab
+    // pattern — each control can be carved out of the maturity calculation
+    // when "Done using a non-Microsoft tool". The compute layer
+    // (lib/compute/maturity.ts) honors these marks and excludes OOS
+    // controls from the secure-score-driven sub-scores.
+    const [oosControls, setOosControls] = useState<Set<string>>(new Set());
+    const [busyControlId, setBusyControlId] = useState<string | null>(null);
+    const [controlReasonDraft, setControlReasonDraft] = useState<{
+      controlId: string;
+      reason: string;
+    } | null>(null);
+    const [oosError, setOosError] = useState<string | null>(null);
+
+    useEffect(() => {
+      let alive = true;
+      (async () => {
+        try {
+          const oos = await api.listComplianceOos(id);
+          if (!alive) return;
+          setOosControls(
+            new Set(
+              oos.marks
+                .filter(
+                  (mk) =>
+                    mk.scopeKind === "control" &&
+                    (mk.tenantId === id || mk.tenantId === null),
+                )
+                .map((mk) => mk.scopeId),
+            ),
+          );
+        } catch {
+          /* non-fatal — empty set is the safe default */
+        }
+      })();
+      return () => {
+        alive = false;
+      };
+    }, []);
+
+    const toggleControlOos = async (
+      controlId: string,
+      reason: string | null,
+    ) => {
+      const wasOos = oosControls.has(controlId);
+      setBusyControlId(controlId);
+      setOosError(null);
+      // Optimistic flip.
+      setOosControls((prev) => {
+        const next = new Set(prev);
+        if (wasOos) next.delete(controlId);
+        else next.add(controlId);
+        return next;
+      });
+      try {
+        if (wasOos) {
+          await api.unmarkComplianceOos({
+            tenantId: id,
+            scopeKind: "control",
+            scopeId: controlId,
+          });
+        } else {
+          await api.markComplianceOos({
+            tenantId: id,
+            scopeKind: "control",
+            scopeId: controlId,
+            reason,
+          });
+        }
+        // Refresh the parent's full detail (so the entity overview's
+        // controls-passing % and compliance sub-score reflect the change).
+        await load();
+      } catch (err) {
+        // Rollback.
+        setOosControls((prev) => {
+          const next = new Set(prev);
+          if (wasOos) next.add(controlId);
+          else next.delete(controlId);
+          return next;
+        });
+        setOosError((err as Error).message);
+      } finally {
+        setBusyControlId(null);
+        setControlReasonDraft(null);
+      }
+    };
+
     if (!payload || payload.controls.length === 0) {
       return (
         <Card>
@@ -1084,13 +1171,21 @@ function EntityDetailInner({
             })}
           </div>
         </div>
+        {oosError ? (
+          <div className="px-5 pb-3">
+            <div className="rounded-md border border-neg/40 bg-neg/10 px-3 py-2 text-[12px] text-neg">
+              {oosError}
+            </div>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]" style={{ tableLayout: "fixed" }}>
             <colgroup>
+              <col style={{ width: "32%" }} />
+              <col style={{ width: "12%" }} />
+              <col style={{ width: "8%" }} />
               <col style={{ width: "36%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "41%" }} />
+              <col style={{ width: "12%" }} />
             </colgroup>
             <thead>
               <tr className="text-ink-3 text-[11.5px] uppercase tracking-[0.06em]">
@@ -1103,8 +1198,11 @@ function EntityDetailInner({
                 <th className="py-2.5 text-end font-semibold">
                   {t("tab.controls.col.score")}
                 </th>
-                <th className="py-2.5 pe-5 text-start font-semibold">
+                <th className="py-2.5 text-start font-semibold">
                   {t("tab.controls.col.status")}
+                </th>
+                <th className="py-2.5 pe-5 text-end font-semibold">
+                  {t("tab.controls.col.scope")}
                 </th>
               </tr>
             </thead>
@@ -1112,7 +1210,7 @@ function EntityDetailInner({
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="py-8 text-center text-[12.5px] text-ink-3"
                   >
                     {t("tab.controls.filter.empty")}
@@ -1139,14 +1237,22 @@ function EntityDetailInner({
                         : t("tab.controls.unknown");
                 const displayTitle = c.title ?? humanize(c.id);
                 const cleanStatus = sanitizeStatus(c.implementationStatus);
+                const isOos = oosControls.has(c.id);
                 return (
                   <tr
                     key={c.id}
-                    className="border-t border-border align-top hover:bg-surface-3/40"
+                    className={`border-t border-border align-top hover:bg-surface-3/40 ${
+                      isOos ? "opacity-60" : ""
+                    }`}
                   >
                     <td className="ps-5 py-3 text-ink-1 align-top">
-                      <div className="font-medium leading-snug">
-                        {displayTitle}
+                      <div className="font-medium leading-snug inline-flex items-center gap-2 flex-wrap">
+                        <span>{displayTitle}</span>
+                        {isOos ? (
+                          <span className="text-[9.5px] uppercase tracking-[0.06em] font-semibold text-warn border border-warn/40 bg-warn/10 rounded px-1.5 py-px">
+                            {t("tab.controls.scope.oosChip")}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="text-[11px] text-ink-3 keep-ltr mt-0.5 truncate">
                         {c.id}
@@ -1197,7 +1303,7 @@ function EntityDetailInner({
                         <span className="text-ink-3">—</span>
                       )}
                     </td>
-                    <td className="py-3 pe-5 align-top">
+                    <td className="py-3 align-top">
                       <div className="flex flex-col gap-1">
                         <span
                           className={`inline-flex w-fit text-[10.5px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded border ${tint}`}
@@ -1211,12 +1317,86 @@ function EntityDetailInner({
                         ) : null}
                       </div>
                     </td>
+                    <td className="py-3 pe-5 align-top text-end">
+                      {isOos ? (
+                        <button
+                          onClick={() => toggleControlOos(c.id, null)}
+                          disabled={busyControlId === c.id}
+                          className="inline-flex items-center gap-1 text-[11.5px] text-warn hover:text-warn/80 disabled:opacity-50"
+                        >
+                          {busyControlId === c.id ? (
+                            <Loader2 size={11} className="animate-spin" />
+                          ) : null}
+                          {t("tab.controls.scope.restore")}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            setControlReasonDraft({
+                              controlId: c.id,
+                              reason: "",
+                            })
+                          }
+                          disabled={busyControlId === c.id}
+                          className="inline-flex items-center gap-1 text-[11.5px] text-ink-3 hover:text-ink-1 disabled:opacity-50"
+                        >
+                          {t("tab.controls.scope.markOos")}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+
+        {/* Reason capture for marking a control OOS — modal. v2.5.22. */}
+        {controlReasonDraft ? (
+          <Modal
+            open
+            onClose={() => setControlReasonDraft(null)}
+            title={t("tab.controls.scope.reason.title")}
+          >
+            <div className="text-[12.5px] text-ink-2 mb-3">
+              {t("tab.controls.scope.reason.body")}
+            </div>
+            <textarea
+              value={controlReasonDraft.reason}
+              onChange={(e) =>
+                setControlReasonDraft({
+                  ...controlReasonDraft,
+                  reason: e.target.value,
+                })
+              }
+              rows={4}
+              placeholder={t("tab.controls.scope.reason.placeholder")}
+              className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-[13px] text-ink-1 outline-none focus:border-council-strong"
+            />
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setControlReasonDraft(null)}
+                className="h-8 px-3 rounded-md border border-border bg-surface-2 text-ink-2 text-[12.5px] hover:text-ink-1"
+              >
+                {t("tab.controls.scope.reason.cancel")}
+              </button>
+              <button
+                onClick={() =>
+                  toggleControlOos(
+                    controlReasonDraft.controlId,
+                    controlReasonDraft.reason.trim() || null,
+                  )
+                }
+                disabled={busyControlId === controlReasonDraft.controlId}
+                className="h-8 px-4 rounded-md bg-council-strong text-white text-[12.5px] font-semibold disabled:opacity-50"
+              >
+                {busyControlId === controlReasonDraft.controlId
+                  ? t("tab.controls.scope.reason.saving")
+                  : t("tab.controls.scope.reason.confirm")}
+              </button>
+            </div>
+          </Modal>
+        ) : null}
       </Card>
     );
   }
@@ -4376,10 +4556,13 @@ function FrameworkTab({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Headline strip */}
+      {/* Headline strip — v2.5.22 layout fix: title + description stack on
+          the left, headline % stays right-aligned but TOP-aligned with the
+          title (was bottom-aligned with `items-end`, which left the big
+          number floating awkwardly off the description's baseline). */}
       <Card className="p-0">
-        <div className="p-5 flex items-end gap-6 flex-wrap">
-          <div>
+        <div className="p-5 flex items-start gap-6 flex-wrap">
+          <div className="min-w-0 flex-1">
             <div className="eyebrow">
               {t("entity.frameworkTab.eyebrowFor", {
                 framework: frameworkName,
@@ -4395,7 +4578,7 @@ function FrameworkTab({
               })}
             </p>
           </div>
-          <div className="flex items-baseline gap-2 ms-auto">
+          <div className="flex items-baseline gap-2 shrink-0">
             <span
               className={`text-[44px] leading-none font-semibold tabular ${
                 localPercent === null
