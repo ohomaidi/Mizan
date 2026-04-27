@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/tenants";
 import { syncTenant } from "@/lib/sync/orchestrator";
 import { resolveAppBaseUrl } from "@/lib/config/base-url";
+import { config } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,14 @@ export const dynamic = "force-dynamic";
  * browser lands here. Dashboard routes show Council-wide posture data that would leak
  * cross-tenant. Redirect targets are standalone /consent-success and /consent-error pages
  * that render OUTSIDE the (dashboard) route group.
+ *
+ * On error redirects we also pass `tenantGuid` + `appId` through to the
+ * /consent-error page so it can render specific recovery instructions for
+ * known errors (notably AADSTS650051 — "service principal already exists in
+ * tenant", v2.5.15+) with a working deep-link to the entity admin's
+ * Enterprise Apps blade. These are public identifiers — appId is in every
+ * consent URL, tenantGuid is in the callback Entra just sent us — so passing
+ * them via query string is fine.
  */
 export async function GET(req: NextRequest) {
   const base = await resolveAppBaseUrl();
@@ -39,11 +48,14 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     markConsentFailed(tenant.id, `${error}: ${errorDescription ?? ""}`.trim());
+    const params = new URLSearchParams({
+      reason: error,
+      description: errorDescription ?? "",
+      tenantGuid: tenantGuid ?? tenant.tenant_id ?? "",
+      appId: config.azure.clientId ?? "",
+    });
     return NextResponse.redirect(
-      new URL(
-        `/consent-error?reason=${encodeURIComponent(error)}&description=${encodeURIComponent(errorDescription ?? "")}`,
-        base,
-      ),
+      new URL(`/consent-error?${params.toString()}`, base),
     );
   }
 

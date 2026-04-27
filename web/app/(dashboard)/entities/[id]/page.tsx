@@ -4166,10 +4166,17 @@ function MiniStat({
   label,
   value,
   tone,
+  hint,
 }: {
   label: string;
   value: React.ReactNode;
   tone?: "pos" | "warn" | "neg";
+  /**
+   * Optional secondary line rendered under the label in a smaller, dimmer
+   * style. Use it for a one-glance qualifier (e.g. "Skipped from math") that
+   * tells the reader what the number means without making the box noisy.
+   */
+  hint?: React.ReactNode;
 }) {
   const c =
     tone === "pos"
@@ -4185,6 +4192,9 @@ function MiniStat({
       <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mt-0.5">
         {label}
       </div>
+      {hint ? (
+        <div className="text-[10px] text-ink-3/80 mt-0.5">{hint}</div>
+      ) : null}
     </div>
   );
 }
@@ -5033,11 +5043,12 @@ function FrameworkComplianceCard({
           value={`${fmt(fc.clausesScored)} / ${fmt(fc.clausesTotal)}`}
         />
         <MiniStat
-          label={t("entity.frameworkCompliance.unscoredTreatmentLabel")}
-          value={
+          label={t("entity.frameworkCompliance.unscoredClausesLabel")}
+          value={fmt(Math.max(0, fc.clausesTotal - fc.clausesScored))}
+          hint={
             fc.unscoredTreatment === "zero"
-              ? t("entity.frameworkCompliance.treatmentZero")
-              : t("entity.frameworkCompliance.treatmentSkip")
+              ? t("entity.frameworkCompliance.treatmentZeroHint")
+              : t("entity.frameworkCompliance.treatmentSkipHint")
           }
         />
       </div>
