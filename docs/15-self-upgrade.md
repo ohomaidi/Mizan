@@ -1,14 +1,25 @@
-# Self-Upgrade — One-click container image updates on Azure
+# Self-Upgrade — One-click upgrades across every supported platform
 
-**Shipped:** v2.5.6 (2026-04-27).
-**Applies to:** Mizan deployments running on **Azure Container Apps (ACA)**.
-**Goal:** an admin can upgrade the dashboard from one Mizan version to another by clicking a single button in `Settings → About & updates` — no Azure CLI, no copying ARM commands, no shell access.
+**Shipped:** v2.5.6 — ACA self-upgrade (2026-04-27). v2.5.8 — Mac/Windows installer downloads (2026-04-27).
+**Applies to:** Mizan deployments on **Azure Container Apps**, **macOS (.pkg)**, and **Windows (.msi)**.
+**Goal:** an admin can upgrade the dashboard from one Mizan version to another with a single click in `Settings → About & updates` — no shell access required for the common path.
 
-This is the canonical reference for how the one-click upgrade works, what it requires, how to enable it on an existing deployment, and how to debug it when it doesn't.
+This is the canonical reference for how the one-click upgrade works on each platform, what each requires, how to enable it on an existing deployment, and how to debug it when it doesn't.
+
+## Platform matrix
+
+| Runtime              | Detection signal               | Upgrade UX                            | Self-upgrade-ready? |
+|----------------------|--------------------------------|---------------------------------------|---------------------|
+| Azure Container Apps | `CONTAINER_APP_NAME` env var   | **Upgrade now** button → ARM PATCH    | yes (v2.5.6+ Bicep) |
+| macOS .pkg install   | `MIZAN_RUNTIME=mac` (LaunchAgent env) | **Download Mizan-X.Y.Z.pkg** button | always              |
+| Windows .msi install | `MIZAN_RUNTIME=windows` (Service env) | **Download Mizan-X.Y.Z.msi** button | always              |
+| Self-hosted Docker   | none of the above              | Manual `docker pull` + recreate snippet | no — by design    |
 
 ---
 
 ## 1. How the upgrade works
+
+### 1A. Azure Container Apps
 
 When the operator clicks **Upgrade to vX.Y.Z**:
 
@@ -24,6 +35,33 @@ When the operator clicks **Upgrade to vX.Y.Z**:
 8. The browser shows "Upgrade requested — vX.Y.Z → vX.Y.Z+1. Refresh in 1–2 minutes."
 
 The PATCH is in-place — there's no downtime if the new revision passes its readiness probe. The old revision keeps serving until the new one is ready.
+
+### 1B. macOS .pkg install (v2.5.8+)
+
+When the operator clicks **Download Mizan-X.Y.Z.pkg**:
+
+1. The browser opens the GitHub Release asset URL — `https://github.com/ohomaidi/Mizan/releases/download/vX.Y.Z/mizan-X.Y.Z.pkg`. macOS recognises `.pkg` as binary and switches the navigation to a download.
+2. Operator double-clicks the downloaded `.pkg` in Finder. The macOS Installer app opens.
+3. The .pkg's postinstall script (`deploy/mac-build.sh`) runs as root:
+   - `launchctl bootout` the currently-loaded `com.postureDashboard` LaunchAgent (kills the running node process).
+   - Writes the new files to `/usr/local/posture-dashboard/`.
+   - Re-writes the `~/Library/LaunchAgents/com.postureDashboard.plist` (idempotent — same plist, fresh DATA_DIR + log paths).
+   - `launchctl bootstrap` the agent → fresh node process boots with the new code.
+4. `DATA_DIR` lives at `~/Library/Application Support/posture-dashboard/` — outside the install root — so the SQLite database, uploaded logo, and config survive the upgrade untouched.
+5. After ~5 seconds the dashboard is back at `http://localhost:8787`. Settings → About now reports the new installed version.
+
+### 1C. Windows .msi install (v2.5.8+)
+
+When the operator clicks **Download Mizan-X.Y.Z.msi**:
+
+1. The browser downloads the `.msi`. Operator runs it (UAC prompts).
+2. WiX MajorUpgrade machinery handles the upgrade in place:
+   - `<ServiceControl Stop="both">` — Windows Service Control Manager stops the **Mizan** service.
+   - `<MajorUpgrade>` removes the previous version's files (only the install root, not `%ProgramData%\Mizan\data\`).
+   - The new files are laid down under `C:\Program Files\Mizan\`.
+   - `<ServiceControl Start="install">` — the service starts again with the new binaries.
+3. `DATA_DIR` at `%ProgramData%\Mizan\data\` survives untouched.
+4. The desktop shortcut (`Mizan Dashboard` → `http://localhost:8787`) keeps pointing at the same URL.
 
 ---
 

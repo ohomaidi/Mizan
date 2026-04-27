@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { deleteLogo, logoExists, readLogoBytes, writeLogo } from "@/lib/branding/logo-store";
-import { normalizeLogo, removeBackground } from "@/lib/branding/remove-bg";
+import { normalizeLogo } from "@/lib/branding/logo-image";
 import { setBranding, getBranding } from "@/lib/config/branding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Logo uploads can be a couple of MB once decoded, and sharp/onnx need the
+// Logo uploads can be a couple of MB once decoded, and sharp needs the
 // full bytes in memory. 6 MB cap is enough for every reasonable source PNG.
 const MAX_BYTES = 6 * 1024 * 1024;
 
@@ -41,23 +41,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "too_large", maxBytes: MAX_BYTES }, { status: 413 });
   }
 
-  const keepBackgroundRaw = form.get("keepBackground");
-  const keepBackground =
-    typeof keepBackgroundRaw === "string" && keepBackgroundRaw === "true";
-
+  // v2.5.8 — automatic background removal (U-2-Net + onnxruntime-node)
+  // is gone. It was unreliable in production: the model file was
+  // missing on some installs, the native binding crashed cold-starts on
+  // others, and the alpha mask routinely chewed off real logo content.
+  // Operators upload pre-cropped PNGs with transparency — `normalizeLogo`
+  // just round-trips through PNG with alpha preserved. The
+  // `keepBackground` form field is silently ignored for backward
+  // compat; the stored `logoBgRemoved` flag is always false now.
   const buf = Buffer.from(await file.arrayBuffer());
   try {
-    const processed = keepBackground
-      ? await normalizeLogo(buf)
-      : await removeBackground(buf);
+    const processed = await normalizeLogo(buf);
     writeLogo(processed);
     setBranding({
       logoPath: "logo.png",
-      logoBgRemoved: !keepBackground,
+      logoBgRemoved: false,
     });
     return NextResponse.json({
       ok: true,
-      logoBgRemoved: !keepBackground,
+      logoBgRemoved: false,
       bytes: processed.byteLength,
     });
   } catch (err) {

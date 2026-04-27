@@ -40,7 +40,10 @@ export function BrandingPanel() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [keepBg, setKeepBg] = useState(false);
+  // v2.5.8 — automatic background removal removed. Operators upload
+  // pre-cropped PNGs with their own transparency. The `keepBg` toggle
+  // and the `logoBgRemoved` field are gone here; the API still tolerates
+  // either value for backward compat with old clients.
   const [uploading, setUploading] = useState(false);
   const [logoVersion, setLogoVersion] = useState<number>(Date.now());
   const [logoPresent, setLogoPresent] = useState<boolean>(false);
@@ -62,7 +65,6 @@ export function BrandingPanel() {
         accentColorStrong: r.branding.accentColorStrong,
         frameworkId: r.branding.frameworkId,
       });
-      setKeepBg(!r.branding.logoBgRemoved);
       setLogoPresent(!!r.branding.logoPath);
     } finally {
       setLoading(false);
@@ -80,7 +82,6 @@ export function BrandingPanel() {
     try {
       const fd = new FormData();
       fd.set("logo", file);
-      fd.set("keepBackground", keepBg ? "true" : "false");
       const res = await fetch("/api/config/branding/logo", {
         method: "POST",
         body: fd,
@@ -202,15 +203,6 @@ export function BrandingPanel() {
               <div className="text-[11.5px] text-ink-3">
                 {t("branding.logo.helper")}
               </div>
-              <label className="inline-flex items-center gap-2 text-[12.5px] text-ink-2 cursor-pointer mt-1">
-                <input
-                  type="checkbox"
-                  checked={keepBg}
-                  onChange={(e) => setKeepBg(e.target.checked)}
-                  className="h-4 w-4 accent-council-strong"
-                />
-                {t("branding.logo.keepBackground")}
-              </label>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <button
                   type="button"

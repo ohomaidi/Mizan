@@ -1,4 +1,4 @@
-name: Release — build image + publish GitHub Release
+name: Release — build image + Mac/Windows installers + publish GitHub Release
 
 on:
   push:
@@ -116,3 +116,100 @@ jobs:
               --notes "$NOTES" \
               --latest
           fi
+
+  # ---------- Mac .pkg installer ----------
+  # v2.5.8+ — build a macOS .pkg and attach it to the GitHub Release as
+  # a downloadable asset. The in-app updater (Settings → About) on Mac
+  # installs surfaces a "Download Mizan-X.Y.Z.pkg" button that points
+  # at this asset, so operators upgrade by clicking the button + running
+  # the installer. The .pkg is unsigned for now (no Apple Developer ID
+  # in CI); customers who want a signed copy can re-sign locally with
+  # productsign + notarytool, see deploy/mac-build.sh.
+  build-mac-pkg:
+    needs: build-and-push
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build .pkg
+        env:
+          VERSION: ${{ steps.tag.outputs.value }}
+        run: |
+          cd web
+          bash deploy/mac-build.sh
+          ls -la deploy/dist/
+
+      - name: Upload .pkg to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.tag.outputs.value }}"
+          PKG="web/deploy/dist/mizan-${{ steps.tag.outputs.value }}.pkg"
+          # `gh release upload --clobber` overwrites a previous upload of
+          # the same filename — safe for `workflow_dispatch` re-runs.
+          gh release upload "$TAG" "$PKG" --clobber
+
+  # ---------- Windows .msi installer ----------
+  # Same shape as the Mac job: build the installer on a windows-latest
+  # runner, attach it to the same GitHub Release as a downloadable
+  # asset. Unsigned for now; customers signing locally can run signtool
+  # against the .msi from web/deploy/dist/.
+  build-windows-msi:
+    needs: build-and-push
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install WiX Toolset v4
+        run: dotnet tool install --global wix
+
+      - name: Build .msi
+        env:
+          MIZAN_VERSION: ${{ steps.tag.outputs.value }}
+        shell: pwsh
+        run: |
+          cd web
+          ./deploy/windows-build.ps1 -Version $env:MIZAN_VERSION
+          dir deploy/dist
+
+      - name: Upload .msi to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="v${{ steps.tag.outputs.value }}"
+          MSI="web/deploy/dist/mizan-${{ steps.tag.outputs.value }}.msi"
+          gh release upload "$TAG" "$MSI" --clobber

@@ -27,7 +27,7 @@ type GithubRelease = {
   prerelease?: boolean;
 };
 
-type Runtime = "aca" | "docker" | "unknown";
+type Runtime = "aca" | "mac" | "windows" | "docker" | "unknown";
 
 type UpdateInfo = {
   current: string;
@@ -46,15 +46,29 @@ type UpdateInfo = {
   containerImage: string;
   fetchedAt: string;
   /**
-   * Detected hosting environment (v2.5.6+). Drives the upgrade UX:
+   * Detected hosting environment (v2.5.6+, extended in v2.5.8). Drives
+   * the upgrade UX:
    *   - "aca"     → ACA managed-identity auto-upgrade button is shown.
    *                 Detected via the `CONTAINER_APP_NAME` env var that
    *                 Azure injects on every container at runtime.
-   *   - "docker"  → manual `docker pull + recreate` snippet is shown.
-   *                 Default when no ACA env vars are present.
-   *   - "unknown" → reserved.
+   *   - "mac"     → "Download Mizan-X.Y.Z.pkg" button. Detected via the
+   *                 `MIZAN_RUNTIME=mac` env var the LaunchAgent
+   *                 installed by mac-build.sh sets.
+   *   - "windows" → "Download Mizan-X.Y.Z.msi" button. Detected via
+   *                 `MIZAN_RUNTIME=windows` from the Windows Service
+   *                 wrapper installed by windows-build.ps1.
+   *   - "docker"  → manual `docker pull + recreate` snippet (one-click
+   *                 can't work without exposing the docker socket).
+   *   - "unknown" → fallback. Treated like "docker" by the UI.
    */
   runtime: Runtime;
+  /**
+   * Direct asset URL on the latest GitHub Release for the platform's
+   * installer (.pkg on mac, .msi on windows). Null when the platform
+   * doesn't ship a native installer (aca, docker, unknown) or when the
+   * GitHub Release fetch failed.
+   */
+  installerUrl: string | null;
   /**
    * True when the dashboard has everything it needs to upgrade itself
    * in-place (managed identity enabled + resource id injected). Drives
@@ -66,7 +80,24 @@ type UpdateInfo = {
 };
 
 function detectRuntime(): Runtime {
+  // Explicit env override always wins. Both the Mac LaunchAgent and the
+  // Windows Service wrapper set MIZAN_RUNTIME at install time, which is
+  // more reliable than process.platform alone (a Mac laptop running the
+  // image inside Docker would still report platform=darwin but is
+  // really a Docker install). Only mac/windows are honoured here —
+  // forcing "aca" via env would skip the safety checks below.
+  const override = process.env.MIZAN_RUNTIME?.trim().toLowerCase();
+  if (override === "mac" || override === "windows") return override;
+
+  // ACA detection is independent — Azure injects CONTAINER_APP_NAME on
+  // every container regardless of any operator-set env vars.
   if (process.env.CONTAINER_APP_NAME) return "aca";
+
+  // Fallback: trust process.platform on installs that don't set the
+  // explicit MIZAN_RUNTIME marker (older mac/windows installers). Linux
+  // outside ACA is treated as Docker — the most common case.
+  if (process.platform === "darwin") return "mac";
+  if (process.platform === "win32") return "windows";
   return "docker";
 }
 
@@ -78,6 +109,28 @@ function selfUpgradeReady(rt: Runtime): boolean {
   return Boolean(
     process.env.MIZAN_AZURE_RESOURCE_ID && process.env.IDENTITY_ENDPOINT,
   );
+}
+
+/**
+ * Build the direct download URL for the platform's native installer
+ * asset on the matching GitHub Release. The release.yml workflow names
+ * assets `mizan-<version>.pkg` and `mizan-<version>.msi`; we just
+ * compute the URL — GitHub's release-asset endpoint is stable and
+ * doesn't require a HEAD check before linking.
+ *
+ * Returns null when the platform doesn't have an installer (aca, docker,
+ * unknown) or when we don't know what the latest version is.
+ */
+function buildInstallerUrl(
+  rt: Runtime,
+  latestVersion: string | null,
+): string | null {
+  if (!latestVersion) return null;
+  const tag = `v${latestVersion}`;
+  const base = `https://github.com/${GITHUB_REPO}/releases/download/${tag}`;
+  if (rt === "mac") return `${base}/mizan-${latestVersion}.pkg`;
+  if (rt === "windows") return `${base}/mizan-${latestVersion}.msi`;
+  return null;
 }
 
 let cache: { at: number; value: UpdateInfo } | null = null;
@@ -148,6 +201,7 @@ async function fetchLatest(): Promise<UpdateInfo> {
       fetchedAt: new Date().toISOString(),
       runtime,
       selfUpgradeReady: ready,
+      installerUrl: null,
     };
   }
 
@@ -167,6 +221,7 @@ async function fetchLatest(): Promise<UpdateInfo> {
     fetchedAt: new Date().toISOString(),
     runtime,
     selfUpgradeReady: ready,
+    installerUrl: buildInstallerUrl(runtime, latest),
   };
 }
 
@@ -210,6 +265,7 @@ export async function GET(req: Request) {
       fetchedAt: new Date().toISOString(),
       runtime,
       selfUpgradeReady: selfUpgradeReady(runtime),
+      installerUrl: null,
     };
     cache = { at: now, value: fallback };
     return NextResponse.json(fallback, {

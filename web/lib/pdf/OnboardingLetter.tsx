@@ -448,21 +448,29 @@ export function OnboardingLetter(props: OnboardingLetterProps) {
           );
         })}
 
-        {/* Sign-off */}
-        <Text style={s.sectionTitle}>{labels.signoffTitle}</Text>
-        <View style={s.sigBox}>
-          <View style={s.sigRow}>
-            {template.sigRoles.map((roles, i) => (
-              <View key={i} style={s.sigCell}>
-                <Text style={s.sigRole}>{isAr ? roles[1] : roles[0]}</Text>
-                <Text style={s.sigSub}>
-                  {isAr ? "الاسم والتوقيع" : "Name & Signature"}
-                </Text>
-                <View style={s.sigLine} />
-                <Text style={s.sigSub}>{isAr ? "التاريخ" : "Date"}</Text>
-                <View style={s.sigLine} />
-              </View>
-            ))}
+        {/* Sign-off — wrapped in a wrap={false} container so the heading,
+            the role labels, and the signature/date lines never split
+            across pages. The whole block reflows to the next page if it
+            doesn't fit on the current one. Fixes the v2.5.x bug where
+            the heading + name labels rendered on page 2 and the date
+            fields + lines spilled onto page 3 — looked like two
+            separate forms. */}
+        <View wrap={false}>
+          <Text style={s.sectionTitle}>{labels.signoffTitle}</Text>
+          <View style={s.sigBox}>
+            <View style={s.sigRow}>
+              {template.sigRoles.map((roles, i) => (
+                <View key={i} style={s.sigCell}>
+                  <Text style={s.sigRole}>{isAr ? roles[1] : roles[0]}</Text>
+                  <Text style={s.sigSub}>
+                    {isAr ? "الاسم والتوقيع" : "Name & Signature"}
+                  </Text>
+                  <View style={s.sigLine} />
+                  <Text style={s.sigSub}>{isAr ? "التاريخ" : "Date"}</Text>
+                  <View style={s.sigLine} />
+                </View>
+              ))}
+            </View>
           </View>
         </View>
 

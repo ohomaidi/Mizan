@@ -262,6 +262,14 @@ export const DICT = {
       "One-click upgrade not configured",
     "settings.about.aca.selfUpgradeNotReady.body":
       "This Container App's managed identity isn't wired to ARM. Re-deploy with the latest azure-container-apps.bicep template (enables system-assigned identity + assigns the Container Apps Contributor role on the resource group + injects MIZAN_AZURE_RESOURCE_ID), or run the manual command below.",
+    "settings.about.downloadPkg": "Download Mizan-{version}.pkg",
+    "settings.about.downloadPkg.help":
+      "Run the installer once it downloads. It upgrades in place — your data directory and configuration survive. The dashboard restarts automatically.",
+    "settings.about.downloadMsi": "Download Mizan-{version}.msi",
+    "settings.about.downloadMsi.help":
+      "Run the installer once it downloads. WiX handles the in-place upgrade — the Mizan service is stopped, files are replaced, the service is restarted. Your data directory survives.",
+    "settings.about.installerMissing":
+      "The v{version} installer for your platform isn't available yet on GitHub. Try \"Check now\" in a minute, or use the manual command above.",
 
     "branding.title": "Branding",
     "branding.subtitle":
@@ -3003,6 +3011,14 @@ export const DICT = {
       "الترقية بنقرة واحدة غير مُهيَّأة",
     "settings.about.aca.selfUpgradeNotReady.body":
       "الهوية المُدارة لتطبيق الحاوية هذا غير مرتبطة بـ ARM. أعِد النشر باستخدام أحدث قالب azure-container-apps.bicep (يُفعّل الهوية المُسنَدة-تلقائيًا، ويمنح دور Container Apps Contributor على مجموعة الموارد، ويحقن MIZAN_AZURE_RESOURCE_ID)، أو شغّل الأمر اليدوي أدناه.",
+    "settings.about.downloadPkg": "تنزيل Mizan-{version}.pkg",
+    "settings.about.downloadPkg.help":
+      "شغّل المثبّت بعد تنزيله. تجري الترقية بدون فقد للبيانات — مجلد البيانات والإعدادات يبقى كما هو، ويُعاد تشغيل اللوحة تلقائيًا.",
+    "settings.about.downloadMsi": "تنزيل Mizan-{version}.msi",
+    "settings.about.downloadMsi.help":
+      "شغّل المثبّت بعد تنزيله. يتولّى WiX الترقية في مكانها — توقف خدمة Mizan، تُستبدل الملفات، تعود الخدمة للعمل. مجلد البيانات يبقى محفوظًا.",
+    "settings.about.installerMissing":
+      "مثبّت الإصدار v{version} لمنصّتك غير متاح بعد على GitHub. جرّب \"افحص الآن\" بعد دقيقة، أو استخدم الأمر اليدوي أعلاه.",
     "settings.about.azureCmd": "Azure Container Apps",
     "settings.about.dockerCmd": "Docker / استضافة ذاتية",
     "settings.about.openReleaseNotes": "فتح ملاحظات الإصدار على GitHub",

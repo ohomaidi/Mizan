@@ -30,9 +30,14 @@ type UpdateInfo = {
   containerImage: string;
   fetchedAt: string;
   /** Detected hosting environment. Drives the upgrade UX (button vs snippet). */
-  runtime: "aca" | "docker" | "unknown";
+  runtime: "aca" | "mac" | "windows" | "docker" | "unknown";
   /** True when the ACA managed-identity self-upgrade path is wired up. */
   selfUpgradeReady: boolean;
+  /**
+   * v2.5.8+ — direct download URL for the platform's native installer
+   * (.pkg on mac, .msi on windows). Null on aca/docker/unknown.
+   */
+  installerUrl: string | null;
   error?: string;
 };
 
@@ -235,14 +240,25 @@ export function AboutPanel() {
               </span>
             </div>
 
-            {/* Three upgrade UXes by runtime + readiness:
-                1. ACA + selfUpgradeReady → one-click button.
+            {/* Five upgrade UXes by runtime + readiness:
+                1. ACA + selfUpgradeReady   → one-click button.
                 2. ACA + !selfUpgradeReady → "configure managed identity"
                    callout pointing at docs, plus the manual snippet.
-                3. Docker / unknown → manual `docker pull` snippet.
-                The point: operators on ACA shouldn't need to copy CLI
-                commands at all once their deployment template is on
-                the v2.5.6+ Bicep. */}
+                3. Mac (.pkg installed)    → "Download Mizan-X.Y.Z.pkg"
+                                              button → operator runs the
+                                              .pkg, the installer handles
+                                              the upgrade (LaunchAgent
+                                              bootout/bootstrap inside).
+                4. Windows (.msi installed) → "Download Mizan-X.Y.Z.msi"
+                                              button → operator runs the
+                                              .msi, WiX MajorUpgrade +
+                                              ServiceControl handle the
+                                              service stop/replace/start.
+                5. Docker / unknown        → manual `docker pull` snippet
+                                              (one-click can't work
+                                              without exposing the docker
+                                              socket — security choice
+                                              most operators reject). */}
             {info.runtime === "aca" && info.selfUpgradeReady ? (
               <UpgradeButtonAca
                 latest={info.latest ?? ""}
@@ -266,6 +282,12 @@ export function AboutPanel() {
                   onCopy={() => copy("azure", azureCmd)}
                 />
               </div>
+            ) : info.runtime === "mac" || info.runtime === "windows" ? (
+              <DownloadInstallerButton
+                runtime={info.runtime}
+                latest={info.latest ?? ""}
+                installerUrl={info.installerUrl}
+              />
             ) : (
               <UpgradeCmd
                 label={t("settings.about.dockerCmd")}
@@ -389,6 +411,68 @@ function UpgradeCmd({
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Native installer download button (v2.5.8+). Surfaced on Mac/Windows
+ * native installs instead of the misleading `docker pull` snippet.
+ *
+ * Click behaviour: opens the GitHub Release asset URL in a new tab. The
+ * browser downloads the .pkg/.msi to the user's Downloads folder; the
+ * operator runs it; the installer handles upgrade-in-place
+ * (LaunchAgent bootout/bootstrap on Mac, WiX MajorUpgrade +
+ * ServiceControl on Windows). After the installer finishes, the
+ * dashboard process restarts and Settings → About shows the new
+ * installed version.
+ *
+ * Falls back to a "release page" link if `installerUrl` is null
+ * (build of the asset failed in CI, etc.) — better than a dead button.
+ */
+function DownloadInstallerButton({
+  runtime,
+  latest,
+  installerUrl,
+}: {
+  runtime: "mac" | "windows";
+  latest: string;
+  installerUrl: string | null;
+}) {
+  const { t } = useI18n();
+  const labelKey =
+    runtime === "mac"
+      ? "settings.about.downloadPkg"
+      : "settings.about.downloadMsi";
+  const helpKey =
+    runtime === "mac"
+      ? "settings.about.downloadPkg.help"
+      : "settings.about.downloadMsi.help";
+
+  if (!installerUrl) {
+    return (
+      <div className="text-[12.5px] text-ink-2">
+        {t("settings.about.installerMissing", { version: latest })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <a
+        href={installerUrl}
+        // No `target="_blank"` — let the browser handle the file
+        // download as a normal navigation; modern browsers detect
+        // .pkg/.msi as binary and switch to a download instead of
+        // navigating away.
+        className="self-start inline-flex items-center gap-2 h-9 px-4 rounded-md bg-accent text-surface-1 text-[13px] font-semibold"
+      >
+        <Sparkles size={14} />
+        {t(labelKey, { version: latest })}
+      </a>
+      <div className="text-[11.5px] text-ink-3 leading-relaxed max-w-xl">
+        {t(helpKey)}
       </div>
     </div>
   );
