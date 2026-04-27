@@ -26,6 +26,15 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-28 — v2.5.31 (add the MTP columns that ARE valid: RecommendedSecurityUpdate + CveTags)**. v2.5.28..30 stripped the legacy DfE columns MTP doesn't expose. v2.5.31 adds the MTP-native columns Mizan was missing — verified against [the live Defender XDR docs](https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table):
+
+  - **`RecommendedSecurityUpdate`** → `VulnCve.recommendedFix` — the KB id / package name / vendor advisory that remediates the CVE. Operators can act on this directly without leaving Mizan.
+  - **`CveTags`** (dynamic JSON array) → `VulnCve.tags` — Microsoft-curated tags like `ZeroDay`, `NoSecurityUpdate`, `Exploit`, `ExploitInTheWild`. Drives:
+    - `VulnerabilitiesPayload.zeroDay` — new headline KPI matching the Defender portal's "Zero-day vulnerabilities" tile
+    - `VulnCve.hasExploit` — derived from any tag matching `/exploit/i`. Replaces the dropped `IsExploitAvailable` column with a richer signal (the tag set distinguishes `Exploit`, `ExploitInTheWild`, `ExploitInKit`).
+
+  Demo data updated to match the new shape: synthesized tags (`Exploit` when `hasExploit=true`, `ZeroDay` for a deterministic ~10% slice by CVE id hash), `recommendedFix` set to `Update {product}` from the demo catalog.
+
 - **2026-04-27 — v2.5.30 (drop VulnerabilityPublishedDate — MTP parser rejects this column too, stripping topCves to minimum)**. v2.5.28 dropped CvssScore. v2.5.29 dropped IsExploitAvailable. v2.5.30 drops VulnerabilityPublishedDate. Three different schema-resident columns rejected per-call by MTP's parser with `Failed to resolve column or scalar expression named '<X>'`. Microsoft's published schema reference for `DeviceTvmSoftwareVulnerabilities` lists all three; their unified XDR Advanced Hunting parser disagrees with their docs. The byDevice query has been clean since v2.5.28; this is a final strip to: CveId + AffectedDevices count + Severity. UI loses published-date column on CVE rows — operators click through to the Defender portal CVE page for the rest.
 
 - **2026-04-27 — v2.5.29 (drop IsExploitAvailable too — MTP parser rejects same way as CvssScore)**. v2.5.28 dropped `CvssScore` and the byDevice query started returning data. The topCves query still failed: `'summarize' operator: Failed to resolve column or scalar expression named 'IsExploitAvailable'` — same per-column rejection pattern. Microsoft's MTP Advanced Hunting parser is lagging the docs on `DeviceTvmSoftwareVulnerabilities` columns: both CvssScore and IsExploitAvailable show up in the schema reference but the parser refuses them at runtime. Stripped to: DeviceId, DeviceName, OSPlatform, CveId, VulnerabilitySeverityLevel, VulnerabilityPublishedDate. Operators lose the per-CVE exploit-available flag and per-device max-CVSS — the actionable signal (severity counts, affected device counts, CVE ids, published date) all land cleanly.

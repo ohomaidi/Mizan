@@ -1725,9 +1725,18 @@ export type VulnCve = {
    *  DeviceTvmSoftwareVulnerabilities (schema-dependent) or a historical
    *  diff against the previous snapshot. On demos it's synthesized. */
   remediatedDevices: number;
-  /** True if Defender flagged a known public exploit for this CVE. */
+  /** True if Defender flagged a known public exploit for this CVE.
+   *  v2.5.31 — derived from `tags` containing `Exploit` / `ExploitInTheWild`
+   *  rather than the dropped `IsExploitAvailable` column. */
   hasExploit: boolean;
   publishedDateTime: string | null;
+  /** Recommended security update (KB id, package name, or vendor advisory).
+   *  Pulled from `RecommendedSecurityUpdate` in MTP. v2.5.31. */
+  recommendedFix: string | null;
+  /** CVE tags from MTP's `CveTags` dynamic column — e.g. `ZeroDay`,
+   *  `NoSecurityUpdate`, `Exploit`. Drives the zero-day count headline +
+   *  the per-CVE tag chips in the UI. v2.5.31. */
+  tags: string[];
 };
 
 export type VulnerabilitiesPayload = {
@@ -1737,6 +1746,8 @@ export type VulnerabilitiesPayload = {
   medium: number;
   low: number;
   exploitable: number; // CVEs flagged with known exploit
+  /** CVEs Microsoft has tagged ZeroDay in the CveTags array. v2.5.31. */
+  zeroDay: number;
   affectedDevices: number; // distinct devices with >=1 CVE
   /**
    * True when the snapshot carries a meaningful `remediatedDevices` value.
@@ -1760,6 +1771,7 @@ function emptyVulnerabilitiesPayload(error: string | null = null): Vulnerabiliti
     medium: 0,
     low: 0,
     exploitable: 0,
+    zeroDay: 0,
     affectedDevices: 0,
     remediationTracked: false,
     byDevice: [],
@@ -1822,22 +1834,24 @@ const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
 // licensing condition we can't detect in advance. The UI already
 // renders `cvssScore: null` as an em-dash, so dropping the column is
 // graceful — severity, exploit, affected-device counts all still land.
-// v2.5.30 — stripped to bare minimum after MTP parser rejected each
-// column one by one across v2.5.28/29: CvssScore → IsExploitAvailable
-// → VulnerabilityPublishedDate. All three are in Microsoft's published
-// schema for `DeviceTvmSoftwareVulnerabilities` but MTP's runtime
-// parser doesn't resolve them. The byDevice query (no extra columns
-// beyond DeviceId/DeviceName/OSPlatform/CveId/Severity) succeeded
-// throughout, so the issue is column-by-column not whole-query. Final
-// shape: CveId + dcount(DeviceId) + any(severity). Operators see the
-// CVE list ranked by affected device count, with severity coloring.
-// Published date and exploit-available flag come from Microsoft Defender
-// portal directly when operators drill in — Mizan link to the Defender
-// CVE page is one click on each row.
+// v2.5.31 — added back the columns that ARE actually in MTP's schema:
+// `RecommendedSecurityUpdate` and `CveTags`. Verified against the live
+// Defender XDR docs at
+// https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table
+// (last-checked 2026-04-28). The columns dropped in v2.5.28..30
+// (CvssScore, IsExploitAvailable, VulnerabilityPublishedDate) genuinely
+// don't exist in MTP — those were legacy DfE fields that didn't migrate.
+// CveTags is a dynamic (JSON array) column that often contains
+// `ZeroDay`, `NoSecurityUpdate`, `Exploit`, etc. — operationally MORE
+// useful than IsExploitAvailable was, and powers the zero-day count
+// headline. RecommendedSecurityUpdate gives operators the KB id /
+// vendor advisory to push directly to remediation.
 const VULN_KQL_TOP_CVES = `DeviceTvmSoftwareVulnerabilities
 | summarize
     AffectedDevices = dcount(DeviceId),
-    Severity = any(VulnerabilitySeverityLevel)
+    Severity = any(VulnerabilitySeverityLevel),
+    RecommendedFix = any(RecommendedSecurityUpdate),
+    Tags = any(CveTags)
   by CveId
 | top 50 by AffectedDevices desc`;
 
@@ -1867,6 +1881,10 @@ type RawVulnCveRow = {
   AffectedDevices?: number;
   HasExploit?: boolean;
   PublishedDateTime?: string;
+  /** v2.5.31 — added from MTP's RecommendedSecurityUpdate column. */
+  RecommendedFix?: string;
+  /** v2.5.31 — MTP `CveTags` dynamic column (string[] in JSON). */
+  Tags?: string[];
 };
 
 export async function fetchVulnerabilities(
@@ -1949,18 +1967,33 @@ export async function fetchVulnerabilities(
     cveIds: Array.isArray(r.CveIds) ? r.CveIds : [],
   }));
 
-  const topCves: VulnCve[] = topCveRows.map((r) => ({
-    cveId: r.CveId ?? "",
-    severity: normalizeSeverity(r.Severity),
-    cvssScore: typeof r.CvssScore === "number" ? r.CvssScore : null,
-    affectedDevices: r.AffectedDevices ?? 0,
-    // Defender TVM doesn't expose per-CVE remediated counts directly on
-    // runHuntingQuery — requires historical snapshot diff (see V1.2 note
-    // on VULN_KQL definitions). Live tenants get 0 here; UI renders "—".
-    remediatedDevices: 0,
-    hasExploit: r.HasExploit === true,
-    publishedDateTime: r.PublishedDateTime ?? null,
-  }));
+  const topCves: VulnCve[] = topCveRows.map((r) => {
+    const tags = Array.isArray(r.Tags)
+      ? r.Tags.filter((t): t is string => typeof t === "string")
+      : [];
+    // v2.5.31 — `IsExploitAvailable` is gone from MTP's schema. We derive
+    // exploit availability from `CveTags` instead, which carries `Exploit`,
+    // `ExploitInTheWild`, `ExploitInKit` etc. when Microsoft has flagged
+    // a public exploit for the CVE. Match case-insensitively against any
+    // tag containing "exploit".
+    const hasExploit = tags.some((t) => /exploit/i.test(t));
+    return {
+      cveId: r.CveId ?? "",
+      severity: normalizeSeverity(r.Severity),
+      cvssScore: typeof r.CvssScore === "number" ? r.CvssScore : null,
+      affectedDevices: r.AffectedDevices ?? 0,
+      // Defender TVM doesn't expose per-CVE remediated counts directly on
+      // runHuntingQuery — requires historical snapshot diff (see V1.2 note
+      // on VULN_KQL definitions). Live tenants get 0 here; UI renders "—".
+      remediatedDevices: 0,
+      hasExploit,
+      publishedDateTime: r.PublishedDateTime ?? null,
+      recommendedFix: typeof r.RecommendedFix === "string" && r.RecommendedFix.length > 0
+        ? r.RecommendedFix
+        : null,
+      tags,
+    };
+  });
 
   // Tenant-wide totals derived from the top-CVE list (more accurate than
   // summing per-device severity counts, which double-counts CVEs on >1 host).
@@ -1969,6 +2002,11 @@ export async function fetchVulnerabilities(
   const medium = topCves.filter((c) => c.severity === "Medium").length;
   const low = topCves.filter((c) => c.severity === "Low").length;
   const exploitable = topCves.filter((c) => c.hasExploit).length;
+  // v2.5.31 — surfaces Microsoft's `ZeroDay` CveTag at the headline.
+  // Matches the existing Defender portal "Zero-day vulnerabilities" KPI.
+  const zeroDay = topCves.filter((c) =>
+    c.tags.some((t) => /^zero.?day$/i.test(t)),
+  ).length;
   const affectedDevices = byDevice.length;
   const total = critical + high + medium + low + topCves.filter((c) => c.severity === "Unknown").length;
 
@@ -1979,6 +2017,7 @@ export async function fetchVulnerabilities(
     medium,
     low,
     exploitable,
+    zeroDay,
     affectedDevices,
     remediationTracked: false, // see type doc — live TVM doesn't expose it
     byDevice,

@@ -1459,6 +1459,8 @@ type SeedVulnCve = {
   remediatedDevices: number;
   hasExploit: boolean;
   publishedDateTime: string | null;
+  recommendedFix: string | null;
+  tags: string[];
 };
 
 type SeedVulnDevice = {
@@ -1484,6 +1486,7 @@ function generateVulnerabilities(
   medium: number;
   low: number;
   exploitable: number;
+  zeroDay: number;
   affectedDevices: number;
   remediationTracked: boolean;
   byDevice: SeedVulnDevice[];
@@ -1569,6 +1572,14 @@ function generateVulnerabilities(
       Math.round(exposed / Math.max(0.01, 1 - remediationRatio)),
     );
     const remediated = simulatedUniverse - exposed;
+    // v2.5.31 — synthetic tags for demo parity with the new MTP-derived
+    // shape. Real tenants get these straight from `CveTags`. Demo CVEs
+    // tagged via the catalog: Exploit when hasExploit=true, ZeroDay for
+    // a deterministic ~10% slice (chosen by CVE id hash).
+    const zeroDayHash = (c.cveId.charCodeAt(c.cveId.length - 1) % 10) === 0;
+    const tags: string[] = [];
+    if (c.hasExploit) tags.push("Exploit");
+    if (zeroDayHash) tags.push("ZeroDay");
     return {
       cveId: c.cveId,
       severity: c.severity,
@@ -1577,6 +1588,8 @@ function generateVulnerabilities(
       remediatedDevices: remediated,
       hasExploit: c.hasExploit,
       publishedDateTime: c.published + "T00:00:00Z",
+      recommendedFix: c.product ? `Update ${c.product}` : null,
+      tags,
     };
   });
 
@@ -1585,6 +1598,7 @@ function generateVulnerabilities(
   const medium = topCves.filter((c) => c.severity === "Medium").length;
   const low = topCves.filter((c) => c.severity === "Low").length;
   const exploitable = topCves.filter((c) => c.hasExploit).length;
+  const zeroDay = topCves.filter((c) => c.tags.includes("ZeroDay")).length;
 
   return {
     total: topCves.length,
@@ -1593,6 +1607,7 @@ function generateVulnerabilities(
     medium,
     low,
     exploitable,
+    zeroDay,
     affectedDevices: byDevice.length,
     remediationTracked: true,
     byDevice: byDevice.slice(0, 50),
