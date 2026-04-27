@@ -3,7 +3,47 @@ import { NextResponse } from "next/server";
 import { apiRequireRole } from "@/lib/auth/rbac";
 import { isDirectiveDeployment } from "@/lib/config/deployment-mode";
 import { getTenant, type TenantRow } from "@/lib/db/tenants";
+import { GraphError } from "@/lib/graph/fetch";
 import { recordDirectiveAction } from "./audit";
+
+/**
+ * Turn a thrown error into a human-readable message that carries enough
+ * detail for the operator to know WHY the call failed. v2.5.17: previously
+ * we stored only `(err as Error).message`, which on Graph failures was just
+ * "Graph POST /path failed with 403" — losing the Graph error code, the
+ * Graph error message, and the response body that explain *which* 403 it
+ * was (missing permission? missing license? wrong principal?). Now we
+ * unpack `GraphError` and append the relevant fields so the modal + the
+ * audit log show the full picture.
+ *
+ * Output shape, by error type:
+ *   GraphError →
+ *     "Graph POST /identity/conditionalAccess/policies failed with 403 —
+ *      Authorization_RequestDenied: Insufficient privileges to complete the operation."
+ *   Other Error → just `.message`
+ *   Anything else → `String(err)`
+ */
+function describeError(err: unknown): string {
+  if (err instanceof GraphError) {
+    const base = err.message;
+    const body = err.body as
+      | { error?: { code?: string; message?: string } }
+      | null
+      | undefined;
+    const code = body?.error?.code;
+    const detail = body?.error?.message;
+    const tail = [code, detail].filter(Boolean).join(": ");
+    if (tail.length > 0) {
+      // Cap the detail at ~400 chars so a verbose Graph error doesn't blow
+      // the audit row's 500-char errorMessage budget.
+      const trimmed = tail.length > 400 ? tail.slice(0, 397) + "..." : tail;
+      return `${base} — ${trimmed}`;
+    }
+    return base;
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
 
 /**
  * Directive engine — the single place every Graph WRITE goes through.
@@ -125,7 +165,7 @@ export async function executeDirective<T>(
     });
     return { kind: "success", result, simulated: false, auditId };
   } catch (err) {
-    const message = (err as Error).message ?? String(err);
+    const message = describeError(err);
     const auditId = recordDirectiveAction({
       tenantId: input.tenantId,
       actionType: input.actionType,
