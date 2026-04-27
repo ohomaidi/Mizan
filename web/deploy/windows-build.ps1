@@ -92,14 +92,130 @@ cd /d "%~dp0"
 '@
 $ServiceCmd | Out-File -Encoding ASCII -FilePath (Join-Path $StageDir "start-mizan.cmd")
 
+Write-Host "==> Generating component XML for staged tree..."
+# v2.5.12 — v3-style "harvest in PowerShell, hand WiX explicit
+# components". Three previous attempts at WiX v4's <Files> auto-harvest
+# all hit WIX0005 errors on different parent elements (Feature, then
+# ComponentGroup). Either v4.0.5 doesn't ship with the <Files>
+# element or it requires an extension we'd have to load. Avoiding the
+# moving target — walk the stage in PowerShell + emit explicit
+# <Component><File Source="..." /></Component> XML. WiX v3 worked
+# this way for years; the resulting MSI is identical.
+$AppFilesXml = New-Object System.Text.StringBuilder
+$null = $AppFilesXml.AppendLine('  <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">')
+
+# Track every file we'll add; skip start-mizan.cmd because it's
+# already declared as the MizanService component's keypath below
+# (declaring the same file twice in different components fails WiX
+# validation).
+$ServiceCmdRel = "start-mizan.cmd"
+
+# Walk the stage. Group files by relative directory so we can emit
+# one <Component> per directory (each containing the files that live
+# in that subfolder). MSI requires every file to live inside a
+# Directory; we mirror the stage's tree under INSTALLFOLDER using
+# nested <Directory> elements via the FileSource path resolution.
+$DirectoryCounter = 0
+$ComponentCounter = 0
+$DirectoriesEmitted = @{}
+
+# Build the directory tree once. We need stable ids for nested
+# directories so deeply-nested files (.next/server/chunks/.../foo.js)
+# end up in the right place inside Program Files.
+function Get-DirectoryId {
+    param([string]$RelPath)
+    if ([string]::IsNullOrEmpty($RelPath) -or $RelPath -eq ".") { return "INSTALLFOLDER" }
+    if ($DirectoriesEmitted.ContainsKey($RelPath)) {
+        return $DirectoriesEmitted[$RelPath]
+    }
+    $script:DirectoryCounter++
+    # Hash-based id keeps it stable across runs + short. WiX ids must
+    # match [A-Za-z_][A-Za-z0-9_.]* so we strip slashes etc.
+    $hash = [System.Security.Cryptography.SHA1]::Create()
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($RelPath)
+    $hashBytes = $hash.ComputeHash($bytes)
+    $shortHash = ([System.BitConverter]::ToString($hashBytes) -replace "-","").Substring(0, 12)
+    $id = "DIR_$shortHash"
+    $DirectoriesEmitted[$RelPath] = $id
+    return $id
+}
+
+# Emit nested <Directory> tree first (separate XML block).
+$DirectoryXml = New-Object System.Text.StringBuilder
+$AllRelDirs = Get-ChildItem -Path $StageDir -Recurse -Directory | ForEach-Object {
+    $rel = $_.FullName.Substring($StageDir.Length).TrimStart('\','/')
+    $rel -replace '\\','/'
+} | Sort-Object
+
+# Build a directory-id index for parent lookups before emitting any XML.
+foreach ($rel in $AllRelDirs) { Get-DirectoryId -RelPath $rel | Out-Null }
+
+# Now emit nested <Directory> elements respecting parent-child order.
+# Directories are sorted alphabetically; for each one we look up the
+# parent's id (or INSTALLFOLDER for top-level) and emit a flat list of
+# DirectoryRef-style entries — works because StandardDirectory wraps it.
+$null = $DirectoryXml.AppendLine('  <DirectoryRef Id="INSTALLFOLDER">')
+foreach ($rel in $AllRelDirs) {
+    $segments = $rel -split '/'
+    $name = $segments[-1]
+    $parentRel = if ($segments.Length -gt 1) { ($segments[0..($segments.Length - 2)] -join '/') } else { "" }
+    $parentId = if ($parentRel) { Get-DirectoryId -RelPath $parentRel } else { "INSTALLFOLDER" }
+    $myId = Get-DirectoryId -RelPath $rel
+    if ($parentId -eq "INSTALLFOLDER") {
+        $null = $DirectoryXml.AppendLine("    <Directory Id=`"$myId`" Name=`"$name`" />")
+    }
+}
+$null = $DirectoryXml.AppendLine('  </DirectoryRef>')
+# For subdirectories with non-INSTALLFOLDER parents, emit them in their
+# parent's DirectoryRef block. We do a second pass.
+$ByParent = @{}
+foreach ($rel in $AllRelDirs) {
+    $segments = $rel -split '/'
+    if ($segments.Length -le 1) { continue }
+    $parentRel = ($segments[0..($segments.Length - 2)] -join '/')
+    if (-not $ByParent.ContainsKey($parentRel)) { $ByParent[$parentRel] = @() }
+    $ByParent[$parentRel] += @{ rel = $rel; name = $segments[-1]; id = (Get-DirectoryId -RelPath $rel) }
+}
+foreach ($parentRel in ($ByParent.Keys | Sort-Object)) {
+    $parentId = Get-DirectoryId -RelPath $parentRel
+    $null = $DirectoryXml.AppendLine("  <DirectoryRef Id=`"$parentId`">")
+    foreach ($child in $ByParent[$parentRel]) {
+        $null = $DirectoryXml.AppendLine("    <Directory Id=`"$($child.id)`" Name=`"$($child.name)`" />")
+    }
+    $null = $DirectoryXml.AppendLine('  </DirectoryRef>')
+}
+
+# Now emit one <Component> per file. KeyPath="yes" on the only File
+# inside makes the component non-shared + a candidate for repair.
+$AllFiles = Get-ChildItem -Path $StageDir -Recurse -File | Where-Object {
+    $rel = $_.FullName.Substring($StageDir.Length).TrimStart('\','/')
+    ($rel -replace '\\','/') -ne $ServiceCmdRel -and
+    # Skip the .wxs file we're about to write into the stage
+    $rel -notlike "mizan.wxs"
+}
+
+foreach ($file in $AllFiles) {
+    $rel = $file.FullName.Substring($StageDir.Length).TrimStart('\','/') -replace '\\','/'
+    $segments = $rel -split '/'
+    $parentRel = if ($segments.Length -gt 1) { ($segments[0..($segments.Length - 2)] -join '/') } else { "" }
+    $directoryId = if ($parentRel) { Get-DirectoryId -RelPath $parentRel } else { "INSTALLFOLDER" }
+    $script:ComponentCounter++
+    $compId = "C_$ComponentCounter"
+    $fileId = "F_$ComponentCounter"
+    # Escape XML in the path (& and quotes mostly).
+    $sourceWin = $rel -replace '/','\'
+    $null = $AppFilesXml.AppendLine("    <Component Id=`"$compId`" Directory=`"$directoryId`" Guid=`"*`">")
+    $null = $AppFilesXml.AppendLine("      <File Id=`"$fileId`" Source=`"!(bindpath.StageDir)\$sourceWin`" KeyPath=`"yes`" />")
+    $null = $AppFilesXml.AppendLine("    </Component>")
+}
+$null = $AppFilesXml.AppendLine('  </ComponentGroup>')
+
+Write-Host "  -> $ComponentCounter file components, $DirectoryCounter directories"
+
 Write-Host "==> Writing WiX source..."
 $WxsPath = Join-Path $StageDir "mizan.wxs"
-# WiX v4 native pattern. The `<Files Include="...">` element walks the
-# staged directory at build time and creates one Component per file
-# automatically — no separate `wix harvest` step required (that was a
-# WiX v3 feature, dropped in v4). The path is passed via the
-# `-d StageDir=...` switch on `wix build` below so the .wxs stays
-# host-agnostic and reusable across CI + local builds.
+$DirectoryBlock = $DirectoryXml.ToString()
+$AppFilesBlock = $AppFilesXml.ToString()
 @"
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
@@ -117,6 +233,8 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
       <Directory Id="INSTALLFOLDER" Name="Mizan" />
     </StandardDirectory>
 
+$DirectoryBlock
+
     <StandardDirectory Id="DesktopFolder">
       <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="*">
         <Shortcut Id="MizanShortcut" Name="Mizan Dashboard"
@@ -129,7 +247,7 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
 
     <!-- v2.5.8+ — register Mizan as a Windows Service so it auto-starts
          on boot, restarts on crash, and is upgrade-safe. The service
-         binary is start-mizan.cmd which invokes `next start`. WiX
+         binary is start-mizan.cmd which invokes ``next start``. WiX
          ServiceControl handles stop-before-replace + start-after-install
          so a major upgrade swaps binaries without manual intervention. -->
     <Component Id="MizanService" Directory="INSTALLFOLDER" Guid="*">
@@ -147,16 +265,7 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
                       Wait="yes" />
     </Component>
 
-    <!-- v2.5.10+ — auto-harvest the staged directory tree into the
-         install folder. WiX v4's <Files> element replaces the old
-         `wix harvest` workflow: it creates one Component per file at
-         build time. Important: <Files> can NOT be a direct child of
-         <Feature> in WiX v4 (that was the v2.5.8/9/10-build-1 error,
-         WIX0005). It must live inside a <ComponentGroup>; the Feature
-         then references the ComponentGroup by id. -->
-    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-      <Files Include="!(bindpath.StageDir)\**" />
-    </ComponentGroup>
+$AppFilesBlock
 
     <Feature Id="Main" Title="Mizan" Level="1">
       <ComponentRef Id="DesktopShortcut" />
@@ -169,10 +278,6 @@ $WxsPath = Join-Path $StageDir "mizan.wxs"
 
 Write-Host "==> Building MSI..."
 $MsiPath = Join-Path $OutDir "mizan-$Version.msi"
-# `wix build` resolves !(bindpath.StageDir) via the `-bindpath` switch
-# below — that's how v4 substitutes the staging directory into both
-# `<Files Include>` and `<File Source>` references. The output goes
-# directly to the OutDir; no separate harvest pass needed.
 wix build $WxsPath `
     -arch x64 `
     -bindpath "StageDir=$StageDir" `
