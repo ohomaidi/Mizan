@@ -26,6 +26,14 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-27 — v2.5.21 (Two showstopper fixes: runHuntingQuery body shape + UTC timestamp parsing)**.
+
+  **runHuntingQuery — `Query` (capital Q) → `query` (lowercase).** The single biggest reason Mizan reported "Defender Vulnerability Management not available" + "advanced hunting failed" on every E5-licensed tenant: `lib/graph/signals.ts` was sending the request body as `{ Query: "..." }` (capital Q). That's the **legacy Defender for Endpoint API** body shape (`api.security.microsoft.com/api/advancedhunting/run`). Microsoft Graph's `/security/runHuntingQuery` expects **`{ query: "..." }`** (lowercase). Graph silently ignored the unrecognized field, fell back to a default empty query, and returned `400 — The incomplete fragment is unexpected. Fix syntax errors in your query.` for every single hunting call. EVERY pack execution AND both vulnerability KQL queries failed with this since the Graph migration. v2.5.19's `dcountif → countif` rewrite was correct but couldn't help because the queries weren't reaching the parser at all. Vulnerabilities + advanced hunting now actually run.
+
+  **UTC timestamp parsing — "Last sync 4h ago" was lying.** SQLite's `datetime('now')` returns strings like `"2026-04-27 12:09:21"` — UTC by SQLite convention but with no `Z` suffix and a space (not `T`) between date and time. JavaScript's `Date()` constructor on a space-separated string with no offset interprets it as **local time**, not UTC. On a UAE browser (UTC+4) that meant a sync stored at `12:09:21 UTC` got parsed as `12:09:21 Asia/Dubai` (= `08:09:21 UTC`) — exactly **4 hours earlier** than reality. Operators saw "Last sync 4h ago" on a tenant they'd just synced 30 seconds ago and rightly assumed the sync wasn't running. The bug affected every relative timestamp in the UI — entity detail header, entities-table "Last Sync" column, push-history rows, audit log. New `parseAsUtc()` helper in `lib/utils.ts` normalises naked datetime strings (replaces space with `T`, appends `Z`), used by `useFmtRelative`, the bare `fmtRelative` util, and the connection-status `ageHours` calculation in `lib/compute/aggregate.ts`. Strings that already carry `Z` or a `±HH:MM` offset pass through unchanged.
+
+  Both bugs were hiding the underlying systems were actually working. After v2.5.21 the data shape catches up to the data state.
+
 - **2026-04-27 — v2.5.20 (entity-table alignment + 7 more connection-tab endpoints + Maturity baseline copy + PDF URL wrap)**. Diagnostic pass on `OzTenant`'s connections health surfaced a class of always-failing endpoints v2.5.19 hadn't touched. Fixed in the same shape as v2.5.19's batch — read the `endpoint_health.last_error_message` rows directly, cross-reference each path against Microsoft's current Graph schema/version, fix.
 
   **Connection-tab — 7 endpoints brought back to green:**

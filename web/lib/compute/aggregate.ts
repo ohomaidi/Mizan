@@ -10,6 +10,7 @@ import {
   getActiveFramework,
 } from "@/lib/config/compliance-framework";
 import { getComplianceConfig } from "@/lib/config/compliance-config";
+import { parseAsUtc } from "@/lib/utils";
 import { getOosSets } from "@/lib/db/compliance-oos";
 import { getLatestSnapshotsForTenant } from "@/lib/db/signals";
 import type { SecureScorePayload } from "@/lib/graph/signals";
@@ -148,8 +149,12 @@ function connectionFor(row: {
   if (row.consent_status !== "consented") return "pending";
   if (!row.last_sync_at) return "amber";
 
+  // v2.5.21: parseAsUtc — SQLite's datetime('now') has no Z suffix; default
+  // Date() parsing treats space-separated strings as local time. The server
+  // container runs in UTC so this is usually a no-op there, but the same
+  // helper guards against any TZ env that might leak in.
   const ageHours =
-    (Date.now() - new Date(row.last_sync_at).getTime()) / 3_600_000;
+    (Date.now() - parseAsUtc(row.last_sync_at).getTime()) / 3_600_000;
   if (!Number.isFinite(ageHours)) return "amber";
   if (ageHours > STALE_HOURS) return "red"; // >48h — genuinely offline
   if (ageHours > FRESH_HOURS) return "amber"; // 24-48h — degraded

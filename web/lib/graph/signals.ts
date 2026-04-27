@@ -1639,7 +1639,13 @@ export async function fetchAdvancedHunting(
         ...ctx,
         path: "/security/runHuntingQuery",
         method: "POST",
-        body: { Query: pack.query },
+        // v2.5.21 fix: Microsoft Graph's /security/runHuntingQuery expects
+        // lowercase `query`. The capital `Query` we used to send is the
+        // legacy Defender for Endpoint API shape (api.security.microsoft.com),
+        // which Graph silently ignores — the parser saw an empty query and
+        // returned "The incomplete fragment is unexpected. Fix syntax errors".
+        // EVERY pack execution failed with this until v2.5.21.
+        body: { query: pack.query },
       });
       results.push({
         packId: pack.id,
@@ -1834,13 +1840,14 @@ export async function fetchVulnerabilities(
         ...ctx,
         path: "/security/runHuntingQuery",
         method: "POST",
-        body: { Query: VULN_KQL_BY_DEVICE },
+        // v2.5.21: lowercase `query` — see comment in fetchAdvancedHunting.
+        body: { query: VULN_KQL_BY_DEVICE },
       }),
       graphFetch<{ results?: RawVulnCveRow[] }>({
         ...ctx,
         path: "/security/runHuntingQuery",
         method: "POST",
-        body: { Query: VULN_KQL_TOP_CVES },
+        body: { query: VULN_KQL_TOP_CVES },
       }),
     ]);
   } catch (err) {
