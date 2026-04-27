@@ -4,12 +4,23 @@ import { recordEndpointHealth } from "@/lib/db/signals";
 import { GraphError } from "./fetch";
 
 /**
- * Microsoft Defender for Endpoint API root. The legacy hostname
- * `api.securitycenter.microsoft.com` and the unified Defender XDR
- * hostname `api.security.microsoft.com` are both live and accept the
- * same OAuth token (audience stays `api.securitycenter.microsoft.com`).
- * Microsoft is steering all new traffic to the unified hostname so we
- * use that here.
+ * Microsoft Defender for Endpoint API root.
+ *
+ * v2.5.26 — REVERTED to the legacy hostname `api.securitycenter.microsoft.com`.
+ * The unified Defender XDR hostname `api.security.microsoft.com` looks like
+ * a drop-in replacement but is actually a SEPARATE service principal —
+ * Microsoft Threat Protection (`8ee8fdad-f234-4243-8f3b-15c294843740`) —
+ * with its own role set. `/api/advancedhunting/run` on the unified
+ * hostname requires `AdvancedHunting.Read.All` on MTP, NOT
+ * `AdvancedQuery.Read.All` on WindowsDefenderATP. Mizan acquires tokens
+ * with audience `https://api.securitycenter.microsoft.com/.default`
+ * (WindowsDefenderATP, `fc780465-…`) which carry `AdvancedQuery.Read.All` —
+ * those tokens are accepted by the legacy hostname but rejected by the
+ * unified hostname's MTP gate with: "Missing application roles. API
+ * required roles: AdvancedHunting.Read.All, application roles:
+ * Machine.Read.All,AdvancedQuery.Read.All." Switching back to the legacy
+ * hostname makes existing tenants' grants and tokens work without any
+ * tenant-side action.
  *
  * Why a separate fetch helper instead of reusing `graphFetch`?
  *  - Different host, different audience, different error shape (Defender
@@ -20,7 +31,7 @@ import { GraphError } from "./fetch";
  *    Graph token never gets sent to Defender (and vice versa, both
  *    return 401).
  */
-const DEFENDER_API_ROOT = "https://api.security.microsoft.com/api";
+const DEFENDER_API_ROOT = "https://api.securitycenter.microsoft.com/api";
 
 type DefenderFetchOptions = {
   /** Entra tenant GUID to scope the token. */
