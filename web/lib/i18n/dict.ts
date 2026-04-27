@@ -687,8 +687,8 @@ export const DICT = {
     "gov.framework.generic": "Framework alignment",
     "gov.baseline.title": "{orgShort} baseline",
     "gov.baseline.body":
-      "Percentage of entities scoring above the {orgShort} target across all sub-scores. Drives the standards-tier ranking.",
-    "gov.baseline.aligned": "Entities aligned",
+      "Entities whose Maturity Index scores at or above the {orgShort} target. Drives the standards-tier ranking.",
+    "gov.baseline.aligned": "Entities aligned to Target",
     "gov.scope.title": "Scope note",
     "gov.scope.body":
       "This dashboard is read-only observability. Framework alignment is surfaced for measurement; policy authoring and deployment are handled in the entities' own tenants, outside the {orgShort} platform.",
@@ -3439,8 +3439,8 @@ export const DICT = {
     "gov.framework.generic": "مواءمة الإطار",
     "gov.baseline.title": "خط أساس {orgShort}",
     "gov.baseline.body":
-      "نسبة الجهات المتفوّقة على هدف {orgShort} في جميع المؤشرات الفرعية. تقود ترتيب طبقة المعايير.",
-    "gov.baseline.aligned": "الجهات الممتثلة",
+      "الجهات التي يبلغ مؤشر النضج لديها هدف {orgShort} أو يتجاوزه. يقود ترتيب طبقة المعايير.",
+    "gov.baseline.aligned": "الجهات المُحاذاة مع الهدف",
     "gov.scope.title": "ملاحظة النطاق",
     "gov.scope.body":
       "هذه اللوحة قراءة فقط للملاحظة والمراقبة. تُعرض المواءمة مع الأطر للقياس؛ بينما يبقى تأليف السياسات وتطبيقها ضمن مستأجر كل جهة، خارج نطاق منصة {orgShort}.",

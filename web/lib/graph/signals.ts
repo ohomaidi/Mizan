@@ -795,7 +795,9 @@ export async function fetchSubjectRightsRequests(
   let rows: RawSrr[];
   try {
     rows = await graphFetchAll<RawSrr>(
-      { ...ctx, path: "/security/subjectRightsRequests?$top=100" },
+      // v2.5.20 fix: subjectRightsRequests is beta-only on Graph; v1.0
+      // returns 500 UnknownError. Pin to beta.
+      { ...ctx, path: "/security/subjectRightsRequests?$top=100", version: "beta" },
       5,
     );
   } catch (err) {
@@ -871,7 +873,9 @@ export async function fetchRetentionLabels(
     rows = await graphFetchAll<RawRetentionLabel>(
       // Endpoint is beta-only and rejects $top>100. Keeps the v1.0 path as a
       // fallback so beta regressions don't take the tenant's whole sync down.
-      { ...ctx, path: "/security/labels/retentionLabels?$top=100", version: "beta" },
+      // v2.5.20 fix: this endpoint rejects $top with `Query option 'Top' is
+      // not allowed`. Removed; relying on the default page size + nextLink.
+      { ...ctx, path: "/security/labels/retentionLabels", version: "beta" },
       5,
     );
   } catch (err) {
@@ -1205,7 +1209,12 @@ export async function fetchAttackSimulations(
 ): Promise<AttackSimulationPayload> {
   try {
     const sims = await graphFetchAll<RawSimulation>(
-      { ...ctx, path: "/security/attackSimulation/simulations?$top=25&$orderby=createdDateTime%20desc" },
+      // v2.5.20 fix: $orderby=createdDateTime rejected with `400 — The
+      // property 'createdDateTime' cannot be used in the $orderby query
+      // option`. The simulation entity exposes the field but Graph's
+      // server-side OData layer doesn't index it. Drop the ordering;
+      // we slice to the first 10 below regardless.
+      { ...ctx, path: "/security/attackSimulation/simulations?$top=25" },
       2,
     );
     let totalAttempts = 0;

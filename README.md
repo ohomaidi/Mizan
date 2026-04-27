@@ -313,7 +313,7 @@ az containerapp update \
   --set-env-vars APP_BASE_URL=https://<your-fqdn>
 ```
 
-A new revision rolls in ~30–60 s; your `/data` Azure Files mount carries the SQLite database + uploaded logo untouched — no data migration step.
+A new revision rolls in ~30–60 s. SQLite lives on the new pod's local `EmptyDir` volume (v2.5.17+) and is restored from the `/data/scsc.sqlite` NFS backup at boot, so per-tenant data persists across the swap. The previous pod runs one final SIGTERM-triggered backup before exit, so the swap window itself loses zero data. Uploaded logos + branding stay on `/data` directly throughout.
 
 ### macOS on-prem installer
 
@@ -468,8 +468,9 @@ Azure Container Apps (the one-click deploy):
 ```
 
 - **VNet-integrated ACA env** — the managed environment is attached to the `aca` subnet; the container reaches storage via a private endpoint in the `pe` subnet, so storage never has a public exposure.
-- **NFS for persistence** — `Premium_LRS` FileStorage mounted at `/data`. SQLite (signals, users, config) + the uploaded logo live here. Survives container restarts and revision swaps.
-- **Why NFS and not SMB** — many Azure tenants enforce `StorageAccount_DisableLocalAuth_Modify` policy that silently disables shared-key auth. SMB needs shared-key; NFS uses network-level auth via the private endpoint, so the deploy works under any governance posture.
+- **Live SQLite on local `EmptyDir`, NFS as backup target (v2.5.17+)** — the live database lives on the container's local volume at `/local-data/scsc.sqlite` (microsecond locks, WAL mode, full POSIX semantics — the latency-sensitive happy path). The NFS Azure Files share is mounted at `/data` as a backup target; a 5-minute backup loop + a SIGTERM final-backup hook keep it within 5 minutes of the live DB at all times. New revisions restore from the latest snapshot at boot. Soft restarts lose zero data; hard SIGKILL crashes lose at most the configured backup interval.
+- **NFS still hosts logos + branding assets** — write-once data lives on `/data` directly (no perf concern). Single-replica deployment (`maxReplicas: 1, activeRevisionsMode: Single`) means no concurrent-writer issues.
+- **Why NFS and not SMB for the backup share** — many Azure tenants enforce `StorageAccount_DisableLocalAuth_Modify` policy that silently disables shared-key auth. SMB needs shared-key; NFS uses network-level auth via the private endpoint, so the deploy works under any governance posture.
 - **Daily sync** — one `POST /api/sync` per day pulls all 18 Graph signals from every consented entity with a 5-worker pool.
 - **Two deployment modes** — `observation` uses only `.Read` Graph scopes. `directive` provisions a second Entra app with write scopes for the shipped directive surfaces (reactive actions + Conditional Access policy push + rollback). Mode is fixed at install time via `MIZAN_DEPLOYMENT_MODE` and cannot be toggled at runtime — switching modes is a redeploy.
 

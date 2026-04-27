@@ -26,6 +26,26 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-27 — v2.5.20 (entity-table alignment + 7 more connection-tab endpoints + Maturity baseline copy + PDF URL wrap)**. Diagnostic pass on `OzTenant`'s connections health surfaced a class of always-failing endpoints v2.5.19 hadn't touched. Fixed in the same shape as v2.5.19's batch — read the `endpoint_health.last_error_message` rows directly, cross-reference each path against Microsoft's current Graph schema/version, fix.
+
+  **Connection-tab — 7 endpoints brought back to green:**
+  1. `/security/subjectRightsRequests` — beta-only on Graph; v1.0 returned `500 — UnknownError`. Pinned `version: "beta"`.
+  2. `/security/labels/retentionLabels` — endpoint rejects `$top` (`Query option 'Top' is not allowed`). Removed; relying on default page size + `nextLink`.
+  3. `/security/informationProtection/sensitivityLabels` — `$select=displayName` failed because the property is `name` not `displayName` on `microsoft.graph.security.sensitivityLabel`. Removed `displayName` from the select.
+  4. `/security/attackSimulation/simulations` — `$orderby=createdDateTime` rejected (`The property 'createdDateTime' cannot be used in the $orderby query option`). Removed the order-by; we slice to the first 10 anyway.
+  5. `/security/dataLossPreventionPolicies` — endpoint removed/never-published on Graph (`400 — Resource not found for the segment`). Broadened the catch to treat 400 the same as 403/404 (endpoint unavailable, not error). Also fixed the companion `fetchAlertCount` call to use the long-form `microsoftPurviewDataLossPrevention` enum (matches v2.5.19's signals.ts fix).
+  6. `/deviceManagement/configurationPolicies` — Settings Catalog endpoint, beta-only (`400 — Resource not found for the segment`). Pinned `version: "beta"`.
+  7. `/security/identities/sensors` — beta path was already pinned, but the catch only handled 401/403/404. The MDI sensors endpoint returns `500 — UnknownError` on tenants without MDI fully provisioned (or without the `SecurityIdentitiesSensors.Read.All` scope, which Mizan's app currently doesn't register — known scope gap). Broadened the catch to treat 500 the same as 401/403/404. UI shows "—", connection no longer reads as "broken".
+  8. `/security/threatSubmission/{email,url,file}Threats` — beta-only on Graph; v1.0 returned `400 — Resource not found for the segment 'threatSubmission'`. Pinned `version: "beta"` for all three.
+
+  Net: every connection in the entity sidebar that was red on v2.5.19 should now be green or grey-unavailable (license-gated), not red.
+
+  **Entity-list table — vertical alignment + duplicate-name suppression.** The entities table on `/entities` was showing each row's cluster pill / maturity bar / column percentages drift visually into the entity column when the entity's EN and AR names matched (typical for English-named tenants and every test tenant). Cause was a default `vertical-align: middle` on table cells — multi-line entity cell + single-line companion cells = the pills float to middle, landing on the second line of the entity cell. Two fixes: (1) added `align-top` to every `<td>` so cell content anchors to the top of the row; (2) suppressed the secondary-script name line entirely when `nameEn === nameAr`, removing the visual duplicate that compounded the drift.
+
+  **Maturity baseline copy.** `gov.baseline.body` previously said "Percentage of entities scoring above the council target **across all sub-scores**". The code only checks `r.maturity.index >= target` — the headline Maturity Index, not each sub-score independently. Renamed the label from "Entities aligned" to "Entities aligned to Target" and rewrote the body to "Entities whose Maturity Index scores at or above the council target." Both EN and AR. Now matches the implementation.
+
+  **PDF URL wrap (OnboardingLetter consent-URL bleed).** Real OIDC admin-consent URLs are 250+ characters with no whitespace, so `@react-pdf/renderer` treated them as a single unbreakable token and ran them off the right margin of the `linkBox`. Added `wordBreak: "break-all"` + `lineHeight: 1.4` to `linkText`, and the same to the `code` style in `lib/pdf/docs/layout.tsx` so the `InstallationGuide`'s shell snippets and curl examples stop overflowing too.
+
 - **2026-04-27 — v2.5.19 (signal collection fixes + framework label dynamic + CA roadmap copy removed)**. Three independent improvements bundled.
 
   **Signal collection — incidents, alerts, vulnerabilities, hunting packs.** Diagnosed live against `OzTenant` (a fully E5-licensed tenant) by triggering a fresh sync and reading `endpoint_health.last_error_message` directly. Six bugs surfaced and were fixed:

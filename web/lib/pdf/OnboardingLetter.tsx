@@ -268,6 +268,10 @@ function buildStyles(lang: "en" | "ar") {
         borderColor: PALETTE.borderStrong,
         borderRadius: 4,
         backgroundColor: PALETTE.soft,
+        // v2.5.20 fix: cap the box width to the printable area so very long
+        // OIDC consent URLs don't render past the right margin. The
+        // `<Link>` text inside still wraps mid-string thanks to break-all.
+        width: "100%",
       },
       linkLabel: {
         fontSize: 8,
@@ -277,7 +281,21 @@ function buildStyles(lang: "en" | "ar") {
         textAlign: align,
         marginBottom: 4,
       },
-      linkText: { color: PALETTE.council, fontWeight: 700, fontSize: 9.5 },
+      // v2.5.20 fix: real OIDC admin-consent URLs are ~250+ characters long
+      // (tenant GUID + client_id + scope + redirect_uri + state). They have
+      // no whitespace so react-pdf's default Text engine treats them as one
+      // unbreakable token and runs them off the page edge. `wordBreak:
+      // "break-all"` tells the renderer to split inside the string at any
+      // character boundary, so the URL wraps cleanly inside the `linkBox`.
+      // `lineHeight: 1.4` adds a touch of vertical breathing room since
+      // wrapped URLs can be 3–5 lines.
+      linkText: {
+        color: PALETTE.council,
+        fontWeight: 700,
+        fontSize: 9.5,
+        lineHeight: 1.4,
+        wordBreak: "break-all",
+      },
 
       sigBox: {
         marginTop: 12,

@@ -282,6 +282,13 @@ export function buildDocStyles(lang: DocLang) {
         backgroundColor: PALETTE.soft,
         fontFamily: FF_EN,
         color: PALETTE.ink,
+        // v2.5.20: long URLs and shell one-liners (e.g. an APP_BASE_URL or
+        // a curl command with embedded query string) overflow the right
+        // edge in the bundled PDF docs. break-all wraps inside the string
+        // at any character so the code block stays inside its border.
+        // lineHeight gives wrapped lines a touch of room.
+        lineHeight: 1.4,
+        wordBreak: "break-all",
       },
       callout: {
         marginTop: 6,

@@ -27,15 +27,18 @@ az deployment group create \
 What it provisions (UAE-North by default):
 
 - Log Analytics workspace (ACA requirement)
-- Storage account + Azure Files share → mounted at `/data` for SQLite persistence
-- Managed Environment + Container App with HTTPS ingress + **system-assigned managed identity**
+- Storage account + NFS 4.1 Azure Files share → mounted at `/data` (uploaded logos + branding assets + SQLite backup target)
+- **`EmptyDir` volume** mounted at `/local-data` (live SQLite file — fast local disk, microsecond locks, WAL-safe)
+- Managed Environment + Container App, **single-replica** (`minReplicas: 1, maxReplicas: 1`, `activeRevisionsMode: Single`), HTTPS ingress, **system-assigned managed identity**
 - **Container Apps Contributor** role on the resource group, granted to the managed identity
-- `MIZAN_AZURE_RESOURCE_ID` env var injected so `/api/updates/apply` can swap its own image
+- Env vars: `SCSC_DB_PATH=/local-data/scsc.sqlite` (live), `MIZAN_DB_BACKUP_DIR=/data` (snapshot target), `MIZAN_AZURE_RESOURCE_ID` (so `/api/updates/apply` can swap its own image)
 - Liveness probe on `/api/auth/me`
+
+**Storage architecture (v2.5.17+):** SQLite lives on the container's local `EmptyDir` for speed; a backup loop snapshots it to `/data/scsc.sqlite` (NFS) every 5 minutes plus on graceful shutdown. New revisions restore from the latest snapshot at boot. Soft restarts lose zero data; SIGKILL hard-crashes can lose up to N minutes (default 5).
 
 Output: the `dashboardUrl` of the provisioned Container App. Visit it — the first-run wizard launches automatically. From there, every future release can be applied via the **Settings → About → Upgrade now** button (no CLI needed).
 
-The Bicep template is idempotent — re-running it on the same resource group adds missing pieces (e.g. enabling managed identity on a pre-v2.5.6 deployment) without recreating the container app.
+The Bicep template is idempotent — re-running it on the same resource group adds missing pieces (e.g. enabling managed identity on a pre-v2.5.6 deployment, or attaching the EmptyDir volume on a pre-v2.5.17 deployment) without recreating the container app or losing data.
 
 ## macOS installer
 

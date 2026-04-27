@@ -18,11 +18,15 @@ Environment:
 | Var | Default | Purpose |
 |---|---|---|
 | `APP_BASE_URL` | `http://localhost:8787` | Public URL — used as the OIDC redirect host |
-| `DATA_DIR` | `/data` | Where SQLite + uploaded logos live |
+| `DATA_DIR` | `/data` | Where uploaded logos / branding assets live, and (on ACA) the backup target for SQLite snapshots |
+| `SCSC_DB_PATH` | `${DATA_DIR}/scsc.sqlite` | Live SQLite file path. ACA deployments override this to `/local-data/scsc.sqlite` so the live DB sits on a fast local volume (v2.5.17+) |
+| `MIZAN_DB_BACKUP_DIR` | _(empty)_ | When set, every 5 min (configurable via `MIZAN_DB_BACKUP_INTERVAL_MS`) the SQLite file is backed up to `${MIZAN_DB_BACKUP_DIR}/scsc.sqlite`. ACA sets this to `/data` (the NFS mount) so EmptyDir wipes during revision swap don't lose data. Mac/Docker self-hosted leave it unset — durable local disk doesn't need a separate backup target. |
 | `SCSC_SYNC_SECRET` | _(empty)_ | Shared secret for scheduled sync hits |
 | `SCSC_SEED_DEMO` | `false` | Demo tenants + Sharjah branding if `true` (unset in packaged installs) |
 
-Volume: mount anything at `/data` to persist the SQLite DB and uploaded logo across restarts.
+**Volume strategy (Mac / Docker):** mount anything at `${DATA_DIR}` (default `/data`) to persist the SQLite DB and uploaded logo across restarts. WAL mode is safe on local filesystems — single-replica deployment, no contention.
+
+**Volume strategy (ACA):** see the dedicated section below.
 
 Health check: `HEALTHCHECK` curls `/api/auth/me` — cheap, always returns 200, exercises the DB read path.
 
@@ -30,7 +34,9 @@ Health check: `HEALTHCHECK` curls `/api/auth/me` — cheap, always returns 200, 
 
 The canonical production deployment: `deploy/azure-container-apps.bicep`.
 
-Uses **NFS 4.1 Azure Files** for persistence. NFS is auth'd by network rules + a private endpoint, so `allowSharedKeyAccess` can stay `false` and governance policies like MCA's `StorageAccount_DisableLocalAuth_Modify` (which silently flip shared-key off) don't bite. This is the one template that works everywhere.
+**Storage architecture (as of v2.5.17):** SQLite lives on the container's **local `EmptyDir` volume** for speed (microsecond locks, full POSIX semantics, WAL mode safe). The **NFS 4.1 Azure Files** share is mounted as a **backup target** at `/data` only — it holds uploaded logos, branding assets, and a snapshot of the SQLite file taken every 5 minutes plus on graceful shutdown. NFS is auth'd by network rules + a private endpoint so `allowSharedKeyAccess` can stay `false` and governance policies like MCA's `StorageAccount_DisableLocalAuth_Modify` don't bite.
+
+The dashboard is **single-replica by design** (`minReplicas: 1, maxReplicas: 1`, `activeRevisionsMode: Single`). SQLite is single-writer; horizontal scale-out is incompatible with the current schema and would require migrating to a server-side database.
 
 ### What the template provisions
 
@@ -39,13 +45,19 @@ Uses **NFS 4.1 Azure Files** for persistence. NFS is auth'd by network rules + a
   - `aca` /23 — delegated to `Microsoft.App/environments`, service endpoint for `Microsoft.Storage`
   - `pe` /28 — hosts the private endpoint
 - **Premium FileStorage account** (`allowSharedKeyAccess: false`, `publicNetworkAccess: Disabled`)
-- NFS 4.1 file share `mizan-data` (100 GB — Premium minimum)
+- NFS 4.1 file share `mizan-data` (100 GB — Premium minimum), mounted at `/data` (backup target + write-once assets)
+- **`EmptyDir` volume** mounted at `/local-data` — hosts the live SQLite file (`SCSC_DB_PATH=/local-data/scsc.sqlite`)
 - Private DNS zone `privatelink.file.core.windows.net` + VNet link
 - Private endpoint to the storage account's `file` subresource
 - VNet-integrated ACA managed environment (Consumption profile)
-- Container App pulling `ghcr.io/ohomaidi/mizan:latest`, mounting the NFS share at `/data`
+- Container App pulling `ghcr.io/ohomaidi/mizan:latest`, system-assigned managed identity + Container Apps Contributor on the RG (for self-upgrade)
 - HTTPS ingress with auto-managed TLS
 - Liveness probe: `/api/auth/me`, initialDelay 30s, timeout 5s, threshold 5
+
+**Backup + restore behaviour** (in `lib/db/client.ts`):
+- On boot: if `/local-data/scsc.sqlite` is missing (e.g. fresh pod after revision swap), copy `/data/scsc.sqlite` → `/local-data/scsc.sqlite` so the new revision inherits the previous pod's last-saved state.
+- Periodic: every 5 min, `db.backup()` writes `/local-data/scsc.sqlite` → `/data/scsc.sqlite` atomically (tmp + rename). Configurable via `MIZAN_DB_BACKUP_INTERVAL_MS`.
+- Shutdown: SIGTERM handler runs one final backup before exit. Soft restarts (revision swap, deploy) lose zero data. Only a SIGKILL hard-crash can lose up to N minutes.
 
 Cost: ~$35–55/month for a single-customer install (Premium FileStorage minimum 100 GB is ~$15/mo, private endpoint ~$7/mo, rest is LAW + Container App consumption).
 
@@ -152,7 +164,7 @@ Until consent is granted, user sign-in fails with `AADSTS65001` and entity onboa
 
 ## Upgrade paths
 
-- **ACA:** push new image tag, `az containerapp update --image …`. Session cookies + SQLite survive the restart; Azure Files mount is shared across revisions.
+- **ACA:** push new image tag, `az containerapp update --image …`. Session cookies survive the restart. SQLite live file lives on the new pod's `EmptyDir` and is restored from `/data/scsc.sqlite` (NFS backup) at boot, so per-tenant data persists across the swap. The previous pod's SIGTERM handler runs one final backup before exit so there's no data loss in the swap window.
 - **macOS:** ship a new `.pkg`; `pkgbuild --upgrade` replaces the existing install. LaunchAgent reload is automatic.
 - **Windows:** new `.msi` with a bumped `MajorUpgrade` version; Windows Service restarts post-upgrade.
 

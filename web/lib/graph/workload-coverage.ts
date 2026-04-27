@@ -386,7 +386,10 @@ async function fetchIntuneCounts(ctx: SignalCallCtx): Promise<{
   try {
     const r = await graphFetch<{ "@odata.count"?: number; value: unknown[] }>({
       ...ctx,
+      // v2.5.20 fix: Settings Catalog endpoint is beta-only; v1.0 returns
+      // `400 — Resource not found for the segment 'configurationPolicies'`.
       path: "/deviceManagement/configurationPolicies?$count=true&$top=1",
+      version: "beta",
     });
     out.settingsCatalogProfileCount = r["@odata.count"] ?? r.value?.length ?? 0;
   } catch {
@@ -493,8 +496,20 @@ async function fetchMdiCounts(ctx: SignalCallCtx): Promise<{
     });
     out.sensors = r.value?.length ?? 0;
   } catch (err) {
-    if (err instanceof GraphError && (err.status === 403 || err.status === 404)) {
-      // Leave null so UI shows "—" rather than "0" when MDI isn't there at all.
+    // v2.5.20: broadened the "treat as unavailable" arm to also include 500
+    // UnknownError (the empty-body Graph response we see on tenants that
+    // either lack MDI provisioning OR lack the SecurityIdentitiesSensors
+    // scope on Mizan's app — the latter is a known scope gap pending a
+    // future re-consent). Either way the right UI behaviour is "—", not
+    // "broken connection". 401/403/404/500 all qualify.
+    if (
+      err instanceof GraphError &&
+      (err.status === 401 ||
+        err.status === 403 ||
+        err.status === 404 ||
+        err.status === 500)
+    ) {
+      // Leave sensors null so UI shows "—" rather than "0" or "error".
     } else {
       out.error = errorMessage(err);
     }
@@ -537,17 +552,22 @@ async function fetchSensitivityLabelCounts(ctx: SignalCallCtx): Promise<{
 }> {
   try {
     const r = await graphFetch<{
-      value: Array<{ id: string; name?: string; displayName?: string }>;
+      value: Array<{ id: string; name?: string }>;
     }>({
       ...ctx,
+      // v2.5.20 fix: `displayName` does NOT exist on
+      // `microsoft.graph.security.sensitivityLabel` — Graph rejected the
+      // $select with `Could not find a property named 'displayName' on
+      // type microsoft.graph.security.sensitivityLabel`. The label's
+      // human-readable name is `name` only.
       path:
-        "/security/informationProtection/sensitivityLabels?$top=50&$select=id,name,displayName",
+        "/security/informationProtection/sensitivityLabels?$top=50&$select=id,name",
       version: "beta",
     });
     const labels = r.value ?? [];
     return {
       count: labels.length,
-      names: labels.map((l) => l.displayName ?? l.name ?? "label").slice(0, 8),
+      names: labels.map((l) => l.name ?? "label").slice(0, 8),
       error: null,
     };
   } catch (err) {
@@ -609,13 +629,23 @@ async function fetchDlpCounts(ctx: SignalCallCtx): Promise<{
     });
     out.policyCount = r.value?.length ?? 0;
   } catch (err) {
-    if (err instanceof GraphError && (err.status === 403 || err.status === 404)) {
+    // v2.5.20: Microsoft removed (or never published) `/security/
+    // dataLossPreventionPolicies` on Graph — tenants now get
+    // `400 — Resource not found for the segment 'dataLossPreventionPolicies'`.
+    // Treat 400 the same as 403/404 (endpoint unavailable, not an error).
+    // Tenant-level DLP policy count may eventually return via a different
+    // endpoint; until then null falls through to the alert-count proxy.
+    if (
+      err instanceof GraphError &&
+      (err.status === 400 || err.status === 403 || err.status === 404)
+    ) {
       out.policyCount = 0;
     } else {
       out.error = errorMessage(err);
     }
   }
-  const a = await fetchAlertCount(ctx, "microsoftDataLossPrevention");
+  // v2.5.20: long-form serviceSource enum (matches the v2.5.19 fix in signals.ts).
+  const a = await fetchAlertCount(ctx, "microsoftPurviewDataLossPrevention");
   out.alertsLast30d = a.count;
   return out;
 }
@@ -641,7 +671,14 @@ async function fetchThreatSubmissionsLast30d(
       const r = await graphFetch<{
         "@odata.count"?: number;
         value: unknown[];
-      }>({ ...ctx, path });
+      }>({
+        ...ctx,
+        path,
+        // v2.5.20 fix: /security/threatSubmission/* is beta-only on Graph;
+        // v1.0 returns `400 — Resource not found for the segment
+        // 'threatSubmission'`. Three endpoints, one toggle.
+        version: "beta",
+      });
       total += r["@odata.count"] ?? r.value?.length ?? 0;
       touched = true;
     } catch {

@@ -524,7 +524,10 @@ function UpgradeButtonAca({
               })}
             </div>
             <div className="text-ink-2 mt-0.5 leading-relaxed">
-              {t("settings.about.upgradeRequested.body")}
+              {t("settings.about.upgradeRequested.body", {
+                from: apply.from,
+                to: apply.to,
+              })}
             </div>
           </div>
         </div>

@@ -77,7 +77,7 @@ For production: `npm run build && npm run start -- -H 0.0.0.0 -p 8787` (or simil
 
 ## Data model
 
-SQLite at `${DATA_DIR}/mizan.sqlite` (override via `SCSC_DB_PATH`). Schema in [`lib/db/schema.sql`](lib/db/schema.sql) plus 12 migrations in [`lib/db/client.ts`](lib/db/client.ts). Tables:
+SQLite at `${SCSC_DB_PATH}` (defaults to `${DATA_DIR}/scsc.sqlite`). On Mac/Docker the default keeps everything in one volume — durable local disk, WAL mode, no extra backup needed. On ACA the deployment template points `SCSC_DB_PATH` at `/local-data/scsc.sqlite` (a fast `EmptyDir` volume) and sets `MIZAN_DB_BACKUP_DIR=/data` so a 5-minute backup loop snapshots the file to NFS for persistence across revision swaps. See [`docs/10-deployment.md`](../docs/10-deployment.md) for the full architecture. Schema in [`lib/db/schema.sql`](lib/db/schema.sql) plus 12 migrations in [`lib/db/client.ts`](lib/db/client.ts). Tables:
 - `tenants` — one row per onboarded entity (EN + AR names, tenant GUID, cluster, consent status, consent mode, last sync, suspension state).
 - `signal_snapshots` — append-only history of per-signal fetches (18 signal types), keyed by `(tenant, signal_type, fetched_at)`.
 - `endpoint_health` — per-tenant per-endpoint telemetry (last success, throttle count, error message) for the Connection Health view.

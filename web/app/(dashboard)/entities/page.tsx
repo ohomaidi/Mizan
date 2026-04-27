@@ -246,9 +246,9 @@ export default function EntitiesPage({
                 rows.map((e) => (
                   <tr
                     key={e.id}
-                    className="border-t border-border hover:bg-surface-3/40 transition-colors"
+                    className="border-t border-border hover:bg-surface-3/40 transition-colors align-top"
                   >
-                    <td className="ps-5 py-3">
+                    <td className="ps-5 py-3 align-top">
                       <Link
                         href={`/entities/${e.id}`}
                         className="block text-ink-1 hover:text-council-strong"
@@ -266,18 +266,25 @@ export default function EntitiesPage({
                             </span>
                           ) : null}
                         </div>
-                        <div
-                          className="text-[11.5px] text-ink-3 leading-tight mt-0.5"
-                          dir={locale === "ar" ? "ltr" : "rtl"}
-                        >
-                          {locale === "ar" ? e.nameEn : e.nameAr}
-                        </div>
+                        {/* Secondary-script name. Suppressed when EN and AR
+                            collapse to the same string (test tenants and
+                            English-named real entities) — otherwise it
+                            renders as a confusing duplicate that visually
+                            collides with the next column's content. */}
+                        {e.nameEn !== e.nameAr ? (
+                          <div
+                            className="text-[11.5px] text-ink-3 leading-tight mt-0.5"
+                            dir={locale === "ar" ? "ltr" : "rtl"}
+                          >
+                            {locale === "ar" ? e.nameEn : e.nameAr}
+                          </div>
+                        ) : null}
                         <div className="text-[11px] text-ink-3 tabular keep-ltr mt-0.5">
                           {e.domain}
                         </div>
                       </Link>
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 align-top">
                       <span className="inline-flex text-[11px] uppercase tracking-[0.06em] text-ink-2 border border-border rounded px-1.5 py-0.5">
                         {(() => {
                           const c = CLUSTERS.find((c) => c.id === e.cluster);
@@ -285,12 +292,12 @@ export default function EntitiesPage({
                         })()}
                       </span>
                     </td>
-                    <td className="py-3 text-end pe-2">
+                    <td className="py-3 text-end pe-2 align-top">
                       <MaturityCell value={e.maturity.index} hasData={e.maturity.hasData} />
                     </td>
                     {/* Framework column — same gate as the header. */}
                     {e.frameworkCompliance.frameworkId !== "generic" ? (
-                      <td className="py-3 text-end tabular">
+                      <td className="py-3 text-end tabular align-top">
                         {e.frameworkCompliance.percent !== null ? (
                           <span
                             className={
@@ -308,19 +315,19 @@ export default function EntitiesPage({
                         )}
                       </td>
                     ) : null}
-                    <td className="py-3 text-end tabular">
+                    <td className="py-3 text-end tabular align-top">
                       {e.maturity.hasData ? `${fmt(e.maturity.controlsPassingPct)}%` : "—"}
                     </td>
-                    <td className="py-3 text-end tabular">
+                    <td className="py-3 text-end tabular align-top">
                       {e.maturity.hasData ? fmt(e.maturity.openIncidents) : "—"}
                     </td>
-                    <td className="py-3 text-end tabular">
+                    <td className="py-3 text-end tabular align-top">
                       {e.maturity.hasData ? fmt(e.maturity.riskyUsers) : "—"}
                     </td>
-                    <td className="py-3 text-end tabular">
+                    <td className="py-3 text-end tabular align-top">
                       {e.maturity.hasData ? `${fmt(e.maturity.deviceCompliancePct)}%` : "—"}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 align-top">
                       {e.consentStatus === "pending" ? (
                         <PendingActions
                           tenantId={e.id}
@@ -334,7 +341,7 @@ export default function EntitiesPage({
                         <HealthDot status={e.connection} showLabel />
                       )}
                     </td>
-                    <td className="py-3 pe-5 text-ink-3 tabular">
+                    <td className="py-3 pe-5 text-ink-3 tabular align-top">
                       {e.lastSyncAt ? fmtRelative(e.lastSyncAt) : t("sync.never")}
                     </td>
                   </tr>
