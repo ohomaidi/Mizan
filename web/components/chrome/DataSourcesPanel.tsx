@@ -71,9 +71,10 @@ const DOT: Record<Health, string> = {
 export function DataSourcesPanel() {
   const { t } = useI18n();
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  // The "Compliance Mgr." row's detail line used to be a hardcoded
-  // "UAE NESA". With v2.4.0 the active framework is selectable per
-  // deployment, so the label tracks branding.frameworkId at runtime.
+  // The "Compliance Mgr." row's detail line tracks the active framework
+  // (UAE NESA / Dubai ISR / KSA NCA / etc.) per branding.frameworkId.
+  // The dict fallback `ds.compliance.detail` also uses the {framework}
+  // interpolation so even the brief whoami-loading state renders correctly.
   const [frameworkId, setFrameworkId] = useState<FrameworkId | null>(null);
 
   useEffect(() => {
@@ -100,9 +101,10 @@ export function DataSourcesPanel() {
   }, []);
 
   // Resolve the active framework's display name from the dict
-  // (`branding.framework.dubai-isr` → "Dubai ISR", etc.). Falls back to
-  // the legacy "UAE NESA" string while whoami is in flight so the row
-  // never renders blank.
+  // (`branding.framework.dubai-isr` → "Dubai ISR", etc.). The fallback
+  // `ds.compliance.detail` itself uses {framework} interpolation now,
+  // so the brief whoami-in-flight state still renders the correct
+  // framework name from LocaleProvider's branding context.
   const complianceDetail = frameworkId
     ? frameworkId === "generic"
       ? t("ds.compliance.detail.generic")

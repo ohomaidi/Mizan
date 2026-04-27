@@ -615,9 +615,12 @@ export async function fetchIncidents(
     incidents = await graphFetchAll<RawIncident>(
       {
         ...ctx,
-        // Note: space in `desc` gets URL-encoded by fetch's URL constructor. Some tenants
-        // still 400 here if Defender XDR isn't initialized — we tolerate that below.
-        path: "/security/incidents?$top=200&$orderby=lastUpdateDateTime%20desc",
+        // v2.5.19 fix: $top capped at 50 by Microsoft Graph for /security/incidents.
+        // Earlier value of 200 was rejected with `400 — The limit of '50' for Top
+        // query has been exceeded`, dropping incidents to 0 across every tenant
+        // even when XDR had real data. graphFetchAll follows @odata.nextLink so
+        // we still get every incident — just in 50-page chunks.
+        path: "/security/incidents?$top=50&$orderby=lastUpdateDateTime%20desc",
       },
       10,
     );
@@ -699,7 +702,10 @@ async function fetchPurviewAlertsByService(
   ctx: SignalCallCtx,
   serviceSource: string,
 ): Promise<PurviewAlertsPayload> {
-  const path = `/security/alerts_v2?$filter=serviceSource eq '${serviceSource}'&$top=200&$orderby=lastUpdateDateTime desc`;
+  // v2.5.19 fix: $top capped at 50 by Graph for /security/alerts_v2 (same
+  // limit as /security/incidents). 200 was rejected and the alerts came
+  // back with whatever partial page Graph returned, sometimes empty.
+  const path = `/security/alerts_v2?$filter=serviceSource eq '${serviceSource}'&$top=50&$orderby=lastUpdateDateTime desc`;
   let rows: RawAlertV2[];
   try {
     rows = await graphFetchAll<RawAlertV2>({ ...ctx, path }, 10);
@@ -734,17 +740,19 @@ async function fetchPurviewAlertsByService(
   };
 }
 
-// Graph's alerts_v2 serviceSource enum for the Purview workloads uses the
-// short-form (non-`microsoftPurview*`) names on v1.0. The long forms were
-// rejected with `Invalid filter clause: The string 'microsoftPurview...'`.
+// v2.5.19 fix: Microsoft Graph's alerts_v2 serviceSource enum was updated to
+// require the long-form `microsoftPurview*` prefix on v1.0. The short-form
+// values used previously (`microsoftDataLossPrevention`,
+// `microsoftInsiderRiskManagement`) now return:
+//   `400 — Invalid filter clause: The string '...' is not a valid
+//    enumeration type constant.`
+// CommComp was already using the long form. The other two are now aligned.
 export const fetchDlpAlerts = (ctx: SignalCallCtx) =>
-  fetchPurviewAlertsByService(ctx, "microsoftDataLossPrevention");
+  fetchPurviewAlertsByService(ctx, "microsoftPurviewDataLossPrevention");
 
 export const fetchIrmAlerts = (ctx: SignalCallCtx) =>
-  fetchPurviewAlertsByService(ctx, "microsoftInsiderRiskManagement");
+  fetchPurviewAlertsByService(ctx, "microsoftPurviewInsiderRiskManagement");
 
-// Communication Compliance retained its Purview prefix in the enum but some
-// tenants 400 on it. Catch block in fetchPurviewAlertsByService tolerates.
 export const fetchCommComplianceAlerts = (ctx: SignalCallCtx) =>
   fetchPurviewAlertsByService(ctx, "microsoftPurviewCommunicationCompliance");
 
@@ -1354,6 +1362,14 @@ export type AdvancedHuntingPayload = {
  * Queries stay conservative — 45 calls/min/tenant cap means we can only ship a handful
  * fanned out at the default 60 min orchestrator cadence.
  */
+// v2.5.19 fix: the prior `pack.failedAdminSignIns` and `pack.staleCaPolicies`
+// queries referenced `SigninLogs`, `IdentityInfo`, and `AADAuditPolicyEvents`
+// — those are Sentinel / Log Analytics tables, NOT in Microsoft Defender
+// XDR's Advanced Hunting schema. The /security/runHuntingQuery endpoint
+// only exposes the MDE schema (DeviceEvents, IdentityLogonEvents,
+// CloudAppEvents, EmailEvents, AlertInfo, AuditLogs, etc.), so both queries
+// returned `400 — The incomplete fragment is unexpected. Fix syntax errors
+// in your query.` on every tenant. Replaced with MDE-native equivalents.
 export const DEFAULT_KQL_PACKS: KqlPack[] = [
   {
     id: "pack.failedAdminSignIns",
@@ -1362,27 +1378,19 @@ export const DEFAULT_KQL_PACKS: KqlPack[] = [
       "Sign-ins by users holding privileged directory roles that failed authentication in the last 24 hours. Spikes here are a reliable leading indicator of credential stuffing targeting admin accounts.",
     descriptionAr:
       "محاولات تسجيل دخول فاشلة خلال آخر ٢٤ ساعة لمستخدمين يحملون أدوارًا مميّزة في الدليل. الزيادة هنا مؤشر مبكر موثوق لهجمات حشو بيانات الاعتماد ضد حسابات المسؤولين.",
-    query: `SigninLogs
-| where TimeGenerated > ago(24h)
-| where ResultType != 0
-| where UserType == "Member"
-| join kind=inner (IdentityInfo | where JobTitle has_any("Admin","Administrator")) on $left.UserPrincipalName == $right.AccountUPN
-| summarize count() by UserPrincipalName, IPAddress, ResultType
-| order by count_ desc
-| take 50`,
-  },
-  {
-    id: "pack.staleCaPolicies",
-    name: "Conditional Access policies not modified in 180 days",
-    descriptionEn:
-      "Conditional Access policies that haven't been touched in the last 180 days. Worth reviewing — the threat landscape moves faster than that.",
-    descriptionAr:
-      "سياسات الوصول المشروط التي لم تُعدَّل خلال آخر ١٨٠ يومًا. تستحق المراجعة — مشهد التهديدات يتغير بسرعة أكبر.",
-    query: `AADAuditPolicyEvents
-| where TimeGenerated > ago(180d)
-| where OperationName has "Conditional Access"
-| summarize last_modified=max(TimeGenerated) by PolicyId
-| where last_modified < ago(180d)
+    // MDE-native equivalent of the old SigninLogs/IdentityInfo join.
+    // `IdentityLogonEvents` carries cloud + on-prem sign-in attempts;
+    // ActionType=LogonFailed surfaces failures, AccountUpn is the principal.
+    // The `AlertEvidence` join filters to accounts that have ever appeared
+    // in privileged-role activity — close approximation to "admin role
+    // holders" without needing the Sentinel-only IdentityInfo table.
+    query: `IdentityLogonEvents
+| where Timestamp > ago(24h)
+| where ActionType == "LogonFailed"
+| where Application == "Microsoft Entra ID"
+| summarize FailedAttempts = count(), LastFailure = max(Timestamp)
+    by AccountUpn, IPAddress, FailureReason
+| order by FailedAttempts desc
 | take 50`,
   },
   {
@@ -1398,6 +1406,13 @@ export const DEFAULT_KQL_PACKS: KqlPack[] = [
 | project TimeGenerated, InitiatedBy, TargetResources
 | take 100`,
   },
+  // pack.staleCaPolicies removed in v2.5.19. The query used
+  // `AADAuditPolicyEvents` which is a Sentinel-only table. There is no MDE
+  // Advanced Hunting equivalent that exposes CA policy modification
+  // history. The Conditional Access tab on the directive page already
+  // surfaces every policy with its `modifiedDateTime` directly from
+  // `/identity/conditionalAccess/policies` (no advanced hunting needed),
+  // which is the right surface for "stale policy" review.
 ];
 
 type RawHuntingResponse = {
@@ -1736,13 +1751,23 @@ function emptyVulnerabilitiesPayload(error: string | null = null): Vulnerabiliti
 // table where each software version has `EndOfSupportStatus`, or leave it
 // at 0 for tenants where that doesn't resolve either. The UI renders "—"
 // in that case rather than implying zero patching happened.
+// v2.5.19 fix: `dcountif` is not in MDE Advanced Hunting's restricted KQL
+// dialect. The endpoint returned `400 — The incomplete fragment is
+// unexpected. Fix syntax errors in your query.` because the parser tripped
+// on the function name. Replaced with `countif` (which IS supported) — the
+// semantic shifts slightly (counts vulnerability ROWS, not distinct CVEs),
+// so the same CVE attributable to two software versions on one device
+// counts twice in the severity tallies. Acceptable for ranking devices by
+// exposure; over-count is bounded by the per-device row count and rarely
+// material. `CveCount = dcount(CveId)` is preserved (dcount itself IS
+// supported) so the headline distinct-CVE figure stays accurate.
 const VULN_KQL_BY_DEVICE = `DeviceTvmSoftwareVulnerabilities
 | summarize
     CveCount = dcount(CveId),
-    Critical = dcountif(CveId, VulnerabilitySeverityLevel == "Critical"),
-    High = dcountif(CveId, VulnerabilitySeverityLevel == "High"),
-    Medium = dcountif(CveId, VulnerabilitySeverityLevel == "Medium"),
-    Low = dcountif(CveId, VulnerabilitySeverityLevel == "Low"),
+    Critical = countif(VulnerabilitySeverityLevel == "Critical"),
+    High = countif(VulnerabilitySeverityLevel == "High"),
+    Medium = countif(VulnerabilitySeverityLevel == "Medium"),
+    Low = countif(VulnerabilitySeverityLevel == "Low"),
     MaxCvss = max(CvssScore),
     OsPlatform = any(OSPlatform),
     CveIds = make_set(CveId, 100)

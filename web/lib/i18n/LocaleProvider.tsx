@@ -68,8 +68,24 @@ function interpolate(s: string, params?: Record<string, string | number>) {
   });
 }
 
+// Display names for each supported regulatory framework, both locales.
+// Source of truth for `{framework}` interpolation. Kept inline here (rather
+// than reading from DICT) so brandingParams() stays a pure function and
+// can run during SSR without LocaleProvider context.
+const FRAMEWORK_NAMES: Record<
+  NonNullable<BrandingShape["frameworkId"]>,
+  { en: string; ar: string }
+> = {
+  nesa: { en: "UAE NESA", ar: "NESA الإمارات" },
+  "dubai-isr": { en: "Dubai ISR", ar: "ISR دبي" },
+  nca: { en: "KSA NCA", ar: "NCA السعودية" },
+  isr: { en: "ISR / ISO 27001", ar: "ISR / ISO 27001" },
+  generic: { en: "the active framework", ar: "الإطار التنظيمي الفعّال" },
+};
+
 function brandingParams(b: BrandingShape, locale: Locale): Record<string, string> {
   const ar = locale === "ar";
+  const fw = FRAMEWORK_NAMES[b.frameworkId ?? "generic"] ?? FRAMEWORK_NAMES.generic;
   return {
     orgName: ar ? b.nameAr : b.nameEn,
     orgShort: ar ? b.shortAr : b.shortEn,
@@ -80,6 +96,13 @@ function brandingParams(b: BrandingShape, locale: Locale): Record<string, string
     orgShortAr: b.shortAr,
     taglineEn: b.taglineEn,
     taglineAr: b.taglineAr,
+    // {framework} renders the active regulatory catalog's display name in
+    // the current locale (UAE NESA / Dubai ISR / KSA NCA / ISR / etc.).
+    // Lets a single dict string stay correct across deployments without
+    // every callsite having to plumb branding through.
+    framework: ar ? fw.ar : fw.en,
+    frameworkEn: fw.en,
+    frameworkAr: fw.ar,
   };
 }
 

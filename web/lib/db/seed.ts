@@ -1618,43 +1618,34 @@ function generateKqlPackResults(e: DemoEntity): Array<{
 }> {
   const nowIso = new Date().toISOString();
   const failedSignIns = Math.max(0, Math.round((100 - e.index) * 0.4));
-  const staleCA = Math.max(0, Math.round((100 - e.index) * 0.08));
   const oauthGrants = Math.max(0, Math.round(Math.random() * 4));
   return [
     {
+      // v2.5.19: schema matches the real MDE-native query (IdentityLogonEvents) —
+      // AccountUpn / IPAddress / FailureReason / FailedAttempts. Previous
+      // demo data used the Sentinel-shape (UserPrincipalName / ResultType)
+      // which would have rendered differently from real-tenant rows.
       packId: "pack.failedAdminSignIns",
       name: "Failed admin sign-ins (last 24h)",
       rowCount: failedSignIns,
       schema: [
-        { name: "UserPrincipalName", type: "string" },
+        { name: "AccountUpn", type: "string" },
         { name: "IPAddress", type: "string" },
-        { name: "ResultType", type: "int" },
-        { name: "count_", type: "long" },
+        { name: "FailureReason", type: "string" },
+        { name: "FailedAttempts", type: "long" },
       ],
       rows: Array.from({ length: Math.min(failedSignIns, 5) }, (_, i) => ({
-        UserPrincipalName: `admin${i + 1}@${e.domain}`,
+        AccountUpn: `admin${i + 1}@${e.domain}`,
         IPAddress: `185.220.${Math.round(Math.random() * 255)}.${Math.round(Math.random() * 255)}`,
-        ResultType: 50126,
-        count_: Math.round(5 + Math.random() * 40),
+        FailureReason: "Invalid username or password",
+        FailedAttempts: Math.round(5 + Math.random() * 40),
       })),
       executedAt: nowIso,
       error: null,
     },
-    {
-      packId: "pack.staleCaPolicies",
-      name: "Conditional Access policies not modified in 180 days",
-      rowCount: staleCA,
-      schema: [
-        { name: "PolicyId", type: "string" },
-        { name: "last_modified", type: "datetime" },
-      ],
-      rows: Array.from({ length: Math.min(staleCA, 5) }, (_, i) => ({
-        PolicyId: `${crypto.randomBytes(8).toString("hex")}-ca-${i}`,
-        last_modified: new Date(Date.now() - (200 + Math.round(Math.random() * 500)) * 86_400_000).toISOString(),
-      })),
-      executedAt: nowIso,
-      error: null,
-    },
+    // pack.staleCaPolicies removed in v2.5.19 — see lib/graph/signals.ts
+    // for rationale (no MDE Advanced Hunting equivalent for the
+    // AADAuditPolicyEvents Sentinel table the prior query depended on).
     {
       packId: "pack.oauthConsentSprawl",
       name: "OAuth consent grants (last 7 days)",

@@ -67,7 +67,7 @@ export const DICT = {
     "page.governance.eyebrow": "Governance & Standards",
     "page.governance.title": "Governance",
     "page.governance.subtitle":
-      "{orgShort} baseline benchmarks, UAE NESA framework alignment, and unified audit search across every consented entity.",
+      "{orgShort} baseline benchmarks, {framework} framework alignment, and unified audit search across every consented entity.",
 
     "page.settings.eyebrow": "{orgShort} Operations",
     "page.settings.title": "Settings",
@@ -677,9 +677,9 @@ export const DICT = {
       "Sensitivity label adoption analytics (via audit log query), DLP / IRM / Communication Compliance alerts from alerts_v2, retention labels, Subject Rights Requests, and Teams + SharePoint external sharing posture land in Phase 3 when Purview signals are added to the sync pipeline.",
 
     "gov.eyebrow": "Governance & Standards",
-    "gov.title": "Governance — UAE NESA alignment",
+    "gov.title": "Governance — {framework} alignment",
     "gov.subtitle":
-      "{orgShort}-wide alignment to the UAE NESA framework, computed from Secure Score control mappings and {orgShort} baseline enforcement.",
+      "{orgShort}-wide alignment to the {framework} framework, computed from Secure Score control mappings and {orgShort} baseline enforcement.",
     "gov.framework.nesa": "NESA alignment",
     "gov.framework.dubai-isr": "Dubai ISR alignment",
     "gov.framework.nca": "KSA NCA alignment",
@@ -694,9 +694,9 @@ export const DICT = {
       "This dashboard is read-only observability. Framework alignment is surfaced for measurement; policy authoring and deployment are handled in the entities' own tenants, outside the {orgShort} platform.",
     "gov.clauses.draftBanner.title":
       "Draft mapping — pending official catalog verification.",
-    "gov.clauses.title": "NESA clause coverage",
+    "gov.clauses.title": "{framework} clause coverage",
     "gov.clauses.subtitle":
-      "Per-clause average coverage across consented entities. Each clause is backed by Secure Score controls — editable in Settings → NESA mapping.",
+      "Per-clause average coverage across consented entities. Each clause is backed by Secure Score controls — editable in Settings → Compliance framework.",
     "gov.clauses.col.clause": "Clause",
     "gov.clauses.col.weight": "Weight",
     "gov.clauses.col.coverage": "Coverage",
@@ -884,9 +884,9 @@ export const DICT = {
       "Phase 2: synthesized from Secure Score. Phase 3: Purview label adoption + DLP alert rate",
     "faq.q.howCalculated.row.threat.name": "Threat response",
     "faq.q.howCalculated.row.threat.src": "Resolved incidents / total incidents (from /security/incidents)",
-    "faq.q.howCalculated.row.compliance.name": "Framework alignment (NESA)",
+    "faq.q.howCalculated.row.compliance.name": "Framework alignment ({framework})",
     "faq.q.howCalculated.row.compliance.src":
-      "Synthesized from Secure Score controls mapped to UAE NESA clauses.",
+      "Synthesized from Secure Score controls mapped to {framework} clauses.",
     "faq.q.howCalculated.formula.title": "Formula",
     "faq.q.howCalculated.formula.body":
       "Index = 0.25·SecureScore + 0.20·Identity + 0.15·Device + 0.15·Data + 0.15·Threat + 0.10·Framework",
@@ -956,7 +956,7 @@ export const DICT = {
     "faq.q.limits.b":
       "Historical deltas (Δ 7d / 30d / QTD / YTD) require multiple snapshots per tenant and will light up once the sync has been running for a week or more.",
     "faq.q.limits.c":
-      "Microsoft Compliance Manager does not expose scores via Graph. NESA alignment is synthesized from Secure Score control mappings rather than lifted from Microsoft.",
+      "Microsoft Compliance Manager does not expose scores via Graph. {framework} alignment is synthesized from Secure Score control mappings rather than lifted from Microsoft.",
     "faq.q.limits.d":
       "Purview policy CRUD (DLP, Insider Risk, Communication Compliance) is only available via Security & Compliance PowerShell and is intentionally out of scope for this read-only platform.",
 
@@ -1203,7 +1203,7 @@ export const DICT = {
     "subscores.device": "Device",
     "subscores.data": "Data",
     "subscores.threatResponse": "Threat response",
-    "subscores.compliance": "Compliance (NESA)",
+    "subscores.compliance": "Compliance ({framework})",
 
     "maturity.sub.secureScore": "Secure Score",
     "maturity.sub.identity": "Identity",
@@ -1248,9 +1248,9 @@ export const DICT = {
 
     "subtabs.more.title": "Other sub-tabs",
     "subtabs.more.subtitle":
-      "Data · Governance — Purview signals + NESA alignment per the roadmap.",
+      "Data · Governance — Purview signals + {framework} alignment per the roadmap.",
     "subtabs.more.body":
-      "Data and Governance sub-tabs populate once Purview read signals (DLP alerts, Insider Risk, Subject Rights Requests, label adoption) and UAE NESA control mapping are wired into the sync.",
+      "Data and Governance sub-tabs populate once Purview read signals (DLP alerts, Insider Risk, Subject Rights Requests, label adoption) and {framework} control mapping are wired into the sync.",
 
     "tab.data.title": "Data protection",
     "tab.data.subtitle":
@@ -1290,7 +1290,7 @@ export const DICT = {
       "{passed} controls fully implemented",
     "tab.gov.kpi.complianceSub": "Compliance sub-score",
     "tab.gov.kpi.complianceSubCaption":
-      "from the Maturity Index (NESA weighting)",
+      "from the Maturity Index ({framework} weighting)",
     "tab.gov.categories.title": "Coverage by category",
     "tab.gov.categories.subtitle":
       "Green = passing · Amber = partial · Red = not implemented.",
@@ -1707,9 +1707,6 @@ export const DICT = {
       "{count} of {total} baselines selected",
     "directive.baselines.noneSelected":
       "Select one or more baselines to push.",
-    "directive.baselines.roadmapTitle": "Custom baselines — on the roadmap",
-    "directive.baselines.roadmapBody":
-      "Authoring a Conditional Access policy from scratch (custom targets, custom grant/session controls, approval workflow before push) is a planned Phase 4 feature. For now, the Center pushes the curated catalog above — every baseline has been validated against the Graph schema and ships report-only so entities can study impact before enforcing.",
 
     "directive.baselines.reportOnlyChip": "Ships report-only",
     "directive.baselines.reportOnlySubtitle":
@@ -2779,7 +2776,7 @@ export const DICT = {
     "ds.purview.detail": "DLP, labels, insider risk",
     "ds.entra.detail": "identity posture, CA, PIM",
     "ds.intune.detail": "device compliance, MAM",
-    "ds.compliance.detail": "UAE NESA",
+    "ds.compliance.detail": "{framework}",
     "ds.compliance.detail.generic": "no framework selected",
   },
 
@@ -2821,7 +2818,7 @@ export const DICT = {
     "page.governance.eyebrow": "الحوكمة والمعايير",
     "page.governance.title": "الحوكمة",
     "page.governance.subtitle":
-      "معايير {orgShort} المرجعية، المواءمة مع إطار NESA الإماراتي، والبحث الموحد في السجلات عبر كل جهة موافِقة.",
+      "معايير {orgShort} المرجعية، المواءمة مع إطار {framework}، والبحث الموحد في السجلات عبر كل جهة موافِقة.",
 
     "page.settings.eyebrow": "عمليات {orgShort}",
     "page.settings.title": "الإعدادات",
@@ -3432,9 +3429,9 @@ export const DICT = {
       "تحليلات تبنّي تصنيف الحساسية (عبر استعلام سجل التدقيق)، تنبيهات DLP / IRM / Communication Compliance من alerts_v2، تصنيفات الاحتفاظ، طلبات حقوق الأفراد، ووضع المشاركة الخارجية في Teams و SharePoint — كلها تصل في المرحلة الثالثة عند إضافة إشارات Purview إلى خط المزامنة.",
 
     "gov.eyebrow": "الحوكمة والمعايير",
-    "gov.title": "الحوكمة — المواءمة مع NESA الإماراتي",
+    "gov.title": "الحوكمة — المواءمة مع {framework}",
     "gov.subtitle":
-      "مواءمة {orgShort} مع إطار NESA الإماراتي، محسوبة من ارتباط ضوابط Secure Score وتطبيق خط الأساس للمجلس.",
+      "مواءمة {orgShort} مع إطار {framework}، محسوبة من ارتباط ضوابط Secure Score وتطبيق خط الأساس للمجلس.",
     "gov.framework.nesa": "مواءمة NESA",
     "gov.framework.dubai-isr": "مواءمة ISR دبي",
     "gov.framework.nca": "مواءمة NCA السعودية",
@@ -3449,9 +3446,9 @@ export const DICT = {
       "هذه اللوحة قراءة فقط للملاحظة والمراقبة. تُعرض المواءمة مع الأطر للقياس؛ بينما يبقى تأليف السياسات وتطبيقها ضمن مستأجر كل جهة، خارج نطاق منصة {orgShort}.",
     "gov.clauses.draftBanner.title":
       "تطابق مؤقّت — بانتظار التحقّق من الكتالوج الرسمي.",
-    "gov.clauses.title": "تغطية بنود NESA",
+    "gov.clauses.title": "تغطية بنود {framework}",
     "gov.clauses.subtitle":
-      "متوسط التغطية لكل بند عبر الجهات الموافِقة. كل بند مدعوم بضوابط Secure Score — قابلة للتعديل في الإعدادات ← مواءمة NESA.",
+      "متوسط التغطية لكل بند عبر الجهات الموافِقة. كل بند مدعوم بضوابط Secure Score — قابلة للتعديل في الإعدادات ← إطار الامتثال.",
     "gov.clauses.col.clause": "البند",
     "gov.clauses.col.weight": "الوزن",
     "gov.clauses.col.coverage": "التغطية",
@@ -3641,7 +3638,7 @@ export const DICT = {
     "faq.q.howCalculated.row.threat.src": "الحوادث المُغلقة / إجمالي الحوادث (من /security/incidents)",
     "faq.q.howCalculated.row.compliance.name": "المواءمة مع الأطر",
     "faq.q.howCalculated.row.compliance.src":
-      "مستخلصة من ضوابط Secure Score المرتبطة ببنود إطار NESA الإماراتي.",
+      "مستخلصة من ضوابط Secure Score المرتبطة ببنود إطار {framework}.",
     "faq.q.howCalculated.formula.title": "المعادلة",
     "faq.q.howCalculated.formula.body":
       "المؤشر = ٠٫٢٥·SecureScore + ٠٫٢٠·Identity + ٠٫١٥·Device + ٠٫١٥·Data + ٠٫١٥·Threat + ٠٫١٠·Framework",
@@ -3975,7 +3972,7 @@ export const DICT = {
     "subscores.device": "الأجهزة",
     "subscores.data": "البيانات",
     "subscores.threatResponse": "الاستجابة للتهديدات",
-    "subscores.compliance": "الامتثال (NESA)",
+    "subscores.compliance": "الامتثال ({framework})",
 
     "maturity.sub.secureScore": "Secure Score",
     "maturity.sub.identity": "الهوية",
@@ -4055,7 +4052,7 @@ export const DICT = {
     "tab.gov.kpi.passingCaption": "{passed} ضابط مُطبَّق بالكامل",
     "tab.gov.kpi.complianceSub": "المؤشر الفرعي للامتثال",
     "tab.gov.kpi.complianceSubCaption":
-      "من مؤشر النضج (وزن NESA)",
+      "من مؤشر النضج (وزن {framework})",
     "tab.gov.categories.title": "التغطية حسب الفئة",
     "tab.gov.categories.subtitle":
       "أخضر = ناجح · كهرماني = جزئي · أحمر = غير مُطبَّق.",
@@ -4064,7 +4061,7 @@ export const DICT = {
     "subtabs.more.subtitle":
       "Data · Governance — ستأتي في المرحلة الثالثة مع إشارات Purview.",
     "subtabs.more.body":
-      "تبويبات Data و Governance تمتلئ بعد توصيل إشارات Purview المقروءة (تنبيهات DLP، مخاطر الداخل، طلبات حقوق الأفراد، تبنّي التصنيفات) والمواءمة مع إطار NESA الإماراتي.",
+      "تبويبات Data و Governance تمتلئ بعد توصيل إشارات Purview المقروءة (تنبيهات DLP، مخاطر الداخل، طلبات حقوق الأفراد، تبنّي التصنيفات) والمواءمة مع إطار {framework}.",
 
     "tab.overview": "نظرة عامة",
     "tab.controls": "الضوابط",
@@ -4477,10 +4474,6 @@ export const DICT = {
       "{count} من أصل {total} قاعدة محدَّدة",
     "directive.baselines.noneSelected":
       "اختر قاعدة أو أكثر للدفع.",
-    "directive.baselines.roadmapTitle":
-      "قواعد مخصّصة — ضمن خارطة الطريق",
-    "directive.baselines.roadmapBody":
-      "إنشاء سياسة Conditional Access من الصفر (أهداف مخصّصة، منح / ضوابط جلسة مخصّصة، مسار اعتماد قبل الدفع) ميزة مخطَّطة في المرحلة الرابعة. حاليًا يدفع المركز فقط القواعد المنسَّقة أعلاه — كلها مُتحقَّق منها مقابل مخطّط Graph وتُشحَن بوضع التقارير حتى تدرس الجهات الأثر قبل الإنفاذ.",
 
     "directive.baselines.reportOnlyChip": "يُشحَن بوضع التقارير",
     "directive.baselines.reportOnlySubtitle":
@@ -5549,7 +5542,7 @@ export const DICT = {
     "ds.purview.detail": "منع تسرب البيانات، التصنيفات، مخاطر الداخل",
     "ds.entra.detail": "وضع الهوية، CA، PIM",
     "ds.intune.detail": "امتثال الأجهزة، MAM",
-    "ds.compliance.detail": "UAE NESA",
+    "ds.compliance.detail": "{framework}",
     "ds.compliance.detail.generic": "لا يوجد إطار محدد",
   },
 } as const;

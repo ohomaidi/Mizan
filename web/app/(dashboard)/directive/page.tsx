@@ -1330,7 +1330,6 @@ function BaselinesSection({ locale }: { locale: "en" | "ar" }) {
               />
             ))}
           </div>
-          <BaselinesRoadmapCard />
         </>
       )}
 
@@ -1586,27 +1585,6 @@ function DetailBlock({ label, body }: { label: string; body: string }) {
         {label}
       </div>
       <div className="text-[11.5px] text-ink-2 leading-relaxed">{body}</div>
-    </div>
-  );
-}
-
-function BaselinesRoadmapCard() {
-  // Retained export in case the roadmap card ever returns; the live
-  // custom-policies section now lives in <CustomPoliciesSection />.
-  const { t } = useI18n();
-  return (
-    <div className="mt-3 rounded-md border border-dashed border-border bg-surface-2 p-3">
-      <div className="flex items-start gap-2">
-        <Sparkles size={14} className="text-council-strong mt-0.5 shrink-0" />
-        <div className="min-w-0">
-          <div className="text-[12.5px] font-semibold text-ink-1 mb-1">
-            {t("directive.baselines.roadmapTitle")}
-          </div>
-          <div className="text-[11.5px] text-ink-2 leading-relaxed">
-            {t("directive.baselines.roadmapBody")}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
