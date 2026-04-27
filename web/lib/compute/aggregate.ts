@@ -116,22 +116,33 @@ export type ClusterSummary = {
 };
 
 /**
- * Council cares about two dimensions of entity health, in this order:
- *   1. Is consent in place? (no → `pending`)
- *   2. How fresh is the most-recent sync? (>48h → `amber`, the scheduler
- *      missed a day — something external is wrong even if the last sync
- *      technically succeeded).
- *   3. Did the last sync's primary signals succeed? (no → `red`).
+ * Council cares whether the *link* to this entity is alive. Two things
+ * decide that, in this order:
  *
- * The 48h threshold is 2× the default daily-sync cadence. Operators
- * running hourly syncs can set SCSC_STALE_HOURS in env to tighten it;
- * we intentionally default loose so a single missed sync doesn't alarm.
+ *   1. Is consent in place? (no → `pending`)
+ *   2. How recently did we sync? Three thresholds:
+ *        <24h  → `green`  (within one daily cycle — healthy)
+ *        24-48h → `amber` (one missed daily cycle — degraded, watch it)
+ *        >48h  → `red`   (multiple missed cycles — genuinely offline)
+ *
+ * Per-signal failures within a sync (Intune unlicensed, Defender XDR
+ * not provisioned, transient throttle on one endpoint, etc.) are a
+ * separate concern surfaced in the entity's Connection tab via
+ * `endpoint_health`. v2.5.10+ — those don't flip the global status
+ * dot to red anymore, because the link itself isn't down: we DID
+ * reach Graph, we DID get most of the data. Operators were seeing
+ * "Offline" on tenants that had clearly synced and were rendering
+ * real Maturity / ISR / Controls numbers in the same row.
+ *
+ * Defaults match a 24h cadence (the daily-sync default). Operators on
+ * hourly cadence can tighten via SCSC_FRESH_HOURS / SCSC_STALE_HOURS.
  */
+const FRESH_HOURS = Number(process.env.SCSC_FRESH_HOURS ?? "24");
 const STALE_HOURS = Number(process.env.SCSC_STALE_HOURS ?? "48");
 
 function connectionFor(row: {
   consent_status: string;
-  last_sync_ok: 0 | 1;
+  last_sync_ok: 0 | 1; // kept for the type signature; no longer drives the color
   last_sync_at: string | null;
 }): "green" | "amber" | "red" | "pending" {
   if (row.consent_status !== "consented") return "pending";
@@ -139,10 +150,10 @@ function connectionFor(row: {
 
   const ageHours =
     (Date.now() - new Date(row.last_sync_at).getTime()) / 3_600_000;
-  if (Number.isFinite(ageHours) && ageHours > STALE_HOURS) return "amber";
-
-  if (row.last_sync_ok === 1) return "green";
-  return "red";
+  if (!Number.isFinite(ageHours)) return "amber";
+  if (ageHours > STALE_HOURS) return "red"; // >48h — genuinely offline
+  if (ageHours > FRESH_HOURS) return "amber"; // 24-48h — degraded
+  return "green"; // <24h — healthy
 }
 
 /**

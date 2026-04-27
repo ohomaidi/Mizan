@@ -26,6 +26,14 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-27 — v2.5.10 (entity connection-status logic — green for synced-within-24h)**. Real-tenant onboarded entities were rendering with the red "Offline" dot in the entities list even when they synced 12 hours ago and were rendering real Maturity / ISR / Controls numbers in the same row. Root cause: `connectionFor()` flipped to red whenever `last_sync_ok=0`, which the orchestrator sets when *any* primary signal failed. That conflates two concerns: "is the link to this tenant alive?" (an age question) with "did every signal land cleanly?" (an operational health question). A transient 429 on one of the 5 primaries — common during the first sync as Microsoft's per-tenant throttle catches up — was enough to flag the whole entity as Offline for 24h until the next cycle. Fix: dropped `last_sync_ok` from the color decision entirely. Status is now driven purely by sync age:
+  - `<24h` (`SCSC_FRESH_HOURS`) → **green** (within one daily cycle, healthy)
+  - `24h–48h` (`SCSC_STALE_HOURS`) → **amber** (one missed cycle, degraded)
+  - `>48h` → **red** (multiple missed cycles, genuinely offline)
+  - no consent → `pending`
+  
+  Per-signal failures still get persisted as `endpoint_health` rows and are visible in the entity's Connection tab — they just don't drive the global status dot anymore. The threshold envs were already in place; the new `SCSC_FRESH_HOURS=24` knob lets operators on hourly cadence tighten the green window. The `last_sync_ok` column stays in the schema for backward compat but is no longer read by the connection logic.
+
 - **2026-04-27 — v2.5.9 (Windows .msi build fix)**. v2.5.8's release workflow shipped the Docker image and the Mac `.pkg` correctly but the Windows `.msi` job failed because `dotnet tool install --global wix` resolves to **WiX 7** (latest), and our build script was written against WiX 4 syntax. Three concrete failures: (1) `wix harvest` was a WiX 3 subcommand and is gone in v4+; (2) v7's CLI flag layout changed (`--arch` was rejected); (3) v7 added an OSMF EULA acceptance step that headless CI can't click through. Fix: pinned the CI install to `wix --version 4.0.5`, and rewrote `web/deploy/windows-build.ps1` to use WiX 4's native `<Files Include="!(bindpath.StageDir)\**">` element (which auto-creates one Component per staged file at build time) instead of running a separate `wix harvest` pass. The WXS now passes the staging directory through `-bindpath StageDir=...` on `wix build`. Single-shot build invocation. The v2.5.8 GitHub Release will keep its Docker + Mac assets but won't get a Windows `.msi`; v2.5.9 is the first release with all three artifacts attached.
 
 - **2026-04-27 — v2.5.8 (Mac/Windows installer downloads, PDF signature box layout, logo background-strip removed)**. Three changes that arrived together.
