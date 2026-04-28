@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { api } from "@/lib/api/client";
 import { LanguageToggle } from "./LanguageToggle";
@@ -9,6 +8,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { BrandingMark } from "./BrandingMark";
 import { UserMenu } from "./UserMenu";
 import { MobileDrawerTrigger } from "./MobileDrawer";
+import { NotificationBell } from "./NotificationBell";
 
 /**
  * Mobile top bar (v2.5.0).
@@ -71,13 +71,7 @@ export function MobileTopBar({
       <div className="flex items-center gap-1">
         <ThemeToggle />
         <LanguageToggle />
-        <button
-          aria-label={t("topbar.notifications")}
-          className="touch-target grid place-items-center rounded-md hover:bg-surface-3 text-ink-2 relative"
-        >
-          <Bell size={16} />
-          <span className="absolute top-2 end-2 h-1.5 w-1.5 rounded-full bg-neg" />
-        </button>
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

@@ -7,6 +7,7 @@ import { KpiTile } from "@/components/ui/KpiTile";
 import { TimeRangePills, type Range } from "@/components/ui/TimeRangePills";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { EntityBarChart } from "@/components/charts/EntityBarChart";
+import { MaturityRadar, type MaturityRadarSeries } from "@/components/charts/MaturityRadar";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
 import { CLUSTERS } from "@/lib/data/clusters";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
@@ -161,6 +162,67 @@ export default function MaturityPage() {
         />
         <EntityBarChart entities={entities} target={kpis.target} />
       </Card>
+
+      {/* v2.5.34 — Cluster-level radar of the 6 Maturity sub-scores. Shows
+          where each cluster is strong vs. weak across every dimension that
+          drives the Maturity Index, with the Council target as a dashed
+          reference. Only renders if at least one cluster has data. */}
+      {(() => {
+        const series: MaturityRadarSeries[] = state.clusters
+          .map((c) => {
+            const cohort = entities.filter(
+              (e) => e.cluster === c.id && e.maturity.hasData,
+            );
+            if (cohort.length === 0) return null;
+            const mean = (k: keyof EntityRow["maturity"]["subScores"]) =>
+              Math.round(
+                cohort.reduce((n, e) => n + e.maturity.subScores[k], 0) /
+                  cohort.length,
+              );
+            const cluster = CLUSTERS.find((cl) => cl.id === c.id);
+            return {
+              name:
+                locale === "ar"
+                  ? cluster?.labelAr ?? c.id
+                  : cluster?.label ?? c.id,
+              scores: {
+                secureScore: mean("secureScore"),
+                identity: mean("identity"),
+                device: mean("device"),
+                data: mean("data"),
+                threat: mean("threat"),
+                compliance: mean("compliance"),
+              },
+            };
+          })
+          .filter((s): s is MaturityRadarSeries => s !== null);
+        // Always overlay the council target as a dashed reference.
+        series.push({
+          name: t("radar.councilTarget"),
+          scores: {
+            secureScore: kpis.target,
+            identity: kpis.target,
+            device: kpis.target,
+            data: kpis.target,
+            threat: kpis.target,
+            compliance: kpis.target,
+          },
+          color: "var(--accent, #f59e0b)",
+          dashed: true,
+        });
+        if (series.length <= 1) return null; // only target, nothing to chart
+        return (
+          <Card>
+            <CardHeader
+              title={t("radar.councilOverview.title")}
+              subtitle={t("radar.councilOverview.subtitle", {
+                target: fmt(kpis.target),
+              })}
+            />
+            <MaturityRadar series={series} height={360} />
+          </Card>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>

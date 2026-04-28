@@ -1267,6 +1267,16 @@ export const DICT = {
     "maturity.sub.data": "Data",
     "maturity.sub.threat": "Threat response",
     "maturity.sub.compliance": "Compliance",
+    "radar.ariaLabel":
+      "Six-axis radar chart of Maturity sub-scores: Secure Score, Identity, Device, Data, Threat response, Compliance",
+    "radar.entityProfile.title": "Posture profile",
+    "radar.entityProfile.subtitle":
+      "Six-axis radar of this entity's Maturity sub-scores. Compare against the Council mean overlay to see where this entity is strong or weak relative to peers.",
+    "radar.councilMean": "Council mean",
+    "radar.councilTarget": "Council target",
+    "radar.councilOverview.title": "Posture profile by cluster",
+    "radar.councilOverview.subtitle":
+      "Mean Maturity sub-scores across each cluster. The {target}% Council target is overlaid as a dashed reference so weak axes per cluster jump out at a glance.",
 
     "trend.title": "Maturity trend",
     "trend.subtitle":
@@ -1468,6 +1478,35 @@ export const DICT = {
     "tab.identity.col.updated": "Last updated",
     "tab.identity.summary": "{atRisk} at risk · {total} tracked",
     "tab.identity.empty": "No risky users reported for this entity.",
+    "tab.identity.showingFirst":
+      "Showing first {shown} of {total} matching users.",
+    "tab.identity.showAll": "Show all {count}",
+    "tab.identity.pim.excessive.title":
+      "Excessive admin accounts: {count} privileged role(s) exceed the recommended ceiling",
+    "tab.identity.pim.excessive.body":
+      "Microsoft Secure Score recommends keeping privileged role membership tight (e.g. fewer than 5 Global Administrators). Review the highlighted rows below — every extra admin account expands the blast radius of a single credential compromise.",
+    "tab.identity.pim.excessive.chip": "Over {threshold}",
+    "tab.identity.pim.deactivations.title":
+      "{count} admin account(s) deactivated in the last 30 days",
+    "tab.identity.pim.deactivations.body":
+      "Cross-referenced from /auditLogs/directoryAudits — only Disable-account events targeting users who hold a privileged role surface here. Review each event to confirm it was authorized; consider deploying the Mizan deactivation-prohibition Conditional Access baseline (Directive → Conditional Access) to require approval on future deactivations.",
+    "tab.identity.pim.deactivations.col.target": "User",
+    "tab.identity.pim.deactivations.col.role": "Privileged role",
+    "tab.identity.pim.deactivations.col.actor": "Disabled by",
+    "tab.identity.pim.deactivations.col.when": "When",
+
+    "notif.popover.title": "Notifications",
+    "notif.popover.summary": "{count} item · {unread} new",
+    "notif.popover.empty":
+      "No active alerts across the federation. Sync errors, scope-stale tenants, admin deactivations, high-risk users, and active high-severity incidents land here as they happen.",
+    "notif.popover.footer":
+      "Updates every minute. Click any item to drill into the entity.",
+    "notif.syncFailure.title": "Sync error on entity",
+    "notif.consentFailed.title": "Consent flow needs attention",
+    "notif.scopeStale.title": "Tenant needs re-consent for new scopes",
+    "notif.adminDeactivated.title": "Admin account deactivated",
+    "notif.highRiskUser.title": "High-risk user detected",
+    "notif.criticalIncident.title": "Active critical/high incident",
     "tab.identity.helpBtn": "What's Level vs State?",
     "tab.identity.help.levelTitle": "Risk Level",
     "tab.identity.help.levelBody":
@@ -2490,6 +2529,19 @@ export const DICT = {
       "Block personal-account linking",
     "tenantIdentity.baseline.blockPersonalLinking.body":
       "Disable LinkedIn account connections + similar personal-account linking. Removes the 'add my personal LinkedIn to my work identity' surface that has been used for credential-correlation phishing.",
+
+    "baseline.prohibitAdminDeactivation.title":
+      "Prohibit admin-account deactivation",
+    "baseline.prohibitAdminDeactivation.body":
+      "Force any admin who reaches the Microsoft Entra / Azure / M365 admin portals to satisfy MFA + a compliant device + a fresh sign-in within the last hour. Conditional Access can't intercept the specific Disable-account API call, but it can make every privileged management surface high-friction; combined with Mizan's audit-log detection (Entity → Identity), unauthorized deactivations are now visible AND friction-bound.",
+    "baseline.prohibitAdminDeactivation.why":
+      "Deactivating an admin account is a textbook persistence-removal step in cross-tenant attacks. Forcing fresh MFA from a managed device dramatically raises the bar on this single mutation surface.",
+    "baseline.prohibitAdminDeactivation.impact":
+      "Privileged admins must reauthenticate with MFA + compliant device every hour when working in admin portals. Existing sessions stay alive within the hour. No impact on read-only operations or non-admin users.",
+    "baseline.prohibitAdminDeactivation.prerequisites":
+      "Tenant needs Entra ID P1 (or higher) + at least one Intune compliance policy so the compliant-device condition has a population to match against. The current entity admin is auto-excluded so the operator can never lock themselves out.",
+    "baseline.prohibitAdminDeactivation.rollout":
+      "Ship in report-only first (default). Watch the sign-in logs for one full week to surface admins who'd be challenged at unfortunate times (CI service principals, vendor support windows). Add named exclusions, then enable enforcement.",
 
     "baseline.requireMfaForAdmins.title": "Require MFA for admin roles",
     "baseline.requireMfaForAdmins.body":
@@ -4110,6 +4162,16 @@ export const DICT = {
     "maturity.sub.data": "البيانات",
     "maturity.sub.threat": "الاستجابة للتهديدات",
     "maturity.sub.compliance": "الامتثال",
+    "radar.ariaLabel":
+      "مخطط راداري بستة محاور لمؤشرات النضج الفرعية: Secure Score، الهوية، الأجهزة، البيانات، الاستجابة للتهديدات، الامتثال",
+    "radar.entityProfile.title": "ملف الوضع الأمني",
+    "radar.entityProfile.subtitle":
+      "مخطط راداري بستة محاور للمؤشرات الفرعية للنضج لهذه الجهة. قارن مع متوسط المجلس لمعرفة نقاط القوة والضعف لدى هذه الجهة مقارنة بالأخريات.",
+    "radar.councilMean": "متوسط المجلس",
+    "radar.councilTarget": "هدف المجلس",
+    "radar.councilOverview.title": "ملف الوضع الأمني حسب القطاع",
+    "radar.councilOverview.subtitle":
+      "متوسط مؤشرات النضج الفرعية لكل قطاع. يُعرض هدف المجلس {target}% كخط مرجعي متقطّع حتى تبرز المحاور الضعيفة لكل قطاع بلمحة واحدة.",
 
     "trend.title": "اتجاه النضج",
     "trend.subtitle":
@@ -4307,6 +4369,34 @@ export const DICT = {
     "tab.identity.col.updated": "آخر تحديث",
     "tab.identity.summary": "{atRisk} في خطر · {total} متابعون",
     "tab.identity.empty": "لا توجد مستخدمون ذوو مخاطر مُبلَّغ عنهم لهذه الجهة.",
+    "tab.identity.showingFirst":
+      "عرض أول {shown} من أصل {total} مستخدم.",
+    "tab.identity.showAll": "عرض الكل ({count})",
+    "tab.identity.pim.excessive.title":
+      "تجاوز في حسابات المسؤولين: {count} أدوار مميّزة تتجاوز الحد الموصى به",
+    "tab.identity.pim.excessive.body":
+      "يوصي Microsoft Secure Score بالحفاظ على عضوية الأدوار المميّزة في أضيق الحدود (مثلًا أقل من ٥ مسؤولين عامّين). راجع الأسطر المُبرزة أدناه — كل حساب مسؤول إضافي يوسّع نطاق التأثر عند اختراق بيانات اعتماد واحدة.",
+    "tab.identity.pim.excessive.chip": "أكثر من {threshold}",
+    "tab.identity.pim.deactivations.title":
+      "{count} حساب مسؤول تم تعطيله خلال آخر ٣٠ يومًا",
+    "tab.identity.pim.deactivations.body":
+      "تم استخراج هذه الأحداث من /auditLogs/directoryAudits — تظهر فقط أحداث «تعطيل حساب» التي استهدفت مستخدمًا يحمل دورًا مميّزًا. راجع كل حدث للتأكد من أنه إجراء معتمد؛ يمكن نشر أساس Mizan لمنع التعطيل عبر «التوجيه ← الوصول المشروط» لاشتراط الموافقة على عمليات التعطيل المستقبلية.",
+    "tab.identity.pim.deactivations.col.target": "المستخدم",
+    "tab.identity.pim.deactivations.col.role": "الدور المميّز",
+    "tab.identity.pim.deactivations.col.actor": "نُفِّذ بواسطة",
+    "tab.identity.pim.deactivations.col.when": "متى",
+
+    "notif.popover.title": "الإشعارات",
+    "notif.popover.summary": "{count} عنصر · {unread} جديد",
+    "notif.popover.empty":
+      "لا توجد تنبيهات نشطة عبر الجهات. تظهر هنا أخطاء المزامنة، والجهات بحاجة لتحديث الموافقة، وعمليات تعطيل المسؤولين، والمستخدمون عاليو الخطورة، والحوادث النشطة عالية الخطورة فور وقوعها.",
+    "notif.popover.footer": "تحديث كل دقيقة. اضغط على أي عنصر للانتقال إلى الجهة.",
+    "notif.syncFailure.title": "خطأ في مزامنة الجهة",
+    "notif.consentFailed.title": "مسار الموافقة يحتاج مراجعة",
+    "notif.scopeStale.title": "الجهة تحتاج إعادة موافقة على صلاحيات جديدة",
+    "notif.adminDeactivated.title": "تم تعطيل حساب مسؤول",
+    "notif.highRiskUser.title": "تم رصد مستخدم عالي الخطورة",
+    "notif.criticalIncident.title": "حادث نشط عالي الخطورة",
     "tab.identity.helpBtn": "ما الفرق بين المستوى والحالة؟",
     "tab.identity.help.levelTitle": "مستوى الخطر",
     "tab.identity.help.levelBody":
@@ -5329,6 +5419,19 @@ export const DICT = {
       "حظر ربط الحسابات الشخصية",
     "tenantIdentity.baseline.blockPersonalLinking.body":
       "تعطيل ربط حسابات LinkedIn وما يماثلها. تُزيل سطح 'ربط LinkedIn الشخصي بهويّتي المؤسسية' الذي استُغلّ في تصيّد ربط الاعتمادات.",
+
+    "baseline.prohibitAdminDeactivation.title":
+      "منع تعطيل حسابات المسؤولين",
+    "baseline.prohibitAdminDeactivation.body":
+      "اشتراط أن يستوفي أي مسؤول يدخل بوابات Microsoft Entra / Azure / M365 الإدارية: MFA + جهاز متوافق + تسجيل دخول حديث خلال الساعة الماضية. لا يستطيع الوصول المشروط اعتراض استدعاء واجهة Disable-account نفسه، لكنه يجعل كل سطح إداري مميّز عالي الاحتكاك؛ بالاقتران مع كشف Mizan لسجل التدقيق (الجهة ← الهوية)، تصبح حالات التعطيل غير المعتمدة مرئية ومحاطة بحواجز.",
+    "baseline.prohibitAdminDeactivation.why":
+      "تعطيل حساب مسؤول خطوة كلاسيكية لإزالة الاستمرارية في الهجمات المتقدمة. اشتراط MFA حديث من جهاز مُدار يرفع سقف هذه العملية الحساسة بشكل كبير.",
+    "baseline.prohibitAdminDeactivation.impact":
+      "يحتاج المسؤولون المميّزون إلى إعادة المصادقة بـ MFA + جهاز متوافق كل ساعة عند العمل في البوابات الإدارية. الجلسات الحالية تبقى نشطة خلال الساعة. لا تأثير على عمليات القراءة فقط أو المستخدمين غير المسؤولين.",
+    "baseline.prohibitAdminDeactivation.prerequisites":
+      "تحتاج الجهة إلى Entra ID P1 (أو أعلى) وسياسة امتثال Intune واحدة على الأقل ليتمكن شرط الجهاز المتوافق من المطابقة. مسؤول الجهة الحالي مُستثنى تلقائيًا حتى لا يحبس نفسه خارج البوابة.",
+    "baseline.prohibitAdminDeactivation.rollout":
+      "النشر في وضع التقرير-فقط أولاً (الافتراضي). راقب سجلات الدخول لمدة أسبوع كامل لرصد المسؤولين الذين قد يُتحدّون في أوقات حرجة (حسابات CI، نوافذ دعم الموردين). أضف الاستثناءات المسماة ثم فعّل الإنفاذ.",
 
     "baseline.requireMfaForAdmins.title": "طلب MFA لأدوار المسؤولين",
     "baseline.requireMfaForAdmins.body":

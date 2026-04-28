@@ -12,6 +12,7 @@ import { adminSignInFrequency4h } from "./admin-signin-frequency-4h";
 import { adminNoPersistentBrowser } from "./admin-no-persistent-browser";
 import { compliantDeviceAdminPortals } from "./compliant-device-admin-portals";
 import { requireMfaAzureManagement } from "./require-mfa-azure-management";
+import { prohibitAdminDeactivation } from "./prohibit-admin-deactivation";
 
 /**
  * Phase 3 baseline catalog. Each entry is a Conditional Access policy the
@@ -41,6 +42,8 @@ export const BASELINES: Baseline[] = [
   // --- Device posture ---
   requireCompliantDevice,
   compliantDeviceAdminPortals,
+  // --- Admin governance (v2.5.34) ---
+  prohibitAdminDeactivation,
 ];
 
 export function getBaseline(id: string): Baseline | null {

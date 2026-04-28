@@ -16,6 +16,10 @@ import {
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { MaturityTrendCard } from "@/components/charts/MaturityTrendCard";
+import {
+  MaturityRadar,
+  type MaturityRadarSeries,
+} from "@/components/charts/MaturityRadar";
 import { HealthDot } from "@/components/ui/HealthDot";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
@@ -220,6 +224,17 @@ function EntityDetailInner({
   const [reviewDate, setReviewDate] = useState<string>("");
   const [reviewNote, setReviewNote] = useState<string>("");
 
+  /**
+   * Council-wide mean sub-scores. Used as the dashed overlay polygon on the
+   * Overview tab's MaturityRadar. Loaded sibling-wise to the per-tenant
+   * detail and recomputed only when the entity list itself changes — the
+   * tenant we're looking at is excluded from the mean so the comparison
+   * isn't self-referential. Null while loading or if no other entities have
+   * data. v2.5.34.
+   */
+  const [councilMeanSubScores, setCouncilMeanSubScores] =
+    useState<MaturityRadarSeries["scores"] | null>(null);
+
   const load = useCallback(async () => {
     try {
       const d = await api.getTenantDetail(id);
@@ -229,6 +244,43 @@ function EntityDetailInner({
       if (e.status === 404) setState({ kind: "missing" });
       else setState({ kind: "error", message: e.message });
     }
+  }, [id]);
+
+  // Fetch the Council-wide list once so the radar can show a peer-mean
+  // overlay. Tolerant of failure — radar just doesn't render the overlay.
+  useEffect(() => {
+    let alive = true;
+    api
+      .getEntities()
+      .then((r) => {
+        if (!alive) return;
+        const cohort = r.entities.filter(
+          (e) => e.id !== id && e.maturity.hasData,
+        );
+        if (cohort.length === 0) {
+          setCouncilMeanSubScores(null);
+          return;
+        }
+        const mean = (k: keyof MaturityRadarSeries["scores"]) =>
+          Math.round(
+            cohort.reduce((n, e) => n + e.maturity.subScores[k], 0) /
+              cohort.length,
+          );
+        setCouncilMeanSubScores({
+          secureScore: mean("secureScore"),
+          identity: mean("identity"),
+          device: mean("device"),
+          data: mean("data"),
+          threat: mean("threat"),
+          compliance: mean("compliance"),
+        });
+      })
+      .catch(() => {
+        if (alive) setCouncilMeanSubScores(null);
+      });
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -779,6 +831,42 @@ function EntityDetailInner({
             })}
           </div>
         </Card>
+
+        {/* v2.5.34 — six-axis radar of this entity's Maturity sub-scores
+            with the Council mean overlaid as a dashed reference. Lets
+            operators see at a glance where this entity is strong vs weak
+            relative to the Council, not just its absolute score. Spans
+            full width of the overview grid; sits right above the framework
+            breakdown so the visual + tabular views compose. */}
+        {maturity.hasData ? (
+          <div className="lg:col-span-3">
+            <Card>
+              <CardHeader
+                title={t("radar.entityProfile.title")}
+                subtitle={t("radar.entityProfile.subtitle")}
+              />
+              <MaturityRadar
+                series={[
+                  {
+                    name: tenant.name_en,
+                    scores: maturity.subScores,
+                  },
+                  ...(councilMeanSubScores
+                    ? [
+                        {
+                          name: t("radar.councilMean"),
+                          scores: councilMeanSubScores,
+                          color: "var(--ink-3, #888888)",
+                          dashed: true,
+                        } satisfies MaturityRadarSeries,
+                      ]
+                    : []),
+                ]}
+                height={300}
+              />
+            </Card>
+          </div>
+        ) : null}
 
         {/* Framework Compliance breakdown — per-clause coverage so
             operators can see exactly where this entity is failing
@@ -2151,6 +2239,11 @@ function EntityDetailInner({
     const [stateFilter, setStateFilter] = useState<string>("all");
     const [helpOpen, setHelpOpen] = useState(false);
     const [drillUser, setDrillUser] = useState<RiskyUser | null>(null);
+    // v2.5.34 — show all rows by default. Earlier `filtered.slice(0, 200)`
+    // silently truncated lists past 200 with no UI hint that more existed.
+    // Default visible cap raised to 500; "Show all" button reveals the
+    // remaining rows when a tenant has more than that.
+    const [showAll, setShowAll] = useState(false);
 
     if (!payload || payload.users.length === 0) {
       return (
@@ -2254,7 +2347,10 @@ function EntityDetailInner({
                     </td>
                   </tr>
                 ) : null}
-                {filtered.slice(0, 200).map((u) => {
+                {(showAll || filtered.length <= 500
+                  ? filtered
+                  : filtered.slice(0, 500)
+                ).map((u) => {
                   const canDrill =
                     (u.riskState === "atRisk" ||
                       u.riskState === "confirmedCompromised") &&
@@ -2287,6 +2383,25 @@ function EntityDetailInner({
                     </tr>
                   );
                 })}
+                {!showAll && filtered.length > 500 ? (
+                  <tr className="border-t border-border bg-surface-1">
+                    <td colSpan={4} className="py-3 ps-5 text-[12px] text-ink-2">
+                      {t("tab.identity.showingFirst", {
+                        shown: fmt(500),
+                        total: fmt(filtered.length),
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setShowAll(true)}
+                        className="ms-3 text-council-strong hover:underline font-semibold"
+                      >
+                        {t("tab.identity.showAll", {
+                          count: fmt(filtered.length),
+                        })}
+                      </button>
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -2585,9 +2700,39 @@ function EntityDetailInner({
       );
     }
 
+    // v2.5.34 — per-role thresholds to flag entities with too many admins.
+    // Microsoft Secure Score recommends "designate fewer than 5 Global
+    // Administrators". Other privileged roles inherit a slightly looser
+    // ceiling. Default thresholds are Council-tunable in a future Settings
+    // panel; for now they're hard-coded here.
+    const ADMIN_THRESHOLDS: Record<string, number> = {
+      "Global Administrator": 5,
+      "Privileged Role Administrator": 5,
+      "Security Administrator": 5,
+      "Application Administrator": 5,
+      "User Administrator": 8,
+    };
+    const totalFor = (role: string, active: number, eligible: number) =>
+      active + eligible;
+    const isExcessive = (role: string, total: number) => {
+      const t = ADMIN_THRESHOLDS[role];
+      return typeof t === "number" && total > t;
+    };
+
     const roleRows = Object.entries(payload.byRole)
-      .map(([role, counts]) => ({ role, ...counts, total: counts.active + counts.eligible }))
+      .map(([role, counts]) => {
+        const total = totalFor(role, counts.active, counts.eligible);
+        return {
+          role,
+          ...counts,
+          total,
+          excessive: isExcessive(role, total),
+          threshold: ADMIN_THRESHOLDS[role] ?? null,
+        };
+      })
       .sort((a, b) => b.total - a.total);
+
+    const excessiveCount = roleRows.filter((r) => r.excessive).length;
 
     return (
       <Card className="p-0">
@@ -2622,6 +2767,23 @@ function EntityDetailInner({
               tone={payload.privilegedRoleAssignments > 10 ? "warn" : undefined}
             />
           </div>
+          {/* v2.5.34 — surface excessive-admin warning when any privileged
+              role exceeds its threshold (e.g. > 5 Global Administrators per
+              Microsoft Secure Score recommendation). Empty when all roles
+              are within bounds — keeps the card uncluttered for healthy
+              tenants. */}
+          {excessiveCount > 0 ? (
+            <div className="mt-3 rounded-md border border-neg/40 bg-neg/[0.06] p-3 text-[12.5px] text-ink-1">
+              <div className="font-semibold text-neg">
+                {t("tab.identity.pim.excessive.title", {
+                  count: fmt(excessiveCount),
+                })}
+              </div>
+              <div className="text-ink-2 mt-1 leading-relaxed">
+                {t("tab.identity.pim.excessive.body")}
+              </div>
+            </div>
+          ) : null}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
@@ -2651,15 +2813,93 @@ function EntityDetailInner({
               ) : null}
               {roleRows.map((r) => (
                 <tr key={r.role} className="border-t border-border">
-                  <td className="ps-5 py-2.5 text-ink-1">{r.role}</td>
+                  <td className="ps-5 py-2.5 text-ink-1">
+                    {r.role}
+                    {r.excessive ? (
+                      <span className="ms-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.04em] bg-neg/15 text-neg">
+                        {t("tab.identity.pim.excessive.chip", {
+                          threshold: fmt(r.threshold ?? 0),
+                        })}
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="py-2.5 text-end tabular text-ink-1">{fmt(r.active)}</td>
                   <td className="py-2.5 text-end tabular text-ink-2">{fmt(r.eligible)}</td>
-                  <td className="py-2.5 pe-5 text-end tabular text-ink-1 font-semibold">{fmt(r.total)}</td>
+                  <td
+                    className={`py-2.5 pe-5 text-end tabular font-semibold ${r.excessive ? "text-neg" : "text-ink-1"}`}
+                  >
+                    {fmt(r.total)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* v2.5.34 — recent admin deactivations from /auditLogs/directoryAudits.
+            Cross-referenced server-side: only "Disable account" events whose
+            target user holds a privileged role surface here. Empty state
+            renders nothing so the card stays clean for healthy tenants. */}
+        {payload.recentAdminDeactivations &&
+        payload.recentAdminDeactivations.length > 0 ? (
+          <div className="border-t border-border">
+            <div className="px-5 py-3 bg-warn/[0.06] flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[12px] font-semibold text-warn uppercase tracking-[0.06em]">
+                  {t("tab.identity.pim.deactivations.title", {
+                    count: fmt(payload.recentAdminDeactivations.length),
+                  })}
+                </div>
+                <div className="text-[11.5px] text-ink-2 mt-0.5 leading-relaxed">
+                  {t("tab.identity.pim.deactivations.body")}
+                </div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12.5px]">
+                <thead>
+                  <tr className="text-ink-3 text-[10.5px] uppercase tracking-[0.06em]">
+                    <th className="py-2 ps-5 text-start font-semibold">
+                      {t("tab.identity.pim.deactivations.col.target")}
+                    </th>
+                    <th className="py-2 text-start font-semibold">
+                      {t("tab.identity.pim.deactivations.col.role")}
+                    </th>
+                    <th className="py-2 text-start font-semibold">
+                      {t("tab.identity.pim.deactivations.col.actor")}
+                    </th>
+                    <th className="py-2 pe-5 text-end font-semibold">
+                      {t("tab.identity.pim.deactivations.col.when")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payload.recentAdminDeactivations.map((d) => (
+                    <tr key={d.auditId} className="border-t border-border">
+                      <td className="ps-5 py-2 text-ink-1">
+                        <div>{d.targetDisplayName ?? d.targetUserPrincipalName ?? "—"}</div>
+                        {d.targetUserPrincipalName ? (
+                          <div className="text-[10.5px] text-ink-3 keep-ltr">
+                            {d.targetUserPrincipalName}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td className="py-2 text-ink-2">
+                        {d.targetRoles.join(", ")}
+                      </td>
+                      <td className="py-2 text-ink-2 keep-ltr">
+                        {d.actorPrincipalName ?? "—"}
+                      </td>
+                      <td className="py-2 pe-5 text-end text-ink-3 tabular">
+                        {fmtRelative(d.activityDateTime)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
       </Card>
     );
   }
@@ -4367,7 +4607,11 @@ function MiniStat({
           ? "text-neg"
           : "text-ink-1";
   return (
-    <div className="rounded-md border border-border bg-surface-1 py-2.5">
+    // v2.5.34 — added px-4. The previous `py-2.5` (no horizontal padding)
+    // pushed numbers and labels flush against the box border, so a row of
+    // MiniStats with different label widths read as visually misaligned —
+    // surfaced on Entity → Dubai ISR + Vulnerabilities top-of-page strips.
+    <div className="rounded-md border border-border bg-surface-1 px-4 py-2.5">
       <div className={`text-[20px] font-semibold tabular ${c}`}>{value}</div>
       <div className="text-[10.5px] uppercase tracking-[0.06em] text-ink-3 mt-0.5">
         {label}

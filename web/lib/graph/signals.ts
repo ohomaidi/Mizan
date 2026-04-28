@@ -1036,6 +1036,22 @@ export type PimSprawlPayload = {
   eligibleAssignments: number;
   privilegedRoleAssignments: number;
   byRole: Record<string, { active: number; eligible: number }>;
+  /**
+   * v2.5.34 — recent "Disable account" audit events targeting users who
+   * hold a privileged role. Mizan cross-references audit log entries
+   * against the active+eligible role-member set so only deactivations of
+   * actual admins surface (deactivating a regular employee doesn't fire
+   * this card). 30-day window, capped at 20 entries.
+   */
+  recentAdminDeactivations: Array<{
+    auditId: string;
+    targetUserPrincipalName: string | null;
+    targetDisplayName: string | null;
+    targetRoles: string[];
+    actorPrincipalName: string | null;
+    activityDateTime: string;
+    result: string;
+  }>;
 };
 
 type RawRoleSched = {
@@ -1086,30 +1102,117 @@ export async function fetchPimSprawl(
         eligibleAssignments: 0,
         privilegedRoleAssignments: 0,
         byRole: {},
+        recentAdminDeactivations: [],
       };
     }
     throw err;
   }
   const byRole: Record<string, { active: number; eligible: number }> = {};
   let privileged = 0;
+  // Map principalId → set of privileged-role displayNames they hold. Used to
+  // cross-reference audit-log "Disable account" events so only deactivations
+  // of actual admins surface in `recentAdminDeactivations`. v2.5.34.
+  const principalRoles = new Map<string, Set<string>>();
   for (const r of active) {
     const n = r.roleDefinition?.displayName ?? "unknown";
     byRole[n] = byRole[n] ?? { active: 0, eligible: 0 };
     byRole[n].active++;
     if (PRIVILEGED_ROLE_DISPLAY_NAMES.has(n)) privileged++;
+    if (r.principalId) {
+      const set = principalRoles.get(r.principalId) ?? new Set();
+      set.add(n);
+      principalRoles.set(r.principalId, set);
+    }
   }
   for (const r of eligible) {
     const n = r.roleDefinition?.displayName ?? "unknown";
     byRole[n] = byRole[n] ?? { active: 0, eligible: 0 };
     byRole[n].eligible++;
+    if (r.principalId) {
+      const set = principalRoles.get(r.principalId) ?? new Set();
+      set.add(n);
+      principalRoles.set(r.principalId, set);
+    }
   }
+
+  // v2.5.34 — pull audit log deactivation events. Tolerated to fail (license
+  // gap, scope propagation lag) — the rest of the payload still renders.
+  const recentAdminDeactivations: PimSprawlPayload["recentAdminDeactivations"] = [];
+  try {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString();
+    const filter = encodeURIComponent(
+      `activityDisplayName eq 'Disable account' and activityDateTime ge ${since}`,
+    );
+    const auditRows = await graphFetchAll<RawAuditEvent>(
+      {
+        ...ctx,
+        path: `/auditLogs/directoryAudits?$filter=${filter}&$top=200&$orderby=activityDateTime desc`,
+      },
+      5,
+    );
+    for (const row of auditRows) {
+      const target = (row.targetResources ?? []).find(
+        (t) => t.type === "User",
+      );
+      if (!target) continue;
+      const targetId = target.id ?? "";
+      const roles = principalRoles.get(targetId);
+      if (!roles || roles.size === 0) continue; // not an admin — skip
+      recentAdminDeactivations.push({
+        auditId: row.id,
+        targetUserPrincipalName: target.userPrincipalName ?? null,
+        targetDisplayName: target.displayName ?? null,
+        targetRoles: Array.from(roles),
+        actorPrincipalName:
+          row.initiatedBy?.user?.userPrincipalName ??
+          row.initiatedBy?.app?.displayName ??
+          null,
+        activityDateTime: row.activityDateTime,
+        result: row.result ?? "unknown",
+      });
+      if (recentAdminDeactivations.length >= 20) break;
+    }
+  } catch {
+    // Swallow — recentAdminDeactivations stays empty.
+  }
+
   return {
     activeAssignments: active.length,
     eligibleAssignments: eligible.length,
     privilegedRoleAssignments: privileged,
     byRole,
+    recentAdminDeactivations,
   };
 }
+
+/**
+ * Minimum shape of a /auditLogs/directoryAudits response item that we
+ * read for the admin-deactivation cross-reference. v2.5.34.
+ */
+type RawAuditEvent = {
+  id: string;
+  activityDateTime: string;
+  activityDisplayName: string;
+  result?: string;
+  targetResources?: Array<{
+    id?: string;
+    displayName?: string;
+    type?: string;
+    userPrincipalName?: string;
+  }>;
+  initiatedBy?: {
+    user?: {
+      id?: string;
+      displayName?: string;
+      userPrincipalName?: string;
+    };
+    app?: {
+      displayName?: string;
+      servicePrincipalId?: string;
+    };
+  };
+};
 
 // ————————————————————————————————————————
 // Defender for Identity — sensor health

@@ -26,6 +26,21 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-28 — v2.5.34 (Posture radar · admin governance · live notifications + 4 polish items)**. Big release shaped by the DESC meeting. Headline is the new **posture radar** — every entity renders as a six-axis polygon overlaid against the Council mean so operators see at a glance where each entity is strong vs. weak across Secure Score, Identity, Device, Data, Threat response, and Compliance. Pairs with a cluster-level radar on the Council `/maturity` page so Police / Health / Municipality / Edu / Utilities / Transport clusters can be compared in a single view, with the Council target traced as a dashed reference.
+
+  **Admin governance — two new controls landed:**
+    - **Excessive admin accounts (review + reduce).** Every privileged role on Entity → Identity now carries a per-role threshold (Microsoft's "fewer than 5 Global Administrators" recommendation, mirrored across Privileged Role / Security / Application / User Administrators). Roles over the ceiling render in red with an "Over X" chip; a warning banner counts how many roles need review. Operators see "review-and-reduce" candidates without leaving the entity page.
+    - **Admin-account deactivation — detection + prohibition.** New audit-log cross-reference on the PIM signal: only Disable-account events whose target user holds a privileged role surface, with the admin's UPN, role(s), the actor who disabled them, and when. Pairs with a new Conditional Access baseline **`prohibit-admin-deactivation`** (Directive → Conditional Access) that forces MFA + a compliant device + a 1h fresh sign-in on every admin entering the Microsoft Entra / Azure / M365 admin portals — making deactivation a high-friction action even when an attacker has valid credentials. Friction at the perimeter, visibility on the inside.
+
+  **Live notifications — the bell is no longer cosmetic.** Top-bar bell now opens a popover with a ranked feed merged from across the federation: sync failures, consent flow failures, scope-stale tenants (releases that added permissions), recent admin deactivations, high-risk users, and active high-severity incidents. Auto-refreshes every minute. Unread badge counts items from the last 24h. Each item deep-links to the relevant entity. Same component on the mobile shell. Replaces the v2.4.x dead Bell button that rendered a static red dot with no actual data behind it.
+
+  **Polish on top:**
+    - **Identity full list** — Risky Users table on Entity → Identity silently truncated at 200 rows. Cap raised to 500 with an explicit "Showing first 500 of N" footer and a "Show all N" button.
+    - **Box alignment on Entity → Dubai ISR + Vulnerabilities tabs.** MiniStat had `py-2.5` only — no horizontal padding — so labels with different widths read as visually misaligned across the row. Added `px-4` (one-line fix that propagates to every MiniStat instance in the app).
+    - Demo seed extended with synthesized admin-deactivation events for lower-maturity entities so descdemo tells a "this entity needs governance attention" story out of the box.
+
+  EN + AR coverage on every new key. No DB migrations.
+
 - **2026-04-28 — v2.5.33 (Governance domain modal: split binary Pass/Fail into Full / Partial / Fail histogram)**. Operator feedback on v2.5.32: "0 passed but OzTenant still has 88.9 coverage?" The "Pass / Fail" column on the Microsoft Secure Score controls table threshold-checked at 99.9% — anything below was bucketed as "fail", which read as cognitively wrong because Microsoft Secure Score is partial-credit by design. An entity scoring 8/9 (88.9%) appeared in the same column as one scoring 0/9. The clause coverage % was using the actual partial-credit ratio behind the scenes, but the column count made the headline look inconsistent.
 
   Replaced the binary count with a three-bucket histogram: **Full pass · Partial · Fail** (plus the existing `(N no data)` annotation). Hover tooltips explain each bucket; a one-line legend strip beneath the table reminds operators that "the clause coverage % uses the actual partial-credit ratio, not a binary pass/fail". `entitiesPassing` / `entitiesFailing` in the API renamed to `entitiesFullPass` / `entitiesPartial` / `entitiesFail` accordingly. Both EN + AR.

@@ -909,6 +909,24 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
             "User Administrator": { active: Math.max(0, Math.round(pimActive * 0.2)), eligible: Math.round(pimEligible * 0.3) },
             "Application Administrator": { active: Math.max(0, Math.round(pimActive * 0.1)), eligible: Math.round(pimEligible * 0.25) },
           },
+          // v2.5.34 — synthesized recent admin deactivations. Lower-maturity
+          // entities get more events to make the demo data tell a "this
+          // entity needs governance attention" story.
+          recentAdminDeactivations: e.index < 70
+            ? [
+                {
+                  auditId: `audit-${e.id}-1`,
+                  targetUserPrincipalName: `legacy-admin@${e.domain}`,
+                  targetDisplayName: "Legacy Admin",
+                  targetRoles: ["Security Administrator"],
+                  actorPrincipalName: `ops-admin@${e.domain}`,
+                  activityDateTime: new Date(
+                    Date.now() - 5 * 24 * 60 * 60 * 1000,
+                  ).toISOString(),
+                  result: "success",
+                },
+              ]
+            : [],
         }),
       });
 
