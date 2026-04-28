@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Scale } from "lucide-react";
+import { Scale, ChevronRight } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiTile } from "@/components/ui/KpiTile";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
@@ -10,6 +10,7 @@ import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useFmtNum } from "@/lib/i18n/num";
 import { api } from "@/lib/api/client";
 import { CLUSTERS } from "@/lib/data/clusters";
+import { DomainDetailModal } from "@/components/governance/DomainDetailModal";
 
 type KpiRes = Awaited<ReturnType<typeof api.getKpis>>;
 type EntRes = Awaited<ReturnType<typeof api.getEntities>>;
@@ -31,6 +32,10 @@ export default function GovernancePage() {
   const [entities, setEntities] = useState<EntRes | null>(null);
   const [nesa, setNesa] = useState<NesaRes | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // v2.5.32 — domain-detail modal. Tapping a clause row opens a popup
+  // with the full description, the Microsoft Secure Score controls
+  // backing it, and per-entity coverage rollup.
+  const [openClauseId, setOpenClauseId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([api.getKpis(), api.getEntities(), api.getNesaMapping()])
@@ -212,13 +217,33 @@ export default function GovernancePage() {
               {clauseRows.map(({ clause, coverage }) => (
                 <tr
                   key={clause.id}
-                  className="border-t border-border"
+                  onClick={() => setOpenClauseId(clause.id)}
+                  className="border-t border-border cursor-pointer hover:bg-surface-3/40 focus-within:bg-surface-3/40 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setOpenClauseId(clause.id);
+                    }
+                  }}
+                  aria-label={t("gov.clauses.openDetail", {
+                    name: locale === "ar" ? clause.titleAr : clause.titleEn,
+                  })}
                 >
                   <td className="ps-5 py-2.5">
-                    <div className="text-ink-1 font-medium">
-                      {locale === "ar" ? clause.titleAr : clause.titleEn}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <div className="text-ink-1 font-medium">
+                          {locale === "ar" ? clause.titleAr : clause.titleEn}
+                        </div>
+                        <div className="text-[11px] text-ink-3 keep-ltr">{clause.ref}</div>
+                      </div>
+                      <ChevronRight
+                        size={14}
+                        className="text-ink-3 shrink-0 rtl:rotate-180"
+                      />
                     </div>
-                    <div className="text-[11px] text-ink-3 keep-ltr">{clause.ref}</div>
                   </td>
                   <td className="py-2.5 text-end tabular">
                     {fmt(Math.round(clause.weight * 10) / 10)}%
@@ -253,6 +278,12 @@ export default function GovernancePage() {
         <CardHeader title={t("gov.scope.title")} />
         <div className="text-[12.5px] text-ink-2 leading-relaxed">{t("gov.scope.body")}</div>
       </Card>
+
+      <DomainDetailModal
+        open={openClauseId !== null}
+        onClose={() => setOpenClauseId(null)}
+        clauseId={openClauseId}
+      />
     </div>
   );
 }

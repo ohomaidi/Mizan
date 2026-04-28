@@ -26,6 +26,22 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-28 — v2.5.32 (Governance domain drill-down + vulnerability UI for v2.5.31 fields)**. Two surface changes that turn previously inert headlines into actionable detail.
+
+  **Governance — clickable Dubai ISR / NESA domain rows**. Each row in the framework-coverage table on `/governance` is now a button that opens a detail modal. The modal lazily fetches a new server-side endpoint `GET /api/governance/clauses` that walks every consented (or demo) tenant once, computes per-clause coverage from each tenant's Secure Score snapshot, and rolls up:
+    - Static catalog metadata: ref, class chips (Governance / Operation / Assurance for ISR), full description, weight in framework
+    - **How coverage is calculated** — explanation strip with the formula, plus a table of the Microsoft Secure Score controls that evidence the clause. Each control row carries Council-wide mean pass-rate, count of entities passing vs failing vs unscored, the M365 service it belongs to.
+    - **Operator-managed custom evidence** — list of manual evidence anchors with their pass-rates and reviewer notes (when the catalog declares any).
+    - **Per-entity coverage table** — every entity's coverage on this clause, with OOS chips on dimmed rows when the clause is marked Out-of-Scope at global or tenant tier, and a `No evidence` badge for tenants whose Secure Score doesn't touch any of this clause's anchors. Each entity name links straight to its detail page so operators can drill from "this domain reads 56%" to "exactly which entity is dragging it" in one click.
+
+    The summary `/governance` table still synthesizes a row-level coverage % for the headline (the existing `complAvg + wiggle` approximation), but the modal now shows the real per-entity rollup behind it. Both EN + AR.
+
+  **Vulnerabilities UI for the v2.5.31 fields**. v2.5.31 added `recommendedFix`, `tags`, and `zeroDay` to the vulnerability payload but no UI consumed them. v2.5.32 surfaces all three on `/vulnerabilities`:
+    - **Zero-day KPI tile** added to the headline strip (matches the Defender portal's "Zero-day vulnerabilities" tile). Renders neg-tone when count > 0.
+    - **CveTagChips** rendered inline beneath the CVE id on every CVE row in both correlated + topOverall tables. ZeroDay / Exploit-class tags get neg tone, NoSecurityUpdate gets warn tone, the rest stay neutral.
+    - **Recommended fix line** beneath the CVE id — KB id / advisory string from MTP's `RecommendedSecurityUpdate`, truncated with full text on hover.
+    - Aggregation endpoint `/api/signals/vulnerabilities` extended to merge tags across tenants (CVE present on multiple entities accumulates the union of their tags) and to prefer the longer recommendedFix when entities disagree.
+
 - **2026-04-28 — v2.5.31 (add the MTP columns that ARE valid: RecommendedSecurityUpdate + CveTags)**. v2.5.28..30 stripped the legacy DfE columns MTP doesn't expose. v2.5.31 adds the MTP-native columns Mizan was missing — verified against [the live Defender XDR docs](https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table):
 
   - **`RecommendedSecurityUpdate`** → `VulnCve.recommendedFix` — the KB id / package name / vendor advisory that remediates the CVE. Operators can act on this directly without leaving Mizan.

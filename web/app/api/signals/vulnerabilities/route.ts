@@ -35,6 +35,8 @@ type EntitySummary = {
   medium: number;
   low: number;
   exploitable: number;
+  /** v2.5.32 — zero-day count surfaced from MTP CveTags. */
+  zeroDay: number;
   affectedDevices: number;
   remediatedDevices: number;
   remediationTracked: boolean;
@@ -47,6 +49,10 @@ type CorrelatedCve = {
   cvssScore: number | null;
   hasExploit: boolean;
   publishedDateTime: string | null;
+  /** v2.5.32 — MTP `RecommendedSecurityUpdate` (KB id / advisory). */
+  recommendedFix: string | null;
+  /** v2.5.32 — MTP `CveTags` (ZeroDay / NoSecurityUpdate / Exploit / etc.). */
+  tags: string[];
   /** Distinct entities where this CVE appears in top-50 list. */
   entityCount: number;
   /** Sum of currently-exposed devices across those entities. */
@@ -75,6 +81,7 @@ export async function GET() {
     medium: 0,
     low: 0,
     exploitable: 0,
+    zeroDay: 0,
     affectedDevices: 0,
     remediatedDevices: 0,
     entitiesWithData: 0,
@@ -105,6 +112,7 @@ export async function GET() {
       medium: payload?.medium ?? 0,
       low: payload?.low ?? 0,
       exploitable: payload?.exploitable ?? 0,
+      zeroDay: payload?.zeroDay ?? 0,
       affectedDevices: payload?.affectedDevices ?? 0,
       remediatedDevices: entityRemediated,
       remediationTracked: payload?.remediationTracked === true,
@@ -120,6 +128,7 @@ export async function GET() {
       totals.medium += payload!.medium;
       totals.low += payload!.low;
       totals.exploitable += payload!.exploitable;
+      totals.zeroDay += payload!.zeroDay ?? 0;
       totals.affectedDevices += payload!.affectedDevices;
       // Sum remediated across this tenant's top CVEs.
       totals.remediatedDevices += payload!.topCves.reduce(
@@ -150,6 +159,16 @@ export async function GET() {
             existing.cvssScore = c.cvssScore;
           }
           if (c.hasExploit) existing.hasExploit = true;
+          // v2.5.32 — merge tags + prefer the longer recommendedFix string
+          // (KB ids tend to be longer than fallback null).
+          if (c.recommendedFix && !existing.recommendedFix) {
+            existing.recommendedFix = c.recommendedFix;
+          }
+          if (Array.isArray(c.tags)) {
+            for (const tag of c.tags) {
+              if (!existing.tags.includes(tag)) existing.tags.push(tag);
+            }
+          }
         } else {
           cveMap.set(c.cveId, {
             cveId: c.cveId,
@@ -157,6 +176,8 @@ export async function GET() {
             cvssScore: c.cvssScore,
             hasExploit: c.hasExploit,
             publishedDateTime: c.publishedDateTime,
+            recommendedFix: c.recommendedFix ?? null,
+            tags: Array.isArray(c.tags) ? [...c.tags] : [],
             entityCount: 1,
             totalAffectedDevices: c.affectedDevices,
             totalRemediatedDevices: remediated,

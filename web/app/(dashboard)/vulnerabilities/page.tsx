@@ -116,7 +116,7 @@ export default function VulnerabilitiesPage() {
           <>
             {/* Fleet-wide KPIs — exposed vs remediated side-by-side so the
                 patching-progress ratio is immediately legible. */}
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-7 gap-4">
               <KpiTile
                 label={t("vuln.kpi.totalCves")}
                 value={fmt(data.totals.total)}
@@ -136,6 +136,11 @@ export default function VulnerabilitiesPage() {
                 label={t("vuln.kpi.exploitable")}
                 value={fmt(data.totals.exploitable)}
                 accent={data.totals.exploitable > 0 ? "neg" : "council"}
+              />
+              <KpiTile
+                label={t("vuln.kpi.zeroDay")}
+                value={fmt(data.totals.zeroDay)}
+                accent={data.totals.zeroDay > 0 ? "neg" : "council"}
               />
               <KpiTile
                 label={t("vuln.kpi.exposedDevices")}
@@ -235,6 +240,12 @@ export default function VulnerabilitiesPage() {
                                     {c.cveId}
                                     <ExternalLink size={11} className="text-ink-3" />
                                   </a>
+                                  <CveTagChips tags={c.tags} />
+                                  {c.recommendedFix ? (
+                                    <div className="text-[11px] text-ink-3 mt-0.5 max-w-[260px] truncate" title={c.recommendedFix}>
+                                      {t("vuln.cols.fixPrefix")}: {c.recommendedFix}
+                                    </div>
+                                  ) : null}
                                 </td>
                                 <td className="py-2.5">
                                   <SeverityBadge severity={c.severity} />
@@ -356,6 +367,12 @@ export default function VulnerabilitiesPage() {
                                     {c.cveId}
                                     <ExternalLink size={11} className="text-ink-3" />
                                   </a>
+                                  <CveTagChips tags={c.tags} />
+                                  {c.recommendedFix ? (
+                                    <div className="text-[11px] text-ink-3 mt-0.5 max-w-[260px] truncate" title={c.recommendedFix}>
+                                      {t("vuln.cols.fixPrefix")}: {c.recommendedFix}
+                                    </div>
+                                  ) : null}
                                 </td>
                                 <td className="py-2.5">
                                   <SeverityBadge severity={c.severity} />
@@ -517,6 +534,38 @@ export default function VulnerabilitiesPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
+}
+
+/**
+ * Renders Microsoft CveTags as small color-coded chips inline under the
+ * CVE id. ZeroDay / Exploit-class tags get neg tone, NoSecurityUpdate
+ * gets warn tone, the rest stay neutral. v2.5.32.
+ */
+function CveTagChips({ tags }: { tags: string[] }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-1">
+      {tags.map((tag) => {
+        const isZeroDay = /^zero.?day$/i.test(tag);
+        const isExploit = /exploit/i.test(tag);
+        const isNoFix = /nosecurityupdate/i.test(tag);
+        const tone =
+          isZeroDay || isExploit
+            ? "bg-neg/15 text-neg"
+            : isNoFix
+              ? "bg-warn/15 text-warn"
+              : "bg-surface-3 text-ink-2";
+        return (
+          <span
+            key={tag}
+            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-[0.04em] ${tone}`}
+          >
+            {tag}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 function SeverityBadge({

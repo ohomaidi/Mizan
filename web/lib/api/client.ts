@@ -379,6 +379,59 @@ export const api = {
       defaults: unknown;
     }>("/api/config/nesa"),
 
+  /**
+   * Council-wide per-clause rollup for the active compliance framework.
+   * Used by the Governance page's domain-detail modal (v2.5.32) — surfaces
+   * the underlying Microsoft Secure Score controls + per-entity coverage
+   * that drive each clause's headline number, so operators can drill from
+   * "this domain reads 56%" into "exactly which entities and which
+   * controls".
+   */
+  getGovernanceClauses: () =>
+    jsonFetch<{
+      frameworkId: string;
+      frameworkVersion: string;
+      status: "official" | "draft";
+      clauses: Array<{
+        clauseId: string;
+        ref: string;
+        classRefs: Array<"Governance" | "Operation" | "Assurance">;
+        titleEn: string;
+        titleAr: string;
+        descriptionEn: string;
+        descriptionAr: string;
+        weight: number;
+        meanCoverage: number | null;
+        scoredEntities: number;
+        totalEntities: number;
+        controls: Array<{
+          id: string;
+          title: string | null;
+          category: string | null;
+          service: string | null;
+          meanPassRate: number | null;
+          entitiesPassing: number;
+          entitiesFailing: number;
+          entitiesUnscored: number;
+        }>;
+        customEvidence: Array<{
+          id: string;
+          label: string;
+          manualPassRate: number;
+          reviewedAt: string;
+          reviewerNote?: string;
+        }>;
+        perEntity: Array<{
+          entityId: string;
+          entityNameEn: string;
+          entityNameAr: string;
+          coverage: number | null;
+          samples: number;
+          oosState: "in-scope" | "global-oos" | "tenant-oos";
+        }>;
+      }>;
+    }>("/api/governance/clauses"),
+
   saveNesaMapping: (mapping: {
     frameworkVersion: string;
     status?: "official" | "draft";
@@ -603,6 +656,7 @@ export const api = {
         medium: number;
         low: number;
         exploitable: number;
+        zeroDay: number;
         affectedDevices: number;
         remediatedDevices: number;
         entitiesWithData: number;
@@ -620,6 +674,7 @@ export const api = {
         medium: number;
         low: number;
         exploitable: number;
+        zeroDay: number;
         affectedDevices: number;
         remediatedDevices: number;
         remediationTracked: boolean;
@@ -631,6 +686,8 @@ export const api = {
         cvssScore: number | null;
         hasExploit: boolean;
         publishedDateTime: string | null;
+        recommendedFix: string | null;
+        tags: string[];
         entityCount: number;
         totalAffectedDevices: number;
         totalRemediatedDevices: number;
@@ -647,6 +704,8 @@ export const api = {
         cvssScore: number | null;
         hasExploit: boolean;
         publishedDateTime: string | null;
+        recommendedFix: string | null;
+        tags: string[];
         entityCount: number;
         totalAffectedDevices: number;
         totalRemediatedDevices: number;
