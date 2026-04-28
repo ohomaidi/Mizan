@@ -203,13 +203,33 @@ function DetailBody({ data }: { data: ClauseDetail }) {
                         ? "—"
                         : `${fmt(c.meanPassRate)}%`}
                     </td>
+                    {/*
+                     * v2.5.33 — three-bucket histogram. Microsoft Secure
+                     * Score is partial-credit; binary pass/fail at 100%
+                     * misreads 88% as "failing". Now: full-pass · partial
+                     * · fail · (no-data) so operators can see whether
+                     * entities are making progress vs. not started.
+                     */}
                     <td className="py-2 pe-4 text-end text-[11.5px] tabular">
-                      <span className="text-pos">
-                        {fmt(c.entitiesPassing)}
+                      <span
+                        className="text-pos"
+                        title={t("gov.domainModal.controls.fullPassTip")}
+                      >
+                        {fmt(c.entitiesFullPass)}
                       </span>
-                      <span className="text-ink-3 mx-1">/</span>
-                      <span className="text-neg">
-                        {fmt(c.entitiesFailing)}
+                      <span className="text-ink-3 mx-1">·</span>
+                      <span
+                        className="text-warn"
+                        title={t("gov.domainModal.controls.partialTip")}
+                      >
+                        {fmt(c.entitiesPartial)}
+                      </span>
+                      <span className="text-ink-3 mx-1">·</span>
+                      <span
+                        className="text-neg"
+                        title={t("gov.domainModal.controls.failTip")}
+                      >
+                        {fmt(c.entitiesFail)}
                       </span>
                       {c.entitiesUnscored > 0 ? (
                         <span className="text-ink-3 ms-1">
@@ -222,6 +242,9 @@ function DetailBody({ data }: { data: ClauseDetail }) {
                 ))}
               </tbody>
             </table>
+            <div className="px-4 py-2 text-[10.5px] text-ink-3 leading-relaxed border-t border-border bg-surface-2">
+              {t("gov.domainModal.controls.legend")}
+            </div>
           </div>
         ) : null}
 

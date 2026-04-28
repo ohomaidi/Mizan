@@ -26,6 +26,10 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-28 — v2.5.33 (Governance domain modal: split binary Pass/Fail into Full / Partial / Fail histogram)**. Operator feedback on v2.5.32: "0 passed but OzTenant still has 88.9 coverage?" The "Pass / Fail" column on the Microsoft Secure Score controls table threshold-checked at 99.9% — anything below was bucketed as "fail", which read as cognitively wrong because Microsoft Secure Score is partial-credit by design. An entity scoring 8/9 (88.9%) appeared in the same column as one scoring 0/9. The clause coverage % was using the actual partial-credit ratio behind the scenes, but the column count made the headline look inconsistent.
+
+  Replaced the binary count with a three-bucket histogram: **Full pass · Partial · Fail** (plus the existing `(N no data)` annotation). Hover tooltips explain each bucket; a one-line legend strip beneath the table reminds operators that "the clause coverage % uses the actual partial-credit ratio, not a binary pass/fail". `entitiesPassing` / `entitiesFailing` in the API renamed to `entitiesFullPass` / `entitiesPartial` / `entitiesFail` accordingly. Both EN + AR.
+
 - **2026-04-28 — v2.5.32 (Governance domain drill-down + vulnerability UI for v2.5.31 fields)**. Two surface changes that turn previously inert headlines into actionable detail.
 
   **Governance — clickable Dubai ISR / NESA domain rows**. Each row in the framework-coverage table on `/governance` is now a button that opens a detail modal. The modal lazily fetches a new server-side endpoint `GET /api/governance/clauses` that walks every consented (or demo) tenant once, computes per-clause coverage from each tenant's Secure Score snapshot, and rolls up:

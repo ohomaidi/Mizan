@@ -410,8 +410,13 @@ export const api = {
           category: string | null;
           service: string | null;
           meanPassRate: number | null;
-          entitiesPassing: number;
-          entitiesFailing: number;
+          /** v2.5.33 — entities scoring 100% on this control. */
+          entitiesFullPass: number;
+          /** v2.5.33 — entities scoring >0% but <100% (partial credit). */
+          entitiesPartial: number;
+          /** v2.5.33 — entities scoring exactly 0%. */
+          entitiesFail: number;
+          /** Entities with no telemetry (control not in their SS payload). */
           entitiesUnscored: number;
         }>;
         customEvidence: Array<{

@@ -141,10 +141,22 @@ export async function GET() {
     // Council-wide pass-rate per Microsoft Secure Score control that
     // evidences this clause. For each control, walk every tenant's SS
     // payload, average score/maxScore where present.
+    //
+    // v2.5.33 — split the binary `entitiesPassing / entitiesFailing`
+    // count into a four-bucket histogram: full-pass (100%) / partial
+    // (any positive score below 100%) / fail (0%) / no-data. Microsoft
+    // Secure Score is partial-credit by design (almost no control is
+    // all-or-nothing), so the previous "0 / 2 fail" framing was
+    // routinely showing two entities at 88% and 78% as "failing" —
+    // technically true under a 100% threshold but cognitively wrong.
+    // The new histogram lets the UI render "0 full · 2 partial · 0
+    // fail" and operators can see at a glance whether everyone's
+    // making progress vs. nobody having even started.
     const controls = clause.secureScoreControls.map((controlId) => {
       const passRates: number[] = [];
-      let entitiesPassing = 0;
-      let entitiesFailing = 0;
+      let entitiesFullPass = 0;
+      let entitiesPartial = 0;
+      let entitiesFail = 0;
       let entitiesUnscored = 0;
       let title: string | null = null;
       let category: string | null = null;
@@ -169,8 +181,9 @@ export async function GET() {
         }
         const rate = c.score / c.maxScore;
         passRates.push(rate);
-        if (rate >= 0.999) entitiesPassing++;
-        else entitiesFailing++;
+        if (rate >= 0.999) entitiesFullPass++;
+        else if (rate > 0) entitiesPartial++;
+        else entitiesFail++;
       }
       const meanPassRate =
         passRates.length === 0
@@ -185,8 +198,9 @@ export async function GET() {
         category,
         service,
         meanPassRate,
-        entitiesPassing,
-        entitiesFailing,
+        entitiesFullPass,
+        entitiesPartial,
+        entitiesFail,
         entitiesUnscored,
       };
     });

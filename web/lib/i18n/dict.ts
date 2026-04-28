@@ -731,8 +731,16 @@ export const DICT = {
     "gov.domainModal.controls.col.control": "Control",
     "gov.domainModal.controls.col.service": "Service",
     "gov.domainModal.controls.col.passRate": "Mean pass rate",
-    "gov.domainModal.controls.col.entities": "Pass / Fail",
+    "gov.domainModal.controls.col.entities": "Full · Partial · Fail",
     "gov.domainModal.controls.unscoredShort": "no data",
+    "gov.domainModal.controls.fullPassTip":
+      "Entities scoring 100% on this control",
+    "gov.domainModal.controls.partialTip":
+      "Entities scoring above 0% but below 100% — Secure Score awards partial credit when implementation is in progress",
+    "gov.domainModal.controls.failTip":
+      "Entities scoring exactly 0% on this control",
+    "gov.domainModal.controls.legend":
+      "Microsoft Secure Score awards partial credit, so most controls fall into the partial bucket while in progress. The clause coverage % uses the actual partial-credit ratio (e.g. 8/9 = 88.9%), not a binary pass/fail.",
     "gov.domainModal.customEvidenceHeading": "Operator-managed evidence",
     "gov.domainModal.perEntityHeading": "Per-entity coverage",
     "gov.domainModal.perEntity.col.entity": "Entity",
@@ -3549,8 +3557,16 @@ export const DICT = {
     "gov.domainModal.controls.col.control": "الضابط",
     "gov.domainModal.controls.col.service": "الخدمة",
     "gov.domainModal.controls.col.passRate": "متوسط معدّل الاجتياز",
-    "gov.domainModal.controls.col.entities": "اجتياز / إخفاق",
+    "gov.domainModal.controls.col.entities": "اكتمال · جزئي · إخفاق",
     "gov.domainModal.controls.unscoredShort": "بدون بيانات",
+    "gov.domainModal.controls.fullPassTip":
+      "الجهات التي حقّقت 100% على هذا الضابط",
+    "gov.domainModal.controls.partialTip":
+      "الجهات التي تجاوزت 0% لكنها لم تبلغ 100% — يمنح Secure Score رصيدًا جزئيًا عند التطبيق المتدرّج",
+    "gov.domainModal.controls.failTip":
+      "الجهات التي حقّقت 0% بالضبط على هذا الضابط",
+    "gov.domainModal.controls.legend":
+      "يمنح Microsoft Secure Score رصيدًا جزئيًا، لذا تقع معظم الضوابط في خانة «جزئي» أثناء التطبيق المتدرّج. تستخدم نسبة تغطية البند الرصيد الجزئي الفعلي (مثلًا 8/9 = 88.9%) وليس قبولًا/رفضًا ثنائيًا.",
     "gov.domainModal.customEvidenceHeading": "أدلة من المشغّل",
     "gov.domainModal.perEntityHeading": "التغطية لكل جهة",
     "gov.domainModal.perEntity.col.entity": "الجهة",
