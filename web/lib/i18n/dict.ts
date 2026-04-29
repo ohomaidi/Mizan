@@ -242,8 +242,67 @@ export const DICT = {
     "settings.tab.azure": "App Registration",
     "settings.tab.nesa": "Compliance framework",
     "settings.tab.compliance": "Compliance framework",
+    "settings.tab.risk": "Risk register",
+    "settings.tab.system": "System",
     "settings.tab.docs": "Documentation",
     "settings.tab.about": "About & updates",
+
+    "system.loading": "Loading system configuration…",
+    "system.title": "Domain & URL",
+    "system.subtitle":
+      "The dashboard's public URL is what Microsoft Entra redirects to after sign-in / consent. Change it here when you move from the Azure-issued hostname to a custom domain or relocate behind a different reverse proxy. Restart the dashboard after saving.",
+    "system.field.effective": "Current effective URL",
+    "system.field.effective.hint":
+      "What the dashboard is using right now to build redirect URIs and absolute links. Picked from the override below if set; otherwise from APP_BASE_URL env var; otherwise auto-detected from the request hostname.",
+    "system.field.detected": "Auto-detected URL (from request)",
+    "system.field.detected.hint":
+      "What auto-detection sees from the current request's Host header. Useful as a sanity-check that the deploy is reachable on the URL you expect.",
+    "system.field.override": "Operator-set override",
+    "system.field.override.hint":
+      "Paste the URL you want the dashboard to use, including protocol — e.g. https://posture.example.com. Leave empty to clear the override and fall back to env var / auto-detect.",
+    "system.willClear":
+      "Saving with an empty value clears the stored override. The dashboard will fall back to APP_BASE_URL / auto-detect.",
+    "system.save": "Save",
+    "system.saved": "Saved",
+    "system.uris.title": "Azure App Registration redirect URIs",
+    "system.uris.subtitle":
+      "After you change the dashboard URL, paste these into each Entra app's Authentication → Redirect URIs list. Existing entries can stay (Entra accepts multiple), but they should match exactly to avoid sign-in / consent failures. v2.8 will Graph-PATCH these for you.",
+    "system.uris.consent": "Graph signals app · admin-consent callback",
+    "system.uris.consent.body":
+      "Where the consenting tenant admin lands after granting application permissions to Mizan. Update on the multi-tenant Graph signals app (Council) or single-tenant signals app (Executive).",
+    "system.uris.userAuth": "User auth app · sign-in callback",
+    "system.uris.userAuth.body":
+      "Where operator staff land after OIDC sign-in. Update on the single-tenant user-auth app.",
+    "system.uris.directiveConsent":
+      "Directive write app · admin-consent callback",
+    "system.uris.directiveConsent.body":
+      "Where the consenting tenant admin lands after granting the .ReadWrite scopes to the directive app. Only relevant when deploymentMode = directive.",
+    "system.uris.tip":
+      "Tip: Microsoft Entra accepts multiple redirect URIs per app. You can leave the old URL listed for a grace period while users finish active sessions.",
+
+    "autoSuggest.loading": "Loading auto-suggest configuration…",
+    "autoSuggest.title": "Auto-suggest sensitivity",
+    "autoSuggest.subtitle":
+      "Tune the four thresholds Mizan uses to convert posture signals into risk-register suggestions. Lower numbers = more suggestions (noisier, catches more); higher numbers = fewer suggestions (quieter, only the loudest signals). Changes apply on the next sync.",
+    "autoSuggest.save": "Save",
+    "autoSuggest.saved": "Saved",
+    "autoSuggest.reset": "Reset to defaults",
+    "autoSuggest.cveAgeDays": "Critical CVE age threshold",
+    "autoSuggest.cveAgeDays.hint":
+      "How long a critical CVE must remain unpatched before it becomes a risk suggestion. Default 30 days.",
+    "autoSuggest.cveMinDevices": "Minimum affected devices (CVE rule)",
+    "autoSuggest.cveMinDevices.hint":
+      "Skip CVE-aging suggestions for vulnerabilities that hit fewer than this many devices. Filters single-machine noise. Default 2.",
+    "autoSuggest.deactivationWindowDays": "Admin-deactivation lookback window",
+    "autoSuggest.deactivationWindowDays.hint":
+      "Suggest a risk for any privileged-admin deactivation event in the last N days. Wider window catches more historical events. Default 7 days.",
+    "autoSuggest.incidentOpenHours": "High-severity incident SLA",
+    "autoSuggest.incidentOpenHours.hint":
+      "How long a high-severity Defender XDR incident can stay active before Mizan logs it as a risk. Tighten for stricter SLAs; loosen for noisier shops. Default 24 hours.",
+    "autoSuggest.autoPromote.title":
+      "Auto-promote suggestions to active risks",
+    "autoSuggest.autoPromote.hint":
+      "When on, Mizan writes auto-suggested risks straight to the active register (status=open) instead of the Suggested panel for review. Use only on deployments where the rules are well-tuned and you trust unattended automation.",
 
     "organization.loading": "Loading organisation profile…",
     "organization.empty.title": "Organisation not configured",
@@ -3157,6 +3216,35 @@ export const DICT = {
     "risk.col.status": "Status",
     "risk.col.actions": "",
     "risk.col.delete": "Delete",
+    "risk.col.plan": "Plan",
+    "risk.treatment.title": "Treatment plan",
+    "risk.treatment.loading": "Loading steps…",
+    "risk.treatment.empty":
+      "No treatment steps yet — add the first one below.",
+    "risk.treatment.progress": "{done} of {total} steps complete",
+    "risk.treatment.add": "Add",
+    "risk.treatment.addPlaceholder":
+      "What's the next step? (Enter to add)",
+    "risk.treatment.delete": "Delete step",
+    "risk.treatment.done": "Close",
+    "risk.treatment.owner": "Owner",
+    "risk.treatment.status.open": "Open",
+    "risk.treatment.status.in_progress": "In progress",
+    "risk.treatment.status.done": "Done",
+    "risk.treatment.status.blocked": "Blocked",
+    "risk.viewToggle.aria": "Risk view",
+    "risk.view.table": "Table",
+    "risk.view.heat": "Heat map",
+    "risk.heat.impact": "Impact ↑",
+    "risk.heat.likelihood": "Likelihood →",
+    "risk.heat.cell": "Impact {impact} × Likelihood {likelihood}",
+    "risk.heat.cellSub": "Residual rating {rating}",
+    "risk.heat.empty": "No risks in this cell.",
+    "risk.heat.tip": "Tap a cell to see the risks in it.",
+    "risk.heat.more": "+ {n} more not shown",
+    "risk.heat.legend.low": "Low",
+    "risk.heat.legend.med": "Medium",
+    "risk.heat.legend.high": "High",
     "risk.status.suggested": "Suggested",
     "risk.status.open": "Open",
     "risk.status.mitigated": "Mitigated",
@@ -3179,6 +3267,37 @@ export const DICT = {
     "scorecard.subtitle":
       "Pin board commitments and watch them light up green / amber / red against current measurements. Each KPI is computed live from your posture data.",
     "scorecard.pinKpi": "Pin a KPI",
+    "scorecard.customKpi": "Custom KPI",
+    "scorecard.picker.custom": "Custom",
+    "custom.kpi.title": "Build a custom KPI",
+    "custom.kpi.field.label": "Label",
+    "custom.kpi.field.description": "Description",
+    "custom.kpi.field.unit": "Unit",
+    "custom.kpi.field.direction": "Direction",
+    "custom.kpi.field.target": "Target",
+    "custom.kpi.unit.count": "count",
+    "custom.kpi.unit.percent": "percent (%)",
+    "custom.kpi.unit.hours": "hours",
+    "custom.kpi.unit.boolean": "yes/no",
+    "custom.kpi.dir.higherBetter": "Higher is better",
+    "custom.kpi.dir.lowerBetter": "Lower is better",
+    "custom.kpi.formula.title": "Formula",
+    "custom.kpi.formula.signalNumber":
+      "Pluck a number from one signal",
+    "custom.kpi.formula.ratio": "Ratio of two signals",
+    "custom.kpi.signal": "Signal",
+    "custom.kpi.fieldPath": "Field path",
+    "custom.kpi.fieldPath.hint":
+      "Dot-path inside the payload — e.g. \"active\" or \"bySeverity.high\".",
+    "custom.kpi.numerator.signal": "Numerator signal",
+    "custom.kpi.numerator.field": "Numerator field",
+    "custom.kpi.denominator.signal": "Denominator signal",
+    "custom.kpi.denominator.field": "Denominator field",
+    "custom.kpi.asPercent": "Multiply by 100 (express as a percent)",
+    "custom.kpi.cancel": "Cancel",
+    "custom.kpi.save": "Save KPI",
+    "custom.kpi.error.label": "Label is required (min 2 chars).",
+    "custom.kpi.error.target": "Target must be a number.",
     "scorecard.unpin": "Unpin",
     "scorecard.empty.title": "No KPIs pinned yet",
     "scorecard.empty.body":
@@ -3230,6 +3349,7 @@ export const DICT = {
     "insurance.subtitle":
       "Aviation-specific questionnaire pulled from Beazley / Coalition / AIG public forms, cross-referenced against IATA, ICAO, and FAA guidance. Mizan auto-answers questions where Microsoft 365 signals can prove the control; the rest are manual checkbox + evidence.",
     "insurance.template": "Template v{version}",
+    "insurance.exportBroker": "Export for broker",
     "insurance.kpi.completion": "Completion",
     "insurance.kpi.answered": "Answered",
     "insurance.kpi.yes": "Yes",
@@ -3484,8 +3604,67 @@ export const DICT = {
     "settings.tab.azure": "تسجيل التطبيق",
     "settings.tab.nesa": "إطار الامتثال",
     "settings.tab.compliance": "إطار الامتثال",
+    "settings.tab.risk": "سجل المخاطر",
+    "settings.tab.system": "النظام",
     "settings.tab.docs": "التوثيق",
     "settings.tab.about": "حول والتحديثات",
+
+    "system.loading": "جارٍ تحميل إعدادات النظام…",
+    "system.title": "النطاق وعنوان URL",
+    "system.subtitle":
+      "عنوان URL العام للوحة هو ما يُعيد إليه Microsoft Entra بعد تسجيل الدخول/الموافقة. غيّره هنا عند الانتقال من اسم Azure إلى نطاق مخصّص أو خلف وكيل عكسي مختلف. أعد تشغيل اللوحة بعد الحفظ.",
+    "system.field.effective": "العنوان الفعّال حاليًا",
+    "system.field.effective.hint":
+      "ما تستخدمه اللوحة الآن لبناء عناوين إعادة التوجيه والروابط المطلقة. يُختار من التجاوز أدناه إن وُجد، ثم متغير البيئة APP_BASE_URL، ثم اكتشاف تلقائي من الطلب.",
+    "system.field.detected": "العنوان المكتشف تلقائيًا (من الطلب)",
+    "system.field.detected.hint":
+      "ما يراه الاكتشاف التلقائي من رأس Host في الطلب الحالي. مفيد للتحقق من قابلية الوصول.",
+    "system.field.override": "تجاوز المشغّل",
+    "system.field.override.hint":
+      "ألصق عنوان URL الذي تريد استخدامه، شاملًا البروتوكول — مثال https://posture.example.com. اترك فارغًا لمسح التجاوز.",
+    "system.willClear":
+      "الحفظ بقيمة فارغة يمسح التجاوز المُخزَّن. تعود اللوحة إلى APP_BASE_URL أو الاكتشاف التلقائي.",
+    "system.save": "حفظ",
+    "system.saved": "حُفظ",
+    "system.uris.title": "عناوين إعادة التوجيه لتطبيقات Entra",
+    "system.uris.subtitle":
+      "بعد تغيير عنوان اللوحة، ألصق هذه العناوين في قائمة Authentication → Redirect URIs لكل تطبيق. يمكن إبقاء القديم (Entra يقبل متعدّدة)، لكن يجب أن يطابق الجديد تمامًا لتجنّب فشل تسجيل الدخول/الموافقة. سيقوم الإصدار 2.8 بتطبيقها تلقائيًا عبر Graph PATCH.",
+    "system.uris.consent": "تطبيق إشارات Graph · رد نداء موافقة المسؤول",
+    "system.uris.consent.body":
+      "وجهة هبوط مسؤول الجهة بعد منح أذونات التطبيق لـ Mizan. حدّثها على تطبيق Graph متعدّد المستأجرين (Council) أو أحادي المستأجر (Executive).",
+    "system.uris.userAuth": "تطبيق دخول المستخدم · رد نداء تسجيل الدخول",
+    "system.uris.userAuth.body":
+      "وجهة هبوط المشغّلين بعد تسجيل الدخول OIDC. حدّثها على تطبيق دخول المستخدم أحادي المستأجر.",
+    "system.uris.directiveConsent":
+      "تطبيق Directive للكتابة · رد نداء موافقة المسؤول",
+    "system.uris.directiveConsent.body":
+      "وجهة هبوط مسؤول الجهة بعد منح أذونات الكتابة لتطبيق Directive. ذو صلة فقط في وضع directive.",
+    "system.uris.tip":
+      "نصيحة: يقبل Microsoft Entra عناوين إعادة توجيه متعدّدة لكل تطبيق. يمكنك ترك العنوان القديم مدرجًا لفترة سماح حتى ينتهي المستخدمون من جلساتهم النشطة.",
+
+    "autoSuggest.loading": "جارٍ تحميل إعدادات الاقتراح التلقائي…",
+    "autoSuggest.title": "حساسية الاقتراح التلقائي",
+    "autoSuggest.subtitle":
+      "اضبط العتبات الأربع التي يستخدمها Mizan لتحويل إشارات الوضع الأمني إلى اقتراحات في سجل المخاطر. أرقام أقل = اقتراحات أكثر (أوسع تغطية)؛ أرقام أعلى = اقتراحات أقل (أقل ضجيجًا). يُطبَّق التغيير عند المزامنة التالية.",
+    "autoSuggest.save": "حفظ",
+    "autoSuggest.saved": "حُفظ",
+    "autoSuggest.reset": "إعادة إلى الافتراضي",
+    "autoSuggest.cveAgeDays": "عتبة عمر CVE الحرجة",
+    "autoSuggest.cveAgeDays.hint":
+      "المدة التي يجب أن تبقى فيها ثغرة حرجة بدون ترقيع قبل أن تصبح اقتراح مخاطرة. الافتراضي ٣٠ يومًا.",
+    "autoSuggest.cveMinDevices": "الحد الأدنى للأجهزة المتأثرة (قاعدة CVE)",
+    "autoSuggest.cveMinDevices.hint":
+      "تجاهل اقتراحات الثغرات التي تصيب أقل من هذا العدد من الأجهزة. يقلل ضوضاء الجهاز الواحد. الافتراضي ٢.",
+    "autoSuggest.deactivationWindowDays": "نافذة استرجاع تعطيل المسؤولين",
+    "autoSuggest.deactivationWindowDays.hint":
+      "اقترح مخاطرة عن أي حدث تعطيل لمسؤول مميز خلال آخر N يوم. النافذة الأوسع تلتقط أحداثًا تاريخية أكثر. الافتراضي ٧ أيام.",
+    "autoSuggest.incidentOpenHours": "SLA الحوادث عالية الخطورة",
+    "autoSuggest.incidentOpenHours.hint":
+      "المدة التي يمكن أن تبقى فيها حادثة Defender XDR عالية الخطورة نشطة قبل أن يسجّلها Mizan كمخاطرة. شدّد للسياسات الصارمة؛ خفّف للمنظمات الأكثر ضجيجًا. الافتراضي ٢٤ ساعة.",
+    "autoSuggest.autoPromote.title":
+      "ترقية الاقتراحات تلقائيًا إلى مخاطر نشطة",
+    "autoSuggest.autoPromote.hint":
+      "عند التفعيل، يكتب Mizan المخاطر المُقترَحة مباشرةً إلى السجل النشط (status=open) بدلًا من لوحة المراجعة. استخدم فقط في النشرات حيث ضُبطت القواعد جيدًا وتثق بالأتمتة دون إشراف.",
 
     "organization.loading": "جارٍ تحميل ملف المنظمة…",
     "organization.empty.title": "لم يتم إعداد المنظمة بعد",
@@ -6275,6 +6454,35 @@ export const DICT = {
     "risk.col.status": "الحالة",
     "risk.col.actions": "",
     "risk.col.delete": "حذف",
+    "risk.col.plan": "الخطة",
+    "risk.treatment.title": "خطة المعالجة",
+    "risk.treatment.loading": "جارٍ تحميل الخطوات…",
+    "risk.treatment.empty":
+      "لا خطوات معالجة بعد — أضف الأولى أدناه.",
+    "risk.treatment.progress": "{done} من {total} خطوة مكتملة",
+    "risk.treatment.add": "إضافة",
+    "risk.treatment.addPlaceholder":
+      "ما الخطوة التالية؟ (Enter للإضافة)",
+    "risk.treatment.delete": "حذف الخطوة",
+    "risk.treatment.done": "إغلاق",
+    "risk.treatment.owner": "المسؤول",
+    "risk.treatment.status.open": "مفتوحة",
+    "risk.treatment.status.in_progress": "قيد التنفيذ",
+    "risk.treatment.status.done": "منجزة",
+    "risk.treatment.status.blocked": "محظورة",
+    "risk.viewToggle.aria": "عرض المخاطر",
+    "risk.view.table": "جدول",
+    "risk.view.heat": "خريطة حرارية",
+    "risk.heat.impact": "↑ الأثر",
+    "risk.heat.likelihood": "← الاحتمالية",
+    "risk.heat.cell": "أثر {impact} × احتمالية {likelihood}",
+    "risk.heat.cellSub": "التقييم المتبقي {rating}",
+    "risk.heat.empty": "لا مخاطر في هذه الخلية.",
+    "risk.heat.tip": "اضغط على خلية لعرض المخاطر فيها.",
+    "risk.heat.more": "+ {n} إضافية غير معروضة",
+    "risk.heat.legend.low": "منخفض",
+    "risk.heat.legend.med": "متوسط",
+    "risk.heat.legend.high": "مرتفع",
     "risk.status.suggested": "مقترحة",
     "risk.status.open": "مفتوحة",
     "risk.status.mitigated": "مُخففة",
@@ -6297,6 +6505,37 @@ export const DICT = {
     "scorecard.subtitle":
       "ثبّت الالتزامات أمام مجلس الإدارة وراقبها وهي تضيء أخضر/كهرماني/أحمر مقابل القياسات الحالية. كل مؤشر يُحسب مباشرة من بيانات الوضع الأمني.",
     "scorecard.pinKpi": "تثبيت مؤشر",
+    "scorecard.customKpi": "مؤشر مخصّص",
+    "scorecard.picker.custom": "مخصّص",
+    "custom.kpi.title": "بناء مؤشر مخصّص",
+    "custom.kpi.field.label": "الاسم",
+    "custom.kpi.field.description": "الوصف",
+    "custom.kpi.field.unit": "الوحدة",
+    "custom.kpi.field.direction": "الاتجاه",
+    "custom.kpi.field.target": "الهدف",
+    "custom.kpi.unit.count": "عدد",
+    "custom.kpi.unit.percent": "نسبة (%)",
+    "custom.kpi.unit.hours": "ساعات",
+    "custom.kpi.unit.boolean": "نعم/لا",
+    "custom.kpi.dir.higherBetter": "الأعلى أفضل",
+    "custom.kpi.dir.lowerBetter": "الأقل أفضل",
+    "custom.kpi.formula.title": "الصيغة",
+    "custom.kpi.formula.signalNumber":
+      "استخراج رقم من إشارة واحدة",
+    "custom.kpi.formula.ratio": "نسبة بين إشارتين",
+    "custom.kpi.signal": "الإشارة",
+    "custom.kpi.fieldPath": "مسار الحقل",
+    "custom.kpi.fieldPath.hint":
+      "مسار نقطي داخل الحمولة — مثال: \"active\" أو \"bySeverity.high\".",
+    "custom.kpi.numerator.signal": "إشارة البسط",
+    "custom.kpi.numerator.field": "حقل البسط",
+    "custom.kpi.denominator.signal": "إشارة المقام",
+    "custom.kpi.denominator.field": "حقل المقام",
+    "custom.kpi.asPercent": "اضرب في ١٠٠ (عرض كنسبة مئوية)",
+    "custom.kpi.cancel": "إلغاء",
+    "custom.kpi.save": "حفظ المؤشر",
+    "custom.kpi.error.label": "الاسم مطلوب (٢ حروف على الأقل).",
+    "custom.kpi.error.target": "الهدف يجب أن يكون رقمًا.",
     "scorecard.unpin": "إلغاء التثبيت",
     "scorecard.empty.title": "لا توجد مؤشرات مثبتة بعد",
     "scorecard.empty.body":
@@ -6348,6 +6587,7 @@ export const DICT = {
     "insurance.subtitle":
       "استبيان خاص بقطاع الطيران مأخوذ من النماذج العامة لشركات Beazley / Coalition / AIG، ومُسَنَد إلى توجيهات IATA و ICAO و FAA. يجيب Mizan تلقائيًا على الأسئلة التي تستطيع إشارات Microsoft 365 إثباتها، والباقي بإجابة يدوية + دليل.",
     "insurance.template": "النموذج v{version}",
+    "insurance.exportBroker": "تصدير للوسيط",
     "insurance.kpi.completion": "الاكتمال",
     "insurance.kpi.answered": "تمت الإجابة",
     "insurance.kpi.yes": "نعم",

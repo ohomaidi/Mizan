@@ -738,6 +738,56 @@ const MIGRATIONS: Migration[] = [
       );
     },
   },
+  {
+    version: 15,
+    name: "risk_treatment_plans_and_kpi_formulas",
+    run: (db) => {
+      // v2.7.0 — two new additive tables on top of the v14 Executive
+      // surface. Both are operator-managed; Council deployments
+      // simply never INSERT into them.
+
+      // Risk treatment plans — per-risk steps with owner / due / status.
+      // v2.6.0 risk_register stored only a free-text `mitigation_notes`
+      // column; that's not enough for accountability tracking on
+      // multi-step mitigations. Each risk now owns 0..N treatment_steps.
+      db.exec(`CREATE TABLE IF NOT EXISTS risk_treatment_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        risk_id INTEGER NOT NULL,
+        step_text TEXT NOT NULL,
+        owner TEXT,
+        due_date TEXT,
+        status TEXT NOT NULL DEFAULT 'open'
+          CHECK (status IN ('open','in_progress','done','blocked')),
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (risk_id) REFERENCES risk_register(id) ON DELETE CASCADE
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_treatment_steps_risk ON risk_treatment_steps(risk_id, sort_order)",
+      );
+
+      // Custom CISO scorecard KPI formulas — the v2.6.0 catalog is
+      // 10 hard-coded KPIs. v2.7.0 lets operators define their own
+      // beyond the catalog. Each row is a custom KPI: a label, a
+      // unit, a higher/lower-better direction, a target, and a
+      // formula expressed as a small JSON spec the eval engine
+      // understands (see lib/scorecard/custom-formula.ts). Pinned
+      // alongside built-ins on the scorecard page.
+      db.exec(`CREATE TABLE IF NOT EXISTS custom_kpi_formulas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kpi_kind TEXT NOT NULL UNIQUE,
+        label TEXT NOT NULL,
+        description TEXT,
+        unit TEXT NOT NULL CHECK (unit IN ('percent','count','hours','boolean')),
+        direction TEXT NOT NULL CHECK (direction IN ('higherBetter','lowerBetter')),
+        target REAL NOT NULL,
+        formula_json TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

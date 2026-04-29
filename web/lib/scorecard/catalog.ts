@@ -159,17 +159,27 @@ export function getCatalogEntry(kind: KpiKind): KpiCatalogEntry | null {
  * Executive mode there's only one tenant so it's effectively the
  * single-tenant value; in Council mode the values aggregate across
  * all consented entities (mean for percentages, sum for counts).
+ *
+ * v2.7.0 — recognises custom KPIs (`kpi_kind` prefixed `custom:`).
+ * Custom KPIs route to the formula evaluator and use the per-row
+ * target stored alongside the formula.
  */
-export function computeKpiValue(kind: KpiKind): {
+export function computeKpiValue(kind: KpiKind | string): {
   current: number | null;
   status: KpiStatus;
 } {
+  // Custom KPI path — kind starts with "custom:". Pull the row,
+  // evaluate the formula, compare to the per-row target.
+  if (typeof kind === "string" && kind.startsWith("custom:")) {
+    return computeCustomKpiValue(kind);
+  }
+
   const tenants = listTenants().filter(
     (t) => t.consent_status === "consented" || t.is_demo === 1,
   );
   if (tenants.length === 0)
     return { current: null, status: "unknown" };
-  const entry = getCatalogEntry(kind);
+  const entry = getCatalogEntry(kind as KpiKind);
   if (!entry) return { current: null, status: "unknown" };
   const target = entry.defaultTarget;
 
@@ -341,5 +351,64 @@ export function computeKpiValue(kind: KpiKind): {
   }
   // suppress unused
   void getActiveComplianceMapping;
+  return { current, status };
+}
+
+/**
+ * Custom KPI evaluator — looks up the formula by kind, runs it,
+ * compares to the per-row target. Used by computeKpiValue when the
+ * kind starts with "custom:".
+ *
+ * v2.7.0.
+ */
+function computeCustomKpiValue(kind: string): {
+  current: number | null;
+  status: KpiStatus;
+} {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getCustomKpiByKind } = require("@/lib/db/custom-kpi") as {
+    getCustomKpiByKind: (kind: string) => {
+      target: number;
+      direction: "higherBetter" | "lowerBetter";
+      formula_json: string;
+    } | null;
+  };
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { parseFormula, evaluateCustomFormula } =
+    require("@/lib/scorecard/custom-formula") as typeof import("@/lib/scorecard/custom-formula");
+
+  const row = getCustomKpiByKind(kind);
+  if (!row) return { current: null, status: "unknown" };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.formula_json);
+  } catch {
+    return { current: null, status: "unknown" };
+  }
+  const formula = parseFormula(parsed);
+  if (!formula) return { current: null, status: "unknown" };
+
+  const { current } = evaluateCustomFormula(formula);
+  if (current === null) return { current: null, status: "unknown" };
+
+  const ok =
+    row.direction === "higherBetter"
+      ? current >= row.target
+      : current <= row.target;
+  let status: KpiStatus = "unknown";
+  if (row.direction === "higherBetter") {
+    status = ok
+      ? "met"
+      : current >= row.target * 0.85
+        ? "atRisk"
+        : "missed";
+  } else {
+    status = ok
+      ? "met"
+      : current <= row.target * 1.15
+        ? "atRisk"
+        : "missed";
+  }
   return { current, status };
 }

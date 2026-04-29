@@ -156,6 +156,46 @@ export function recordEndpointHealth(params: {
 }
 
 /**
+ * Return up to `limit` most-recent snapshots for a tenant + signal,
+ * ordered oldest → newest. Used by the Today-page sparkline builder
+ * to derive a per-signal trend without a dedicated rollup table.
+ *
+ * Signals we sync daily (vulnerabilities, pimSprawl, riskyUsers,
+ * incidents, devices, ...) accumulate one row per `syncTenant()`
+ * run, so 7 rows ≈ 7 days. Older rows get pruned by
+ * `pruneOldSnapshots` according to retention policy.
+ *
+ * Returns the parsed payloads inline. Tolerates missing payload
+ * (`payload: null`) for rows that were stored as failures —
+ * caller decides whether to drop or keep them. v2.7.0.
+ */
+export function listSignalSeries<P>(
+  tenantId: string,
+  signalType: SignalType,
+  limit: number,
+): Array<P> {
+  const rows = getDb()
+    .prepare(
+      `SELECT payload FROM signal_snapshots
+        WHERE tenant_id = ? AND signal_type = ? AND ok = 1
+        ORDER BY fetched_at DESC LIMIT ?`,
+    )
+    .all(tenantId, signalType, limit) as Array<{ payload: string | null }>;
+  // Reverse to oldest-first for sparkline ordering.
+  return rows
+    .map((r) => {
+      if (!r.payload) return null;
+      try {
+        return JSON.parse(r.payload) as P;
+      } catch {
+        return null;
+      }
+    })
+    .filter((p): p is P => p !== null)
+    .reverse();
+}
+
+/**
  * Find the most recent snapshot strictly older than `daysAgo`. Used by the deltas module to
  * compare current state to N days ago.
  */

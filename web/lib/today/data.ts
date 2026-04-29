@@ -12,7 +12,8 @@ import {
   getCatalogEntry,
   type KpiKind,
 } from "@/lib/scorecard/catalog";
-import { getLatestSnapshot } from "@/lib/db/signals";
+import { getLatestSnapshot, listSignalSeries } from "@/lib/db/signals";
+import type { SignalType } from "@/lib/db/signals";
 import type { IncidentsPayload } from "@/lib/graph/signals";
 import { buildChangeFeed, type ChangeFeedEvent } from "./change-feed";
 
@@ -80,33 +81,37 @@ export function resolveExecutiveTenant(): TenantRow | null {
 }
 
 /**
- * Build a 7-point sparkline series for a pinned KPI. Source:
+ * Build a 7-point sparkline series for a pinned KPI. Sources:
  *
- *   - `maturityIndex`            — overall column from maturity_snapshots
- *   - `frameworkCompliance`      — compliance sub-score from maturity_snapshots
- *   - `mfaAdminCoverage`         — identity sub-score from maturity_snapshots
- *   - `deviceCompliance`         — device sub-score from maturity_snapshots
+ *   Maturity-derived (from maturity_snapshots — 1 row per day):
+ *     - `maturityIndex`        → overall column
+ *     - `frameworkCompliance`  → compliance sub-score
+ *     - `mfaAdminCoverage`     → identity sub-score
+ *     - `deviceCompliance`     → device sub-score
  *
- * Other KPIs (criticalCveAge / privilegedRoleCount / incidentMttr /
- * highRiskUsers / auditClosureSla / boardReportDelivered) don't yet
- * carry a per-day historical series; we return `null` and the tile
- * renders without a sparkline. Adding history for those is v2.7
- * work — the dashboard's sync orchestrator already snapshots the
- * raw signals daily; what's missing is a "rollup table" to query.
+ *   Signal-derived (v2.7.0 — from raw signal_snapshots; reads up to
+ *   7 most-recent rows for the relevant signal type):
+ *     - `criticalCveAge`       → vulnerabilities.critical
+ *     - `privilegedRoleCount`  → pimSprawl.privilegedRoleAssignments
+ *     - `highRiskUsers`        → riskyUsers.highRisk
+ *
+ *   Still null (no historical source available):
+ *     - `incidentMttr`         (computed off resolved-list age — needs rollup)
+ *     - `auditClosureSla`      (no audit-closure data source yet)
+ *     - `boardReportDelivered` (boolean; no shape for sparkline)
  *
  * The series length is intentionally 7 — the Today page is a 7-day
- * brief. /scorecard's full page can ask for 90 days when we land
- * the 12-week view.
+ * brief. The dedicated /scorecard page can ask for 90 days once
+ * the 12-week view lands.
  *
- * v2.6.2.
+ * v2.7.0 — count-based KPI coverage extended from v2.6.2.
  */
 function buildKpiSparkline(
   kind: KpiKind,
-  _tenantId: string,
+  tenantId: string,
   maturitySeries: MaturitySnapshotRow[],
 ): number[] | null {
-  // For maturity-derived KPIs we down-sample the daily maturity
-  // series to 7 evenly-spaced points across the most recent window.
+  // Maturity-derived path.
   const maturityField: Record<string, keyof MaturitySnapshotRow | null> = {
     maturityIndex: "overall",
     frameworkCompliance: "compliance",
@@ -114,13 +119,50 @@ function buildKpiSparkline(
     deviceCompliance: "device",
   };
   const field = maturityField[kind] ?? null;
-  if (!field) return null;
-  if (maturitySeries.length === 0) return null;
+  if (field) {
+    if (maturitySeries.length < 2) return null;
+    const last7 = maturitySeries.slice(-7);
+    return last7.map((row) => Number(row[field]) || 0);
+  }
 
-  // Most-recent 7 daily snapshots; fewer if we don't have a week yet.
-  const last7 = maturitySeries.slice(-7);
-  if (last7.length < 2) return null;
-  return last7.map((row) => Number(row[field]) || 0);
+  // Signal-derived path. v2.7.0.
+  const signalSpec: Record<
+    string,
+    { signal: SignalType; pluck: (payload: unknown) => number | null } | null
+  > = {
+    criticalCveAge: {
+      signal: "vulnerabilities",
+      pluck: (p) =>
+        typeof p === "object" && p && "critical" in p
+          ? Number((p as { critical?: number }).critical ?? 0)
+          : null,
+    },
+    privilegedRoleCount: {
+      signal: "pimSprawl",
+      pluck: (p) =>
+        typeof p === "object" && p && "privilegedRoleAssignments" in p
+          ? Number(
+              (p as { privilegedRoleAssignments?: number })
+                .privilegedRoleAssignments ?? 0,
+            )
+          : null,
+    },
+    highRiskUsers: {
+      signal: "riskyUsers",
+      pluck: (p) =>
+        typeof p === "object" && p && "highRisk" in p
+          ? Number((p as { highRisk?: number }).highRisk ?? 0)
+          : null,
+    },
+  };
+  const spec = signalSpec[kind] ?? null;
+  if (!spec) return null;
+
+  const points = listSignalSeries(tenantId, spec.signal, 7)
+    .map(spec.pluck)
+    .filter((v): v is number => v !== null);
+  if (points.length < 2) return null;
+  return points;
 }
 
 /**

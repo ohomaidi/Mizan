@@ -26,6 +26,8 @@ import { AuthConfigPanel } from "@/components/settings/AuthConfigPanel";
 import { UsersPanel } from "@/components/settings/UsersPanel";
 import { AboutPanel } from "@/components/settings/AboutPanel";
 import { OrganizationPanel } from "@/components/settings/OrganizationPanel";
+import { AutoSuggestPanel } from "@/components/settings/AutoSuggestPanel";
+import { SystemPanel } from "@/components/settings/SystemPanel";
 import type { DictKey } from "@/lib/i18n/dict";
 
 type SettingsTab =
@@ -39,6 +41,8 @@ type SettingsTab =
   | "audit"
   | "azure"
   | "nesa"
+  | "risk"
+  | "system"
   | "docs"
   | "about";
 
@@ -146,6 +150,7 @@ function SettingsPageInner({
     { id: "nesa", labelKey: "settings.tab.nesa" },
     { id: "discovery", labelKey: "settings.tab.discovery" },
     { id: "pdf", labelKey: "settings.tab.pdf" },
+    { id: "system", labelKey: "settings.tab.system" },
     { id: "audit", labelKey: "settings.tab.audit" },
     { id: "docs", labelKey: "settings.tab.docs" },
     { id: "about", labelKey: "settings.tab.about" },
@@ -157,7 +162,9 @@ function SettingsPageInner({
     { id: "azure", labelKey: "settings.tab.azure" },
     { id: "maturity", labelKey: "settings.tab.maturity" },
     { id: "nesa", labelKey: "settings.tab.compliance" },
+    { id: "risk", labelKey: "settings.tab.risk" },
     { id: "pdf", labelKey: "settings.tab.pdf" },
+    { id: "system", labelKey: "settings.tab.system" },
     { id: "audit", labelKey: "settings.tab.audit" },
     { id: "docs", labelKey: "settings.tab.docs" },
     { id: "about", labelKey: "settings.tab.about" },
@@ -328,6 +335,8 @@ function SettingsPageInner({
       </div>
 
       {activeTab === "organization" ? <OrganizationPanel /> : null}
+      {activeTab === "risk" ? <AutoSuggestPanel /> : null}
+      {activeTab === "system" ? <SystemPanel /> : null}
       {activeTab === "branding" ? <BrandingPanel /> : null}
       {activeTab === "auth" ? (
         <div className="flex flex-col gap-5">

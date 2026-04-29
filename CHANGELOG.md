@@ -26,6 +26,32 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-29 — v2.7.0 (Executive polish + extensions — heat map, treatment plans, custom KPIs, broker PDF, auto-suggest tuning, system URL)**. The v2.6.x polish list and the v2.7 extension list shipped together. Eight items in one release; full list below. Council deployments are mostly unchanged — only item 8 (System tab → Domain & URL) ships to both kinds.
+
+  **1. Mobile-shell polish on the Executive modules.** v2.6.2 verified `/today` + `/posture` were mobile-clean; v2.7.0 tightens the remaining modules. Risk register's auto-suggested rows now stack the action buttons below the title on phones (was squishing the title text); Insurance / Scorecard / Board report were already responsive and just got a sanity pass.
+
+  **2. Auto-suggest sensitivity slider** at Settings → Risk register. Four threshold knobs the CISO can tune without code changes — critical CVE age (default 30d), minimum affected device count (default 2), admin-deactivation lookback window (default 7d), high-severity incident SLA (default 24h). Plus an auto-promote toggle that bypasses the suggested-panel review and writes risks straight to status=open. Stored in `app_config.risk.autoSuggest`; engine reads at every sync run. Env-var `MIZAN_AUTO_PROMOTE_SUGGESTIONS=true` still wins for the unattended-automation case.
+
+  **3. Sparklines for count-based KPIs on Today.** v2.6.2 only sparkled the maturity-derived KPIs (overall index, identity / device / compliance sub-scores). v2.7.0 extends to count-based KPIs by reading the raw `signal_snapshots` series — `criticalCveAge`, `privilegedRoleCount`, `highRiskUsers` now render with a 7-point trend line on each tile. Source: new `listSignalSeries(tenant, signal, limit)` helper that reads up to N most-recent rows for a tenant + signal type.
+
+  **4. Insurance broker PDF export.** "Export for broker" button on `/insurance` streams a brand-coloured A4 PDF with one cover + one page per category. Each question carries the effective answer chip (yes/no/n.a./unanswered), evidence line, and source citation (auto-eval vs operator-supplied). Reuses the same enrichment logic as the dashboard page so what the broker sees matches what the CISO sees. New endpoint `/api/insurance/broker-pdf`.
+
+  **5. Risk register 5×5 heat map view.** New `/risk-register` view toggle: "Table" (the existing register) or "Heat map" (a 5×5 impact-likelihood grid where each cell shows the count of risks at that impact-likelihood combo). Cell colour follows the same threshold the rating chip uses (1–6 green, 7–14 amber, 15–25 red). Tap a cell to see the risk titles in that bucket. Three legend swatches at the bottom for the colour key.
+
+  **6. Risk treatment plans.** Each risk in the register can now own 0..N ordered treatment steps with text / owner / due date / status (open / in_progress / done / blocked). New `risk_treatment_steps` table (FK CASCADE on `risk_register.id`), full CRUD via `/api/risk-register/{id}/treatment[/{stepId}]`, modal editor with inline-blur saves and a single explicit "+ Add step" at the bottom. v2.6.0's free-text `mitigation_notes` column stays — treatment steps are additive, not a replacement. Migration v15.
+
+  **7. Custom CISO scorecard KPI formulas.** The 10-pin catalog stays; v2.7.0 adds operator-defined custom KPIs alongside. Builder modal lets the CISO define a label / description / unit / direction / target plus one of two formula shapes:
+    - `signalNumber` — pluck a numeric field from one signal payload (e.g. `incidents.active`, `vulnerabilities.zeroDay`).
+    - `ratio` — divide one signalNumber by another, optionally ×100 for percent (e.g. `devices.compliant / devices.total`).
+  
+  Stored in new `custom_kpi_formulas` table; pinned alongside built-ins on the scorecard page (the picker shows a "Custom" chip on operator-authored entries). Formula JSON is validated by `parseFormula()` server-side and at every eval — malformed payloads return null instead of crashing the page.
+
+  **8. System tab — Domain & URL.** New Settings → System tab (visible in BOTH Council and Executive) that lets the operator change the dashboard's public URL without redeploying or restarting. New `app_config.system.baseUrl` override takes precedence over the `APP_BASE_URL` env var and the auto-detected forwarded host. The panel also shows the three Azure App Registration redirect URIs that need updating after a domain change (Graph signals consent callback, user-auth sign-in callback, directive write consent callback) with a copy button each. v2.7.0 leaves the actual Entra PATCH to the operator (paste into Azure portal); v2.8 will Graph-PATCH them automatically.
+
+  **Schema.** Migration v15 adds `risk_treatment_steps` and `custom_kpi_formulas`. Both additive — Council deployments simply never INSERT into them. No breaking changes.
+
+  **Coverage.** EN + AR strings on every new key. New API endpoints: `/api/config/auto-suggest`, `/api/config/system`, `/api/risk-register/{id}/treatment`, `/api/risk-register/{id}/treatment/{stepId}`, `/api/scorecard/custom-kpis`, `/api/scorecard/custom-kpis/{id}`, `/api/insurance/broker-pdf`. Type-check + production build clean. All 3 Mac Mini demos verified healthy.
+
 - **2026-04-29 — v2.6.4 (Executive setup wizard — single-tenant Graph app, Executive-flavoured copy)**. The `/setup` wizard already auto-creates both Microsoft Entra apps (Graph signals + user sign-in) via device-code flow for both Council and Executive deployments. v2.6.4 fixes two things that were Council-flavoured leftovers when running an Executive install.
 
   **Graph signals app is now single-tenant in Executive.** v2.6.0 always created the app with `signInAudience: "AzureADMultipleOrgs"` because Council's federated entity-onboarding flow needs each entity admin to consent to the same multi-tenant app from their own tenant. Executive deployments don't have other tenants — there's nothing to onboard — and a multi-tenant audience there is unnecessary attack surface (someone could consent the app in a foreign tenant by accident). v2.6.4 picks the audience by `deploymentKind`: `AzureADMyOrg` for Executive, `AzureADMultipleOrgs` for Council. Scope set continues to vary by `deploymentMode` (read-only for observation, read+write for directive) — orthogonal axis, unchanged.

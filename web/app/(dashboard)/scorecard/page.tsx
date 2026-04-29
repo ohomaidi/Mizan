@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Target, Plus, Trash2, Loader2 } from "lucide-react";
+import { Target, Plus, Trash2, Loader2, Wand2 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
+import { CustomKpiBuilderModal } from "@/components/scorecard/CustomKpiBuilderModal";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useFmtNum } from "@/lib/i18n/num";
 import type { DictKey } from "@/lib/i18n/dict";
@@ -26,6 +27,9 @@ type CatalogEntry = {
   defaultTarget: number;
   unit: "percent" | "count" | "hours" | "boolean";
   direction: "higherBetter" | "lowerBetter";
+  /** v2.7.0 — custom (operator-authored) KPIs use the labelKey /
+   *  descriptionKey fields as raw human strings, not dict keys. */
+  isCustom?: boolean;
 };
 
 type Pin = {
@@ -52,6 +56,7 @@ export default function ScorecardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const load = async () => {
@@ -97,14 +102,25 @@ export default function ScorecardPage() {
             {t("scorecard.subtitle")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-council-strong text-white text-[12.5px] font-semibold"
-        >
-          <Plus size={14} />
-          {t("scorecard.pinKpi")}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* v2.7.0 — operator-defined custom KPI builder. */}
+          <button
+            type="button"
+            onClick={() => setBuilderOpen(true)}
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-border text-ink-1 text-[12.5px] font-medium hover:bg-surface-3"
+          >
+            <Wand2 size={14} />
+            {t("scorecard.customKpi")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-council-strong text-white text-[12.5px] font-semibold"
+          >
+            <Plus size={14} />
+            {t("scorecard.pinKpi")}
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -151,6 +167,16 @@ export default function ScorecardPage() {
         pinned={new Set((data?.pins ?? []).map((p) => p.kpi_kind))}
         onPinned={async () => {
           setPickerOpen(false);
+          await load();
+        }}
+      />
+
+      <CustomKpiBuilderModal
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        onCreated={async () => {
+          // Custom KPIs land in the catalog; the picker is the same
+          // place to pin them so we just refresh.
           await load();
         }}
       />
@@ -261,7 +287,12 @@ function PickerModal({
   const onPick = async (entry: CatalogEntry) => {
     setPicking(entry.kind);
     try {
-      const label = t(entry.labelKey as DictKey);
+      // Custom KPIs ship the literal label inline; built-ins use a
+      // dict key that we translate. The pin row gets a stable
+      // human label either way.
+      const label = entry.isCustom
+        ? entry.labelKey
+        : t(entry.labelKey as DictKey);
       await fetch("/api/scorecard/pins", {
         method: "POST",
         body: JSON.stringify({
@@ -297,11 +328,20 @@ function PickerModal({
                 if (!already) onPick(entry);
               }}
             >
-              <div className="text-[12.5px] font-semibold text-ink-1">
-                {t(entry.labelKey as DictKey)}
+              <div className="text-[12.5px] font-semibold text-ink-1 inline-flex items-center gap-1.5">
+                {entry.isCustom
+                  ? entry.labelKey
+                  : t(entry.labelKey as DictKey)}
+                {entry.isCustom ? (
+                  <span className="text-[9.5px] uppercase tracking-[0.06em] text-council-strong bg-council-strong/10 rounded px-1.5 py-0.5">
+                    {t("scorecard.picker.custom")}
+                  </span>
+                ) : null}
               </div>
               <div className="text-[11px] text-ink-3 leading-relaxed mt-1">
-                {t(entry.descriptionKey as DictKey)}
+                {entry.isCustom
+                  ? entry.descriptionKey || ""
+                  : t(entry.descriptionKey as DictKey)}
               </div>
               <div className="text-[10.5px] text-ink-3 tabular mt-1">
                 {t("scorecard.picker.defaultTarget", {

@@ -9,9 +9,13 @@ import {
   X,
   Trash2,
   Loader2,
+  List,
+  Grid3x3,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
+import { RiskHeatMap } from "@/components/risk-register/RiskHeatMap";
+import { TreatmentPlanModal } from "@/components/risk-register/TreatmentPlanModal";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
 import { useFmtNum } from "@/lib/i18n/num";
 import { useFmtRelative } from "@/lib/i18n/time";
@@ -64,6 +68,12 @@ export default function RiskRegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+  // v2.7.0 — toggle between table view and 5×5 heat map.
+  const [view, setView] = useState<"table" | "heat">("table");
+  // v2.7.0 — treatment plan modal state.
+  const [planRisk, setPlanRisk] = useState<{ id: number; title: string } | null>(
+    null,
+  );
 
   const load = async () => {
     setError(null);
@@ -160,23 +170,31 @@ export default function RiskRegisterPage() {
           />
           <ul className="divide-y divide-border">
             {suggested.map((r) => (
-              <li key={r.id} className="py-3 flex items-start gap-3">
-                <RiskRatingChip rating={r.residual_rating} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13.5px] font-semibold text-ink-1">
-                    {r.title}
-                  </div>
-                  {r.description ? (
-                    <div className="text-[12px] text-ink-2 leading-relaxed mt-0.5">
-                      {r.description}
+              // Mobile: row stacks vertically (chip + body, then actions
+              // wrap below). Desktop (sm+): single horizontal row with
+              // actions pinned right. v2.7.0 mobile pass.
+              <li
+                key={r.id}
+                className="py-3 flex flex-col sm:flex-row sm:items-start gap-3"
+              >
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <RiskRatingChip rating={r.residual_rating} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13.5px] font-semibold text-ink-1">
+                      {r.title}
                     </div>
-                  ) : null}
-                  <div className="text-[10.5px] text-ink-3 mt-1">
-                    {t("risk.suggested.source", { source: r.source })} ·{" "}
-                    {r.suggested_at ? fmtRelative(r.suggested_at) : ""}
+                    {r.description ? (
+                      <div className="text-[12px] text-ink-2 leading-relaxed mt-0.5">
+                        {r.description}
+                      </div>
+                    ) : null}
+                    <div className="text-[10.5px] text-ink-3 mt-1">
+                      {t("risk.suggested.source", { source: r.source })} ·{" "}
+                      {r.suggested_at ? fmtRelative(r.suggested_at) : ""}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 ms-9 sm:ms-0">
                   <button
                     onClick={() => onAcceptOrDismiss(r.id, "accept")}
                     disabled={busyId === r.id}
@@ -206,11 +224,47 @@ export default function RiskRegisterPage() {
 
       {/* Active register */}
       <Card className="p-0">
-        <div className="p-5 border-b border-border">
+        <div className="p-5 border-b border-border flex items-start justify-between gap-3 flex-wrap">
           <CardHeader
             title={t("risk.active.title")}
             subtitle={t("risk.active.subtitle", { count: fmt(active.length) })}
           />
+          {/* v2.7.0 — view toggle. Heat map shows the 5×5 matrix
+              of impact × likelihood with risk counts per cell. */}
+          <div
+            role="tablist"
+            aria-label={t("risk.viewToggle.aria")}
+            className="inline-flex h-9 rounded-md border border-border overflow-hidden"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "table"}
+              onClick={() => setView("table")}
+              className={`inline-flex items-center gap-1.5 px-3 text-[12.5px] ${
+                view === "table"
+                  ? "bg-surface-3 text-ink-1 font-medium"
+                  : "text-ink-2 hover:text-ink-1"
+              }`}
+            >
+              <List size={13} />
+              {t("risk.view.table")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "heat"}
+              onClick={() => setView("heat")}
+              className={`inline-flex items-center gap-1.5 px-3 text-[12.5px] border-s border-border ${
+                view === "heat"
+                  ? "bg-surface-3 text-ink-1 font-medium"
+                  : "text-ink-2 hover:text-ink-1"
+              }`}
+            >
+              <Grid3x3 size={13} />
+              {t("risk.view.heat")}
+            </button>
+          </div>
         </div>
         {loading ? (
           <div className="p-6 text-center text-[12.5px] text-ink-3">
@@ -220,6 +274,8 @@ export default function RiskRegisterPage() {
           <div className="p-6 text-center text-[12.5px] text-ink-3">
             {t("risk.active.empty")}
           </div>
+        ) : view === "heat" ? (
+          <RiskHeatMap risks={active} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
@@ -271,14 +327,25 @@ export default function RiskRegisterPage() {
                       <RiskStatusChip status={r.status} />
                     </td>
                     <td className="py-3 pe-5 text-end">
-                      <button
-                        onClick={() => onDelete(r.id)}
-                        disabled={busyId === r.id}
-                        className="inline-flex items-center justify-center h-7 w-7 rounded border border-border hover:text-neg hover:border-neg/40 text-ink-3 disabled:opacity-50"
-                        aria-label={t("risk.col.delete")}
-                      >
-                        <Trash2 size={12} />
-                      </button>
+                      <div className="inline-flex items-center gap-1">
+                        {/* v2.7.0 — open treatment plan modal */}
+                        <button
+                          onClick={() =>
+                            setPlanRisk({ id: r.id, title: r.title })
+                          }
+                          className="inline-flex items-center gap-1 h-7 px-2 rounded border border-border hover:bg-surface-3 text-[11px] text-ink-2"
+                        >
+                          {t("risk.col.plan")}
+                        </button>
+                        <button
+                          onClick={() => onDelete(r.id)}
+                          disabled={busyId === r.id}
+                          className="inline-flex items-center justify-center h-7 w-7 rounded border border-border hover:text-neg hover:border-neg/40 text-ink-3 disabled:opacity-50"
+                          aria-label={t("risk.col.delete")}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -295,6 +362,13 @@ export default function RiskRegisterPage() {
           setCreateOpen(false);
           await load();
         }}
+      />
+
+      <TreatmentPlanModal
+        open={planRisk !== null}
+        riskId={planRisk?.id ?? null}
+        riskTitle={planRisk?.title ?? ""}
+        onClose={() => setPlanRisk(null)}
       />
     </div>
   );

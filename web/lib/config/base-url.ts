@@ -18,6 +18,17 @@ import { config } from "@/lib/config";
  * URL at render time.
  */
 export async function resolveAppBaseUrl(): Promise<string> {
+  // v2.7.0 — operator-set DB override wins. Set via Settings →
+  // System → Domain & URL when the operator moves to a custom
+  // domain. Lets the wizard reconfigure the dashboard URL without
+  // restarting / redeploying. Empty string = unset, fall through.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getSystemConfig } = require("@/lib/config/system-config") as {
+    getSystemConfig: () => { baseUrl: string };
+  };
+  const stored = getSystemConfig().baseUrl;
+  if (stored.length > 0) return stored;
+
   const envBase = (config.appBaseUrl ?? "").trim();
   if (envBase.length > 0) return envBase.replace(/\/+$/, "");
   try {

@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/risk-register";
 import { listTenants } from "@/lib/db/tenants";
 import { getLatestSnapshot } from "@/lib/db/signals";
+import { getAutoSuggestConfig } from "@/lib/config/auto-suggest-config";
 import type {
   IncidentsPayload,
   PimSprawlPayload,
@@ -33,8 +34,19 @@ import type {
  * only.
  */
 
-const AUTO_PROMOTE =
-  (process.env.MIZAN_AUTO_PROMOTE_SUGGESTIONS ?? "").toLowerCase() === "true";
+/**
+ * Auto-promote can be flipped two ways: env var (legacy v2.6.0 escape
+ * hatch for unattended automation) OR the per-deployment config knob
+ * landed in v2.7.0 — UI on Settings → Risk register. ENV wins so a
+ * fresh-install demo with the env set still bypasses review even
+ * before the config knob is touched.
+ */
+function autoPromoteEnabled(): boolean {
+  if ((process.env.MIZAN_AUTO_PROMOTE_SUGGESTIONS ?? "").toLowerCase() === "true") {
+    return true;
+  }
+  return getAutoSuggestConfig().autoPromote;
+}
 
 function suggestRisk(opts: {
   source: RiskSource;
@@ -54,11 +66,9 @@ function suggestRisk(opts: {
     owner: opts.owner,
     source: opts.source,
     relatedSignal: opts.relatedSignal,
-    status: AUTO_PROMOTE ? "open" : "suggested",
+    status: autoPromoteEnabled() ? "open" : "suggested",
   });
 }
-
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Walk every tenant's latest signal snapshots and emit suggestions
@@ -66,10 +76,20 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
  * filtered by `hasActiveSuggestion`.
  */
 export function runAutoSuggestRules(): void {
+  // Pull thresholds once per run so the operator's slider edit is
+  // honoured immediately on the next sync. v2.7.0 — was hardcoded
+  // before. Each rule reads its knob from the config object below.
+  const cfg = getAutoSuggestConfig();
+  const cveAgeMs = cfg.cveAgeDays * 24 * 60 * 60 * 1000;
+  const deactivationWindowMs =
+    cfg.deactivationWindowDays * 24 * 60 * 60 * 1000;
+  const incidentOpenMs = cfg.incidentOpenHours * 60 * 60 * 1000;
+
   for (const t of listTenants()) {
     if (t.consent_status !== "consented" && t.is_demo === 0) continue;
 
-    // Rule 1 — Critical CVE > 30 days unpatched on > 1 device.
+    // Rule 1 — Critical CVE older than `cveAgeDays` on at least
+    // `cveMinDevices` devices.
     try {
       const vuln = getLatestSnapshot<VulnerabilitiesPayload>(
         t.id,
@@ -78,16 +98,16 @@ export function runAutoSuggestRules(): void {
       if (vuln?.payload?.topCves) {
         for (const cve of vuln.payload.topCves) {
           if (cve.severity !== "Critical") continue;
-          if ((cve.affectedDevices ?? 0) < 2) continue;
+          if ((cve.affectedDevices ?? 0) < cfg.cveMinDevices) continue;
           if (!cve.publishedDateTime) continue;
           const ageMs =
             Date.now() - new Date(cve.publishedDateTime).getTime();
-          if (ageMs < THIRTY_DAYS_MS) continue;
+          if (ageMs < cveAgeMs) continue;
           suggestRisk({
             source: "auto-cve",
             relatedSignal: cve.cveId,
-            title: `Critical CVE ${cve.cveId} unpatched on ${cve.affectedDevices} devices > 30 days`,
-            description: `Microsoft Defender Vulnerability Management has surfaced ${cve.cveId} (severity ${cve.severity}, ${cve.affectedDevices} affected devices) for more than 30 days without remediation. ${cve.recommendedFix ?? ""}`,
+            title: `Critical CVE ${cve.cveId} unpatched on ${cve.affectedDevices} devices > ${cfg.cveAgeDays} days`,
+            description: `Microsoft Defender Vulnerability Management has surfaced ${cve.cveId} (severity ${cve.severity}, ${cve.affectedDevices} affected devices) for more than ${cfg.cveAgeDays} days without remediation. ${cve.recommendedFix ?? ""}`,
             impact: 5,
             likelihood: 4,
           });
@@ -97,13 +117,13 @@ export function runAutoSuggestRules(): void {
       /* tolerate snapshot parse fail */
     }
 
-    // Rule 2 — Admin deactivation event in last 7 days.
+    // Rule 2 — Admin deactivation in last `deactivationWindowDays` days.
     try {
       const pim = getLatestSnapshot<PimSprawlPayload>(t.id, "pimSprawl");
       if (pim?.payload?.recentAdminDeactivations) {
-        const sevenDays = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - deactivationWindowMs;
         for (const d of pim.payload.recentAdminDeactivations) {
-          if (new Date(d.activityDateTime).getTime() < sevenDays) continue;
+          if (new Date(d.activityDateTime).getTime() < cutoff) continue;
           const upn = d.targetUserPrincipalName ?? d.auditId;
           suggestRisk({
             source: "auto-deactivation",
@@ -119,20 +139,20 @@ export function runAutoSuggestRules(): void {
       /* tolerate */
     }
 
-    // Rule 3 — Active high-severity incident open > 24h.
+    // Rule 3 — Active high-severity incident open > `incidentOpenHours`.
     try {
       const inc = getLatestSnapshot<IncidentsPayload>(t.id, "incidents");
       if (inc?.payload?.incidents) {
-        const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - incidentOpenMs;
         for (const item of inc.payload.incidents) {
           if (item.severity !== "high") continue;
           if (item.status !== "active") continue;
-          if (new Date(item.createdDateTime).getTime() > dayAgo) continue;
+          if (new Date(item.createdDateTime).getTime() > cutoff) continue;
           suggestRisk({
             source: "auto-incident",
             relatedSignal: item.id,
-            title: `High-severity incident open > 24h: ${item.displayName}`,
-            description: `Defender XDR incident ${item.id} (severity ${item.severity}) has been open since ${item.createdDateTime} without resolution. SLA breach.`,
+            title: `High-severity incident open > ${cfg.incidentOpenHours}h: ${item.displayName}`,
+            description: `Defender XDR incident ${item.id} (severity ${item.severity}) has been open since ${item.createdDateTime} without resolution. SLA breach (${cfg.incidentOpenHours}h threshold).`,
             impact: 5,
             likelihood: 5,
           });

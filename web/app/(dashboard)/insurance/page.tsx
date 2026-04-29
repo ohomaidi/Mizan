@@ -8,6 +8,7 @@ import {
   Minus,
   Sparkles,
   Loader2,
+  FileDown,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
@@ -141,6 +142,14 @@ export default function InsurancePage() {
             </p>
           ) : null}
         </div>
+        {/* v2.7.0: broker PDF export */}
+        <a
+          href="/api/insurance/broker-pdf"
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-md bg-council-strong text-white text-[12.5px] font-semibold"
+        >
+          <FileDown size={14} />
+          {t("insurance.exportBroker")}
+        </a>
       </div>
 
       {error ? (
