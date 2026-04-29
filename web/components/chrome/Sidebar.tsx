@@ -19,6 +19,8 @@ import {
   ShieldCheck,
   FileText,
   Target,
+  Sun,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DataSourcesPanel } from "./DataSourcesPanel";
@@ -53,65 +55,31 @@ type NavEntry = NavItem | NavSeparator;
 /**
  * Navigation table — single source of truth for sidebar order.
  *
- * Council mode (current default) shows the multi-tenant chrome: a flat
- * list of entity-aware pages plus directive surfaces.
+ * Council mode is the multi-tenant chrome: maturity overview, list of
+ * consented entities, per-domain operational surfaces, governance,
+ * directive (when enabled), settings, FAQ.
  *
- * Executive mode (v2.6.0) reframes the dashboard for a single-org CISO:
- * "Maturity" → "Posture overview", "Governance" → "Compliance",
- * Entities link is hidden, and three new modules unlock — Risk register,
- * Cyber insurance readiness, Board report — each grouped under a
- * section heading so the sidebar reads as a CISO workspace, not a
- * federation tool.
+ * Executive mode (v2.6.0 introduced; v2.6.1 redesigned) is reshaped
+ * for a single-org CISO. Today is the daily-driver home; Posture is
+ * a single tabbed page that consolidates what Council splits across
+ * Identity / Devices / Data / Threats / Vulnerabilities; Compliance
+ * folds in Directive as a single framework view; Risk / Scorecard /
+ * Insurance / Board sit grouped underneath. The flat list of
+ * Identity/Devices/etc + Entities is hidden — for a CISO with one
+ * tenant, those drill-downs are inside Posture, not separate stops.
  *
- * Each entry can opt out of one mode via `showWhen` so a single table
- * drives both kinds without duplicating the list.
+ * Two distinct sequences keep the IA crisp instead of overloading
+ * one list with dense `showWhen` predicates.
  */
-const NAV: NavEntry[] = [
-  // Top of the sidebar — common to both kinds, just labelled differently.
-  {
-    kind: "link",
-    href: "/maturity",
-    labelKey: "nav.maturity", // dict swaps to "Posture overview" in Executive — done at lookup time
-    icon: LayoutDashboard,
-  },
-  // Council-only: list of consented entities.
-  {
-    kind: "link",
-    href: "/entities",
-    labelKey: "nav.entities",
-    icon: Building2,
-    showWhen: (s) => s.deploymentKind === "council",
-  },
-  // Per-domain operational surfaces. Order in Executive bumps Identity
-  // higher because admin governance is the loudest CISO concern.
+const COUNCIL_NAV: NavEntry[] = [
+  { kind: "link", href: "/maturity", labelKey: "nav.maturity", icon: LayoutDashboard },
+  { kind: "link", href: "/entities", labelKey: "nav.entities", icon: Building2 },
   { kind: "link", href: "/identity", labelKey: "nav.identity", icon: UserCog },
-  {
-    kind: "link",
-    href: "/devices",
-    labelKey: "nav.devices",
-    icon: MonitorSmartphone,
-  },
+  { kind: "link", href: "/devices", labelKey: "nav.devices", icon: MonitorSmartphone },
   { kind: "link", href: "/data", labelKey: "nav.data", icon: Files },
-  {
-    kind: "link",
-    href: "/threats",
-    labelKey: "nav.threats",
-    icon: ShieldAlert,
-  },
-  {
-    kind: "link",
-    href: "/governance",
-    labelKey: "nav.governance",
-    icon: Scale,
-  },
-  {
-    kind: "link",
-    href: "/vulnerabilities",
-    labelKey: "nav.vulnerabilities",
-    icon: Bug,
-  },
-  // Directive-only across both kinds. Council = push to entities;
-  // Executive = push to self.
+  { kind: "link", href: "/threats", labelKey: "nav.threats", icon: ShieldAlert },
+  { kind: "link", href: "/governance", labelKey: "nav.governance", icon: Scale },
+  { kind: "link", href: "/vulnerabilities", labelKey: "nav.vulnerabilities", icon: Bug },
   {
     kind: "link",
     href: "/directive",
@@ -119,71 +87,31 @@ const NAV: NavEntry[] = [
     icon: Gavel,
     showWhen: (s) => s.deploymentMode === "directive",
   },
-  // ── Risk management section (Executive only) ──
-  {
-    kind: "separator",
-    labelKey: "nav.section.riskMgmt",
-    showWhen: (s) => s.deploymentKind === "executive",
-  },
-  {
-    kind: "link",
-    href: "/risk-register",
-    labelKey: "nav.riskRegister",
-    icon: AlertTriangle,
-    showWhen: (s) => s.deploymentKind === "executive",
-  },
-  {
-    kind: "link",
-    href: "/insurance",
-    labelKey: "nav.insurance",
-    icon: ShieldCheck,
-    showWhen: (s) => s.deploymentKind === "executive",
-  },
-  // ── Reports section (Executive only) ──
-  {
-    kind: "separator",
-    labelKey: "nav.section.reports",
-    showWhen: (s) => s.deploymentKind === "executive",
-  },
-  {
-    kind: "link",
-    href: "/board-report",
-    labelKey: "nav.boardReport",
-    icon: FileText,
-    showWhen: (s) => s.deploymentKind === "executive",
-  },
-  {
-    kind: "link",
-    href: "/scorecard",
-    labelKey: "nav.scorecard",
-    icon: Target,
-    showWhen: (s) => s.deploymentKind === "executive",
-  },
-  // Bottom — common.
-  {
-    kind: "link",
-    href: "/settings",
-    labelKey: "nav.settings",
-    icon: Settings,
-  },
+  { kind: "link", href: "/settings", labelKey: "nav.settings", icon: Settings },
   { kind: "link", href: "/faq", labelKey: "nav.faq", icon: HelpCircle },
 ];
 
-/**
- * For nav labels that read differently per kind (e.g. "Maturity"
- * → "Posture overview" on Executive; "Governance" → "Compliance"),
- * resolve the right dict key at render time. Keeps the NAV table
- * single-source.
- */
-function resolveLabelKey(
-  base: DictKey,
-  kind: "council" | "executive",
-): DictKey {
-  if (kind !== "executive") return base;
-  if (base === "nav.maturity") return "nav.posture";
-  if (base === "nav.governance") return "nav.compliance";
-  return base;
-}
+const EXECUTIVE_NAV: NavEntry[] = [
+  // Daily driver — first entry, no separator needed.
+  { kind: "link", href: "/today", labelKey: "nav.today", icon: Sun },
+  { kind: "link", href: "/posture", labelKey: "nav.posture", icon: Activity },
+  { kind: "link", href: "/governance", labelKey: "nav.compliance", icon: Scale },
+
+  // ── Risk management ──
+  { kind: "separator", labelKey: "nav.section.riskMgmt" },
+  { kind: "link", href: "/risk-register", labelKey: "nav.riskRegister", icon: AlertTriangle },
+  { kind: "link", href: "/scorecard", labelKey: "nav.scorecard", icon: Target },
+
+  // ── Reports ──
+  { kind: "separator", labelKey: "nav.section.reports" },
+  { kind: "link", href: "/insurance", labelKey: "nav.insurance", icon: ShieldCheck },
+  { kind: "link", href: "/board-report", labelKey: "nav.boardReport", icon: FileText },
+
+  // ── Workspace ──
+  { kind: "separator", labelKey: "nav.section.bottom" },
+  { kind: "link", href: "/settings", labelKey: "nav.settings", icon: Settings },
+  { kind: "link", href: "/faq", labelKey: "nav.faq", icon: HelpCircle },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -213,7 +141,10 @@ export function Sidebar() {
     };
   }, []);
 
-  const items = NAV.filter((entry) =>
+  // Pick the IA based on deploymentKind, then apply per-entry gates
+  // (e.g. Council's directive entry hides in observation mode).
+  const source = gate.deploymentKind === "executive" ? EXECUTIVE_NAV : COUNCIL_NAV;
+  const items = source.filter((entry) =>
     !entry.showWhen ? true : entry.showWhen(gate),
   );
 
@@ -236,7 +167,6 @@ export function Sidebar() {
               );
             }
             const { href, labelKey, icon: Icon } = entry;
-            const resolved = resolveLabelKey(labelKey, gate.deploymentKind);
             const active =
               pathname === href || pathname.startsWith(`${href}/`);
             return (
@@ -252,7 +182,7 @@ export function Sidebar() {
                   )}
                 >
                   <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
-                  <span>{t(resolved)}</span>
+                  <span>{t(labelKey)}</span>
                 </Link>
               </li>
             );

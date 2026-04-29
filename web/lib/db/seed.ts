@@ -714,7 +714,16 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   const row = db
     .prepare("SELECT COUNT(*) AS n FROM tenants WHERE is_demo = 1")
     .get() as { n: number };
-  if (row.n > 0) return;
+  if (row.n > 0) {
+    // Even when demos are already on disk, the v2.6.1 Executive Mode
+    // change-feed needs 7d-old signal rows. The helper is idempotent
+    // (no-ops if the rows already exist) so it's safe to run every
+    // boot — and necessary for installs that pre-date v2.6.1.
+    if (customer === "dubaiairports") {
+      seedExecutiveChangeFeedHistoryIfAbsent(db);
+    }
+    return;
+  }
 
   const insertTenant = db.prepare(
     `INSERT INTO tenants (id, tenant_id, name_en, name_ar, cluster, domain, ciso, ciso_email,
@@ -1345,6 +1354,16 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   // Also backfill 90 days of maturity snapshots so the trend chart on
   // Entity Detail lands populated on fresh installs.
   seedDemoMaturityTrend(db);
+
+  // v2.6.1 — Executive Mode Today page change feed needs 7-day-old
+  // signal snapshots to compute deltas against. The main seed only
+  // writes the latest row per signal type. For the dubaiairports
+  // demo we append four backdated rows (vulnerabilities, pimSprawl,
+  // incidents, riskyUsers) so the change feed lights up immediately
+  // on first boot with realistic events.
+  if (customer === "dubaiairports") {
+    seedExecutiveChangeFeedHistoryIfAbsent(db);
+  }
 }
 
 // ————————————————————————————————————————
@@ -2233,6 +2252,194 @@ export function seedDemoMaturityTrend(db: Database.Database): number {
   });
   tx();
   return totalRows;
+}
+
+/**
+ * Executive-mode Today change-feed seed.
+ *
+ * Writes 7-day-old variants of four signal types (vulnerabilities,
+ * pimSprawl, incidents, riskyUsers) for the dubaiairports demo so
+ * the home page change feed renders realistic deltas on first boot.
+ * The numbers below produce a coherent narrative: "we added 2 new
+ * critical CVEs, opened a high-severity incident, the privileged
+ * role count crept up by 1, and one more user landed on the high-
+ * risk list — most things directionally bad, which is the kind of
+ * morning a CISO actually walks into."
+ *
+ * Idempotent — bails if a 7d-old vulnerability snapshot already
+ * exists for the tenant. Reads the current latest snapshot to derive
+ * "before" values so the demo stays consistent if the main seed's
+ * numbers ever drift.
+ *
+ * v2.6.1.
+ */
+function seedExecutiveChangeFeedHistoryIfAbsent(db: Database.Database): void {
+  const tenant = db
+    .prepare(
+      "SELECT id FROM tenants WHERE id = 'dubaiairports' AND is_demo = 1 LIMIT 1",
+    )
+    .get() as { id: string } | undefined;
+  if (!tenant) return;
+
+  // Idempotency: skip if any 7d-old vulnerability snapshot already
+  // landed for DA (means this helper or a prior seed already ran).
+  const existing = db
+    .prepare(
+      `SELECT 1 FROM signal_snapshots
+        WHERE tenant_id = 'dubaiairports'
+          AND signal_type = 'vulnerabilities'
+          AND fetched_at <= datetime('now', '-6 days')
+        LIMIT 1`,
+    )
+    .get();
+  if (existing) return;
+
+  type Row = { payload: string };
+  const latestVuln = db
+    .prepare(
+      `SELECT payload FROM signal_snapshots
+        WHERE tenant_id = 'dubaiairports' AND signal_type = 'vulnerabilities'
+        ORDER BY fetched_at DESC LIMIT 1`,
+    )
+    .get() as Row | undefined;
+  const latestPim = db
+    .prepare(
+      `SELECT payload FROM signal_snapshots
+        WHERE tenant_id = 'dubaiairports' AND signal_type = 'pimSprawl'
+        ORDER BY fetched_at DESC LIMIT 1`,
+    )
+    .get() as Row | undefined;
+  const latestInc = db
+    .prepare(
+      `SELECT payload FROM signal_snapshots
+        WHERE tenant_id = 'dubaiairports' AND signal_type = 'incidents'
+        ORDER BY fetched_at DESC LIMIT 1`,
+    )
+    .get() as Row | undefined;
+  const latestRisky = db
+    .prepare(
+      `SELECT payload FROM signal_snapshots
+        WHERE tenant_id = 'dubaiairports' AND signal_type = 'riskyUsers'
+        ORDER BY fetched_at DESC LIMIT 1`,
+    )
+    .get() as Row | undefined;
+
+  const insertDated = db.prepare(
+    `INSERT INTO signal_snapshots (tenant_id, signal_type, ok, http_status, payload, fetched_at)
+     VALUES ('dubaiairports', @signal_type, 1, 200, @payload, @fetched_at)`,
+  );
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000)
+    .toISOString()
+    .replace("T", " ")
+    .slice(0, 19);
+
+  // Vulnerabilities — 7d ago we had 2 fewer critical CVEs.
+  if (latestVuln) {
+    try {
+      const cur = JSON.parse(latestVuln.payload) as {
+        critical?: number;
+        high?: number;
+        medium?: number;
+        low?: number;
+        total?: number;
+        zeroDay?: number;
+        affectedDevices?: number;
+      };
+      const prior = {
+        ...cur,
+        critical: Math.max(0, (cur.critical ?? 0) - 2),
+        total: Math.max(0, (cur.total ?? 0) - 2),
+        zeroDay: cur.zeroDay ?? 0,
+      };
+      insertDated.run({
+        signal_type: "vulnerabilities",
+        payload: JSON.stringify(prior),
+        fetched_at: sevenDaysAgo,
+      });
+    } catch {
+      /* ignore malformed seed */
+    }
+  }
+
+  // PIM — 7d ago privileged role count was 1 lower.
+  if (latestPim) {
+    try {
+      const cur = JSON.parse(latestPim.payload) as {
+        privilegedRoleAssignments?: number;
+        activeAssignments?: number;
+        eligibleAssignments?: number;
+        byRole?: unknown;
+        recentAdminDeactivations?: unknown[];
+      };
+      const prior = {
+        ...cur,
+        privilegedRoleAssignments: Math.max(
+          0,
+          (cur.privilegedRoleAssignments ?? 0) - 1,
+        ),
+        // No deactivations 7d ago — they're "this week" events.
+        recentAdminDeactivations: [],
+      };
+      insertDated.run({
+        signal_type: "pimSprawl",
+        payload: JSON.stringify(prior),
+        fetched_at: sevenDaysAgo,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Incidents — 7d ago we had 1 fewer active incident.
+  if (latestInc) {
+    try {
+      const cur = JSON.parse(latestInc.payload) as {
+        total?: number;
+        active?: number;
+        resolved?: number;
+        bySeverity?: Record<string, number>;
+        incidents?: unknown[];
+      };
+      const prior = {
+        ...cur,
+        total: Math.max(0, (cur.total ?? 0) - 1),
+        active: Math.max(0, (cur.active ?? 0) - 1),
+      };
+      insertDated.run({
+        signal_type: "incidents",
+        payload: JSON.stringify(prior),
+        fetched_at: sevenDaysAgo,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Risky users — 7d ago we had 1 fewer high-risk user.
+  if (latestRisky) {
+    try {
+      const cur = JSON.parse(latestRisky.payload) as {
+        total?: number;
+        highRisk?: number;
+        mediumRisk?: number;
+        lowRisk?: number;
+        atRisk?: number;
+        users?: unknown[];
+      };
+      const prior = {
+        ...cur,
+        highRisk: Math.max(0, (cur.highRisk ?? 0) - 1),
+        total: Math.max(0, (cur.total ?? 0) - 1),
+      };
+      insertDated.run({
+        signal_type: "riskyUsers",
+        payload: JSON.stringify(prior),
+        fetched_at: sevenDaysAgo,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function clamp(n: number): number {

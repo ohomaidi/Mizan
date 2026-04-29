@@ -26,6 +26,29 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-29 — v2.6.1 (Executive Mode IA redesign — Today + Posture)**. Fast follow on v2.6.0 in response to navigation feedback: the v2.6.0 Executive sidebar was a Council clone with hidden entries, and landing on Entity detail then bouncing to `/maturity` left no clear "home." v2.6.1 reshapes Executive Mode into its own information architecture — designed for one CISO, one organisation, daily driver — and stops borrowing the multi-tenant federation chrome.
+
+  **New IA (Executive only — Council unchanged).** Sidebar drops from 14 to 9 entries, in three groups:
+    1. **Today** — `/today`, the home. Single scroll. Hero = Maturity Index + 7-day delta + sub-score mini-radar. Below: top open risks + open incidents + quick actions (Add risk / Update insurance / Generate board PDF). Below that: pinned CISO KPI tiles. Bottom: 7-day change feed.
+    2. **Posture** — `/posture`, single tabbed page replacing what Council shows as five separate sidebar entries (Identity / Devices / Data / Threats / Vulnerabilities). Estate-wide six-axis radar at top, tab pills below, each tab pulls 3-4 headline KPIs from existing signals + a "Detailed view" link to the existing per-domain page (still routable, just demoted from primary nav).
+    3. **Compliance** — `/governance` rendered with single-framework copy ("Compliance" eyebrow, no multi-framework picker). On directive deployments, a "Directive actions" callout card folds the directive surface in as a sub-section.
+
+  **Sidebar groups:** Today / Posture / Compliance · ── Risk management ── Risk register · CISO scorecard · ── Reports ── Cyber insurance · Board report · ── Workspace ── Settings · FAQ.
+
+  **Demoted from Executive nav** (still routable, just hidden from primary nav): `/entities`, `/maturity`, `/identity`, `/devices`, `/data`, `/threats`, `/vulnerabilities`. They keep working for deep-links and Posture's "Detailed view" jumps, but Executive users navigate by domain (Posture) not by signal source.
+
+  **`/today` change feed.** Derived from snapshot deltas — no new tables. Five rules: maturity index up/down (vs ≥7d-old snapshot), critical CVE additions / clearances, new zero-day exposure (always alert), privileged admin deactivations in last 7d, privileged role count drift, incidents opened/resolved, risky users grew/shrunk. Severity tier (alert / warn / info) drives chip colour; magnitude drives sort order so the noisiest things land at the top. Capped at 8 events — anything more belongs in Posture.
+
+  **`/posture` page.** Server component with URL-driven tabs (`?tab=identity`) so the back button works and deep-links share. Estate radar at top; per-tab KPIs computed from the existing signal payloads (RiskyUsers / PimSprawl / Devices / Incidents / SensitivityLabels / DLP alerts / Vulnerabilities). Each tab carries a "Detailed view" link to the existing per-domain page.
+
+  **Server-side i18n.** New `lib/i18n/dict.server.ts` exports `getTranslator()` so server components (Today, Posture) translate without round-tripping to the client. `LocaleProvider` mirrors the locale to a `mizan-locale` cookie alongside localStorage so server reads the user's language correctly. Backfills the cookie on initial mount for users with pre-v2.6.1 sessions.
+
+  **Demo data for `da.zaatarlabs.com`.** `seedExecutiveChangeFeedHistoryIfAbsent` writes 7-day-old variants of vulnerabilities / pimSprawl / incidents / riskyUsers signals so the change feed lights up with realistic events on first boot: "2 new critical CVEs", "Admin role assignments +1", "1 new incident opened", "+1 high-risk user." Idempotent, runs every boot — picks up existing v2.6.0 demos that pre-date this seed.
+
+  **Sidebar refactor.** `NAV` table split into `COUNCIL_NAV` and `EXECUTIVE_NAV`, each their own ordered list. Removes the dense `showWhen` predicates that overloaded one shared list. Each nav also still applies per-entry gates (e.g. Council hides `/directive` in observation mode).
+
+  EN + AR coverage on every new key. No DB migrations. No breaking changes — Council deployments boot unchanged; v2.6.0 Executive deployments pick up the IA reshape automatically.
+
 - **2026-04-29 — v2.6.0 (Mizan Executive Mode unlocked)**. The biggest release since v2.0. Mizan now ships in two install kinds from the same image: **Council** (regulator watching N entities — current SCSC / DESC behavior, unchanged) and **Executive** (single-org CISO dashboard — new). Selectable at first-run `/setup`, locked for life of the deployment. Triggering customer: Dubai Airports — demo live at `da.zaatarlabs.com`.
 
   **Architecture.** New `deploymentKind` flag (`council` | `executive`) in `app_config`. Mirrors the existing `deploymentMode` semantics — set once via the wizard, lock-after-first-write, env fallback `MIZAN_DEPLOYMENT_KIND` for Mac demos / preset installers. Both dimensions are independent: SCSC = council+observation, DESC = council+directive, Dubai Airports = executive+directive. `/api/whoami` exposes `deploymentKind` so every client component branches at the chrome layer. **No fork** — full deferred-feature roadmap captured in `docs/16-executive-mode-roadmap.md`.

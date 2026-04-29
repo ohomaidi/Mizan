@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Scale, ChevronRight } from "lucide-react";
+import { Scale, ChevronRight, Gavel, ArrowRight } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiTile } from "@/components/ui/KpiTile";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/States";
@@ -37,18 +37,26 @@ export default function GovernancePage() {
   // backing it, and per-entity coverage rollup.
   const [openClauseId, setOpenClauseId] = useState<string | null>(null);
   // v2.6.0 — Executive mode hides the "By entity" rollup since N=1.
+  // v2.6.1 — Executive also relabels Governance → Compliance (matches the
+  // sidebar copy) and folds in a Directive actions card so the operator
+  // doesn't lose the directive surface that used to be its own nav stop.
   const [isExecutive, setIsExecutive] = useState(false);
+  const [deploymentMode, setDeploymentMode] = useState<
+    "observation" | "directive"
+  >("observation");
   useEffect(() => {
     let alive = true;
     api
       .whoami()
       .then((r) => {
+        if (!alive) return;
         if (
-          alive &&
           (r as { deploymentKind?: string }).deploymentKind === "executive"
         ) {
           setIsExecutive(true);
         }
+        const mode = (r as { deploymentMode?: string }).deploymentMode;
+        if (mode === "directive") setDeploymentMode("directive");
       })
       .catch(() => {});
     return () => {
@@ -102,13 +110,39 @@ export default function GovernancePage() {
       <div>
         <div className="eyebrow">
           <Scale size={11} className="inline -mt-0.5 me-1" />
-          {t("gov.eyebrow")}
+          {isExecutive ? t("compliance.eyebrow") : t("gov.eyebrow")}
         </div>
         <h1 className="text-2xl font-semibold text-ink-1 mt-1 tracking-tight">
-          {t("gov.title")}
+          {isExecutive ? t("compliance.title") : t("gov.title")}
         </h1>
-        <p className="text-ink-2 text-[13px] mt-1 max-w-3xl">{t("gov.subtitle")}</p>
+        <p className="text-ink-2 text-[13px] mt-1 max-w-3xl">
+          {isExecutive ? t("compliance.subtitle") : t("gov.subtitle")}
+        </p>
       </div>
+
+      {isExecutive && deploymentMode === "directive" ? (
+        <Card className="border-council-strong/20 bg-council-strong/5">
+          <div className="flex items-start gap-3">
+            <div className="rounded-md bg-council-strong/10 p-2 shrink-0">
+              <Gavel size={18} className="text-council-strong" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-semibold text-ink-1">
+                {t("compliance.directive.title")}
+              </div>
+              <div className="text-[12.5px] text-ink-2 mt-0.5 max-w-2xl">
+                {t("compliance.directive.body")}
+              </div>
+            </div>
+            <Link
+              href="/directive"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-council-strong text-white text-[12.5px] font-medium hover:opacity-90 shrink-0"
+            >
+              {t("compliance.directive.cta")} <ArrowRight size={12} />
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiTile

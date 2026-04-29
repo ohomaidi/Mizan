@@ -124,6 +124,13 @@ export function LocaleProvider({
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored && (LOCALES as readonly string[]).includes(stored)) {
         setLocaleState(stored as Locale);
+        // Backfill the cookie for users who have localStorage but
+        // no `mizan-locale` cookie yet (pre-v2.6.1 sessions). Lets
+        // server components translate immediately on next request.
+        if (!document.cookie.includes("mizan-locale=")) {
+          document.cookie =
+            `mizan-locale=${stored}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+        }
       }
     } catch {}
   }, []);
@@ -169,6 +176,13 @@ export function LocaleProvider({
     setLocaleState(l);
     try {
       localStorage.setItem(STORAGE_KEY, l);
+    } catch {}
+    // Mirror to a cookie so server components (Executive Today page,
+    // SSR'd dashboards) can translate without hydration round-trip.
+    // Path=/ + 1y so it sticks for the session and beyond. v2.6.1.
+    try {
+      document.cookie =
+        `mizan-locale=${l}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     } catch {}
   }, []);
 

@@ -709,6 +709,14 @@ export const DICT = {
     "gov.title": "Governance — {framework} alignment",
     "gov.subtitle":
       "{orgShort}-wide alignment to the {framework} framework, computed from Secure Score control mappings and {orgShort} baseline enforcement.",
+    "compliance.eyebrow": "Compliance",
+    "compliance.title": "{framework} alignment",
+    "compliance.subtitle":
+      "Live alignment to the {framework} framework, computed from Microsoft Secure Score control mappings. Drill into a clause for the controls behind it.",
+    "compliance.directive.title": "Directive actions",
+    "compliance.directive.body":
+      "Push framework requirements directly into the tenant — Conditional Access baselines, Intune compliance policies, sensitivity-label rollout. Tracked separately so the audit trail is intact.",
+    "compliance.directive.cta": "Open directive",
     "gov.framework.nesa": "NESA alignment",
     "gov.framework.dubai-isr": "Dubai ISR alignment",
     "gov.framework.nca": "KSA NCA alignment",
@@ -2901,6 +2909,7 @@ export const DICT = {
     "nav.menu.close": "Close menu",
     "nav.maturity": "Maturity overview",
     "nav.posture": "Posture overview",
+    "nav.today": "Today",
     "nav.entities": "Entities",
     "nav.identity": "Identity",
     "nav.threats": "Threats",
@@ -2912,12 +2921,143 @@ export const DICT = {
     "nav.directive": "Directive",
     "nav.section.riskMgmt": "Risk management",
     "nav.section.reports": "Reports",
+    "nav.section.bottom": "Workspace",
     "nav.riskRegister": "Risk register",
     "nav.insurance": "Cyber insurance",
     "nav.boardReport": "Board report",
     "nav.scorecard": "CISO scorecard",
     "nav.settings": "Settings",
     "nav.faq": "FAQ",
+
+    "today.eyebrow": "{org} · daily brief",
+    "today.title": "Today",
+    "today.subtitle": "Last refreshed {updated}",
+    "today.neverSynced": "no sync yet",
+    "today.empty.title": "No tenant onboarded yet",
+    "today.empty.subtitle":
+      "Complete the first-run onboarding wizard to wire your tenant’s Microsoft Graph signals.",
+    "today.empty.cta": "Go to Settings",
+    "today.hero.eyebrow": "Maturity Index",
+    "today.hero.body":
+      "Composite of six sub-scores weighted per the deployment’s configuration. Drill down for the per-domain breakdown.",
+    "today.hero.viewPosture": "View posture",
+    "today.hero.generateReport": "Generate board PDF",
+    "today.hero.vs7d": "vs 7d",
+    "today.hero.radarAlt": "Six-axis maturity sub-score radar.",
+    "today.hero.noRadar":
+      "Not enough signal data yet. Sub-score radar will appear after the first sync.",
+    "today.risks.title": "Top open risks",
+    "today.risks.subtitle":
+      "Highest residual rating first. Includes auto-suggested risks awaiting your review.",
+    "today.risks.viewAll": "Open register",
+    "today.risks.empty": "No open risks. Nice.",
+    "today.risks.impact": "Impact",
+    "today.risks.likelihood": "Likelihood",
+    "today.risks.suggested": "Suggested",
+    "today.incidents.title": "Open incidents",
+    "today.incidents.active": "Active",
+    "today.incidents.high": "High",
+    "today.incidents.total": "Total",
+    "today.incidents.drill": "View threats tab",
+    "today.actions.title": "Quick actions",
+    "today.actions.addRisk": "Add a risk",
+    "today.actions.updateInsurance": "Update insurance answers",
+    "today.actions.generateBoard": "Generate board PDF",
+    "today.scorecard.eyebrow": "Scorecard",
+    "today.scorecard.title": "Pinned KPIs",
+    "today.scorecard.manage": "Manage",
+    "today.scorecard.empty.title": "No KPIs pinned",
+    "today.scorecard.empty.subtitle":
+      "Pin 3–5 board-grade metrics to track on this home page.",
+    "today.scorecard.empty.cta": "Open scorecard",
+    "today.kpi.target": "target",
+    "today.kpi.boolYes": "Yes",
+    "today.kpi.boolNo": "No",
+    "today.feed.title": "What changed in the last 7 days",
+    "today.feed.subtitle":
+      "Derived from snapshot deltas — maturity, vulnerabilities, admin roles, incidents, risky users.",
+    "today.feed.noChanges":
+      "No notable changes in the last 7 days. Estate is steady.",
+    "today.feed.maturityUp":
+      "Maturity Index up {delta} pts → now {current}",
+    "today.feed.maturityDown":
+      "Maturity Index down {delta} pts → now {current}",
+    "today.feed.cveAdded":
+      "{count} new critical CVE(s) — total now {total}",
+    "today.feed.cveResolved":
+      "{count} critical CVE(s) cleared — total now {total}",
+    "today.feed.zerodayAdded":
+      "{count} new zero-day exposure surfaced",
+    "today.feed.adminDeactivated":
+      "{count} privileged admin account deactivated in last 7d",
+    "today.feed.adminRolesGrew":
+      "Admin role assignments +{count} → {total} privileged users",
+    "today.feed.adminRolesShrunk":
+      "Admin role assignments −{count} → {total} privileged users",
+    "today.feed.incidentsOpened":
+      "{count} new incident(s) opened — active queue {total}",
+    "today.feed.incidentsResolved":
+      "{count} incident(s) resolved — active queue {total}",
+    "today.feed.riskyUsersGrew":
+      "+{count} high-risk user(s) → {total} flagged",
+    "today.feed.riskyUsersShrunk":
+      "−{count} high-risk user(s) → {total} flagged",
+
+    "posture.eyebrow": "{org} · estate posture",
+    "posture.title": "Posture",
+    "posture.subtitle":
+      "Six-axis sub-score breakdown across the Microsoft estate. Drill into a tab for the headline numbers, then jump to the detailed view.",
+    "posture.empty.title": "Posture not available yet",
+    "posture.empty.subtitle":
+      "Complete onboarding to wire Microsoft Graph signals.",
+    "posture.empty.cta": "Go to Settings",
+    "posture.radar.title": "Maturity by domain",
+    "posture.radar.subtitle":
+      "Maturity Index {index} · weighted composite of the six axes shown.",
+    "posture.radar.empty":
+      "Radar will populate after the first sync.",
+    "posture.tabs.aria": "Posture domains",
+    "posture.tabs.identity": "Identity",
+    "posture.tabs.devices": "Devices",
+    "posture.tabs.data": "Data",
+    "posture.tabs.threats": "Threats",
+    "posture.tabs.vulnerabilities": "Vulnerabilities",
+    "posture.tabEmpty": "No data for this tab yet.",
+    "posture.drill": "Detailed view",
+
+    "posture.identity.subtitle":
+      "Risky users · privileged role count · admin deactivations · MFA admin coverage.",
+    "posture.identity.kpi.subscore": "Identity sub-score",
+    "posture.identity.kpi.privilegedRoles": "Privileged roles",
+    "posture.identity.kpi.highRisk": "High-risk users",
+    "posture.identity.kpi.recentDeact": "Admin deactivations",
+
+    "posture.devices.subtitle":
+      "Compliance % across enrolled devices, non-compliant count, grace period, unknown state.",
+    "posture.devices.kpi.subscore": "Device sub-score",
+    "posture.devices.kpi.compliancePct": "Compliance %",
+    "posture.devices.kpi.nonCompliant": "Non-compliant",
+    "posture.devices.kpi.unknown": "Unknown state",
+
+    "posture.data.subtitle":
+      "Sensitivity-label catalog, DLP alert volume, retention coverage.",
+    "posture.data.kpi.subscore": "Data sub-score",
+    "posture.data.kpi.labels": "Active labels",
+    "posture.data.kpi.dlpAlerts": "DLP alerts (30d)",
+
+    "posture.threats.subtitle":
+      "Active vs resolved incidents from XDR, severity mix.",
+    "posture.threats.kpi.subscore": "Threat sub-score",
+    "posture.threats.kpi.active": "Active incidents",
+    "posture.threats.kpi.high": "High severity",
+    "posture.threats.kpi.total": "Total (rolling)",
+
+    "posture.vulnerabilities.subtitle":
+      "Defender Vulnerability Management — critical / high CVE counts and exploitable exposures.",
+    "posture.vulnerabilities.kpi.critical": "Critical CVEs",
+    "posture.vulnerabilities.kpi.high": "High CVEs",
+    "posture.vulnerabilities.kpi.zeroDay": "Zero-day exposures",
+    "posture.vulnerabilities.kpi.affectedDevices": "Affected devices",
 
     "risk.eyebrow": "Risk register",
     "risk.title": "Risk register",
@@ -3732,6 +3872,14 @@ export const DICT = {
     "dataProt.phase3.body":
       "تحليلات تبنّي تصنيف الحساسية (عبر استعلام سجل التدقيق)، تنبيهات DLP / IRM / Communication Compliance من alerts_v2، تصنيفات الاحتفاظ، طلبات حقوق الأفراد، ووضع المشاركة الخارجية في Teams و SharePoint — كلها تصل في المرحلة الثالثة عند إضافة إشارات Purview إلى خط المزامنة.",
 
+    "compliance.eyebrow": "الامتثال",
+    "compliance.title": "الالتزام بإطار {framework}",
+    "compliance.subtitle":
+      "التزام مباشر بإطار {framework}، مُحسوب من ربط ضوابط Microsoft Secure Score. انقر على بند للاطلاع على الضوابط التي تدعمه.",
+    "compliance.directive.title": "إجراءات Directive",
+    "compliance.directive.body":
+      "ادفع متطلبات الإطار مباشرةً إلى المستأجر — قواعد Conditional Access، سياسات الامتثال في Intune، تطبيق تصنيفات الحساسية. مع سجل تدقيق مستقل.",
+    "compliance.directive.cta": "فتح Directive",
     "gov.eyebrow": "الحوكمة والمعايير",
     "gov.title": "الحوكمة — المواءمة مع {framework}",
     "gov.subtitle":
@@ -5939,6 +6087,7 @@ export const DICT = {
     "nav.menu.close": "إغلاق القائمة",
     "nav.maturity": "نظرة عامة على النضج",
     "nav.posture": "نظرة عامة على الوضع الأمني",
+    "nav.today": "اليوم",
     "nav.entities": "الجهات",
     "nav.identity": "الهوية",
     "nav.threats": "التهديدات",
@@ -6081,6 +6230,138 @@ export const DICT = {
     "board.drafts.sign": "تعليم كموقَّع",
     "board.drafts.delete": "حذف المسودة",
     "board.delete.confirm": "حذف هذه المسودة؟ سيُفقد الملف PDF.",
+
+    "today.eyebrow": "{org} · موجز اليوم",
+    "today.title": "اليوم",
+    "today.subtitle": "آخر تحديث {updated}",
+    "today.neverSynced": "لم تتم المزامنة بعد",
+    "today.empty.title": "لا يوجد مستأجر مُهيأ بعد",
+    "today.empty.subtitle":
+      "أكمل معالج الإعداد الأولي لربط إشارات Microsoft Graph الخاصة بمستأجرك.",
+    "today.empty.cta": "انتقل إلى الإعدادات",
+    "today.hero.eyebrow": "مؤشر النضج",
+    "today.hero.body":
+      "تركيب لستة درجات فرعية بأوزان معرّفة في إعدادات النشر. انقر للاطلاع على التفصيل لكل مجال.",
+    "today.hero.viewPosture": "عرض الوضع الأمني",
+    "today.hero.generateReport": "إنشاء تقرير المجلس PDF",
+    "today.hero.vs7d": "مقارنة بـ ٧ أيام",
+    "today.hero.radarAlt": "رادار النضج بستة محاور.",
+    "today.hero.noRadar":
+      "لا توجد بيانات إشارات كافية بعد. سيظهر الرادار بعد أول مزامنة.",
+    "today.risks.title": "أعلى المخاطر المفتوحة",
+    "today.risks.subtitle":
+      "الأعلى تقييمًا متبقيًا أولًا. تشمل المخاطر المُقترَحة تلقائيًا بانتظار مراجعتك.",
+    "today.risks.viewAll": "فتح السجل",
+    "today.risks.empty": "لا توجد مخاطر مفتوحة. ممتاز.",
+    "today.risks.impact": "الأثر",
+    "today.risks.likelihood": "الاحتمالية",
+    "today.risks.suggested": "مُقترَح",
+    "today.incidents.title": "الحوادث المفتوحة",
+    "today.incidents.active": "نشطة",
+    "today.incidents.high": "عالية",
+    "today.incidents.total": "الإجمالي",
+    "today.incidents.drill": "عرض تبويب التهديدات",
+    "today.actions.title": "إجراءات سريعة",
+    "today.actions.addRisk": "إضافة مخاطرة",
+    "today.actions.updateInsurance": "تحديث إجابات التأمين",
+    "today.actions.generateBoard": "إنشاء تقرير المجلس PDF",
+    "today.scorecard.eyebrow": "بطاقة الأداء",
+    "today.scorecard.title": "المؤشرات المثبَّتة",
+    "today.scorecard.manage": "إدارة",
+    "today.scorecard.empty.title": "لا مؤشرات مثبَّتة",
+    "today.scorecard.empty.subtitle":
+      "ثبّت ٣ إلى ٥ مؤشرات بمستوى المجلس لمتابعتها على هذه الصفحة.",
+    "today.scorecard.empty.cta": "فتح بطاقة الأداء",
+    "today.kpi.target": "الهدف",
+    "today.kpi.boolYes": "نعم",
+    "today.kpi.boolNo": "لا",
+    "today.feed.title": "ما الذي تغيّر خلال الـ ٧ أيام الماضية",
+    "today.feed.subtitle":
+      "مُشتق من فروقات اللقطات — النضج، الثغرات، أدوار المسؤولين، الحوادث، المستخدمون عاليو المخاطر.",
+    "today.feed.noChanges":
+      "لا تغييرات لافتة خلال الأيام السبعة الماضية. الوضع مستقر.",
+    "today.feed.maturityUp":
+      "ارتفع مؤشر النضج {delta} نقطة → الآن {current}",
+    "today.feed.maturityDown":
+      "انخفض مؤشر النضج {delta} نقطة → الآن {current}",
+    "today.feed.cveAdded":
+      "{count} ثغرة CVE حرجة جديدة — الإجمالي الآن {total}",
+    "today.feed.cveResolved":
+      "تم إغلاق {count} ثغرة CVE حرجة — الإجمالي الآن {total}",
+    "today.feed.zerodayAdded":
+      "{count} ثغرة يوم-صفر جديدة مكشوفة",
+    "today.feed.adminDeactivated":
+      "{count} حساب مسؤول مميز معطَّل خلال آخر ٧ أيام",
+    "today.feed.adminRolesGrew":
+      "تخصيصات الأدوار الإدارية +{count} → {total} مستخدم مميز",
+    "today.feed.adminRolesShrunk":
+      "تخصيصات الأدوار الإدارية −{count} → {total} مستخدم مميز",
+    "today.feed.incidentsOpened":
+      "تم فتح {count} حادثة — قائمة نشطة {total}",
+    "today.feed.incidentsResolved":
+      "تم إغلاق {count} حادثة — قائمة نشطة {total}",
+    "today.feed.riskyUsersGrew":
+      "+{count} مستخدم عالي الخطورة → {total} مرصود",
+    "today.feed.riskyUsersShrunk":
+      "−{count} مستخدم عالي الخطورة → {total} مرصود",
+
+    "posture.eyebrow": "{org} · وضع المنظومة",
+    "posture.title": "الوضع الأمني",
+    "posture.subtitle":
+      "تفصيل النضج عبر ستة محاور لمنظومة Microsoft. انقر على أحد التبويبات لرؤية الأرقام الرئيسية، ثم انتقل إلى العرض التفصيلي.",
+    "posture.empty.title": "الوضع غير متاح بعد",
+    "posture.empty.subtitle":
+      "أكمل عملية الإعداد لربط إشارات Microsoft Graph.",
+    "posture.empty.cta": "انتقل إلى الإعدادات",
+    "posture.radar.title": "النضج حسب المجال",
+    "posture.radar.subtitle":
+      "مؤشر النضج {index} · المركّب الموزون للمحاور الستة المعروضة.",
+    "posture.radar.empty":
+      "سيظهر الرادار بعد أول مزامنة.",
+    "posture.tabs.aria": "مجالات الوضع الأمني",
+    "posture.tabs.identity": "الهوية",
+    "posture.tabs.devices": "الأجهزة",
+    "posture.tabs.data": "حماية البيانات",
+    "posture.tabs.threats": "التهديدات",
+    "posture.tabs.vulnerabilities": "الثغرات",
+    "posture.tabEmpty": "لا توجد بيانات لهذا التبويب بعد.",
+    "posture.drill": "العرض التفصيلي",
+
+    "posture.identity.subtitle":
+      "المستخدمون عاليو المخاطر · عدد الأدوار المميزة · تعطيل المسؤولين · تغطية MFA للمسؤولين.",
+    "posture.identity.kpi.subscore": "درجة الهوية الفرعية",
+    "posture.identity.kpi.privilegedRoles": "الأدوار المميزة",
+    "posture.identity.kpi.highRisk": "مستخدمون عاليو الخطورة",
+    "posture.identity.kpi.recentDeact": "تعطيلات المسؤولين",
+
+    "posture.devices.subtitle":
+      "نسبة الامتثال عبر الأجهزة المسجلة، الأجهزة غير الممتثلة، فترة السماح، وغير المعروفة.",
+    "posture.devices.kpi.subscore": "درجة الأجهزة الفرعية",
+    "posture.devices.kpi.compliancePct": "نسبة الامتثال",
+    "posture.devices.kpi.nonCompliant": "غير ممتثلة",
+    "posture.devices.kpi.unknown": "حالة غير معروفة",
+
+    "posture.data.subtitle":
+      "كتالوج تصنيفات الحساسية، حجم تنبيهات منع تسرب البيانات، تغطية الاحتفاظ.",
+    "posture.data.kpi.subscore": "درجة البيانات الفرعية",
+    "posture.data.kpi.labels": "التصنيفات الفعّالة",
+    "posture.data.kpi.dlpAlerts": "تنبيهات DLP (٣٠ يومًا)",
+
+    "posture.threats.subtitle":
+      "الحوادث النشطة مقابل المُغلقة من XDR، تركيبة الخطورة.",
+    "posture.threats.kpi.subscore": "درجة التهديدات الفرعية",
+    "posture.threats.kpi.active": "حوادث نشطة",
+    "posture.threats.kpi.high": "خطورة عالية",
+    "posture.threats.kpi.total": "الإجمالي (متجدد)",
+
+    "posture.vulnerabilities.subtitle":
+      "إدارة ثغرات Defender — أعداد الثغرات الحرجة/العالية والتعرضات القابلة للاستغلال.",
+    "posture.vulnerabilities.kpi.critical": "ثغرات حرجة",
+    "posture.vulnerabilities.kpi.high": "ثغرات عالية",
+    "posture.vulnerabilities.kpi.zeroDay": "ثغرات يوم-صفر",
+    "posture.vulnerabilities.kpi.affectedDevices": "أجهزة متأثرة",
+
+    "nav.section.bottom": "مساحة العمل",
     "nav.faq": "الأسئلة الشائعة",
     "sidebar.dataSources": "مصادر البيانات",
     "sidebar.dataSources.suffix": "· Graph APIs",

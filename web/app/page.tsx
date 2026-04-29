@@ -1,30 +1,23 @@
 import { redirect } from "next/navigation";
 import { isExecutiveDeployment } from "@/lib/config/deployment-kind";
-import { listTenants } from "@/lib/db/tenants";
 
 /**
- * Root entry point. Redirects vary by `deploymentKind`:
+ * Root entry point.
  *
- *  - Council mode (default) → `/maturity` Council overview, the
- *    multi-tenant landing page.
+ *   - Council mode (default) → `/maturity` Council overview, the
+ *     multi-tenant landing page.
  *
- *  - Executive mode → `/entities/{id}` for the single consented
- *    tenant. The "entity detail" page becomes the de-facto home for
- *    a single-org CISO. If no tenant has been onboarded yet (fresh
- *    install pre-consent), fall back to `/maturity` which renders
- *    an empty state with a clear "complete onboarding" prompt.
+ *   - Executive mode → `/today` daily-driver home for the single-org
+ *     CISO. v2.6.1: was `/entities/{id}` in v2.6.0 but that left
+ *     users without a clear "home" — Today is now the home, with
+ *     hero · risks · incidents · scorecard · 7-day change feed all
+ *     on one scroll.
  *
- * v2.6.0.
+ * v2.6.1.
  */
 export default function Home() {
   if (isExecutiveDeployment()) {
-    const tenants = listTenants();
-    const primary = tenants.find(
-      (t) => t.consent_status === "consented" || t.is_demo === 1,
-    );
-    if (primary) {
-      redirect(`/entities/${primary.id}`);
-    }
+    redirect("/today");
   }
   redirect("/maturity");
 }
