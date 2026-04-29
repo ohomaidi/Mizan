@@ -487,16 +487,21 @@ const DESC_DEMO: DemoEntity[] = [
   },
 ];
 
-/** Customer variant for the demo seed. Selected via `SCSC_SEED_CUSTOMER`. */
-type SeedCustomer = "sharjah" | "desc";
+/** Customer variant for the demo seed. Selected via `SCSC_SEED_CUSTOMER`.
+ *  v2.6.0 — added "dubaiairports" for the Executive-mode demo. */
+type SeedCustomer = "sharjah" | "desc" | "dubaiairports";
 
 function resolveSeedCustomer(): SeedCustomer {
   const raw = (process.env.SCSC_SEED_CUSTOMER ?? "sharjah").toLowerCase().trim();
-  return raw === "desc" ? "desc" : "sharjah";
+  if (raw === "desc") return "desc";
+  if (raw === "dubaiairports" || raw === "da") return "dubaiairports";
+  return "sharjah";
 }
 
 function entitiesForCustomer(c: SeedCustomer): DemoEntity[] {
-  return c === "desc" ? DESC_DEMO : DEMO;
+  if (c === "desc") return DESC_DEMO;
+  if (c === "dubaiairports") return DUBAI_AIRPORTS_DEMO;
+  return DEMO;
 }
 
 function brandingForCustomer(c: SeedCustomer) {
@@ -517,6 +522,23 @@ function brandingForCustomer(c: SeedCustomer) {
       updatedAt: new Date().toISOString(),
     };
   }
+  if (c === "dubaiairports") {
+    return {
+      nameEn: "Dubai Airports",
+      nameAr: "مطارات دبي",
+      shortEn: "DXB",
+      shortAr: "مطارات",
+      taglineEn: "Cybersecurity posture, board-grade.",
+      taglineAr: "وضع الأمن السيبراني… بمستوى مجلس الإدارة.",
+      // DXB navy + yellow identity from the corporate logo.
+      accentColor: "#1E2761",
+      accentColorStrong: "#F8C022",
+      logoPath: "logo.png",
+      logoBgRemoved: false,
+      frameworkId: "dubai-isr",
+      updatedAt: new Date().toISOString(),
+    };
+  }
   return {
     nameEn: "Sharjah Cybersecurity Council",
     nameAr: "مجلس الأمن السيبراني - الشارقة",
@@ -532,6 +554,27 @@ function brandingForCustomer(c: SeedCustomer) {
     updatedAt: new Date().toISOString(),
   };
 }
+
+/** Single-tenant demo for the Executive-mode (Dubai Airports) variant. */
+const DUBAI_AIRPORTS_DEMO: DemoEntity[] = [
+  {
+    id: "dubaiairports",
+    tenant_id: "11111111-2222-3333-4444-555555555555",
+    name_en: "Dubai Airports",
+    name_ar: "مطارات دبي",
+    cluster: "transport",
+    domain: "dubaiairports.ae",
+    ciso: "Hamad Al-Marri",
+    ciso_email: "ciso@dubaiairports.ae",
+    index: 74,
+    openIncidents: 4,
+    riskyUsers: 6,
+    deviceCompliancePct: 87,
+    controlsPassingPct: 71,
+    syncMinsAgo: 8,
+    connectionHealth: "green",
+  },
+];
 
 /**
  * Stamps setup.completed=true so the first-run wizard stays out of the demo's
@@ -568,8 +611,9 @@ function seedDemoBrandingIfAbsent(
 
 /**
  * Seed the deployment mode that matches each demo customer so the demo lands
- * with the right Directive surfaces lit (or dark). SCSC = observation. DESC =
- * directive. Idempotent: won't clobber a mode already set by /setup wizard.
+ * with the right Directive surfaces lit (or dark). SCSC = observation.
+ * DESC = directive. Dubai Airports = directive (single-org, push-to-self).
+ * Idempotent: won't clobber a mode already set by /setup wizard.
  */
 function seedDeploymentModeIfAbsent(
   db: Database.Database,
@@ -579,10 +623,68 @@ function seedDeploymentModeIfAbsent(
     .prepare("SELECT 1 FROM app_config WHERE key = 'deployment.mode'")
     .get() as { 1: number } | undefined;
   if (existing) return;
-  const mode = customer === "desc" ? "directive" : "observation";
+  const mode =
+    customer === "desc" || customer === "dubaiairports"
+      ? "directive"
+      : "observation";
   db.prepare(
     "INSERT INTO app_config (key, value_json) VALUES ('deployment.mode', ?)",
   ).run(JSON.stringify({ mode, setAt: new Date().toISOString() }));
+}
+
+/**
+ * Seed the deployment KIND for the demo customer. v2.6.0 — most demos
+ * are Council (multi-tenant chrome). Dubai Airports flips to Executive
+ * (single-org CISO chrome). Idempotent.
+ */
+function seedDeploymentKindIfAbsent(
+  db: Database.Database,
+  customer: SeedCustomer,
+): void {
+  const existing = db
+    .prepare("SELECT 1 FROM app_config WHERE key = 'deployment.kind'")
+    .get() as { 1: number } | undefined;
+  if (existing) return;
+  const kind = customer === "dubaiairports" ? "executive" : "council";
+  db.prepare(
+    "INSERT INTO app_config (key, value_json) VALUES ('deployment.kind', ?)",
+  ).run(JSON.stringify({ kind, setAt: new Date().toISOString() }));
+}
+
+/**
+ * For the Dubai Airports demo, copy the bundled logo from
+ * `web/public/branding/dubaiairports.png` into the deployment's
+ * DATA_DIR/branding/logo.png so the existing /api/config/branding/logo
+ * route serves it. Idempotent — skips if a logo is already present.
+ */
+function seedDubaiAirportsLogoIfAbsent(): void {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require("node:fs") as typeof import("node:fs");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require("node:path") as typeof import("node:path");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { config } = require("@/lib/config") as {
+    config: { dataDir: string };
+  };
+  const target = path.join(config.dataDir, "branding", "logo.png");
+  try {
+    if (fs.existsSync(target)) return;
+  } catch {
+    /* fall through to attempt write */
+  }
+  const source = path.join(
+    process.cwd(),
+    "public",
+    "branding",
+    "dubaiairports.png",
+  );
+  try {
+    if (!fs.existsSync(source)) return;
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(source, target);
+  } catch {
+    /* tolerate — branding panel can still upload one manually */
+  }
 }
 
 export function seedDemoTenantsIfEmpty(db: Database.Database): void {
@@ -600,6 +702,11 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   // reverted — the check below is idempotent.
   seedDemoBrandingIfAbsent(db, customer);
   seedDeploymentModeIfAbsent(db, customer);
+  seedDeploymentKindIfAbsent(db, customer);
+  if (customer === "dubaiairports") {
+    seedDubaiAirportsLogoIfAbsent();
+    seedExecutiveModulesIfAbsent(db);
+  }
   markSetupCompletedIfAbsent(db);
 
   // Only check for existing DEMO tenants. If real tenants have been onboarded but
@@ -2681,4 +2788,322 @@ function seedRandom(seed: string): () => number {
     h ^= h >>> 16;
     return (h >>> 0) / 0xffffffff;
   };
+}
+
+/**
+ * Seed Executive-mode module data for the Dubai Airports demo:
+ *   - Risk register (10 entries spanning OT, vendor, insider, regulatory)
+ *   - CISO scorecard pins (5 of the 10 catalog KPIs)
+ *   - Insurance answers (~80% answered, 6 deliberate gaps)
+ *
+ * Idempotent — each module's seeder skips if rows already exist so the
+ * operator can edit live data without it being clobbered on next boot.
+ *
+ * v2.6.0.
+ */
+function seedExecutiveModulesIfAbsent(db: Database.Database): void {
+  // ── Risk register ──
+  const riskCount = db
+    .prepare("SELECT COUNT(*) AS n FROM risk_register")
+    .get() as { n: number };
+  if (riskCount.n === 0) {
+    const insertRisk = db.prepare(
+      `INSERT INTO risk_register
+        (title, description, impact, likelihood, residual_rating, owner, due_date,
+         status, mitigation_notes, source, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    );
+    const risks: Array<
+      [string, string, number, number, string, string | null, string, string]
+    > = [
+      [
+        "Critical CVE backlog on Windows 11 fleet",
+        "23 critical CVEs older than 30 days unpatched on the corporate Windows 11 fleet. Defender Vulnerability Management flags monthly increase of ~3% — patching cadence not keeping up with disclosure cadence.",
+        5, 4, "open", "IT Operations", "2026-06-15",
+        "auto-cve",
+      ],
+      [
+        "OT segmentation gap on baggage handling network",
+        "Baggage handling system shares VLAN with corporate IT subnet. ICAO Doc 8973 §6.4 requires OT segmentation. Vendor (Daifuku) advised network change but pending ops-window approval.",
+        5, 3, "open", "OT Engineering", "2026-07-30",
+        "manual",
+      ],
+      [
+        "Vendor SaaS without SSO — SITA Crew Manager",
+        "SITA Crew Manager (~480 users) authenticates via SITA-managed credentials, not federated to Entra. Password reuse risk; no central MFA enforcement; off-boarding gaps.",
+        4, 4, "open", "Identity Team", "2026-08-31",
+        "manual",
+      ],
+      [
+        "Privileged role bloat — Global Administrators count = 8",
+        "Microsoft Secure Score recommends ≤5 Global Administrators. Currently 8 active. 3 of 8 are vendor-support accounts that could move to PIM-eligible.",
+        4, 3, "open", "Identity Team", "2026-05-30",
+        "manual",
+      ],
+      [
+        "Phishing-simulation completion rate 67% (target 95%)",
+        "Q1 2026 simulation campaign reached 67% completion. Repeat offenders concentrated in Cargo Operations + Concessionaires Liaison departments.",
+        3, 4, "open", "Security Awareness", "2026-06-30",
+        "manual",
+      ],
+      [
+        "Insider risk — privileged former contractor",
+        "Senior network engineer (contractor) departed 2025-11; named-account audit shows their service principal still active in Azure DevOps until 2026-04-12. Reset done, but logs need full review.",
+        4, 2, "mitigated", "Identity Team", "2026-04-30",
+        "manual",
+      ],
+      [
+        "Backup restore not tested in 14 months",
+        "Insurance questionnaire requires successful restore in last 12 months. Last verified restore was 2025-02. RPO/RTO documented but unverified.",
+        4, 3, "open", "IT Operations", "2026-05-15",
+        "manual",
+      ],
+      [
+        "DMARC enforcement at p=quarantine (target p=reject)",
+        "Primary domain dubaiairports.ae publishes DMARC record at p=quarantine. Insurer asks for p=reject for full credit. Pending alignment with Marketing on transactional-email domains.",
+        3, 3, "open", "Email Security", "2026-06-15",
+        "manual",
+      ],
+      [
+        "Third-party dependency: Amadeus Altea DCS",
+        "DCS provider (Amadeus) had 2025 incident affecting peer airline. SLA review confirms 30-min failover commitment but evidence of last test missing.",
+        4, 2, "open", "Vendor Management", "2026-07-15",
+        "manual",
+      ],
+      [
+        "Cyber insurance renewal due 2026-08",
+        "Annual policy renewal in 8 weeks. Current readiness 78% per Mizan questionnaire. 6 open gaps need close before broker submission.",
+        3, 3, "open", "CISO Office", "2026-07-31",
+        "manual",
+      ],
+    ];
+    for (const [
+      title,
+      description,
+      impact,
+      likelihood,
+      status,
+      owner,
+      dueDate,
+      source,
+    ] of risks) {
+      insertRisk.run(
+        title,
+        description,
+        impact,
+        likelihood,
+        impact * likelihood,
+        owner,
+        dueDate,
+        status,
+        null,
+        source,
+      );
+    }
+  }
+
+  // ── CISO scorecard pins ──
+  const pinCount = db
+    .prepare("SELECT COUNT(*) AS n FROM ciso_scorecard_pins")
+    .get() as { n: number };
+  if (pinCount.n === 0) {
+    const insertPin = db.prepare(
+      `INSERT OR IGNORE INTO ciso_scorecard_pins
+        (kpi_kind, label, target, commitment, due_date, owner, pinned_at)
+       VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+    );
+    const pins: Array<
+      [string, string, number, string, string | null, string]
+    > = [
+      [
+        "maturityIndex",
+        "Maturity Index",
+        80,
+        "Reach 80% Maturity Index by Q4 2026 — committed to board on 2026-Q1 review.",
+        "2026-12-31",
+        "CISO",
+      ],
+      [
+        "criticalCveAge",
+        "Critical CVEs > 30 days",
+        0,
+        "Zero critical CVEs unpatched beyond 30 days. SLA committed to board.",
+        "2026-12-31",
+        "IT Operations",
+      ],
+      [
+        "mfaAdminCoverage",
+        "MFA on admin roles",
+        100,
+        "100% MFA enforcement on every privileged role. No exceptions.",
+        "2026-06-30",
+        "Identity Team",
+      ],
+      [
+        "deviceCompliance",
+        "Device compliance",
+        90,
+        "≥ 90% of managed devices reporting Compliant in Intune.",
+        "2026-09-30",
+        "End-user Computing",
+      ],
+      [
+        "boardReportDelivered",
+        "Board report delivered this quarter",
+        1,
+        "Quarterly cybersecurity report delivered to the board within 14 days of quarter close.",
+        "2026-12-31",
+        "CISO",
+      ],
+    ];
+    for (const [kind, label, target, commitment, dueDate, owner] of pins) {
+      insertPin.run(kind, label, target, commitment, dueDate, owner);
+    }
+  }
+
+  // ── Insurance answers ──
+  // Pre-populate ~80% of the aviation questionnaire so the demo lands
+  // with an "almost ready, with visible gaps" story. Six deliberate
+  // skips so the gaps panel has something to show.
+  const ansCount = db
+    .prepare("SELECT COUNT(*) AS n FROM insurance_answers")
+    .get() as { n: number };
+  if (ansCount.n === 0) {
+    const insertAns = db.prepare(
+      `INSERT OR IGNORE INTO insurance_answers
+        (question_id, value, evidence, signal_snapshot, answered_at, answered_by)
+       VALUES (?, ?, ?, NULL, datetime('now'), 'CISO')`,
+    );
+    // (questionId, value, evidence) — see lib/insurance/aviation.ts for ids.
+    const answers: Array<[string, "yes" | "no" | "na", string]> = [
+      [
+        "ia-mfa-all",
+        "yes",
+        "MFA enforced for all 4,200 staff via CA baseline 'Require MFA all users'. Excluded: 4 service-principal accounts (CI, vendor support).",
+      ],
+      [
+        "ia-pim",
+        "yes",
+        "Entra PIM enabled. All Global Admin / Privileged Role Admin assignments are eligible-only with MFA + 8h activation cap.",
+      ],
+      [
+        "ia-byod",
+        "yes",
+        "BYOD access requires Intune-registered device + MAM policy. CA baseline: 'Compliant device for admin portals'.",
+      ],
+      [
+        "ed-encryption",
+        "yes",
+        "BitLocker enforced via Intune compliance policy on 100% of Windows fleet. FileVault on Mac fleet.",
+      ],
+      [
+        "ed-byod-isolation",
+        "yes",
+        "Microsoft Defender for Cloud Apps + MAM container isolation in place.",
+      ],
+      [
+        "dp-dlp",
+        "yes",
+        "Microsoft Purview DLP policies cover Confidential + Restricted labeled content across email + OneDrive + Teams.",
+      ],
+      [
+        "dp-passenger-data",
+        "yes",
+        "PNR + manifest data encrypted at rest (AES-256) and in transit (TLS 1.3). Quarterly key rotation.",
+      ],
+      [
+        "dp-backup",
+        "yes",
+        "Daily backups of critical systems + immutable Veeam vault separated from production. Last incremental: 2026-04-29 03:14 UTC.",
+      ],
+      [
+        "ew-phishing-protection",
+        "yes",
+        "Microsoft Defender for Office 365 Plan 2 deployed. Safe Links + Safe Attachments enabled.",
+      ],
+      [
+        "ew-domain-spoofing",
+        "yes",
+        "12 typo-squatted variants of dubaiairports.ae registered defensively. Domain monitoring via DomainTools.",
+      ],
+      [
+        "ot-vendor-access",
+        "yes",
+        "Vendor access to OT via Azure Bastion jump host + MFA + session recording (Microsoft Sentinel).",
+      ],
+      [
+        "ot-patching",
+        "yes",
+        "Documented vendor SLA: critical patches within 30 days of vendor release. Tracked in ServiceNow CMDB.",
+      ],
+      [
+        "dr-soc-coverage",
+        "yes",
+        "24/7 SOC coverage via Help AG MSSP. Microsoft Sentinel as the SIEM. Average alert acknowledgment: 14 minutes.",
+      ],
+      [
+        "dr-incident-runbook",
+        "yes",
+        "IR runbook last reviewed 2026-02-18. Versioned in SharePoint; tabletop annotations attached.",
+      ],
+      [
+        "dr-tabletop",
+        "yes",
+        "Q1 2026 tabletop simulated ransomware on baggage system. After-action report on file.",
+      ],
+      [
+        "co-bcp",
+        "yes",
+        "BCP last reviewed 2026-01-30. Aligned to ICAO continuity-of-operations expectations.",
+      ],
+      [
+        "co-rto",
+        "yes",
+        "RTO 4h / RPO 1h documented for 12 critical systems. Reviewed quarterly.",
+      ],
+      [
+        "co-flight-ops-failover",
+        "yes",
+        "Amadeus DCS failover procedure documented; SLA 30 min. IATA SGHA Annex A compliant.",
+      ],
+      [
+        "gt-ciso",
+        "yes",
+        "CISO Hamad Al-Marri reports to the Board Risk Committee quarterly. Last report: 2026-Q1.",
+      ],
+      [
+        "gt-board-cybersecurity",
+        "yes",
+        "External cybersecurity advisor on the Board Risk Committee since 2025-Q4.",
+      ],
+      [
+        "av-iso-27001",
+        "yes",
+        "Certified to ISO 27001:2022. Annual surveillance audit scheduled 2026-Q3.",
+      ],
+      [
+        "av-iata-compliance",
+        "yes",
+        "Active member of IATA Cybersecurity Information Sharing platform.",
+      ],
+      // Deliberate "no" — backup test gap surfaces in the questionnaire.
+      [
+        "dp-backup-tested",
+        "no",
+        "Last documented restore test was 2025-02. New test scheduled for 2026-05-20 to satisfy insurance renewal.",
+      ],
+      // Deliberate "no" — DMARC at quarantine, target reject.
+      [
+        "ew-dmarc",
+        "no",
+        "DMARC currently at p=quarantine on dubaiairports.ae. Migration to p=reject in progress; pending Marketing alignment on transactional-mail subdomain.",
+      ],
+      // (Six remaining questions left unanswered to surface as gaps in
+      // the questionnaire UI: ot-segmentation, gt-phishing-training,
+      // and the auto-evaluated ones whose signals will populate live.)
+    ];
+    for (const [qid, value, evidence] of answers) {
+      insertAns.run(qid, value, evidence);
+    }
+  }
 }

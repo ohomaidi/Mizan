@@ -73,8 +73,24 @@ export default function EntitiesPage({
     let alive = true;
     (async () => {
       try {
-        const r = await api.getEntities();
-        if (alive) setState({ kind: "ready", entities: r.entities });
+        const [r, who] = await Promise.all([
+          api.getEntities(),
+          api.whoami().catch(() => null),
+        ]);
+        if (!alive) return;
+        // v2.6.0 — In Executive mode the /entities list is meaningless
+        // (N=1). Redirect straight to the single tenant's detail page.
+        if (
+          who &&
+          (who as { deploymentKind?: string }).deploymentKind === "executive"
+        ) {
+          const primary = r.entities[0];
+          if (primary) {
+            window.location.replace(`/entities/${primary.id}`);
+            return;
+          }
+        }
+        setState({ kind: "ready", entities: r.entities });
       } catch (err) {
         if (alive) setState({ kind: "error", message: (err as Error).message });
       }

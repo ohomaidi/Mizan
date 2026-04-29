@@ -41,16 +41,30 @@ export default function SetupPage() {
     "observation",
   );
   const [deploymentModeLocked, setDeploymentModeLocked] = useState(false);
+  // v2.6.0 — `deploymentKind` is a separate install-time choice that
+  // decides cardinality (council = N entities, executive = single org).
+  // Same lock-after-first-write semantics as deploymentMode.
+  const [deploymentKind, setDeploymentKind] = useState<"council" | "executive">(
+    "council",
+  );
+  const [deploymentKindLocked, setDeploymentKindLocked] = useState(false);
 
-  // Load the current deployment mode on mount. Once locked the wizard shows
-  // the value read-only so a re-run of /setup after the first install can't
-  // accidentally flip it.
+  // Load the current deployment mode + kind on mount. Once locked the wizard
+  // shows the values read-only so a re-run of /setup after the first install
+  // can't accidentally flip them.
   useEffect(() => {
     api
       .getDeploymentMode()
       .then((r) => {
         setDeploymentMode(r.mode);
         setDeploymentModeLocked(r.locked);
+      })
+      .catch(() => {});
+    api
+      .getDeploymentKind()
+      .then((r) => {
+        setDeploymentKind(r.kind);
+        setDeploymentKindLocked(r.locked);
       })
       .catch(() => {});
   }, []);
@@ -132,13 +146,22 @@ export default function SetupPage() {
           shortAr: shortAr.trim() || nameAr.trim().split(" ")[0],
           frameworkId: framework,
         });
-        // Lock deployment mode. Fails silently if already set — the /setup
-        // page can be re-opened to edit branding, but the mode stays pinned
-        // to whatever was chosen on the first install.
+        // Lock deployment mode + kind. Fails silently if already set —
+        // the /setup page can be re-opened to edit branding, but the
+        // mode + kind stay pinned to whatever was chosen on the first
+        // install.
         if (!deploymentModeLocked) {
           try {
             await api.setDeploymentMode(deploymentMode);
             setDeploymentModeLocked(true);
+          } catch {
+            /* already locked — harmless */
+          }
+        }
+        if (!deploymentKindLocked) {
+          try {
+            await api.setDeploymentKind(deploymentKind);
+            setDeploymentKindLocked(true);
           } catch {
             /* already locked — harmless */
           }
@@ -276,6 +299,9 @@ export default function SetupPage() {
               deploymentMode={deploymentMode}
               setDeploymentMode={setDeploymentMode}
               deploymentModeLocked={deploymentModeLocked}
+              deploymentKind={deploymentKind}
+              setDeploymentKind={setDeploymentKind}
+              deploymentKindLocked={deploymentKindLocked}
             />
           ) : null}
           {step === 2 ? (
@@ -424,6 +450,9 @@ function Step1(props: {
   deploymentMode: "observation" | "directive";
   setDeploymentMode: (v: "observation" | "directive") => void;
   deploymentModeLocked: boolean;
+  deploymentKind: "council" | "executive";
+  setDeploymentKind: (v: "council" | "executive") => void;
+  deploymentKindLocked: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -432,6 +461,50 @@ function Step1(props: {
         title={t("setup.s1.title")}
         subtitle={t("setup.s1.subtitle")}
       />
+
+      {/*
+       * v2.6.0 — Deployment kind block. The single most important
+       * choice in /setup because it forks the whole UI: Council mode
+       * (regulator watching N entities) vs Executive mode (single-org
+       * CISO dashboard). Same lock-after-first-write semantics as
+       * deployment mode below. Surfaced FIRST so the operator's
+       * mental model anchors on "is this for me, or for the
+       * organization above me?" before they touch branding.
+       */}
+      <div className="rounded-md border border-council-strong/40 bg-council-strong/[0.04] p-4">
+        <div className="text-[13px] font-semibold text-ink-1 mb-1">
+          {t("setup.kind.title")}
+        </div>
+        <div className="text-[12px] text-ink-2 mb-3 leading-relaxed">
+          {t("setup.kind.subtitle")}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <DeploymentKindOption
+            active={props.deploymentKind === "council"}
+            locked={props.deploymentKindLocked}
+            onSelect={() => props.setDeploymentKind("council")}
+            titleKey="setup.kind.council.title"
+            bodyKey="setup.kind.council.body"
+          />
+          <DeploymentKindOption
+            active={props.deploymentKind === "executive"}
+            locked={props.deploymentKindLocked}
+            onSelect={() => props.setDeploymentKind("executive")}
+            titleKey="setup.kind.executive.title"
+            bodyKey="setup.kind.executive.body"
+          />
+        </div>
+        {props.deploymentKindLocked ? (
+          <div className="text-[11.5px] text-ink-3 mt-2">
+            {t("setup.kind.lockedHint")}
+          </div>
+        ) : (
+          <div className="text-[11.5px] text-warn mt-2">
+            {t("setup.kind.unlockedWarning")}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label={t("branding.field.nameEn")}>
           <input
@@ -532,6 +605,63 @@ function Step1(props: {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * v2.6.0 — radio-card variant for the deployment-kind picker. Mirrors
+ * `DeploymentModeOption` visually so the two install-time choices
+ * read consistently. Separate component because the title/body keys
+ * are a different union — TypeScript-narrows correctly per choice.
+ */
+function DeploymentKindOption({
+  active,
+  locked,
+  onSelect,
+  titleKey,
+  bodyKey,
+}: {
+  active: boolean;
+  locked: boolean;
+  onSelect: () => void;
+  titleKey: "setup.kind.council.title" | "setup.kind.executive.title";
+  bodyKey: "setup.kind.council.body" | "setup.kind.executive.body";
+}) {
+  const { t } = useI18n();
+  const disabled = locked && !active;
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onSelect}
+      disabled={disabled}
+      className={`text-start rounded-md border p-3 transition-colors ${
+        disabled
+          ? "border-border bg-surface-1/60 opacity-60 cursor-not-allowed"
+          : active
+            ? "border-council-strong bg-council-strong/5"
+            : "border-border bg-surface-1 hover:border-council-strong/60"
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        <div
+          className={`shrink-0 h-4 w-4 rounded-full border-2 mt-0.5 ${
+            active ? "border-council-strong bg-council-strong" : "border-border"
+          }`}
+        >
+          {active ? (
+            <div className="h-full w-full rounded-full bg-surface-2 scale-50" />
+          ) : null}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] font-semibold text-ink-1">
+            {t(titleKey)}
+          </div>
+          <div className="text-[12px] text-ink-2 mt-0.5 leading-relaxed">
+            {t(bodyKey)}
+          </div>
+        </div>
+      </div>
+    </button>
   );
 }
 

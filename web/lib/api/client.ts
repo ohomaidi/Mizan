@@ -342,6 +342,19 @@ export const api = {
       { method: "POST", body: JSON.stringify({ mode }) },
     ),
 
+  // ----- Deployment kind (council vs executive — chosen once at /setup) -----
+  getDeploymentKind: () =>
+    jsonFetch<{
+      kind: "council" | "executive";
+      locked: boolean;
+    }>("/api/config/deployment-kind"),
+
+  setDeploymentKind: (kind: "council" | "executive") =>
+    jsonFetch<{ kind: "council" | "executive"; locked: boolean }>(
+      "/api/config/deployment-kind",
+      { method: "POST", body: JSON.stringify({ kind }) },
+    ),
+
 
   // Compliance-framework catalog reads + writes. Path stayed
   // /api/config/nesa for backward compatibility — it now serves

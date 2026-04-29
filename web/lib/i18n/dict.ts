@@ -416,6 +416,21 @@ export const DICT = {
       "Deployment mode is already set and cannot be changed. Redeploy to change it.",
     "setup.deployment.unlockedWarning":
       "Choose carefully. This decision is permanent once you click Next.",
+
+    "setup.kind.title": "Who is this dashboard for?",
+    "setup.kind.subtitle":
+      "Permanent install-time choice. Drives the entire dashboard chrome — sidebar nav, home page, page layouts, available modules. Pick the one that matches who will be sitting in front of this dashboard every day.",
+    "setup.kind.council.title": "Regulator / oversight body",
+    "setup.kind.council.body":
+      "I oversee multiple Microsoft tenants (entities). Mizan ranks and audits each one — I see cross-tenant CVE correlation, Council-wide KPIs, an entities list, and federated governance. Examples: cybersecurity council, ministry, parent group security team.",
+    "setup.kind.executive.title": "A single organization",
+    "setup.kind.executive.body":
+      "I manage one Microsoft tenant — my own. Mizan is my CISO dashboard for that tenant. I see my posture profile, my risk register, my CISO scorecard, my insurance readiness, and a board-grade PDF report I can hand to my board each quarter. No multi-tenant comparison.",
+    "setup.kind.lockedHint":
+      "Deployment kind is already set and cannot be changed. Redeploy to change it.",
+    "setup.kind.unlockedWarning":
+      "Choose carefully. This decision is permanent once you click Next.",
+
     "setup.s1.title": "1. Your organization",
     "setup.s1.subtitle":
       "This is the name that appears everywhere — dashboard chrome, PDFs, letters, the sign-in page.",
@@ -2885,6 +2900,7 @@ export const DICT = {
     "nav.menu.open": "Open menu",
     "nav.menu.close": "Close menu",
     "nav.maturity": "Maturity overview",
+    "nav.posture": "Posture overview",
     "nav.entities": "Entities",
     "nav.identity": "Identity",
     "nav.threats": "Threats",
@@ -2892,9 +2908,142 @@ export const DICT = {
     "nav.data": "Data protection",
     "nav.devices": "Devices",
     "nav.governance": "Governance",
+    "nav.compliance": "Compliance",
     "nav.directive": "Directive",
+    "nav.section.riskMgmt": "Risk management",
+    "nav.section.reports": "Reports",
+    "nav.riskRegister": "Risk register",
+    "nav.insurance": "Cyber insurance",
+    "nav.boardReport": "Board report",
+    "nav.scorecard": "CISO scorecard",
     "nav.settings": "Settings",
     "nav.faq": "FAQ",
+
+    "risk.eyebrow": "Risk register",
+    "risk.title": "Risk register",
+    "risk.subtitle":
+      "Board-grade risk list. Each entry carries an impact × likelihood rating and an owner. Mizan auto-suggests entries from posture signals; you accept or dismiss each suggestion.",
+    "risk.newRisk": "New risk",
+    "risk.suggested.title": "{count} suggestion(s) need your review",
+    "risk.suggested.body":
+      "Mizan generated these from current posture signals — critical CVEs aging past 30 days, admin deactivations in the last 7 days, active high-severity incidents past SLA. Accept moves the risk into the active register; Dismiss buries it for 30 days before the same rule can re-suggest.",
+    "risk.suggested.source": "Source: {source}",
+    "risk.suggested.accept": "Accept",
+    "risk.suggested.dismiss": "Dismiss",
+    "risk.active.title": "Active register",
+    "risk.active.subtitle": "{count} active risk(s) sorted by residual rating.",
+    "risk.active.empty":
+      "No active risks. Click New risk to add one manually, or wait — Mizan will suggest risks as posture signals breach thresholds.",
+    "risk.col.rating": "Rating",
+    "risk.col.risk": "Risk",
+    "risk.col.owner": "Owner",
+    "risk.col.due": "Due",
+    "risk.col.status": "Status",
+    "risk.col.actions": "",
+    "risk.col.delete": "Delete",
+    "risk.status.suggested": "Suggested",
+    "risk.status.open": "Open",
+    "risk.status.mitigated": "Mitigated",
+    "risk.status.accepted": "Accepted",
+    "risk.status.dismissed": "Dismissed",
+    "risk.delete.confirm": "Delete this risk? This cannot be undone.",
+    "risk.modal.title": "Add a new risk",
+    "risk.modal.create": "Create risk",
+    "risk.field.title": "Title",
+    "risk.field.title.placeholder":
+      "Short imperative summary (e.g. 'Stale admin accounts for ex-employees')",
+    "risk.field.description": "Description",
+    "risk.field.impact": "Impact (1-5)",
+    "risk.field.likelihood": "Likelihood (1-5)",
+    "risk.field.owner": "Owner",
+    "risk.field.dueDate": "Due date",
+
+    "scorecard.eyebrow": "CISO scorecard",
+    "scorecard.title": "CISO scorecard",
+    "scorecard.subtitle":
+      "Pin board commitments and watch them light up green / amber / red against current measurements. Each KPI is computed live from your posture data.",
+    "scorecard.pinKpi": "Pin a KPI",
+    "scorecard.unpin": "Unpin",
+    "scorecard.empty.title": "No KPIs pinned yet",
+    "scorecard.empty.body":
+      "Pick KPIs from the catalog and pin them here. Each tile shows current vs your committed target, with a color-coded status. Use this to track quarterly board commitments without leaving Mizan.",
+    "scorecard.tile.target": "Target {target}{unit}",
+    "scorecard.status.met": "Met",
+    "scorecard.status.atRisk": "At risk",
+    "scorecard.status.missed": "Missed",
+    "scorecard.status.onTrack": "On track",
+    "scorecard.status.unknown": "No data",
+    "scorecard.picker.title": "Pin a KPI",
+    "scorecard.picker.subtitle":
+      "Pick from the catalog. Default targets shown — you can edit any pin's target after it's on the board.",
+    "scorecard.picker.defaultTarget": "Default target: {target}{unit}",
+    "scorecard.picker.alreadyPinned": "Already pinned",
+    "scorecard.kpi.maturityIndex": "Maturity Index",
+    "scorecard.kpi.maturityIndex.desc":
+      "Headline posture score. Mean of all six sub-scores weighted by the active config.",
+    "scorecard.kpi.frameworkCompliance": "Framework compliance",
+    "scorecard.kpi.frameworkCompliance.desc":
+      "% alignment with the active framework (Dubai ISR / NESA). Higher is better.",
+    "scorecard.kpi.mfaAdminCoverage": "MFA on admin roles",
+    "scorecard.kpi.mfaAdminCoverage.desc":
+      "Identity sub-score — proxy for MFA enforcement on privileged accounts.",
+    "scorecard.kpi.criticalCveAge": "Critical CVEs > 30 days",
+    "scorecard.kpi.criticalCveAge.desc":
+      "Count of critical CVEs whose CVE published date is more than 30 days ago. Lower is better.",
+    "scorecard.kpi.privilegedRoleCount": "Privileged role members",
+    "scorecard.kpi.privilegedRoleCount.desc":
+      "Active count of users in the most-sensitive directory roles. Lower is better.",
+    "scorecard.kpi.incidentMttr": "Incident MTTR (hours)",
+    "scorecard.kpi.incidentMttr.desc":
+      "Average resolution time for high-severity incidents in the last 30 days. Lower is better.",
+    "scorecard.kpi.deviceCompliance": "Device compliance",
+    "scorecard.kpi.deviceCompliance.desc":
+      "% of managed devices reporting Compliant in Intune. Higher is better.",
+    "scorecard.kpi.highRiskUsers": "High-risk users",
+    "scorecard.kpi.highRiskUsers.desc":
+      "Count of users currently flagged High Risk by Identity Protection. Lower is better.",
+    "scorecard.kpi.auditClosureSla": "Audit findings closed within SLA",
+    "scorecard.kpi.auditClosureSla.desc":
+      "% of audit findings closed within their committed timeline. Stub — wires to data in v2.7.",
+    "scorecard.kpi.boardReportDelivered": "Board report delivered this quarter",
+    "scorecard.kpi.boardReportDelivered.desc":
+      "Yes / No — whether you've shipped a board PDF report this quarter from Mizan.",
+
+    "insurance.eyebrow": "Cyber insurance readiness",
+    "insurance.title": "Cyber insurance readiness",
+    "insurance.subtitle":
+      "Aviation-specific questionnaire pulled from Beazley / Coalition / AIG public forms, cross-referenced against IATA, ICAO, and FAA guidance. Mizan auto-answers questions where Microsoft 365 signals can prove the control; the rest are manual checkbox + evidence.",
+    "insurance.template": "Template v{version}",
+    "insurance.kpi.completion": "Completion",
+    "insurance.kpi.answered": "Answered",
+    "insurance.kpi.yes": "Yes",
+    "insurance.kpi.no": "No",
+    "insurance.kpi.gaps": "Gaps",
+    "insurance.row.auto": "Auto-evaluated",
+    "insurance.row.evidencePlaceholder":
+      "Optional — paste a one-line justification or a link to evidence.",
+    "insurance.row.yes": "Yes",
+    "insurance.row.no": "No",
+    "insurance.row.na": "N/A",
+    "insurance.row.savedAt": "Saved {when}",
+
+    "board.eyebrow": "Board report",
+    "board.title": "Board report",
+    "board.subtitle":
+      "Quarterly cybersecurity report for the board. Headline KPIs, posture trend, top risks, top vulnerabilities, scorecard status, and an editable Planned-actions section. Click Generate now to render the current quarter; the system also auto-drafts weekly into the list below.",
+    "board.generate": "Generate now",
+    "board.drafts.title": "Drafts",
+    "board.drafts.subtitle":
+      "Every previously generated draft. Re-download, sign off, or delete.",
+    "board.drafts.empty":
+      "No drafts yet. Click Generate now to create the first one — or wait for the weekly auto-draft to land here.",
+    "board.drafts.row.period": "{period} report",
+    "board.drafts.row.generated": "Generated {when}",
+    "board.drafts.row.signedBy": "Signed by {by} on {when}",
+    "board.drafts.download": "Download PDF",
+    "board.drafts.sign": "Mark signed",
+    "board.drafts.delete": "Delete draft",
+    "board.delete.confirm": "Delete this draft? The PDF will be lost.",
     "sidebar.dataSources": "Data sources",
     "sidebar.dataSources.suffix": "· Graph APIs",
     "ds.secureScore.detail": "tenant & control-level",
@@ -3293,6 +3442,21 @@ export const DICT = {
       "تم تحديد وضع النشر ولا يمكن تغييره. لتغييره يلزم إعادة النشر.",
     "setup.deployment.unlockedWarning":
       "اختر بعناية. هذا القرار دائم بمجرد الضغط على التالي.",
+
+    "setup.kind.title": "لمن هذه اللوحة؟",
+    "setup.kind.subtitle":
+      "خيار تثبيت دائم. يحدّد كامل مظهر اللوحة — الشريط الجانبي، الصفحة الرئيسية، تخطيط الصفحات، الوحدات المتاحة. اختر الذي يطابق مَن سيجلس أمام هذه اللوحة يوميًا.",
+    "setup.kind.council.title": "جهة رقابية / إشرافية",
+    "setup.kind.council.body":
+      "أُشرف على مستأجرات Microsoft متعددة (جهات). يقيس Mizan ويصنّف كل جهة — أرى الترابط بين الثغرات عبر الجهات، ومؤشرات أداء على مستوى المجلس، وقائمة الجهات، وحوكمة موحّدة. أمثلة: مجلس الأمن السيبراني، وزارة، فريق أمن مجموعة شركات.",
+    "setup.kind.executive.title": "مؤسسة واحدة",
+    "setup.kind.executive.body":
+      "أدير مستأجر Microsoft واحدًا — مستأجري. Mizan هي لوحة مدير الأمن السيبراني (CISO) لمؤسستي. أرى ملف الوضع الأمني، وسجل المخاطر، وبطاقة أداء CISO، وجاهزية التأمين السيبراني، وتقرير PDF بمستوى مجلس الإدارة يمكن تسليمه ربعيًا للمجلس. لا توجد مقارنة بين عدة مستأجرين.",
+    "setup.kind.lockedHint":
+      "تم تحديد نوع النشر ولا يمكن تغييره. لتغييره يلزم إعادة النشر.",
+    "setup.kind.unlockedWarning":
+      "اختر بعناية. هذا القرار دائم بمجرد الضغط على التالي.",
+
     "setup.s1.title": "١. اسم الجهة",
     "setup.s1.subtitle":
       "هذا الاسم يظهر في كل مكان — واجهة اللوحة، ملفات PDF، الرسائل، صفحة تسجيل الدخول.",
@@ -5774,6 +5938,7 @@ export const DICT = {
     "nav.menu.open": "فتح القائمة",
     "nav.menu.close": "إغلاق القائمة",
     "nav.maturity": "نظرة عامة على النضج",
+    "nav.posture": "نظرة عامة على الوضع الأمني",
     "nav.entities": "الجهات",
     "nav.identity": "الهوية",
     "nav.threats": "التهديدات",
@@ -5781,8 +5946,141 @@ export const DICT = {
     "nav.data": "حماية البيانات",
     "nav.devices": "الأجهزة",
     "nav.governance": "الحوكمة",
+    "nav.compliance": "الامتثال",
     "nav.directive": "التوجيهات",
+    "nav.section.riskMgmt": "إدارة المخاطر",
+    "nav.section.reports": "التقارير",
+    "nav.riskRegister": "سجل المخاطر",
+    "nav.insurance": "التأمين السيبراني",
+    "nav.boardReport": "تقرير مجلس الإدارة",
+    "nav.scorecard": "بطاقة أداء CISO",
     "nav.settings": "الإعدادات",
+
+    "risk.eyebrow": "سجل المخاطر",
+    "risk.title": "سجل المخاطر",
+    "risk.subtitle":
+      "قائمة مخاطر بمستوى مجلس الإدارة. لكل مدخل تقييم (الأثر × الاحتمالية) ومالك. يقترح Mizan مدخلات تلقائيًا من إشارات الوضع الأمني؛ تقبلها أو ترفضها.",
+    "risk.newRisk": "مخاطرة جديدة",
+    "risk.suggested.title": "{count} اقتراح(ات) يحتاج مراجعتك",
+    "risk.suggested.body":
+      "أنشأ Mizan هذه من إشارات الوضع الأمني الحالية — ثغرات حرجة مرّ على ظهورها أكثر من ٣٠ يومًا، تعطيل حسابات مسؤولين خلال آخر ٧ أيام، حوادث عالية الخطورة نشطة تجاوزت اتفاقية الخدمة. القبول يضيفها إلى السجل النشط؛ الرفض يخفيها لمدة ٣٠ يومًا قبل أن تعيد القاعدة الاقتراح.",
+    "risk.suggested.source": "المصدر: {source}",
+    "risk.suggested.accept": "قبول",
+    "risk.suggested.dismiss": "رفض",
+    "risk.active.title": "السجل النشط",
+    "risk.active.subtitle": "{count} مخاطرة نشطة، مرتبة حسب التقييم المتبقي.",
+    "risk.active.empty":
+      "لا توجد مخاطر نشطة. اضغط «مخاطرة جديدة» لإضافة واحدة يدويًا، أو انتظر — سيقترح Mizan مخاطر عند تجاوز إشارات الوضع الأمني للحدود.",
+    "risk.col.rating": "التقييم",
+    "risk.col.risk": "المخاطرة",
+    "risk.col.owner": "المالك",
+    "risk.col.due": "تاريخ الاستحقاق",
+    "risk.col.status": "الحالة",
+    "risk.col.actions": "",
+    "risk.col.delete": "حذف",
+    "risk.status.suggested": "مقترحة",
+    "risk.status.open": "مفتوحة",
+    "risk.status.mitigated": "مُخففة",
+    "risk.status.accepted": "مقبولة",
+    "risk.status.dismissed": "مرفوضة",
+    "risk.delete.confirm": "حذف هذه المخاطرة؟ لا يمكن التراجع.",
+    "risk.modal.title": "إضافة مخاطرة جديدة",
+    "risk.modal.create": "إنشاء المخاطرة",
+    "risk.field.title": "العنوان",
+    "risk.field.title.placeholder":
+      "ملخص قصير (مثال: «حسابات مسؤولين قديمة لموظفين سابقين»)",
+    "risk.field.description": "الوصف",
+    "risk.field.impact": "الأثر (١-٥)",
+    "risk.field.likelihood": "الاحتمالية (١-٥)",
+    "risk.field.owner": "المالك",
+    "risk.field.dueDate": "تاريخ الاستحقاق",
+
+    "scorecard.eyebrow": "بطاقة أداء CISO",
+    "scorecard.title": "بطاقة أداء CISO",
+    "scorecard.subtitle":
+      "ثبّت الالتزامات أمام مجلس الإدارة وراقبها وهي تضيء أخضر/كهرماني/أحمر مقابل القياسات الحالية. كل مؤشر يُحسب مباشرة من بيانات الوضع الأمني.",
+    "scorecard.pinKpi": "تثبيت مؤشر",
+    "scorecard.unpin": "إلغاء التثبيت",
+    "scorecard.empty.title": "لا توجد مؤشرات مثبتة بعد",
+    "scorecard.empty.body":
+      "اختر المؤشرات من الكتالوج وثبّتها هنا. كل بطاقة تعرض القيمة الحالية مقابل هدفك الملتزَم به، مع حالة ملوَّنة. استخدم هذه الأداة لمتابعة التزامات مجلس الإدارة الربعية دون مغادرة Mizan.",
+    "scorecard.tile.target": "الهدف {target}{unit}",
+    "scorecard.status.met": "محقَّق",
+    "scorecard.status.atRisk": "في خطر",
+    "scorecard.status.missed": "متجاوَز",
+    "scorecard.status.onTrack": "على المسار",
+    "scorecard.status.unknown": "لا توجد بيانات",
+    "scorecard.picker.title": "تثبيت مؤشر",
+    "scorecard.picker.subtitle":
+      "اختر من الكتالوج. الأهداف الافتراضية مُعرَضة — يمكنك تعديل أي هدف بعد التثبيت.",
+    "scorecard.picker.defaultTarget": "الهدف الافتراضي: {target}{unit}",
+    "scorecard.picker.alreadyPinned": "مُثبَّت بالفعل",
+    "scorecard.kpi.maturityIndex": "مؤشر النضج",
+    "scorecard.kpi.maturityIndex.desc":
+      "درجة الوضع الأمني الرئيسية. متوسط مرجَّح للمؤشرات الفرعية الستة.",
+    "scorecard.kpi.frameworkCompliance": "الامتثال للإطار",
+    "scorecard.kpi.frameworkCompliance.desc":
+      "نسبة المواءمة مع الإطار النشط (Dubai ISR / NESA). الأعلى أفضل.",
+    "scorecard.kpi.mfaAdminCoverage": "MFA على أدوار المسؤولين",
+    "scorecard.kpi.mfaAdminCoverage.desc":
+      "المؤشر الفرعي للهوية — يعكس فرض MFA على الحسابات المميَّزة.",
+    "scorecard.kpi.criticalCveAge": "ثغرات حرجة > ٣٠ يومًا",
+    "scorecard.kpi.criticalCveAge.desc":
+      "عدد الثغرات الحرجة التي تجاوز تاريخ نشرها ٣٠ يومًا. الأقل أفضل.",
+    "scorecard.kpi.privilegedRoleCount": "أعضاء الأدوار المميَّزة",
+    "scorecard.kpi.privilegedRoleCount.desc":
+      "عدد المستخدمين النشطين في الأدوار الأكثر حساسية. الأقل أفضل.",
+    "scorecard.kpi.incidentMttr": "MTTR للحوادث (ساعات)",
+    "scorecard.kpi.incidentMttr.desc":
+      "متوسط زمن الحل للحوادث عالية الخطورة في آخر ٣٠ يومًا. الأقل أفضل.",
+    "scorecard.kpi.deviceCompliance": "امتثال الأجهزة",
+    "scorecard.kpi.deviceCompliance.desc":
+      "نسبة الأجهزة المُدارة المتوافقة في Intune. الأعلى أفضل.",
+    "scorecard.kpi.highRiskUsers": "مستخدمون عاليو الخطورة",
+    "scorecard.kpi.highRiskUsers.desc":
+      "عدد المستخدمين المعلَّمين «خطر مرتفع» حاليًا في Identity Protection. الأقل أفضل.",
+    "scorecard.kpi.auditClosureSla": "إغلاق نتائج التدقيق ضمن SLA",
+    "scorecard.kpi.auditClosureSla.desc":
+      "نسبة نتائج التدقيق المُغلقة خلال الجدول الزمني الملتزَم به. مؤقت — يربط بالبيانات في v2.7.",
+    "scorecard.kpi.boardReportDelivered": "تسليم تقرير المجلس هذا الربع",
+    "scorecard.kpi.boardReportDelivered.desc":
+      "نعم / لا — هل سلَّمتَ تقرير PDF لمجلس الإدارة هذا الربع من Mizan.",
+
+    "insurance.eyebrow": "جاهزية التأمين السيبراني",
+    "insurance.title": "جاهزية التأمين السيبراني",
+    "insurance.subtitle":
+      "استبيان خاص بقطاع الطيران مأخوذ من النماذج العامة لشركات Beazley / Coalition / AIG، ومُسَنَد إلى توجيهات IATA و ICAO و FAA. يجيب Mizan تلقائيًا على الأسئلة التي تستطيع إشارات Microsoft 365 إثباتها، والباقي بإجابة يدوية + دليل.",
+    "insurance.template": "النموذج v{version}",
+    "insurance.kpi.completion": "الاكتمال",
+    "insurance.kpi.answered": "تمت الإجابة",
+    "insurance.kpi.yes": "نعم",
+    "insurance.kpi.no": "لا",
+    "insurance.kpi.gaps": "فجوات",
+    "insurance.row.auto": "تقييم تلقائي",
+    "insurance.row.evidencePlaceholder":
+      "اختياري — الصق تبريرًا قصيرًا أو رابطًا لدليل.",
+    "insurance.row.yes": "نعم",
+    "insurance.row.no": "لا",
+    "insurance.row.na": "غير منطبق",
+    "insurance.row.savedAt": "حُفظ في {when}",
+
+    "board.eyebrow": "تقرير مجلس الإدارة",
+    "board.title": "تقرير مجلس الإدارة",
+    "board.subtitle":
+      "تقرير الأمن السيبراني الربعي للمجلس. مؤشرات رئيسية، اتجاه الوضع الأمني، أكبر المخاطر، أكبر الثغرات، حالة بطاقة الأداء، وقسم «الإجراءات المخططة» قابل للتحرير. اضغط «إنشاء الآن» لتوليد تقرير الربع الحالي؛ يُولِّد النظام أيضًا مسودات أسبوعية تلقائيًا في القائمة أدناه.",
+    "board.generate": "إنشاء الآن",
+    "board.drafts.title": "المسودات",
+    "board.drafts.subtitle":
+      "كل المسودات المُنشأة سابقًا. تحميل من جديد أو توقيع أو حذف.",
+    "board.drafts.empty":
+      "لا توجد مسودات بعد. اضغط «إنشاء الآن» لإنشاء الأولى — أو انتظر مسودة أسبوعية تلقائية.",
+    "board.drafts.row.period": "تقرير {period}",
+    "board.drafts.row.generated": "أُنشئ {when}",
+    "board.drafts.row.signedBy": "وقّعه {by} في {when}",
+    "board.drafts.download": "تحميل PDF",
+    "board.drafts.sign": "تعليم كموقَّع",
+    "board.drafts.delete": "حذف المسودة",
+    "board.delete.confirm": "حذف هذه المسودة؟ سيُفقد الملف PDF.",
     "nav.faq": "الأسئلة الشائعة",
     "sidebar.dataSources": "مصادر البيانات",
     "sidebar.dataSources.suffix": "· Graph APIs",

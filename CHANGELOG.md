@@ -26,6 +26,46 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-29 — v2.6.0 (Mizan Executive Mode unlocked)**. The biggest release since v2.0. Mizan now ships in two install kinds from the same image: **Council** (regulator watching N entities — current SCSC / DESC behavior, unchanged) and **Executive** (single-org CISO dashboard — new). Selectable at first-run `/setup`, locked for life of the deployment. Triggering customer: Dubai Airports — demo live at `da.zaatarlabs.com`.
+
+  **Architecture.** New `deploymentKind` flag (`council` | `executive`) in `app_config`. Mirrors the existing `deploymentMode` semantics — set once via the wizard, lock-after-first-write, env fallback `MIZAN_DEPLOYMENT_KIND` for Mac demos / preset installers. Both dimensions are independent: SCSC = council+observation, DESC = council+directive, Dubai Airports = executive+directive. `/api/whoami` exposes `deploymentKind` so every client component branches at the chrome layer. **No fork** — full deferred-feature roadmap captured in `docs/16-executive-mode-roadmap.md`.
+
+  **Setup wizard.** New "Who is this dashboard for?" block on Step 1 with two prominent radio cards (Regulator / Single organization) and explainer copy in EN + AR. Selection is irreversible after first save.
+
+  **Chrome split.** In Executive mode:
+    - Sidebar order reorganized (Posture overview · Identity · Devices · Data · Threats · Compliance · Vulnerabilities · Directive · ── Risk management ── Risk register · Cyber insurance · ── Reports ── Board report · CISO scorecard · Settings · FAQ).
+    - "Maturity" → "Posture overview", "Governance" → "Compliance" (label-only — same pages).
+    - Sidebar "Entities" link hidden — N=1 makes a list redundant.
+    - `/` redirects straight to the single tenant's entity-detail page.
+    - `/maturity` cluster bar chart, cluster radar, and Movers/Dragging panels hidden.
+    - `/governance` "By entity" rollup hidden.
+    - `/entities` redirects to entity detail.
+
+  **Four new modules — full-stack:**
+
+  - **Risk register** (`/risk-register`) — board-grade risk list with impact × likelihood rating (1–25), owner, due date, status (suggested / open / mitigated / accepted / dismissed), mitigation notes. Auto-suggest engine generates risks from posture signals (critical CVE > 30 days, admin deactivation in last 7 days, active high-severity incident open > 24h) into a Suggested panel; CISO accepts (→ open) or dismisses (→ 30-day cooldown). `MIZAN_AUTO_PROMOTE_SUGGESTIONS=true` flips suggestions straight to open for unattended automation.
+
+  - **CISO scorecard** (`/scorecard`) — pin board commitments from a 10-KPI catalog (Maturity Index, Framework compliance, MFA on admins, Critical CVE age, Privileged role count, Incident MTTR, Device compliance, High-risk users, Audit closure SLA, Board report delivered). Each pin shows current vs target with green/amber/red status. Catalog computes values live from existing signals.
+
+  - **Cyber insurance readiness** (`/insurance`) — aviation-specific questionnaire (~30 questions) synthesized from public Beazley / Coalition / AIG forms cross-referenced against IATA Cybersecurity Toolkit, ICAO Doc 8973, FAA AC 119-1A. Auto-evaluator answers questions where Microsoft 365 signals can prove the control (MFA on admins, MDE onboarding, device compliance, sensitivity-label catalog, vulnerability scanning, phishing simulation campaigns). Manual answers + free-text evidence persist alongside auto-answers. Header KPIs: completion %, yes / no / gaps. Engine takes JSON templates so v2.7 can drop in finance / healthcare / generic without code changes.
+
+  - **Board PDF report** (`/board-report`) — quarterly cybersecurity report rendered with `@react-pdf/renderer`. 4-page layout: cover (org logo + period) · executive summary with headline KPIs and posture sub-scores · CISO scorecard table · top risks + top vulnerabilities · insurance readiness summary + planned actions section. On-demand "Generate now" button + drafts list (the auto-weekly cron landing point — wired for the existing Mizan sync infra). Drafts can be re-downloaded after data changes; PDF blob stored per-draft so old drafts stay reproducible.
+
+  **DB.** Migration v14 adds `risk_register`, `ciso_scorecard_pins`, `insurance_answers`, `board_report_drafts`. All four tables additive — Council deployments simply never INSERT into them.
+
+  **Dubai Airports demo at `da.zaatarlabs.com`:**
+    - Mac Mini port `:8789`, LaunchAgent `com.zaatarlabs.dademo.plist`, `DATA_DIR=~/Projects/.../data/dademo`
+    - `MIZAN_DEPLOYMENT_KIND=executive`, `MIZAN_DEPLOYMENT_MODE=directive`, `SCSC_SEED_CUSTOMER=dubaiairports`
+    - Branding: navy `#1E2761` + yellow `#F8C022` extracted from the DXB corporate logo
+    - Logo PNG copied from `web/public/branding/dubaiairports.png` to `DATA_DIR/branding/logo.png` at seed time
+    - Seed: 1 tenant ("Dubai Airports", domain `dubaiairports.ae`, mid-maturity 74), 10 risks (OT segmentation gap, SSO gap on SITA Crew Manager, GA bloat, BCP/restore-test gap, DMARC at quarantine, etc.), 5 pinned CISO KPIs with board commitments, ~80%-answered insurance questionnaire with deliberate gaps for the demo story.
+    - Cloudflare tunnel + Access policy: configured manually by operator.
+    - `web/deploy/restart-demos.sh` extended to manage all three demos.
+
+  **What's deferred to v2.6.x / v2.7 / v2.8** — the full deferred list lives in `docs/16-executive-mode-roadmap.md`. Highlights: HistoricalRadar + PatchingVelocityChart components, mobile-shell polish on the new modules, board PDF visual polish, auto-suggest sensitivity slider, CISO scorecard sparklines, additional industry questionnaire templates (finance / healthcare / generic), risk register heat map + treatment plans, custom CISO KPI formulas, CSV / JIRA / ServiceNow risk imports, email digest, Slack/Teams webhook, multi-org hierarchical Executive view, public scorecard API.
+
+  EN + AR coverage on every new key. No breaking changes for Council deployments — existing SCSC / DESC instances boot unchanged.
+
 - **2026-04-28 — v2.5.34 (Posture radar · admin governance · live notifications + 4 polish items)**. Big release shaped by the DESC meeting. Headline is the new **posture radar** — every entity renders as a six-axis polygon overlaid against the Council mean so operators see at a glance where each entity is strong vs. weak across Secure Score, Identity, Device, Data, Threat response, and Compliance. Pairs with a cluster-level radar on the Council `/maturity` page so Police / Health / Municipality / Edu / Utilities / Transport clusters can be compared in a single view, with the Council target traced as a dashed reference.
 
   **Admin governance — two new controls landed:**

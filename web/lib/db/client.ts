@@ -643,6 +643,101 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 14,
+    name: "executive_mode_tables",
+    run: (db) => {
+      // v2.6.0 — Executive mode unlocks four new modules. Each gets one
+      // table here. None of the tables touch existing rows; they're
+      // additive and safe on Council deployments (which simply never
+      // INSERT into them).
+
+      // Risk register — board-grade risk list. Auto-source values:
+      //   "auto-cve"           — auto-suggested from a critical CVE > 30d
+      //   "auto-deactivation"  — admin deactivation in last 7d
+      //   "auto-mfa-coverage"  — MFA coverage on admins < 100%
+      //   "auto-maturity-drop" — Maturity Index dropped > 5 points week-on-week
+      //   "auto-incident"      — high-severity incident open > 24h
+      //   "manual"             — operator entered directly
+      // suggestions land with status='suggested'; operator promotes to
+      // status='open' (CISO accepted) or 'dismissed' (30-day cooldown).
+      db.exec(`CREATE TABLE IF NOT EXISTS risk_register (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        impact INTEGER NOT NULL CHECK (impact BETWEEN 1 AND 5),
+        likelihood INTEGER NOT NULL CHECK (likelihood BETWEEN 1 AND 5),
+        residual_rating INTEGER NOT NULL CHECK (residual_rating BETWEEN 1 AND 25),
+        owner TEXT,
+        due_date TEXT,
+        status TEXT NOT NULL DEFAULT 'open'
+          CHECK (status IN ('suggested','open','mitigated','accepted','dismissed')),
+        mitigation_notes TEXT,
+        source TEXT NOT NULL DEFAULT 'manual',
+        related_signal TEXT,
+        suggested_at TEXT,
+        accepted_at TEXT,
+        dismissed_at TEXT,
+        cooldown_until TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_risk_register_status ON risk_register(status, residual_rating DESC)",
+      );
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_risk_register_source ON risk_register(source, status)",
+      );
+
+      // CISO scorecard — pinned KPIs. The catalog of 10 KPI kinds lives
+      // in code (lib/scorecard/catalog.ts); this table just stores
+      // which ones the operator has pinned + their target / commitment.
+      db.exec(`CREATE TABLE IF NOT EXISTS ciso_scorecard_pins (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kpi_kind TEXT NOT NULL,
+        label TEXT NOT NULL,
+        target REAL NOT NULL,
+        commitment TEXT,
+        due_date TEXT,
+        owner TEXT,
+        pinned_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(kpi_kind)
+      )`);
+
+      // Cyber insurance — answers to questionnaire questions. The
+      // questionnaire template (aviation, ~30 questions) is JSON in
+      // lib/config/insurance-questionnaires/aviation.ts; this table
+      // just stores the operator's answers + auto-captured signal
+      // evidence at answer time.
+      db.exec(`CREATE TABLE IF NOT EXISTS insurance_answers (
+        question_id TEXT PRIMARY KEY,
+        value TEXT NOT NULL CHECK (value IN ('yes','no','na')),
+        evidence TEXT,
+        signal_snapshot TEXT,
+        answered_at TEXT NOT NULL DEFAULT (datetime('now')),
+        answered_by TEXT
+      )`);
+
+      // Board report drafts — auto-generated weekly + on-demand.
+      // pdf_blob is a BLOB so the report can be re-downloaded after
+      // the source data changes; we don't regenerate from scratch
+      // when an operator clicks Download on an old draft.
+      db.exec(`CREATE TABLE IF NOT EXISTS board_report_drafts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        period TEXT NOT NULL,
+        generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        status TEXT NOT NULL DEFAULT 'draft'
+          CHECK (status IN ('draft','signed','superseded')),
+        signed_by TEXT,
+        signed_at TEXT,
+        planned_actions TEXT,
+        pdf_blob BLOB
+      )`);
+      db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_board_drafts_period ON board_report_drafts(period DESC, generated_at DESC)",
+      );
+    },
+  },
 ];
 
 function applyMigrations(db: Database.Database): void {

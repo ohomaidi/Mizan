@@ -27,14 +27,29 @@ export default function MaturityPage() {
   const fmtD = useFmtDelta();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [range, setRange] = useState<Range>("7D");
+  // v2.6.0 — Posture overview branches on deploymentKind. In Council
+  // mode this is the multi-tenant landing page (bar chart of all
+  // entities, cluster radar, movers list). In Executive mode the
+  // entity-detail page is the home (see app/page.tsx redirect); this
+  // page should only be reached in Executive mode if the operator
+  // navigates here directly, in which case we collapse the Council-
+  // only chrome and show a single-tenant view.
+  const [isExecutive, setIsExecutive] = useState(false);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [k, e] = await Promise.all([api.getKpis(), api.getEntities()]);
+        const [k, e, who] = await Promise.all([
+          api.getKpis(),
+          api.getEntities(),
+          api.whoami().catch(() => null),
+        ]);
         if (!alive) return;
         setState({ kind: "ready", kpis: k.kpis, clusters: k.clusters, entities: e.entities });
+        if (who && (who as { deploymentKind?: string }).deploymentKind === "executive") {
+          setIsExecutive(true);
+        }
       } catch (err) {
         if (!alive) return;
         setState({ kind: "error", message: (err as Error).message });
@@ -143,31 +158,40 @@ export default function MaturityPage() {
         );
       })()}
 
-      <Card>
-        <CardHeader
-          title={t("chart.entities.title")}
-          subtitle={t("chart.entities.subtitle", { target: fmt(kpis.target) })}
-          right={
-            <div className="flex items-center gap-4 text-[12px] text-ink-2">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm bg-council-strong" />
-                {t("chart.legend.current")}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-[2px] w-4 bg-accent" />
-                {t("chart.legend.target")}
-              </span>
-            </div>
-          }
-        />
-        <EntityBarChart entities={entities} target={kpis.target} />
-      </Card>
+      {/*
+       * Cross-entity bar chart — Council-only. In Executive mode (N=1)
+       * a horizontal-bar comparison degenerates to a single bar, so
+       * we hide it and let the cluster radar + the entity-detail
+       * radar do the heavy lifting.
+       */}
+      {!isExecutive ? (
+        <Card>
+          <CardHeader
+            title={t("chart.entities.title")}
+            subtitle={t("chart.entities.subtitle", { target: fmt(kpis.target) })}
+            right={
+              <div className="flex items-center gap-4 text-[12px] text-ink-2">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-council-strong" />
+                  {t("chart.legend.current")}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-[2px] w-4 bg-accent" />
+                  {t("chart.legend.target")}
+                </span>
+              </div>
+            }
+          />
+          <EntityBarChart entities={entities} target={kpis.target} />
+        </Card>
+      ) : null}
 
       {/* v2.5.34 — Cluster-level radar of the 6 Maturity sub-scores. Shows
           where each cluster is strong vs. weak across every dimension that
           drives the Maturity Index, with the Council target as a dashed
-          reference. Only renders if at least one cluster has data. */}
-      {(() => {
+          reference. Only renders if at least one cluster has data. v2.6.0:
+          hidden in Executive mode (no clusters when N=1). */}
+      {!isExecutive ? (() => {
         const series: MaturityRadarSeries[] = state.clusters
           .map((c) => {
             const cohort = entities.filter(
@@ -222,8 +246,11 @@ export default function MaturityPage() {
             <MaturityRadar series={series} height={360} />
           </Card>
         );
-      })()}
+      })() : null}
 
+      {/* v2.6.0 — Movers panel + Drag-down panel are Council-only.
+          Single-org operators don't have peers to rank against. */}
+      {!isExecutive ? (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader
@@ -281,6 +308,7 @@ export default function MaturityPage() {
           <DraggingControls />
         </Card>
       </div>
+      ) : null}
     </div>
   );
 }

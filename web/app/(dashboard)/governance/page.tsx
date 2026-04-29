@@ -36,6 +36,25 @@ export default function GovernancePage() {
   // with the full description, the Microsoft Secure Score controls
   // backing it, and per-entity coverage rollup.
   const [openClauseId, setOpenClauseId] = useState<string | null>(null);
+  // v2.6.0 — Executive mode hides the "By entity" rollup since N=1.
+  const [isExecutive, setIsExecutive] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api
+      .whoami()
+      .then((r) => {
+        if (
+          alive &&
+          (r as { deploymentKind?: string }).deploymentKind === "executive"
+        ) {
+          setIsExecutive(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     Promise.all([api.getKpis(), api.getEntities(), api.getNesaMapping()])
@@ -125,6 +144,7 @@ export default function GovernancePage() {
             </div>
             <div className="mt-1 text-[11.5px] text-ink-3 tabular">{fmt(alignedPct)}%</div>
           </div>
+          {!isExecutive ? (
           <div className="rounded-md border border-border bg-surface-1 p-4">
             <div className="eyebrow mb-2">{t("rollup.byEntity")}</div>
             <ul className="divide-y divide-border text-[13px]">
@@ -162,6 +182,7 @@ export default function GovernancePage() {
                 })}
             </ul>
           </div>
+          ) : null}
         </div>
       </Card>
 

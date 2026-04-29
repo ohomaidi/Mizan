@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/auth/session";
 import { getAuthConfig, isDemoMode } from "@/lib/config/auth-config";
 import { getDeploymentMode } from "@/lib/config/deployment-mode";
+import { getDeploymentKind } from "@/lib/config/deployment-kind";
 import { getBranding } from "@/lib/config/branding";
 import { config } from "@/lib/config";
 
@@ -29,6 +30,11 @@ export async function GET() {
   const configured = cfg.clientId.length > 0 && cfg.clientSecret.length > 0;
   const demoMode = isDemoMode();
   const deploymentMode = getDeploymentMode();
+  // v2.6.0 — `deploymentKind` decides cardinality of the dashboard:
+  // `council` (regulator watching N entities, current default) vs.
+  // `executive` (single-org CISO dashboard). UI branches the entire
+  // chrome (sidebar nav, home page, /maturity layout, etc.) on this.
+  const deploymentKind = getDeploymentKind();
   const graphAppReady = config.isAzureConfigured;
   // Active framework id (e.g. "dubai-isr") — surfaced here so the
   // sidebar's data-sources panel can label the "Compliance Mgr." row
@@ -41,6 +47,7 @@ export async function GET() {
       configured,
       demoMode,
       deploymentMode,
+      deploymentKind,
       frameworkId,
       graphAppReady,
       user: null,
@@ -51,6 +58,7 @@ export async function GET() {
     configured,
     demoMode,
     deploymentMode,
+    deploymentKind,
     frameworkId,
     graphAppReady,
     user: {
