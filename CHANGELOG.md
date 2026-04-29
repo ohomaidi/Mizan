@@ -26,6 +26,25 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-29 — v2.6.3 (Executive Settings — Organization tab, Council tabs hidden)**. The v2.6.0 Settings page was a Council clone shown to Executive deployments unchanged. None of it made sense for one CISO with one tenant: the default landing tab was the multi-tenant onboarding wizard, with sub-tabs for "Discovery PDF" (a regulator's onboarding letter template), "Entities" (the list of consented peers), and per-row sync controls. v2.6.3 cleans this up.
+
+  **New Executive Settings IA.** Tab list is split per deploymentKind:
+    - **Executive (10 tabs):** Organization (NEW, default) · Branding · Authentication · App Registration · Maturity Index · Compliance framework · Onboarding PDF · Audit log · Documentation · About.
+    - **Council (11 tabs, unchanged):** Entities (default) · Branding · Authentication · App Registration · Maturity Index · Compliance framework · Discovery PDF · Onboarding PDF · Audit log · Documentation · About.
+
+  **Hidden in Executive:** `entities` tab (no peers to onboard), `discovery` tab (no entities to discover). Both routes still resolve via deep-link, but they're not in the strip. The "Compliance framework" label keeps the same dict key (`settings.tab.nesa`) but a new alias `settings.tab.compliance` is used in the Executive list so the term reads naturally regardless of the regulator framework loaded.
+
+  **Organization tab — what's new.** Three cards on a single scroll:
+    1. **Profile** — Name · primary domain · Microsoft Entra tenant ID · CISO contact · CISO email · consent mode (observation vs directive). Read-only display sourced from the existing `tenants` row; editing happens in dedicated tabs (Branding for the display name + logo, Auth for users, App Registration for the Graph credentials).
+    2. **Microsoft Graph connection** — three sub-cards: consent status (green/amber/red), endpoint health (green/amber/red from the existing health-dot computation), last successful sync (relative time). "Sync now" button triggers the existing `/api/tenants/{id}/sync` endpoint with feedback message; if a recent release added new Graph scopes (`scopeStale: true`) a warning banner suggests re-running admin consent.
+    3. **Where to configure the rest** — a 2×2 grid of pointer cards linking to Branding, Microsoft Graph app, Compliance framework, and Authentication tabs with one-line descriptions. Helps the operator avoid hunting for the right tab.
+
+  **Server/client split — fixes first-paint flicker.** v2.6.3 splits the page into `page.tsx` (server, resolves `deploymentKind` via `isExecutiveDeployment()`) and `SettingsClient.tsx` (the existing client component, now accepting `initialDeploymentKind` as a prop). Without this, the page used to flash the Council tab list briefly on Executive deployments before the client whoami() round-trip completed. `getDeploymentKind()` is a single `app_config` lookup so the resolution cost is negligible.
+
+  **New `OrganizationPanel.tsx` component** lives at `components/settings/OrganizationPanel.tsx`. Pulls from existing `api.getEntities()` and resolves the primary tenant the same way the Today page does — first consented, then demo, then any. Renders the empty-state card cleanly when no tenant is wired yet (fresh install pre-consent).
+
+  EN + AR coverage on every new key (`organization.*`, `settings.tab.organization`, `settings.tab.compliance`). No DB migrations. No breaking changes — Council deployments boot unchanged with `entities` as the default tab.
+
 - **2026-04-29 — v2.6.2 (Executive Mode polish — sparklines, HistoricalRadar, PDF cover, mobile)**. Polish pass on the v2.6.1 IA, plus a seed bug fix that left Dubai Airports' Today page hero empty.
 
   **Today page sparklines.** Each pinned KPI tile now carries a 7-point trend line in the corner — derived from the existing `maturity_snapshots` series so no new data plumbing. Coverage today: maturityIndex / frameworkCompliance / mfaAdminCoverage / deviceCompliance pull a sparkline; counts (criticalCveAge / privilegedRoleCount / highRiskUsers / etc.) won't until v2.7 lands a per-day rollup table for them. The line tone matches the KPI's status — green for met, amber for at-risk, red for missed — so the spark is "is this on or off track" not just "what shape is the curve."

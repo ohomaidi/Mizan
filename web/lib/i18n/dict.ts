@@ -233,6 +233,7 @@ export const DICT = {
     "settings.pdf.ar": "Arabic",
 
     "settings.tab.entities": "Entities",
+    "settings.tab.organization": "Organization",
     "settings.tab.branding": "Branding",
     "settings.tab.maturity": "Maturity Index",
     "settings.tab.pdf": "Onboarding PDF",
@@ -240,8 +241,61 @@ export const DICT = {
     "settings.tab.audit": "Audit log",
     "settings.tab.azure": "App Registration",
     "settings.tab.nesa": "Compliance framework",
+    "settings.tab.compliance": "Compliance framework",
     "settings.tab.docs": "Documentation",
     "settings.tab.about": "About & updates",
+
+    "organization.loading": "Loading organisation profile…",
+    "organization.empty.title": "Organisation not configured",
+    "organization.empty.subtitle":
+      "Complete the first-run /setup wizard to register the organisation profile and Microsoft Graph credentials.",
+    "organization.profile.title": "Organisation profile",
+    "organization.profile.subtitle":
+      "Identity wired into the dashboard. Edit branding and Microsoft Graph credentials in the dedicated tabs to the right.",
+    "organization.field.name": "Name",
+    "organization.field.domain": "Primary domain",
+    "organization.field.tenantId": "Microsoft Entra tenant ID",
+    "organization.field.ciso": "CISO",
+    "organization.field.cisoEmail": "CISO email",
+    "organization.field.consentMode": "Consent mode",
+    "organization.consentMode.observation": "Observation (read-only)",
+    "organization.consentMode.directive": "Directive (read + write)",
+    "organization.consent.consented": "Consent granted",
+    "organization.consent.pending": "Consent pending",
+    "organization.consent.revoked": "Consent revoked",
+    "organization.consent.failed": "Consent failed",
+    "organization.connection.title": "Microsoft Graph connection",
+    "organization.connection.subtitle":
+      "Live health of the read-only Graph signals app + last successful sync. Trigger a manual sync if you've just changed Conditional Access or PIM and want the dashboard to pick it up immediately.",
+    "organization.health.consent": "Consent",
+    "organization.health.connection": "Endpoint health",
+    "organization.health.green": "Healthy",
+    "organization.health.amber": "Degraded",
+    "organization.health.red": "Failing",
+    "organization.health.pending": "Pending",
+    "organization.health.lastSync": "Last successful sync",
+    "organization.health.neverSynced": "Never synced",
+    "organization.scopeStale":
+      "A recent release added new Microsoft Graph scopes. Re-run admin consent to keep all signals fresh.",
+    "organization.sync.button": "Sync now",
+    "organization.sync.ok": "Sync complete.",
+    "organization.sync.partial": "Sync finished with {count} endpoint error(s) — see Audit log.",
+    "organization.sync.failed": "Sync failed: {msg}",
+    "organization.elsewhere.title": "Where to configure the rest",
+    "organization.elsewhere.subtitle":
+      "Settings is split by responsibility — what's configured here vs the other tabs.",
+    "organization.elsewhere.branding": "Branding",
+    "organization.elsewhere.brandingBody":
+      "Logo, accent colour, organisation short name. Drives the dashboard chrome + board PDF cover.",
+    "organization.elsewhere.azure": "Microsoft Graph app",
+    "organization.elsewhere.azureBody":
+      "Client ID, client secret, redirect URI for the read-only Graph signals app.",
+    "organization.elsewhere.framework": "Compliance framework",
+    "organization.elsewhere.frameworkBody":
+      "Map of framework clauses → Microsoft Secure Score controls. Drives the Compliance heatmap and board PDF.",
+    "organization.elsewhere.auth": "Authentication & users",
+    "organization.elsewhere.authBody":
+      "Sign-in method (Microsoft Entra OIDC vs local) + the operator user list with role assignments.",
 
     "settings.about.title": "About Mizan",
     "settings.about.subtitle":
@@ -3403,6 +3457,7 @@ export const DICT = {
     "settings.pdf.ar": "بالعربية",
 
     "settings.tab.entities": "الجهات",
+    "settings.tab.organization": "المنظمة",
     "settings.tab.branding": "الهوية",
     "settings.tab.maturity": "مؤشر النضج",
     "settings.tab.pdf": "ملف PDF للتسجيل",
@@ -3410,8 +3465,61 @@ export const DICT = {
     "settings.tab.audit": "سجل التدقيق",
     "settings.tab.azure": "تسجيل التطبيق",
     "settings.tab.nesa": "إطار الامتثال",
+    "settings.tab.compliance": "إطار الامتثال",
     "settings.tab.docs": "التوثيق",
     "settings.tab.about": "حول والتحديثات",
+
+    "organization.loading": "جارٍ تحميل ملف المنظمة…",
+    "organization.empty.title": "لم يتم إعداد المنظمة بعد",
+    "organization.empty.subtitle":
+      "أكمل معالج الإعداد الأولي لتسجيل ملف المنظمة وبيانات الاعتماد لـ Microsoft Graph.",
+    "organization.profile.title": "ملف المنظمة",
+    "organization.profile.subtitle":
+      "الهوية المرتبطة باللوحة. عدّل الهوية البصرية وبيانات Microsoft Graph من التبويبات المخصّصة.",
+    "organization.field.name": "الاسم",
+    "organization.field.domain": "النطاق الأساسي",
+    "organization.field.tenantId": "معرّف مستأجر Microsoft Entra",
+    "organization.field.ciso": "مدير أمن المعلومات",
+    "organization.field.cisoEmail": "بريد مدير أمن المعلومات",
+    "organization.field.consentMode": "وضع الموافقة",
+    "organization.consentMode.observation": "مراقبة (قراءة فقط)",
+    "organization.consentMode.directive": "توجيه (قراءة وكتابة)",
+    "organization.consent.consented": "تم منح الموافقة",
+    "organization.consent.pending": "بانتظار الموافقة",
+    "organization.consent.revoked": "تم سحب الموافقة",
+    "organization.consent.failed": "فشل منح الموافقة",
+    "organization.connection.title": "اتصال Microsoft Graph",
+    "organization.connection.subtitle":
+      "الحالة المباشرة لتطبيق إشارات Graph للقراءة فقط + آخر مزامنة ناجحة. شغّل مزامنة يدوية إذا غيّرت إعدادات Conditional Access أو PIM وتريد الالتقاط فورًا.",
+    "organization.health.consent": "الموافقة",
+    "organization.health.connection": "صحة نقطة النهاية",
+    "organization.health.green": "صحية",
+    "organization.health.amber": "متدهورة",
+    "organization.health.red": "فاشلة",
+    "organization.health.pending": "قيد التحضير",
+    "organization.health.lastSync": "آخر مزامنة ناجحة",
+    "organization.health.neverSynced": "لم تتم مزامنة بعد",
+    "organization.scopeStale":
+      "أضاف إصدار حديث صلاحيات جديدة في Microsoft Graph. أعد تشغيل موافقة المسؤول لإبقاء جميع الإشارات محدّثة.",
+    "organization.sync.button": "مزامنة الآن",
+    "organization.sync.ok": "تمت المزامنة.",
+    "organization.sync.partial": "اكتملت المزامنة مع {count} خطأ في نقاط النهاية — راجع سجل التدقيق.",
+    "organization.sync.failed": "فشلت المزامنة: {msg}",
+    "organization.elsewhere.title": "أين تُضبط البقية",
+    "organization.elsewhere.subtitle":
+      "الإعدادات مقسّمة بحسب المسؤولية — ما يُضبط هنا مقابل بقية التبويبات.",
+    "organization.elsewhere.branding": "الهوية البصرية",
+    "organization.elsewhere.brandingBody":
+      "الشعار، اللون المميز، الاسم المختصر للمنظمة. يحرّك مظهر اللوحة وغلاف تقرير المجلس.",
+    "organization.elsewhere.azure": "تطبيق Microsoft Graph",
+    "organization.elsewhere.azureBody":
+      "معرّف العميل، السر، عنوان إعادة التوجيه لتطبيق إشارات Graph للقراءة فقط.",
+    "organization.elsewhere.framework": "إطار الامتثال",
+    "organization.elsewhere.frameworkBody":
+      "ربط بنود الإطار بضوابط Microsoft Secure Score. يحرّك خريطة الامتثال وتقرير المجلس.",
+    "organization.elsewhere.auth": "المصادقة والمستخدمون",
+    "organization.elsewhere.authBody":
+      "طريقة تسجيل الدخول (Microsoft Entra OIDC مقابل محلي) + قائمة المشغّلين وتعيين الأدوار.",
 
     "settings.about.title": "حول Mizan",
     "settings.about.subtitle":
