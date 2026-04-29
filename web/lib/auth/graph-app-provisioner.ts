@@ -394,9 +394,25 @@ async function addSecret(
 }
 
 /**
- * Create the multi-tenant Graph-signals app in the caller's tenant.
- * Wires all 18 Graph application permissions + the consent-callback redirect.
- * Persists the client_id + secret into Mizan's Azure app config row.
+ * Create the Graph-signals app in the caller's tenant.
+ *
+ * Audience varies by deployment kind:
+ *   - **Council** (`deploymentKind=council`) — `AzureADMultipleOrgs`. The
+ *     regulator stands up one app and each entity admin separately
+ *     consents in their own tenant via per-entity admin-consent URLs.
+ *     Multi-tenant audience is mandatory for that flow to work.
+ *   - **Executive** (`deploymentKind=executive`) — `AzureADMyOrg`. There
+ *     are no other tenants to onboard. Locking the audience to the
+ *     operator's own org cuts attack surface (no possibility of someone
+ *     consenting the app in a foreign tenant by accident) and keeps the
+ *     app object cleaner in Entra.
+ *
+ * Wires the Graph application permissions + Defender + MTP blocks based
+ * on `deploymentMode` (read-only set for observation, read+write for
+ * directive). Persists the client_id + secret into Mizan's Azure app
+ * config row so the sync orchestrator picks the new creds up immediately.
+ *
+ * v2.6.4 — `deploymentKind` parameter added.
  */
 export async function provisionGraphSignalsApp(
   accessToken: string,
@@ -410,14 +426,23 @@ export async function provisionGraphSignalsApp(
      * partially consent afterward.
      */
     deploymentMode?: "observation" | "directive";
+    /**
+     * `council` (default) → multi-tenant audience for federated entity
+     * onboarding. `executive` → single-tenant audience pinned to the
+     * operator's home org. v2.6.4.
+     */
+    deploymentKind?: "council" | "executive";
   },
 ): Promise<ProvisionResult> {
   const redirectUri = `${opts.dashboardBaseUrl.replace(/\/+$/, "")}/api/auth/consent-callback`;
   const mode = opts.deploymentMode ?? "observation";
+  const kind = opts.deploymentKind ?? "council";
+  const audience =
+    kind === "executive" ? "AzureADMyOrg" : "AzureADMultipleOrgs";
 
   const app = await createApp(accessToken, {
     displayName: opts.displayName,
-    signInAudience: "AzureADMultipleOrgs",
+    signInAudience: audience,
     web: {
       redirectUris: [redirectUri],
     },

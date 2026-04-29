@@ -501,6 +501,15 @@ export const DICT = {
       "Add read-only Graph permissions (SecurityEvents.Read.All, Device.Read.All, Directory.Read.All, User.Read.All, Policy.Read.All — application permissions).",
     "setup.s3.b3":
       "Create a client secret and paste the client ID + secret below.",
+    "setup.s3.exec.title": "3. Posture signals app",
+    "setup.s3.exec.subtitle":
+      "Single-tenant Entra app pinned to your own organisation that reads Microsoft Graph posture for the dashboard. Sign in once with a Global Admin and Mizan creates the app, registers the read-only permissions, mints a 2-year client secret, and grants admin consent — no portal clicks.",
+    "setup.s3.exec.b1":
+      "Entra admin center → App registrations → New registration → single-tenant (your org only).",
+    "setup.s3.exec.b2":
+      "Add read-only Graph application permissions (SecurityEvents.Read.All, Device.Read.All, Directory.Read.All, User.Read.All, Policy.Read.All) — and the directive write scopes if this deployment is in directive mode.",
+    "setup.s3.exec.b3":
+      "Create a client secret and paste the client ID + secret below.",
     "setup.s4.title": "4. User sign-in app",
     "setup.s4.subtitle":
       "A second — separate — Entra app, single-tenant, for your staff to sign in to this dashboard. Keep the Graph-signals app separate so the two secrets rotate independently.",
@@ -509,6 +518,15 @@ export const DICT = {
     "setup.s4.b2":
       "Under Authentication → Web platform, add this redirect URI:",
     "setup.s4.b3":
+      "Create a client secret. Optionally define App roles (Posture.Admin / Analyst / Viewer) and assign users; otherwise the default role below applies.",
+    "setup.s4.exec.title": "4. Operator sign-in app",
+    "setup.s4.exec.subtitle":
+      "A second Entra app for your CISO + analyst staff to sign in to this dashboard. Kept separate from the posture-signals app so the two secrets rotate independently. Same single-tenant audience as the signals app.",
+    "setup.s4.exec.b1":
+      "Entra admin center → App registrations → New registration → single-tenant.",
+    "setup.s4.exec.b2":
+      "Under Authentication → Web platform, add this redirect URI:",
+    "setup.s4.exec.b3":
       "Create a client secret. Optionally define App roles (Posture.Admin / Analyst / Viewer) and assign users; otherwise the default role below applies.",
     "setup.s5.title": "5. Bootstrap admin",
     "setup.s5.subtitle":
@@ -3726,6 +3744,15 @@ export const DICT = {
       "أضف أذونات Graph للقراءة فقط (SecurityEvents.Read.All، Device.Read.All، Directory.Read.All، User.Read.All، Policy.Read.All — أذونات تطبيق).",
     "setup.s3.b3":
       "أنشئ سر عميل والصق معرّف العميل والسر أدناه.",
+    "setup.s3.exec.title": "٣. تطبيق إشارات الوضع الأمني",
+    "setup.s3.exec.subtitle":
+      "تطبيق Entra أحادي المستأجر مثبَّت على منظمتك يقرأ بيانات Microsoft Graph للوحة. سجّل الدخول مرة واحدة بحساب مسؤول عام، ويتولى Mizan إنشاء التطبيق وتسجيل الأذونات وتوليد سر عميل لمدة عامين ومنح موافقة المسؤول — دون أي نقرات في البوابة.",
+    "setup.s3.exec.b1":
+      "مركز إدارة Entra → App registrations → New registration → أحادي المستأجر (منظمتك فقط).",
+    "setup.s3.exec.b2":
+      "أضف أذونات Graph للقراءة فقط (SecurityEvents.Read.All، Device.Read.All، Directory.Read.All، User.Read.All، Policy.Read.All) — وأذونات الكتابة الموجِّهة إذا كان النشر في وضع Directive.",
+    "setup.s3.exec.b3":
+      "أنشئ سر عميل والصق معرّف العميل والسر أدناه.",
     "setup.s4.title": "٤. تطبيق تسجيل دخول المستخدمين",
     "setup.s4.subtitle":
       "تطبيق Entra ثانٍ — مستقل — أحادي المستأجر لدخول موظفيك إلى اللوحة. نحتفظ به منفصلًا عن تطبيق Graph لندوير الأسرار باستقلالية.",
@@ -3734,6 +3761,15 @@ export const DICT = {
     "setup.s4.b2":
       "تحت Authentication → Web platform، أضِف عنوان إعادة التوجيه:",
     "setup.s4.b3":
+      "أنشئ سر عميل. اختياريًا عرّف App roles (Posture.Admin/Analyst/Viewer) وعيّن المستخدمين؛ وإلا يُطبَّق الدور الافتراضي أدناه.",
+    "setup.s4.exec.title": "٤. تطبيق دخول المشغّلين",
+    "setup.s4.exec.subtitle":
+      "تطبيق Entra ثانٍ لمدير أمن المعلومات وفريقك لتسجيل الدخول إلى اللوحة. منفصل عن تطبيق إشارات الوضع الأمني لتدوير الأسرار باستقلالية. الجمهور أحادي المستأجر مثل تطبيق الإشارات.",
+    "setup.s4.exec.b1":
+      "مركز إدارة Entra → App registrations → New registration → أحادي المستأجر.",
+    "setup.s4.exec.b2":
+      "تحت Authentication → Web platform، أضِف عنوان إعادة التوجيه:",
+    "setup.s4.exec.b3":
       "أنشئ سر عميل. اختياريًا عرّف App roles (Posture.Admin/Analyst/Viewer) وعيّن المستخدمين؛ وإلا يُطبَّق الدور الافتراضي أدناه.",
     "setup.s5.title": "٥. إنشاء مشرف النظام",
     "setup.s5.subtitle":

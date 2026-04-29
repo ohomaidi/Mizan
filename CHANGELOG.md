@@ -26,6 +26,18 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-29 — v2.6.4 (Executive setup wizard — single-tenant Graph app, Executive-flavoured copy)**. The `/setup` wizard already auto-creates both Microsoft Entra apps (Graph signals + user sign-in) via device-code flow for both Council and Executive deployments. v2.6.4 fixes two things that were Council-flavoured leftovers when running an Executive install.
+
+  **Graph signals app is now single-tenant in Executive.** v2.6.0 always created the app with `signInAudience: "AzureADMultipleOrgs"` because Council's federated entity-onboarding flow needs each entity admin to consent to the same multi-tenant app from their own tenant. Executive deployments don't have other tenants — there's nothing to onboard — and a multi-tenant audience there is unnecessary attack surface (someone could consent the app in a foreign tenant by accident). v2.6.4 picks the audience by `deploymentKind`: `AzureADMyOrg` for Executive, `AzureADMultipleOrgs` for Council. Scope set continues to vary by `deploymentMode` (read-only for observation, read+write for directive) — orthogonal axis, unchanged.
+
+  **Wizard Step 3 + Step 4 copy reframed for Executive.** Council copy talks about "the multi-tenant signals app for the federation" and "Each entity's Global Admin consents in their own tenant" — true but misleading for an Executive operator wiring their own org's Graph app. New `setup.s3.exec.*` and `setup.s4.exec.*` keys describe the Executive flow honestly: "Single-tenant Entra app pinned to your own organisation," "for your CISO + analyst staff." The setup page picks the right keys based on the `deploymentKind` state already tracked on Step 1.
+
+  **App display names match the deployment kind.** Council still names the apps "Mizan — Graph signals" and "Mizan — User Auth"; Executive names them "Mizan — Posture signals" and "Mizan — Operator sign-in." Reads naturally in the operator's own Entra tenant where they'll never see the federation framing.
+
+  **What's still unchanged.** The provision flow (device code → access token → `provisionGraphSignalsApp` / `provisionUserAuthApp` → store in `app_config`) is identical. The directive write scopes are still baked into the same Graph app — there's no separate "directive write app" required, just additional `requiredResourceAccess` blocks at app-creation time. Existing Council deployments with multi-tenant apps stay multi-tenant; the audience is locked at app creation.
+
+  EN + AR coverage on every new key. No DB migrations. No breaking changes.
+
 - **2026-04-29 — v2.6.3 (Executive Settings — Organization tab, Council tabs hidden)**. The v2.6.0 Settings page was a Council clone shown to Executive deployments unchanged. None of it made sense for one CISO with one tenant: the default landing tab was the multi-tenant onboarding wizard, with sub-tabs for "Discovery PDF" (a regulator's onboarding letter template), "Entities" (the list of consented peers), and per-row sync controls. v2.6.3 cleans this up.
 
   **New Executive Settings IA.** Tab list is split per deploymentKind:

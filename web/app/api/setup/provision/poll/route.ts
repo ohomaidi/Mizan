@@ -15,6 +15,7 @@ import {
 import { resolveAppBaseUrl } from "@/lib/config/base-url";
 import { getBranding } from "@/lib/config/branding";
 import { getDeploymentMode } from "@/lib/config/deployment-mode";
+import { getDeploymentKind } from "@/lib/config/deployment-kind";
 import { countAdmins, upsertUser } from "@/lib/db/users";
 import { openSession, writeSessionCookie } from "@/lib/auth/session";
 
@@ -105,19 +106,32 @@ export async function POST(req: NextRequest) {
 
     let provisionResult: { clientId: string; displayName: string };
     if (flow.kind === "graph") {
-      // Pick the scope set to stamp on the new app by the DB-stored
-      // deployment mode. The /setup wizard wrote it to app_config on Step 1,
-      // before this Graph-app step ran. Falls back to env var, then
-      // observation.
+      // Pick the scope set + audience to stamp on the new app by the
+      // DB-stored deployment mode + kind. The /setup wizard wrote both
+      // to app_config on Step 1, before this Graph-app step ran. Mode
+      // controls scope set (read vs read+write); kind controls
+      // audience (Council = multi-tenant, Executive = single-tenant —
+      // v2.6.4). Falls back to env vars, then sensible defaults.
+      const kind = getDeploymentKind();
+      const displayName =
+        kind === "executive"
+          ? `${branding.shortEn || "Mizan"} — Posture signals`
+          : `${branding.shortEn || "Mizan"} — Graph signals`;
       const p = await provisionGraphSignalsApp(result.accessToken, {
-        displayName: `${branding.shortEn || "Mizan"} — Graph signals`,
+        displayName,
         dashboardBaseUrl,
         deploymentMode: getDeploymentMode(),
+        deploymentKind: kind,
       });
       provisionResult = { clientId: p.clientId, displayName: p.displayName };
     } else {
+      const kind = getDeploymentKind();
+      const displayName =
+        kind === "executive"
+          ? `${branding.shortEn || "Mizan"} — Operator sign-in`
+          : `${branding.shortEn || "Mizan"} — User Auth`;
       const p = await provisionUserAuthApp(result.accessToken, {
-        displayName: `${branding.shortEn || "Mizan"} — User Auth`,
+        displayName,
         dashboardBaseUrl,
         tenantId,
       });

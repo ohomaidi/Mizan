@@ -317,6 +317,7 @@ export default function SetupPage() {
               setClientId={setGraphClientId}
               clientSecret={graphClientSecret}
               setClientSecret={setGraphClientSecret}
+              isExecutive={deploymentKind === "executive"}
               onAutoLoggedIn={(who) => {
                 setAutoLoggedIn(true);
                 setAdminIdentity(who);
@@ -332,6 +333,7 @@ export default function SetupPage() {
               tenantId={authTenantId}
               setTenantId={setAuthTenantId}
               redirectUri={authRedirectUri}
+              isExecutive={deploymentKind === "executive"}
               onCopy={async () => {
                 try {
                   await navigator.clipboard.writeText(authRedirectUri);
@@ -773,12 +775,25 @@ function Step3(props: {
   setClientId: (v: string) => void;
   clientSecret: string;
   setClientSecret: (v: string) => void;
+  /**
+   * Pulled from the deploymentKind state in the wizard parent. Switches
+   * the Step 3 copy and the manual-fallback bullet list to Executive-
+   * flavoured wording (single-tenant, your own org). v2.6.4.
+   */
+  isExecutive: boolean;
   onAutoLoggedIn: (who: { displayName: string; email: string }) => void;
 }) {
   const { t } = useI18n();
+  const titleKey = props.isExecutive ? "setup.s3.exec.title" : "setup.s3.title";
+  const subtitleKey = props.isExecutive
+    ? "setup.s3.exec.subtitle"
+    : "setup.s3.subtitle";
+  const b1Key = props.isExecutive ? "setup.s3.exec.b1" : "setup.s3.b1";
+  const b2Key = props.isExecutive ? "setup.s3.exec.b2" : "setup.s3.b2";
+  const b3Key = props.isExecutive ? "setup.s3.exec.b3" : "setup.s3.b3";
   return (
     <div className="flex flex-col gap-4">
-      <StepHeader title={t("setup.s3.title")} subtitle={t("setup.s3.subtitle")} />
+      <StepHeader title={t(titleKey)} subtitle={t(subtitleKey)} />
       <ProvisionBlock
         kind="graph"
         tenant="common"
@@ -813,9 +828,9 @@ function Step3(props: {
           {t("setup.prov.manualToggle")}
         </summary>
         <ul className="text-[12.5px] text-ink-2 list-disc ms-5 space-y-1 mt-3">
-          <li>{t("setup.s3.b1")}</li>
-          <li>{t("setup.s3.b2")}</li>
-          <li>{t("setup.s3.b3")}</li>
+          <li>{t(b1Key)}</li>
+          <li>{t(b2Key)}</li>
+          <li>{t(b3Key)}</li>
         </ul>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
           <Field label={t("authCfg.field.clientId")}>
@@ -853,12 +868,23 @@ function Step4(props: {
   redirectUri: string;
   onCopy: () => void;
   copied: boolean;
+  /** Pulled from deploymentKind in the wizard parent. Switches Step 4
+   *  copy to "Operator sign-in" framing for Executive deployments.
+   *  v2.6.4. */
+  isExecutive: boolean;
   onAutoLoggedIn: (who: { displayName: string; email: string }) => void;
 }) {
   const { t } = useI18n();
+  const titleKey = props.isExecutive ? "setup.s4.exec.title" : "setup.s4.title";
+  const subtitleKey = props.isExecutive
+    ? "setup.s4.exec.subtitle"
+    : "setup.s4.subtitle";
+  const b1Key = props.isExecutive ? "setup.s4.exec.b1" : "setup.s4.b1";
+  const b2Key = props.isExecutive ? "setup.s4.exec.b2" : "setup.s4.b2";
+  const b3Key = props.isExecutive ? "setup.s4.exec.b3" : "setup.s4.b3";
   return (
     <div className="flex flex-col gap-4">
-      <StepHeader title={t("setup.s4.title")} subtitle={t("setup.s4.subtitle")} />
+      <StepHeader title={t(titleKey)} subtitle={t(subtitleKey)} />
       <ProvisionBlock
         kind="user"
         tenant="common"
@@ -892,9 +918,9 @@ function Step4(props: {
           {t("setup.prov.manualToggle")}
         </summary>
         <ul className="text-[12.5px] text-ink-2 list-disc ms-5 space-y-1 mt-3">
-          <li>{t("setup.s4.b1")}</li>
-          <li>{t("setup.s4.b2")}</li>
-          <li>{t("setup.s4.b3")}</li>
+          <li>{t(b1Key)}</li>
+          <li>{t(b2Key)}</li>
+          <li>{t(b3Key)}</li>
         </ul>
         <div className="mt-3">
           <Field label={t("authCfg.redirectUri")}>
