@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Noto_Kufi_Arabic } from "next/font/google";
+import { cookies } from "next/headers";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
-import { ThemeProvider } from "@/lib/theme/ThemeProvider";
+import { ThemeProvider, type Theme } from "@/lib/theme/ThemeProvider";
 import { getBranding } from "@/lib/config/branding";
+import { LOCALES, type Locale } from "@/lib/i18n/dict";
 import "./globals.css";
 
 const inter = Inter({
@@ -52,24 +54,51 @@ export const viewport: Viewport = {
 
 // Runs before any React code — applies the persisted theme (or OS preference)
 // to the <html data-theme> attribute so the first paint is correct.
+//
+// v2.7.0 — cookie wins over localStorage. The cookie is also what
+// the server uses to render `<html data-theme>`, so picking the
+// cookie here keeps SSR + first-paint + ThemeProvider in lockstep.
+// Falls back to legacy localStorage for users who haven't toggled
+// since the cookie was added; backfilled by ThemeProvider on next
+// mount.
 const themeBootstrapScript = `(function(){try{
-  var stored = localStorage.getItem('scsc.theme');
+  var m = (document.cookie || '').match(/(?:^|;\\s*)mizan-theme=(light|dark)/);
+  var stored = m ? m[1] : localStorage.getItem('scsc.theme');
   var theme = (stored === 'light' || stored === 'dark')
     ? stored
     : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
   document.documentElement.setAttribute('data-theme', theme);
 }catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // v2.7.0 — read theme + locale from cookies so the server-rendered
+  // `<html>` element matches the user's persisted choices. Without
+  // this, Next 16's RSC-on-navigation diff overwrites whatever the
+  // user toggled (every tab switch flipped to dark mode and to en/
+  // ltr because the static `data-theme="dark"` / `lang="en"` /
+  // `dir="ltr"` attributes were re-applied from the server tree).
+  const cookieJar = await cookies();
+  const themeCookie = cookieJar.get("mizan-theme")?.value;
+  const initialTheme: Theme =
+    themeCookie === "light" || themeCookie === "dark"
+      ? (themeCookie as Theme)
+      : "dark";
+  const localeCookie = cookieJar.get("mizan-locale")?.value;
+  const initialLocale: Locale =
+    localeCookie && (LOCALES as readonly string[]).includes(localeCookie)
+      ? (localeCookie as Locale)
+      : "en";
+  const dir = initialLocale === "ar" ? "rtl" : "ltr";
+
   return (
     <html
-      lang="en"
-      dir="ltr"
-      data-theme="dark"
+      lang={initialLocale}
+      dir={dir}
+      data-theme={initialTheme}
       suppressHydrationWarning
       className={`${inter.variable} ${arabic.variable} h-full antialiased`}
     >
@@ -77,7 +106,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
       </head>
       <body className="min-h-full flex flex-col font-sans bg-surface-1 text-ink-1">
-        <ThemeProvider>
+        <ThemeProvider initialTheme={initialTheme}>
           <LocaleProvider initialBranding={getBranding()}>{children}</LocaleProvider>
         </ThemeProvider>
       </body>

@@ -26,6 +26,14 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-29 — v2.7.1 (Theme + locale cookie SSR fix — tab-switch flicker)**. Bug fix on top of v2.7.0. The root layout was hardcoding `<html data-theme="dark" lang="en" dir="ltr">` on every server render. Combined with `dynamic = "force-dynamic"` and Next 16's RSC-on-navigation diff, this meant every Link navigation re-applied those static attributes onto the document — flipping the page back to dark / English / LTR every time the user clicked a sidebar tab, even though they'd just toggled to light or Arabic.
+
+  **Fix.** Same cookie-mirror pattern used for `mizan-locale` in v2.6.1 — extended to `mizan-theme`. The root layout now reads both cookies server-side and stamps the right `data-theme` / `lang` / `dir` on `<html>` so the server tree matches the user's choice. ThemeProvider accepts `initialTheme` as a prop (passed through from the layout) and writes both localStorage AND a cookie on every toggle. The pre-React inline bootstrap script also prefers the cookie now so first-paint, SSR, and ThemeProvider all stay in lockstep.
+
+  **Backfill.** Existing users with localStorage but no cookie get the cookie auto-written by ThemeProvider on next mount, so the next navigation already renders correctly server-side. No re-onboarding needed.
+
+  No DB migrations. No new endpoints. Council deployments benefit too — the same bug existed there.
+
 - **2026-04-29 — v2.7.0 (Executive polish + extensions — heat map, treatment plans, custom KPIs, broker PDF, auto-suggest tuning, system URL)**. The v2.6.x polish list and the v2.7 extension list shipped together. Eight items in one release; full list below. Council deployments are mostly unchanged — only item 8 (System tab → Domain & URL) ships to both kinds.
 
   **1. Mobile-shell polish on the Executive modules.** v2.6.2 verified `/today` + `/posture` were mobile-clean; v2.7.0 tightens the remaining modules. Risk register's auto-suggested rows now stack the action buttons below the title on phones (was squishing the title text); Insurance / Scorecard / Board report were already responsive and just got a sanity pass.
