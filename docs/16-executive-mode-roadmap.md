@@ -256,54 +256,148 @@ clone with hidden entries.
   lights up immediately on first boot. Idempotent — picks up
   existing v2.6.0 demos that pre-date this seed.
 
-## v2.6.x patches (small follow-ups, ~1 week post-v2.6.0)
+## v2.6.2 — sparklines, HistoricalRadar, PDF cover, mobile (LANDED 2026-04-29)
 
-1. ~~**Mobile-shell polish on new modules**~~ — verified v2.6.2 that
-   `/today` and `/posture` use responsive Tailwind grids and render
-   cleanly on mobile UAs. Remaining mobile polish for Risk Register /
-   Insurance / Scorecard tracks here.
-2. ~~**Board PDF visual polish**~~ — v2.6.2 adds DA logo on cover
-   when branding has logoPath + tightens typography. Future work:
-   trend-line and severity-distribution donut charts in-PDF.
-3. **Auto-suggest sensitivity slider** in Settings — currently
-   hardcoded thresholds; expose as config.
-4. ~~**CISO scorecard sparklines**~~ — landed v2.6.2 as 7-day inline
-   trend lines on each Today tile. v2.7 expands to a 12-week range
-   on the dedicated `/scorecard` page.
-5. ~~**HistoricalRadar overlay**~~ — landed v2.6.2 on `/posture`:
-   90-day-old polygon traced as a faded reference behind today's
-   solid polygon so "look how far we've come" reads at a glance.
-6. ~~**Today timezone fix**~~ — landed v2.6.2; the hero timestamp
-   now follows the user's locale (Arabic users get Gregorian-Arabic
-   formatting; English keeps US for now until per-tenant override).
+Polish pass on the v2.6.1 IA. Same-day ship.
 
-## v2.7.0 — extensions
+- **Today KPI sparklines** — each pinned tile carries a 7-point trend
+  in the corner (maturity-derived KPIs only — `maturityIndex`,
+  `frameworkCompliance`, `mfaAdminCoverage`, `deviceCompliance`).
+  Count-based sparklines extended in v2.7.0.
+- **HistoricalRadar overlay** on `/posture` — dashed 90d-ago polygon
+  behind today's solid polygon. Hides cleanly on <60d-old installs.
+  "Look how far we've come" at a glance.
+- **Server-side timezone formatting** — `getCurrentLocale()` +
+  `localeToBcp47()` so Arabic users get Arabic-Gregorian on the Today
+  hero, English keeps en-US.
+- **Board PDF cover polish** — brand accent rules, 120×60 logo, 44pt
+  two-line title, period as small-caps eyebrow, all section
+  underlines pick up the deployment's brand accent.
+- **Seed bug fix** — `seedDemoMaturityTrend` now finds Dubai Airports
+  tenants AND runs even when demo tenants exist (was silently
+  skipping; Today hero showed "no sync yet" indefinitely).
+- **Mobile shell verified** — `/today` + `/posture` render cleanly at
+  360px under mobile UA.
 
-5. **Additional industry questionnaire templates** — finance (PCI /
-   DORA), healthcare (HIPAA), generic enterprise. Engine ships in
-   v2.6.0; templates are JSON drops.
-6. **Risk register heat map** — 5×5 impact-likelihood matrix grid
-   view alongside the table.
-7. **Risk treatment plans** — per-risk mitigation steps with owners /
-   due dates / status (currently v2.6.0 has only free-text
-   `mitigationNotes`).
-8. **Custom CISO scorecard KPI formulas** — user-defined beyond the
-   10-pin catalog.
-9. **Insurance questionnaire — file-upload evidence** per question
-   (e.g., attach IR plan PDF).
+## v2.6.3 — Executive Settings IA (LANDED 2026-04-29)
 
-## v2.8.0+ — integrations
+The v2.6.0 Settings page was a Council clone. v2.6.3 splits per-kind:
 
-10. **Risk register import** from CSV, JIRA, ServiceNow.
-11. **Email digest** — weekly to a configurable list.
-12. **Slack / Teams webhook** — push notifications to a channel.
-13. **Insurance questionnaire export** — standalone PDF for brokers.
-14. **Quarterly board-report scheduler** — beyond weekly auto-draft;
-    per-quarter, per-month, custom-cron.
-15. **Audit-trail evidence storage** with expiry tracking.
-16. **Multi-org hierarchical Executive view** — for groups like
+- **Executive (10 tabs):** Organization (NEW, default) · Branding ·
+  Auth · App Registration · Maturity Index · Compliance framework ·
+  Onboarding PDF · Audit log · Documentation · About.
+- **Council (11 tabs, unchanged):** Entities (default) · ... ·
+  Discovery PDF · Onboarding PDF · ...
+- **Hidden in Executive:** entities, discovery (no peers to onboard).
+- **Organization tab** owns the single-tenant profile, Microsoft
+  Graph connection health (consent / endpoint / last sync), Sync-now
+  button, and a 2×2 pointer grid to Branding / Azure / Compliance /
+  Auth tabs.
+- **Server/client split** — `page.tsx` is now a server component
+  that resolves `deploymentKind` via `isExecutiveDeployment()` and
+  passes it to `SettingsClient.tsx`. Fixes the first-paint flicker
+  where Executive deployments briefly rendered the Council tab list.
+
+## v2.6.4 — Executive setup wizard polish (LANDED 2026-04-29)
+
+The `/setup` wizard already auto-creates both Entra apps via device-
+code flow for both kinds. v2.6.4 fixes the Council-flavoured
+leftovers when running an Executive install.
+
+- **Graph signals app audience** is now `AzureADMyOrg` in Executive
+  (was `AzureADMultipleOrgs` always). Single-tenant pinned to the
+  operator's own org. Council unchanged (multi-tenant is correct
+  there because each entity admin separately consents).
+- **Step 3 + Step 4 copy** — new `setup.s3.exec.*` and
+  `setup.s4.exec.*` keys describe the Executive flow honestly:
+  "Single-tenant Entra app pinned to your own organisation,"
+  "Operator sign-in app." Council copy stays as-is.
+- **App display names** — Executive gets "Mizan — Posture signals"
+  + "Mizan — Operator sign-in"; Council keeps "Graph signals" + "User
+  Auth" framing.
+- **No separate "directive write app"** — confirmed: a single Graph
+  app gets ALL scopes (read + optional write) baked in at creation
+  when `deploymentMode=directive`. There is no third app to
+  provision.
+
+## v2.7.0 — Executive polish + extensions (LANDED 2026-04-29)
+
+Eight items shipped together. Council deployments are mostly
+unchanged — only #8 (System tab → Domain & URL) ships to both kinds.
+
+1. ~~**Mobile-shell polish on Risk register / Insurance / Scorecard /
+   Board report**~~ — Risk register suggested-rows now wrap action
+   buttons below on phones. Other modules already responsive; verified.
+2. ~~**Auto-suggest sensitivity slider**~~ — Settings → Risk register
+   exposes the four threshold knobs (CVE age, min affected devices,
+   admin-deactivation lookback, incident SLA) plus an auto-promote
+   toggle. Stored in `app_config.risk.autoSuggest`.
+3. ~~**Sparklines for count-based KPIs**~~ — Today tiles for
+   `criticalCveAge`, `privilegedRoleCount`, `highRiskUsers` now
+   render with a 7-point line derived from raw signal_snapshots via
+   new `listSignalSeries()` helper.
+4. ~~**Insurance broker PDF export**~~ — "Export for broker" button
+   on `/insurance` streams a brand-coloured A4 (cover + one page per
+   category, each with answer chip / evidence / source citation).
+5. ~~**Risk register 5×5 heat map**~~ — view toggle on
+   `/risk-register` swaps between Table and Heat map. Cell colour
+   matches the rating-chip palette (1–6 green, 7–14 amber, 15–25
+   red). Tap a cell for the risks in that bucket.
+6. ~~**Risk treatment plans**~~ — `risk_treatment_steps` table
+   (migration v15, FK CASCADE), full CRUD via `/api/risk-register/{id}/treatment[/{stepId}]`,
+   modal editor with inline-blur saves.
+7. ~~**Custom CISO KPI formulas**~~ — operator-defined KPIs alongside
+   the 10-pin catalog. Builder modal supports `signalNumber` (pluck
+   a numeric field from one signal) and `ratio` (divide two
+   signalNumbers, optional ×100). Stored in `custom_kpi_formulas`
+   table.
+8. ~~**Settings → System → Domain & URL**~~ — works for BOTH Council
+   and Executive. New `app_config.system.baseUrl` override takes
+   precedence over `APP_BASE_URL` env + auto-detect. Panel shows
+   the three Azure redirect URIs to update post-domain-change with
+   copy buttons. Auto Graph-PATCH is v2.8.
+
+Industry questionnaire templates (finance/healthcare/generic) and
+file-upload evidence per question deferred to v2.8 — operator
+explicitly skipped these in v2.7.0.
+
+## v2.7.1 — theme + locale SSR cookie fix (LANDED 2026-04-29)
+
+Bug fix on top of v2.7.0. Root layout was hardcoding
+`<html data-theme="dark" lang="en" dir="ltr">` on every server
+render. Combined with `force-dynamic` and Next 16's
+RSC-on-navigation diff, every Link click re-applied those static
+attributes — flipping the page back to dark / English / LTR every
+time the user clicked a sidebar tab.
+
+Fix: same cookie-mirror pattern v2.6.1 used for `mizan-locale`,
+extended to `mizan-theme`. Root layout reads both cookies server-
+side; ThemeProvider takes `initialTheme` as a prop and writes
+localStorage + cookie on every toggle.
+
+## v2.8.0+ — what's still queued
+
+1. **Auto Graph-PATCH redirect URIs** — System tab currently asks
+   the operator to paste into Azure portal. v2.8 calls Graph and
+   updates each app's `redirectUris` array directly using the
+   stored client secret.
+2. **Insurance file-upload evidence** per question — attach IR plan
+   PDF, SOC report, certs.
+3. **Additional industry questionnaire templates** — finance (PCI /
+   DORA), healthcare (HIPAA), generic enterprise. Engine ready;
+   templates are JSON drops.
+4. **Sparklines for incidentMttr / auditClosureSla / boardReportDelivered**
+   — needs a per-day rollup table for daily means; raw
+   signal_snapshots aren't enough.
+5. **Risk register import** from CSV, JIRA, ServiceNow.
+6. **Email digest** — weekly to a configurable list.
+7. **Slack / Teams webhook** — push notifications to a channel.
+8. **Quarterly board-report scheduler** — beyond weekly auto-draft;
+   per-quarter, per-month, custom-cron.
+9. **Audit-trail evidence storage** with expiry tracking.
+10. **Multi-org hierarchical Executive view** — for groups like
     Emaar / Dubai Holding where a parent oversees subsidiaries.
-17. **Public API** for CISO scorecard — embed in Power BI / Tableau.
+11. **Public API** for CISO scorecard — embed in Power BI / Tableau.
 
 ## Out of scope (decisions, do not re-litigate)
 

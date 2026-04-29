@@ -66,6 +66,47 @@ DLP (4 baselines), Sensitivity Labels (3), Attack Simulation Training (3), PIM +
 
 See [`docs/12-operating-manual.md`](docs/12-operating-manual.md) for the step-by-step operator flow. Observation-mode deployments render none of the directive surface — the `/directive` route returns 404 at the route-loader level.
 
+### Executive mode — single-org CISO workspace (optional, v2.6+)
+
+Deploy with `MIZAN_DEPLOYMENT_KIND=executive` (or pick "Single organisation" on the first-run `/setup` wizard) and Mizan reshapes itself for a CISO running **one** organisation rather than a regulator overseeing dozens. Same engine, same Microsoft Graph signals, same Maturity Index — different chrome, different IA, four extra modules built for board-level conversations.
+
+**Same repo, one image.** `deploymentKind` is locked at first-run alongside `deploymentMode`, mirrors-then-diverges from Council. SCSC and DESC stay Council; Dubai Airports is the trigger customer (`da.zaatarlabs.com`).
+
+**Information architecture — Executive sidebar drops 14 → 9 entries:**
+
+```
+Today                  ← daily-driver home (Maturity hero · top risks · open
+                         incidents · pinned KPI tiles · 7-day change feed)
+Posture                ← single tabbed page consolidating Identity / Devices /
+                         Data / Threats / Vulnerabilities. Estate radar at top
+                         with 90-day-ago dashed reference overlay.
+Compliance             ← single-framework view (Dubai ISR, NESA, NCA, …).
+                         Directive folded in as a callout when applicable.
+─── Risk management ───
+Risk register          ← board-grade risk list, impact × likelihood 1–25,
+                         5×5 heat-map view, per-risk treatment plans
+CISO scorecard         ← 10-pin catalog + operator-defined custom KPIs
+─── Reports ───
+Cyber insurance        ← aviation questionnaire (~30 q, IATA/ICAO/FAA-sourced),
+                         Mizan auto-answers from signals where possible,
+                         broker-export PDF
+Board report           ← on-demand + weekly auto-draft, brand-coloured
+                         4-page PDF
+─── Workspace ───
+Settings · FAQ
+```
+
+**Four new modules — full-stack:**
+
+- **Risk register** — board-grade list with auto-suggest engine (5 hardcoded rules: critical CVE > N days unpatched, admin deactivation, MFA drop, maturity drop, high-severity incident SLA breach). Operator accepts → register; dismisses → 30-day cooldown. Tunable thresholds via Settings → Risk register slider. Per-risk treatment plans with owner / due date / status. 5×5 heat-map view alongside the table.
+- **CISO scorecard** — pin board commitments from a 10-KPI catalog (Maturity Index, framework compliance, MFA on admins, critical CVE age, privileged role count, incident MTTR, device compliance, high-risk users, audit closure SLA, board report delivered). Each tile shows current vs target with green/amber/red status and a 7-day inline sparkline. Operator-defined custom KPIs supported via formula builder (`signalNumber` or `ratio`).
+- **Cyber insurance readiness** — aviation-specific questionnaire (~30 questions) synthesised from public Beazley / Coalition / AIG forms, cross-referenced against IATA Cybersecurity Toolkit, ICAO Doc 8973, FAA AC 119-1A. Auto-evaluator answers questions where Microsoft 365 signals can prove the control (MFA on admins, MDE onboarding, device compliance, sensitivity-label catalog, vulnerability scanning, phishing simulation campaigns). Manual answers + free-text evidence persist alongside auto-answers. One-click "Export for broker" PDF.
+- **Board PDF report** — quarterly cybersecurity report rendered with `@react-pdf/renderer`. 4-page brand-coloured layout: cover (org logo + period) · executive summary with headline KPIs and posture sub-scores · CISO scorecard table · top risks + top vulnerabilities · insurance readiness summary + planned actions. On-demand "Generate now" button + drafts list (the auto-weekly cron landing point).
+
+**Setup wizard adapts.** The `/setup` wizard auto-creates both Entra apps via Microsoft device-code flow regardless of kind. In Executive mode the Graph signals app is registered as **single-tenant** (`AzureADMyOrg`) — pinned to the operator's own org instead of the multi-tenant audience Council needs for federated entity consent.
+
+See [`docs/16-executive-mode-roadmap.md`](docs/16-executive-mode-roadmap.md) for the canonical roadmap covering everything Executive — what's shipped (v2.6.0 → v2.7.1), what's deferred (v2.8.0+), and the architectural decisions locked in.
+
 ---
 
 ## Access you need
@@ -490,6 +531,9 @@ See [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) for t
 - [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) — multi-tenant auth, sync orchestrator, directive engine, throttling, failure modes, risk register
 - [docs/09-runtime-configuration.md](docs/09-runtime-configuration.md) — every editable config surface in Settings
 - [docs/13-desc-rollout-plan.md](docs/13-desc-rollout-plan.md) — DESC-specific rollout + directive phase log
+- [docs/14-responsive-and-mobile.md](docs/14-responsive-and-mobile.md) — mobile / tablet shell, middleware UA classification, override patterns
+- [docs/15-self-upgrade.md](docs/15-self-upgrade.md) — self-upgrade flow + version checking
+- [docs/16-executive-mode-roadmap.md](docs/16-executive-mode-roadmap.md) — Executive Mode canonical roadmap (v2.6.0 → v2.7.1 shipped, v2.8.0+ deferred)
 - [CHANGELOG.md](CHANGELOG.md) — build log
 
 ---
