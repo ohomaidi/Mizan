@@ -716,9 +716,13 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
     .get() as { n: number };
   if (row.n > 0) {
     // Even when demos are already on disk, the v2.6.1 Executive Mode
-    // change-feed needs 7d-old signal rows. The helper is idempotent
-    // (no-ops if the rows already exist) so it's safe to run every
-    // boot — and necessary for installs that pre-date v2.6.1.
+    // change-feed needs 7d-old signal rows + the v2.6.2 Today
+    // sparklines + hero delta need a maturity history. Both helpers
+    // are idempotent (skip work when rows already exist) so it's
+    // safe to run every boot — and necessary for installs that
+    // pre-date these features. Without this, da.zaatarlabs.com
+    // would render an empty hero indefinitely.
+    seedDemoMaturityTrend(db);
     if (customer === "dubaiairports") {
       seedExecutiveChangeFeedHistoryIfAbsent(db);
     }
@@ -2201,12 +2205,15 @@ export function seedDemoMaturityTrend(db: Database.Database): number {
     for (const t of demoTenants) {
       if (hasAny.get(t.id)) continue;
 
-      // Find this tenant's baseline index. Try both demo catalogs (Sharjah
-      // and DESC) since the same function runs in either customer variant.
-      // If a tenant isn't in either catalog we skip gracefully.
+      // Find this tenant's baseline index. Try all three demo catalogs
+      // (Sharjah, DESC, Dubai Airports) since the same function runs
+      // in any customer variant. If a tenant isn't in any catalog we
+      // skip gracefully. v2.6.2 — Dubai Airports added so the
+      // Executive Today page hero + sparklines have history to render.
       const meta =
         DEMO.find((d) => d.id === t.id) ??
-        DESC_DEMO.find((d) => d.id === t.id);
+        DESC_DEMO.find((d) => d.id === t.id) ??
+        DUBAI_AIRPORTS_DEMO.find((d) => d.id === t.id);
       if (!meta) continue;
       const latest = meta.index;
       const earliest = Math.max(0, latest - RAMP);

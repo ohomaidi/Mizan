@@ -220,17 +220,62 @@ Dubai Airports demo = `executive + directive`.
   - CISO Scorecard: 5 pinned KPIs out of the 10 catalog.
   - Insurance questionnaire: ~80% answered, 6 deliberate gaps.
 
+## v2.6.1 — Executive IA redesign (LANDED 2026-04-29)
+
+Shipped same-day as v2.6.0 in response to navigation feedback. v2.6.0
+left users without a clear "home" — Entity detail and `/maturity`
+were peers and the back button got confusing. v2.6.1 reshapes
+Executive into its own information architecture, no longer a Council
+clone with hidden entries.
+
+- **`/today` (NEW)** — Executive home. Hero (Maturity Index + 7d
+  delta + sub-score mini-radar), top open risks, open incidents,
+  pinned KPI tiles, 7-day change feed, quick-action CTAs. Single
+  scroll. `/` redirects here in Executive (was `/entities/[id]`).
+- **`/posture` (NEW)** — single tabbed page consolidating Identity /
+  Devices / Data / Threats / Vulnerabilities. Estate radar at top,
+  URL-driven tabs (`?tab=identity`), each tab has 3-4 headline KPIs +
+  "Detailed view" link to the existing per-domain page (still
+  routable, just demoted from primary nav).
+- **`/governance` reframed as Compliance** in Executive — single
+  framework copy, Directive folded in as a "Directive actions"
+  callout card (no longer a separate sidebar entry).
+- **Sidebar drops 14 → 9 entries**, three groups: Today / Posture /
+  Compliance — Risk register / CISO scorecard — Cyber insurance /
+  Board report — Settings / FAQ.
+- **7-day change feed engine** (`lib/today/change-feed.ts`) derives
+  events from existing snapshots — no new tables. Five rules:
+  maturity delta, CVE adds/clears + zero-day, admin deactivations +
+  role drift, incidents opened/resolved, risky users delta. Severity
+  tier drives chip colour; magnitude drives sort order. Capped at 8.
+- **Server-side i18n** — new `lib/i18n/dict.server.ts` with
+  `getTranslator()` so server components translate without round-
+  tripping. `LocaleProvider` mirrors locale to `mizan-locale` cookie.
+- **DA demo seed** writes 7d-old variants of vulnerabilities /
+  pimSprawl / incidents / riskyUsers signals so the change feed
+  lights up immediately on first boot. Idempotent — picks up
+  existing v2.6.0 demos that pre-date this seed.
+
 ## v2.6.x patches (small follow-ups, ~1 week post-v2.6.0)
 
-1. **Mobile-shell polish on new modules** — Risk register, Insurance
-   questionnaire, CISO scorecard. v2.6.0 ships desktop-first.
-2. **Board PDF visual polish** — branded cover-page templates,
-   optional logo watermark, signed-off-by signature block, richer
-   in-PDF charts (trend lines, severity-distribution donuts).
+1. ~~**Mobile-shell polish on new modules**~~ — verified v2.6.2 that
+   `/today` and `/posture` use responsive Tailwind grids and render
+   cleanly on mobile UAs. Remaining mobile polish for Risk Register /
+   Insurance / Scorecard tracks here.
+2. ~~**Board PDF visual polish**~~ — v2.6.2 adds DA logo on cover
+   when branding has logoPath + tightens typography. Future work:
+   trend-line and severity-distribution donut charts in-PDF.
 3. **Auto-suggest sensitivity slider** in Settings — currently
    hardcoded thresholds; expose as config.
-4. **CISO scorecard sparklines** — per-KPI 12-week trend line on each
-   pinned tile.
+4. ~~**CISO scorecard sparklines**~~ — landed v2.6.2 as 7-day inline
+   trend lines on each Today tile. v2.7 expands to a 12-week range
+   on the dedicated `/scorecard` page.
+5. ~~**HistoricalRadar overlay**~~ — landed v2.6.2 on `/posture`:
+   90-day-old polygon traced as a faded reference behind today's
+   solid polygon so "look how far we've come" reads at a glance.
+6. ~~**Today timezone fix**~~ — landed v2.6.2; the hero timestamp
+   now follows the user's locale (Arabic users get Gregorian-Arabic
+   formatting; English keeps US for now until per-tenant override).
 
 ## v2.7.0 — extensions
 

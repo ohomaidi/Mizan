@@ -86,27 +86,74 @@ export default async function PosturePage({
         <p className="text-ink-2 text-[13.5px]">{t("posture.subtitle")}</p>
       </header>
 
-      {/* ── Estate radar ─────────────────────────────────────── */}
+      {/* ── Estate radar (with optional 90d-ago overlay) ─────── */}
       <Card>
         <CardHeader
           title={t("posture.radar.title")}
           subtitle={
             data.radar.index !== null
-              ? t("posture.radar.subtitle", {
-                  index: data.radar.index.toFixed(1),
-                })
+              ? data.radar.historical
+                ? t("posture.radar.subtitleWithHistory", {
+                    index: data.radar.index.toFixed(1),
+                    historicalDate: new Date(
+                      data.radar.historical.capturedAt,
+                    ).toLocaleDateString("en-US", {
+                      month: "short",
+                      year: "numeric",
+                    }),
+                  })
+                : t("posture.radar.subtitle", {
+                    index: data.radar.index.toFixed(1),
+                  })
               : t("posture.radar.empty")
+          }
+          right={
+            data.radar.historical ? (
+              <div className="flex items-center gap-3 text-[11.5px] text-ink-2">
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="inline-block w-3 h-[2px]"
+                    style={{ background: "var(--council-strong)" }}
+                  />
+                  {t("posture.radar.legendCurrent")}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="inline-block w-3 h-[2px] border-t border-dashed border-ink-3"
+                  />
+                  {t("posture.radar.legendHistorical")}
+                </span>
+              </div>
+            ) : undefined
           }
         />
         {data.radar.scores ? (
           <MaturityRadar
-            series={[
-              {
-                name: data.tenant.name_en,
-                scores: data.radar.scores,
-                color: "var(--council-strong)",
-              },
-            ]}
+            series={
+              data.radar.historical
+                ? [
+                    {
+                      name: t("posture.radar.legendHistorical"),
+                      scores: data.radar.historical.scores,
+                      color: "var(--ink-3, #888)",
+                      dashed: true,
+                    },
+                    {
+                      name: data.tenant.name_en,
+                      scores: data.radar.scores,
+                      color: "var(--council-strong)",
+                    },
+                  ]
+                : [
+                    {
+                      name: data.tenant.name_en,
+                      scores: data.radar.scores,
+                      color: "var(--council-strong)",
+                    },
+                  ]
+            }
             height={300}
           />
         ) : (

@@ -2,6 +2,7 @@ import "server-only";
 import { resolveExecutiveTenant } from "@/lib/today/data";
 import { computeForTenant } from "@/lib/compute/maturity";
 import { getLatestSnapshot } from "@/lib/db/signals";
+import { listMaturitySnapshotsForTenant } from "@/lib/db/maturity-snapshots";
 import type {
   RiskyUsersPayload,
   PimSprawlPayload,
@@ -41,17 +42,30 @@ export const POSTURE_TABS: PostureTab[] = [
   "vulnerabilities",
 ];
 
+export type RadarScores = {
+  secureScore: number;
+  identity: number;
+  device: number;
+  data: number;
+  threat: number;
+  compliance: number;
+};
+
 export type PostureRadar = {
-  scores: {
-    secureScore: number;
-    identity: number;
-    device: number;
-    data: number;
-    threat: number;
-    compliance: number;
-  } | null;
+  scores: RadarScores | null;
   /** Overall index (0–100). */
   index: number | null;
+  /**
+   * 90-day-ago sub-scores rendered as a faded reference polygon
+   * behind today's solid polygon. Null when the maturity series
+   * doesn't have a snapshot ≥ 60 days old yet — for fresh installs
+   * the comparison would be misleading.
+   * v2.6.2.
+   */
+  historical: {
+    scores: RadarScores;
+    capturedAt: string;
+  } | null;
 };
 
 export type PostureKpi = {
@@ -96,7 +110,7 @@ export function buildPostureData(): PostureData {
 
   const empty = (): PostureData => ({
     tenant: null,
-    radar: { scores: null, index: null },
+    radar: { scores: null, index: null, historical: null },
     tabs: POSTURE_TABS.reduce(
       (acc, tab) => {
         acc[tab] = emptyTabContent(tab);
@@ -109,9 +123,14 @@ export function buildPostureData(): PostureData {
   if (!tenant) return empty();
 
   const breakdown = computeForTenant(tenant.id);
+  const historical = resolveHistoricalRadar(tenant.id);
   const radar: PostureRadar = breakdown.hasData
-    ? { scores: breakdown.subScores, index: breakdown.index }
-    : { scores: null, index: null };
+    ? {
+        scores: breakdown.subScores,
+        index: breakdown.index,
+        historical,
+      }
+    : { scores: null, index: null, historical: null };
 
   // ── Identity tab ────────────────────────────────────────────────
   const ru = getLatestSnapshot<RiskyUsersPayload>(tenant.id, "riskyUsers");
@@ -366,6 +385,43 @@ export function buildPostureData(): PostureData {
     tenant,
     radar,
     tabs: { identity, devices, data, threats, vulnerabilities },
+  };
+}
+
+/**
+ * Pick a maturity snapshot ~90 days ago. Looks for the most-recent
+ * row that's ≥60 days old (so the comparison frame is genuinely
+ * "last quarter" rather than "yesterday with rounding"). Returns
+ * null when nothing that old exists — fresh installs shouldn't
+ * pretend to have history.
+ *
+ * v2.6.2.
+ */
+function resolveHistoricalRadar(
+  tenantId: string,
+): PostureRadar["historical"] {
+  const series = listMaturitySnapshotsForTenant(tenantId, {
+    sinceDays: 120,
+    granularity: "daily",
+  });
+  if (series.length === 0) return null;
+  const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000;
+  const candidates = series.filter(
+    (s) => new Date(s.captured_at).getTime() <= sixtyDaysAgo,
+  );
+  if (candidates.length === 0) return null;
+  // Most-recent row that's still ≥60d old — "early in the window".
+  const row = candidates[candidates.length - 1];
+  return {
+    scores: {
+      secureScore: row.secure_score,
+      identity: row.identity,
+      device: row.device,
+      data: row.data,
+      threat: row.threat,
+      compliance: row.compliance,
+    },
+    capturedAt: row.captured_at,
   };
 }
 

@@ -7,7 +7,11 @@ import {
 } from "@/lib/db/maturity-snapshots";
 import { listRisks, type RiskRow } from "@/lib/db/risk-register";
 import { listPins, type ScorecardPin } from "@/lib/db/scorecard";
-import { computeKpiValue, getCatalogEntry } from "@/lib/scorecard/catalog";
+import {
+  computeKpiValue,
+  getCatalogEntry,
+  type KpiKind,
+} from "@/lib/scorecard/catalog";
 import { getLatestSnapshot } from "@/lib/db/signals";
 import type { IncidentsPayload } from "@/lib/graph/signals";
 import { buildChangeFeed, type ChangeFeedEvent } from "./change-feed";
@@ -46,6 +50,9 @@ export type TodayPinnedKpi = {
   direction: "higherBetter" | "lowerBetter";
   /** Translated label key (uses pin.label override if set, else catalog). */
   labelKey: string;
+  /** 7-day trend series (oldest → newest). null when no historical
+   *  source exists for this KPI. v2.6.2. */
+  sparkline: number[] | null;
 };
 
 export type TodayData = {
@@ -70,6 +77,50 @@ export function resolveExecutiveTenant(): TenantRow | null {
     all[0] ??
     null
   );
+}
+
+/**
+ * Build a 7-point sparkline series for a pinned KPI. Source:
+ *
+ *   - `maturityIndex`            — overall column from maturity_snapshots
+ *   - `frameworkCompliance`      — compliance sub-score from maturity_snapshots
+ *   - `mfaAdminCoverage`         — identity sub-score from maturity_snapshots
+ *   - `deviceCompliance`         — device sub-score from maturity_snapshots
+ *
+ * Other KPIs (criticalCveAge / privilegedRoleCount / incidentMttr /
+ * highRiskUsers / auditClosureSla / boardReportDelivered) don't yet
+ * carry a per-day historical series; we return `null` and the tile
+ * renders without a sparkline. Adding history for those is v2.7
+ * work — the dashboard's sync orchestrator already snapshots the
+ * raw signals daily; what's missing is a "rollup table" to query.
+ *
+ * The series length is intentionally 7 — the Today page is a 7-day
+ * brief. /scorecard's full page can ask for 90 days when we land
+ * the 12-week view.
+ *
+ * v2.6.2.
+ */
+function buildKpiSparkline(
+  kind: KpiKind,
+  _tenantId: string,
+  maturitySeries: MaturitySnapshotRow[],
+): number[] | null {
+  // For maturity-derived KPIs we down-sample the daily maturity
+  // series to 7 evenly-spaced points across the most recent window.
+  const maturityField: Record<string, keyof MaturitySnapshotRow | null> = {
+    maturityIndex: "overall",
+    frameworkCompliance: "compliance",
+    mfaAdminCoverage: "identity",
+    deviceCompliance: "device",
+  };
+  const field = maturityField[kind] ?? null;
+  if (!field) return null;
+  if (maturitySeries.length === 0) return null;
+
+  // Most-recent 7 daily snapshots; fewer if we don't have a week yet.
+  const last7 = maturitySeries.slice(-7);
+  if (last7.length < 2) return null;
+  return last7.map((row) => Number(row[field]) || 0);
 }
 
 /**
@@ -149,6 +200,7 @@ export function buildTodayData(): TodayData {
       unit: catalog?.unit ?? "count",
       direction: catalog?.direction ?? "higherBetter",
       labelKey: catalog?.labelKey ?? "",
+      sparkline: buildKpiSparkline(pin.kpi_kind, tenant.id, series),
     };
   });
 

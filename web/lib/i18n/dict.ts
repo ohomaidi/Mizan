@@ -3014,6 +3014,10 @@ export const DICT = {
     "posture.radar.title": "Maturity by domain",
     "posture.radar.subtitle":
       "Maturity Index {index} · weighted composite of the six axes shown.",
+    "posture.radar.subtitleWithHistory":
+      "Maturity Index {index} · solid polygon = today, dashed = {historicalDate}.",
+    "posture.radar.legendCurrent": "Today",
+    "posture.radar.legendHistorical": "~90 days ago",
     "posture.radar.empty":
       "Radar will populate after the first sync.",
     "posture.tabs.aria": "Posture domains",
@@ -6316,6 +6320,10 @@ export const DICT = {
     "posture.radar.title": "النضج حسب المجال",
     "posture.radar.subtitle":
       "مؤشر النضج {index} · المركّب الموزون للمحاور الستة المعروضة.",
+    "posture.radar.subtitleWithHistory":
+      "مؤشر النضج {index} · المضلّع الصلب = اليوم، المتقطّع = {historicalDate}.",
+    "posture.radar.legendCurrent": "اليوم",
+    "posture.radar.legendHistorical": "قبل ٩٠ يومًا تقريبًا",
     "posture.radar.empty":
       "سيظهر الرادار بعد أول مزامنة.",
     "posture.tabs.aria": "مجالات الوضع الأمني",

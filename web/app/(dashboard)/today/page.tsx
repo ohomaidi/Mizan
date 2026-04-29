@@ -16,7 +16,12 @@ import { MaturityRadar } from "@/components/charts/MaturityRadar";
 import { buildTodayData, type TodayPinnedKpi } from "@/lib/today/data";
 import type { ChangeFeedEvent } from "@/lib/today/change-feed";
 import type { RiskRow } from "@/lib/db/risk-register";
-import { getTranslator, type ServerTranslator } from "@/lib/i18n/dict.server";
+import {
+  getTranslator,
+  getCurrentLocale,
+  localeToBcp47,
+  type ServerTranslator,
+} from "@/lib/i18n/dict.server";
 import type { DictKey } from "@/lib/i18n/dict";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +51,7 @@ export const dynamic = "force-dynamic";
 export default async function TodayPage() {
   const data = buildTodayData();
   const t = await getTranslator();
+  const bcp47 = localeToBcp47(await getCurrentLocale());
 
   if (!data.tenant) {
     return (
@@ -69,7 +75,7 @@ export default async function TodayPage() {
 
   const orgName = data.tenant.name_en;
   const updated = data.hero.capturedAt
-    ? new Date(data.hero.capturedAt).toLocaleString("en-US", {
+    ? new Date(data.hero.capturedAt).toLocaleString(bcp47, {
         dateStyle: "medium",
         timeStyle: "short",
       })
@@ -216,7 +222,7 @@ export default async function TodayPage() {
         ) : (
           <ul className="divide-y divide-border">
             {data.changeFeed.map((ev) => (
-              <ChangeFeedRow key={ev.id} event={ev} t={t} />
+              <ChangeFeedRow key={ev.id} event={ev} t={t} bcp47={bcp47} />
             ))}
           </ul>
         )}
@@ -445,6 +451,60 @@ function ActionRow({
   );
 }
 
+function MiniSparkline({
+  series,
+  tone,
+}: {
+  series: number[];
+  tone: "pos" | "warn" | "neg" | "neutral";
+}) {
+  // Map tone to a stroke colour CSS var. Falls back to ink-3 so a
+  // weak/no-target KPI still renders a faint line for context.
+  const stroke =
+    tone === "pos"
+      ? "var(--pos, #16a34a)"
+      : tone === "warn"
+        ? "var(--warn, #d97706)"
+        : tone === "neg"
+          ? "var(--neg, #dc2626)"
+          : "var(--ink-3, #888)";
+
+  // Normalize the series to a 0..1 range for the SVG viewport. Add a
+  // tiny vertical pad so a flat line doesn't sit ON the bottom edge.
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = max - min || 1;
+  const w = 80;
+  const h = 22;
+  const points = series
+    .map((v, i) => {
+      const x = (i / (series.length - 1)) * w;
+      // Invert Y because SVG origin is top-left; pad 2px top/bottom.
+      const y = h - 2 - ((v - min) / range) * (h - 4);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      aria-hidden="true"
+      className="opacity-80 shrink-0"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke={stroke}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function PinnedKpiTile({
   kpi,
   t,
@@ -477,13 +537,30 @@ function PinnedKpiTile({
   const labelText =
     kpi.pin.label || (kpi.labelKey ? t(kpi.labelKey as DictKey) : "—");
 
+  // Map the catalog status to a tone-colour for the sparkline. We
+  // don't recolour green just because the line is going up — the
+  // sparkline reflects the same status the value chip carries.
+  const sparkTone =
+    kpi.status === "met"
+      ? "pos"
+      : kpi.status === "atRisk"
+        ? "warn"
+        : kpi.status === "missed"
+          ? "neg"
+          : "neutral";
+
   return (
     <div className="relative rounded-lg border border-border bg-surface-2 p-4 overflow-hidden">
       <span
         aria-hidden
         className={cn("absolute start-0 top-0 bottom-0 w-[3px]", ringTone)}
       />
-      <div className="eyebrow text-[10px]">{labelText}</div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="eyebrow text-[10px] min-w-0">{labelText}</div>
+        {kpi.sparkline && kpi.sparkline.length >= 2 ? (
+          <MiniSparkline series={kpi.sparkline} tone={sparkTone} />
+        ) : null}
+      </div>
       <div className="mt-2 flex items-baseline gap-2">
         <span className="text-3xl font-semibold tabular text-ink-1">
           {valueDisplay}
@@ -509,9 +586,11 @@ function PinnedKpiTile({
 function ChangeFeedRow({
   event,
   t,
+  bcp47,
 }: {
   event: ChangeFeedEvent;
   t: ServerTranslator;
+  bcp47: string;
 }) {
   const Icon =
     event.direction === "up"
@@ -525,7 +604,7 @@ function ChangeFeedRow({
       : event.severity === "warn"
         ? "text-warn bg-warn/10"
         : "text-ink-2 bg-surface-3";
-  const when = new Date(event.capturedAt).toLocaleDateString("en-US", {
+  const when = new Date(event.capturedAt).toLocaleDateString(bcp47, {
     month: "short",
     day: "numeric",
   });

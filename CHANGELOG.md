@@ -26,6 +26,22 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-29 — v2.6.2 (Executive Mode polish — sparklines, HistoricalRadar, PDF cover, mobile)**. Polish pass on the v2.6.1 IA, plus a seed bug fix that left Dubai Airports' Today page hero empty.
+
+  **Today page sparklines.** Each pinned KPI tile now carries a 7-point trend line in the corner — derived from the existing `maturity_snapshots` series so no new data plumbing. Coverage today: maturityIndex / frameworkCompliance / mfaAdminCoverage / deviceCompliance pull a sparkline; counts (criticalCveAge / privilegedRoleCount / highRiskUsers / etc.) won't until v2.7 lands a per-day rollup table for them. The line tone matches the KPI's status — green for met, amber for at-risk, red for missed — so the spark is "is this on or off track" not just "what shape is the curve."
+
+  **HistoricalRadar overlay on `/posture`.** The estate radar now shows a dashed reference polygon from ~90 days ago behind today's solid polygon. Lets the CISO read "look how far we've come" at a glance without leaving the page. Falls back gracefully on installs <60 days old (no overlay rendered, just the solid current polygon).
+
+  **Server-side timezone formatting.** v2.6.1 hardcoded `toLocaleString("en-US", ...)` on Today's hero. v2.6.2 reads the locale from the `mizan-locale` cookie via the new `getCurrentLocale()` server helper, so Arabic users get Arabic-Gregorian formatting on date/time strings. New `localeToBcp47()` maps the dashboard's `en` / `ar` short codes to BCP-47 tags for `Intl.*`. English continues to render as `en-US` until per-tenant override lands in v2.7.
+
+  **Board PDF cover polish.** Brand accent bar across the cover (top + bottom rule), logo bumped from 80×40 to 120×60 so the customer mark actually reads at A4 distance, title bumped to 44pt and split across two lines, "Period" row pulled out into a small caps eyebrow, all section-title underlines now pick up the deployment's brand accent colour instead of generic ink. New `getBrandAccent()` helper reads `branding.accentColorStrong` (fallback `accentColor`, then ink). For Dubai Airports the cover renders in navy `#1E2761`.
+
+  **Seed bug fixed — Dubai Airports maturity history.** `seedDemoMaturityTrend` only consulted the Sharjah and DESC catalogs to find each tenant's baseline `index`. Dubai Airports tenants didn't match either, so the helper silently `continue`d — the tenant ended up with zero maturity snapshots, which made Today's hero say "no sync yet" indefinitely and the sparklines render blank. v2.6.2 adds `DUBAI_AIRPORTS_DEMO` to the lookup chain, AND hoists `seedDemoMaturityTrend(db)` out of the "no demo tenants yet" early-return so existing v2.6.0/v2.6.1 installs of `dademo` retroactively pick up the 90-day backfill on next boot.
+
+  **Mobile shell verified.** `/today` and `/posture` both render cleanly under a mobile UA (responsive Tailwind grids `grid-cols-1 lg:grid-cols-[…]` already collapse to single-column on phones). Pages stay legible at 360px width.
+
+  EN + AR coverage on every new key (`posture.radar.legendCurrent` / `legendHistorical` / `subtitleWithHistory`). No DB migrations. No breaking changes — Council deployments boot unchanged.
+
 - **2026-04-29 — v2.6.1 (Executive Mode IA redesign — Today + Posture)**. Fast follow on v2.6.0 in response to navigation feedback: the v2.6.0 Executive sidebar was a Council clone with hidden entries, and landing on Entity detail then bouncing to `/maturity` left no clear "home." v2.6.1 reshapes Executive Mode into its own information architecture — designed for one CISO, one organisation, daily driver — and stops borrowing the multi-tenant federation chrome.
 
   **New IA (Executive only — Council unchanged).** Sidebar drops from 14 to 9 entries, in three groups:

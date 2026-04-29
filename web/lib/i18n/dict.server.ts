@@ -50,19 +50,42 @@ export type ServerTranslator = (
 ) => string;
 
 /**
+ * Resolve the active locale from the request cookie. Server pages
+ * call this to format dates / numbers / collation without going
+ * through the client `LocaleProvider`. Falls back to English when
+ * the cookie is missing or invalid.
+ */
+export async function getCurrentLocale(): Promise<Locale> {
+  try {
+    const c = await cookies();
+    const v = c.get(STORAGE_COOKIE)?.value;
+    if (isLocale(v)) return v;
+  } catch {
+    // cookies() throws outside the request scope — e.g. during
+    // static generation. Stick with English.
+  }
+  return "en";
+}
+
+/**
+ * Maps a Locale code to the BCP-47 tag used by `toLocaleString` /
+ * `Intl.DateTimeFormat`. The dashboard renders in Arabic with
+ * Gregorian-Arabic numerals (commercial standard for the GCC),
+ * which is what the `ar` tag delivers by default. English uses
+ * `en-US` for now; per-tenant override (e.g. `en-GB`) tracks as
+ * v2.7 work.
+ */
+export function localeToBcp47(l: Locale): string {
+  if (l === "ar") return "ar";
+  return "en-US";
+}
+
+/**
  * Resolve the active locale from the request cookie and return a
  * bound translator. Cheap to await — cookies() is request-scoped.
  */
 export async function getTranslator(): Promise<ServerTranslator> {
-  let locale: Locale = "en";
-  try {
-    const c = await cookies();
-    const v = c.get(STORAGE_COOKIE)?.value;
-    if (isLocale(v)) locale = v;
-  } catch {
-    // cookies() throws outside a request scope — e.g. during static
-    // generation. Stick with English.
-  }
+  const locale = await getCurrentLocale();
   return (key, params) => {
     const raw = DICT[locale][key] ?? DICT.en[key] ?? (key as unknown as string);
     return interpolate(raw, params);
