@@ -26,6 +26,10 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-30 — v2.7.3 (Workload Coverage moved to bottom of entity Overview)**. Single-line UX move per operator direction. The Workload Coverage card (per-tool license + onboarding grid: Intune / MDE / MDI / Labels / MDO / MDCA / DLP) used to land at the TOP of the Overview tab on `/entities/[id]` — sized as the "single-glance answer to which Microsoft tools is this entity using." Operators consistently asked for the maturity / sub-scores / radar / vulns context first; the per-tool grid reads better as the closing summary. Now the last card on the tab. Position-only change — same component, same data, just moved below the Top Vulnerabilities table.
+
+  Affects both Council and Executive — the entity-detail page is the same component for both; in Executive it lands here via the v2.7.2 `/posture` redirect.
+
 - **2026-04-30 — v2.7.2 (DDA demo + 2 bug fixes + sidebar trim)**. New Executive demo customer + fixes for two bugs the operator hit while testing v2.7.1 + a sidebar trim per operator direction.
 
   **New demo: Dubai Digital Authority** at `dda.zaatarlabs.com`. Identical numerical posture to Dubai Airports (maturity 74, 4 incidents, 6 risky users, 87% device compliance) so the seeded narrative reads coherently across both deployments — different brand, same data story. Mac Mini port `:8790`, LaunchAgent `com.zaatarlabs.ddademo.plist`, branding navy/blue (`#1E5AA8` / `#0E7AC4`), framework Dubai ISR. New `dda` SeedCustomer variant; `DDA_DEMO` array; `web/public/branding/dda.png` logo. `web/deploy/restart-demos.sh` extended to manage all four demos. Cloudflare tunnel ingress added to `dev-dashboard.yml`.

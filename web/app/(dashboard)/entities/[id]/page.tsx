@@ -770,18 +770,6 @@ function EntityDetailInner({
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Workload Coverage — sits at the top of the overview as the
-            single-glance answer to "what Microsoft tools is this entity
-            using and how completely?". Spans all 3 columns. Tagged BETA
-            on tools served by /beta endpoints, COMING SOON on tools
-            still gated behind PowerShell-only Microsoft surfaces. */}
-        <div className="lg:col-span-3">
-          <WorkloadCoverageCard
-            coverage={signals.workloadCoverage?.payload ?? null}
-            tenant={tenant}
-          />
-        </div>
-
         <Card className="lg:col-span-1">
           <CardHeader
             title={t("entity.maturityTitle")}
@@ -1017,6 +1005,21 @@ function EntityDetailInner({
             </div>
           )}
         </Card>
+
+        {/* Workload Coverage — moved to the bottom of the overview
+            in v2.7.3. Was at the top in v2.5.x but operators
+            consistently asked for the maturity / sub-scores / radar
+            / vulns context first; the per-tool license + onboarding
+            grid lands better as the closing summary card. Spans all
+            3 columns. Tagged BETA on tools served by /beta endpoints,
+            COMING SOON on tools still gated behind PowerShell-only
+            Microsoft surfaces. */}
+        <div className="lg:col-span-3">
+          <WorkloadCoverageCard
+            coverage={signals.workloadCoverage?.payload ?? null}
+            tenant={tenant}
+          />
+        </div>
       </div>
     );
   }
