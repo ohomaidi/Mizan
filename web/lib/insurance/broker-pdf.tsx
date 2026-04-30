@@ -60,7 +60,9 @@ const styles = StyleSheet.create({
   page: {
     padding: 40,
     fontSize: 10,
-    fontFamily: "Avenir",
+    // v2.7.2 fix — see BoardReportPdf for context. Inter is the
+    // registered family; "Avenir" was a v2.7.0 typo.
+    fontFamily: "Inter",
     color: PALETTE.ink,
   },
   cover: {

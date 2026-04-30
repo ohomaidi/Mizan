@@ -375,29 +375,77 @@ extended to `mizan-theme`. Root layout reads both cookies server-
 side; ThemeProvider takes `initialTheme` as a prop and writes
 localStorage + cookie on every toggle.
 
+## v2.7.2 — DDA demo + bug fixes (LANDED 2026-04-30)
+
+- **New Executive demo: Dubai Digital Authority** at
+  `dda.zaatarlabs.com`, port 8790, identical numerical posture
+  to Dubai Airports for narrative consistency. New SeedCustomer
+  variant `dda` with `DDA_DEMO` array; brand colour navy/blue
+  `#1E5AA8` / `#0E7AC4`. Logo bundled as `web/public/branding/dda.png`.
+  Mac Mini LaunchAgent `com.zaatarlabs.ddademo.plist` joins the
+  three existing demos under `restart-demos.sh`. Cloudflare tunnel
+  ingress added to `dev-dashboard.yml`; DNS CNAME via
+  `cloudflared tunnel route dns`.
+- **Generalised the Executive seed helpers.** `seedDubaiAirportsLogoIfAbsent`
+  → `seedExecutiveLogoIfAbsent(customer)` reading
+  `web/public/branding/{customer}.png`. `seedExecutiveChangeFeedHistoryIfAbsent`
+  takes a `SeedCustomer` parameter and binds tenant_id on every
+  query / insert. `isExecutiveCustomer()` predicate centralises
+  the deployment-mode + deployment-kind selectors. Future
+  Executive customers drop in as a single `SeedCustomer` enum
+  entry + `XYZ_DEMO` array + branding block.
+- **Bug fix — Generate PDF report HTTP 500.** v2.7.0's PDF stylesheet
+  set `fontFamily: "Avenir"` but `ensureFontsRegistered()` only
+  registers Inter / NotoKufiArabic / Fallback. Every Generate PDF
+  click threw "Font family not registered: Avenir" → 500. Both
+  `BoardReportPdf` and `broker-pdf` now reference `Inter`.
+- **Bug fix — rich entity view missing in Executive.** v2.6.1's
+  `/posture` was a thin tabbed page with summary KPIs; the
+  comprehensive single-tenant drill-down (11 sub-tabs, ~5500
+  lines of detail) lived at `/entities/[id]` but was hidden from
+  the Executive sidebar. v2.7.2 redirects `/posture` →
+  `/entities/{primary.id}` server-side, preserving the `?tab=`
+  query param (mapping `threats` → `incidents` for tab-key
+  compatibility). The "Back to entities" breadcrumb at the top
+  of the entity-detail page is hidden in Executive (no entities
+  list to return to).
+- **Sidebar: Cyber insurance hidden.** Per operator direction
+  ("useless for our demo"). Route, table, API, broker PDF still
+  intact — just removed from primary nav and from the Today
+  Quick Actions card. Re-expose by restoring the `/insurance`
+  entry in `EXECUTIVE_NAV`.
+
 ## v2.8.0+ — what's still queued
+
+After the v2.7.2 trim per operator direction (cyber insurance,
+Slack/Teams webhook, multi-org, public scorecard API all dropped):
 
 1. **Auto Graph-PATCH redirect URIs** — System tab currently asks
    the operator to paste into Azure portal. v2.8 calls Graph and
    updates each app's `redirectUris` array directly using the
    stored client secret.
-2. **Insurance file-upload evidence** per question — attach IR plan
-   PDF, SOC report, certs.
-3. **Additional industry questionnaire templates** — finance (PCI /
-   DORA), healthcare (HIPAA), generic enterprise. Engine ready;
-   templates are JSON drops.
-4. **Sparklines for incidentMttr / auditClosureSla / boardReportDelivered**
+2. **Sparklines for incidentMttr / auditClosureSla / boardReportDelivered**
    — needs a per-day rollup table for daily means; raw
    signal_snapshots aren't enough.
-5. **Risk register import** from CSV, JIRA, ServiceNow.
-6. **Email digest** — weekly to a configurable list.
-7. **Slack / Teams webhook** — push notifications to a channel.
-8. **Quarterly board-report scheduler** — beyond weekly auto-draft;
+3. **Risk register import** from CSV, JIRA, ServiceNow.
+4. **Email digest** — weekly to a configurable list.
+5. **Quarterly board-report scheduler** — beyond weekly auto-draft;
    per-quarter, per-month, custom-cron.
-9. **Audit-trail evidence storage** with expiry tracking.
-10. **Multi-org hierarchical Executive view** — for groups like
-    Emaar / Dubai Holding where a parent oversees subsidiaries.
-11. **Public API** for CISO scorecard — embed in Power BI / Tableau.
+6. **Audit-trail evidence storage** with expiry tracking.
+
+## Dropped from v2.8 backlog (do NOT re-propose)
+
+Operator removed these on 2026-04-30 — keeping the Mizan surface
+lean and focused on what board-grade CISO work actually needs:
+
+- **Cyber insurance module** (and its v2.8 enhancements: file-upload
+  evidence per question, finance/healthcare/generic templates).
+  Module remains in code for re-enable; dropped from sidebar nav.
+- **Slack / Teams webhooks.** Email is enough; no chatops.
+- **Multi-org hierarchical Executive view.** No parent/subsidiary
+  customer in pipeline; over-engineering.
+- **Public scorecard API.** Power BI / Tableau embed not on the
+  short-list; CISO PDFs cover board needs.
 
 ## Out of scope (decisions, do not re-litigate)
 

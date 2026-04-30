@@ -413,11 +413,9 @@ function QuickActionsCard({ t }: { t: ServerTranslator }) {
           icon={<Plus size={14} />}
           label={t("today.actions.addRisk")}
         />
-        <ActionRow
-          href="/insurance"
-          icon={<ShieldCheck size={14} />}
-          label={t("today.actions.updateInsurance")}
-        />
+        {/* v2.7.2: cyber-insurance row removed from Quick Actions
+            per operator direction. Route still resolves at /insurance
+            for any deep-link history. */}
         <ActionRow
           href="/board-report"
           icon={<FileText size={14} />}

@@ -20,6 +20,7 @@ WEB="$REPO/web"
 SCSC_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.scscdemo.plist"
 DESC_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.descdemo.plist"
 DA_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.dademo.plist"
+DDA_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.ddademo.plist"
 SCSC_SYNC_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.scscdemo.sync.plist"
 DESC_SYNC_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.descdemo.sync.plist"
 
@@ -48,6 +49,7 @@ echo "→ unload LaunchAgents"
 launchctl unload "$SCSC_PLIST" 2>/dev/null || true
 launchctl unload "$DESC_PLIST" 2>/dev/null || true
 launchctl unload "$DA_PLIST" 2>/dev/null || true
+launchctl unload "$DDA_PLIST" 2>/dev/null || true
 launchctl unload "$SCSC_SYNC_PLIST" 2>/dev/null || true
 launchctl unload "$DESC_SYNC_PLIST" 2>/dev/null || true
 
@@ -69,6 +71,7 @@ launchctl load "$SCSC_SYNC_PLIST"
 launchctl load "$DESC_PLIST"
 launchctl load "$DESC_SYNC_PLIST"
 launchctl load "$DA_PLIST"
+launchctl load "$DDA_PLIST"
 
 echo "→ wait 10s for first-paint"
 sleep 10
@@ -77,12 +80,14 @@ echo "→ probe all"
 SCSC=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8787/api/auth/me" --connect-timeout 5)
 DESC=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8788/api/auth/me" --connect-timeout 5)
 DA=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8789/api/auth/me" --connect-timeout 5)
+DDA=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8790/api/auth/me" --connect-timeout 5)
 echo "  scscdemo :8787 → $SCSC"
 echo "  descdemo :8788 → $DESC"
 echo "  dademo   :8789 → $DA"
+echo "  ddademo  :8790 → $DDA"
 
-if [[ "$SCSC" == "200" && "$DESC" == "200" && "$DA" == "200" ]]; then
-  echo "✓ all three demos healthy"
+if [[ "$SCSC" == "200" && "$DESC" == "200" && "$DA" == "200" && "$DDA" == "200" ]]; then
+  echo "✓ all four demos healthy"
   exit 0
 fi
 
@@ -90,4 +95,5 @@ echo "✗ at least one demo is NOT healthy — check logs:"
 echo "  ~/Library/Logs/scscdemo.{out,err}.log"
 echo "  ~/Library/Logs/descdemo.{out,err}.log"
 echo "  ~/Library/Logs/dademo.{out,err}.log"
+echo "  ~/Library/Logs/ddademo.{out,err}.log"
 exit 1

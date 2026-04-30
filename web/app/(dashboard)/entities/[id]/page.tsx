@@ -158,6 +158,30 @@ function EntityDetailInner({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // v2.7.2 — hide the "Back to entities" link in Executive mode.
+  // Executive deployments have only one tenant and no `/entities`
+  // list page in the sidebar; the back link would land on a dead
+  // surface. Set on whoami response below; defaults to false so
+  // Council deployments render unchanged.
+  const [isExecutive, setIsExecutive] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api
+      .whoami()
+      .then((r) => {
+        if (
+          alive &&
+          (r as { deploymentKind?: string }).deploymentKind === "executive"
+        ) {
+          setIsExecutive(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // Tab + sub-view are URL-driven so deep-links from the global /identity
   // page arrive on the right section and so browser-back restores state.
   const rawTab = searchParams.get("tab");
@@ -396,15 +420,20 @@ function EntityDetailInner({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-1.5 text-[12px] text-ink-2 hover:text-ink-1"
-        >
-          <ArrowLeft size={13} className="rtl:rotate-180" />{" "}
-          {t(backKey as DictKey)}
-        </Link>
-      </div>
+      {/* v2.7.2 — Council shows the "back to entities/identity/etc."
+          breadcrumb. Executive doesn't (no entities list to return
+          to; this page IS the home). */}
+      {isExecutive ? null : (
+        <div>
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-1.5 text-[12px] text-ink-2 hover:text-ink-1"
+          >
+            <ArrowLeft size={13} className="rtl:rotate-180" />{" "}
+            {t(backKey as DictKey)}
+          </Link>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-5 flex-wrap">

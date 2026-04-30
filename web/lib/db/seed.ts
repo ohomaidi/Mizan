@@ -488,19 +488,28 @@ const DESC_DEMO: DemoEntity[] = [
 ];
 
 /** Customer variant for the demo seed. Selected via `SCSC_SEED_CUSTOMER`.
- *  v2.6.0 — added "dubaiairports" for the Executive-mode demo. */
-type SeedCustomer = "sharjah" | "desc" | "dubaiairports";
+ *  v2.6.0 — added "dubaiairports" for the Executive-mode demo.
+ *  v2.7.2 — added "dda" (Dubai Digital Authority) Executive demo. */
+type SeedCustomer = "sharjah" | "desc" | "dubaiairports" | "dda";
+
+/** Customers that should boot in Executive mode. Centralised so the
+ *  deployment-kind / logo / change-feed seed helpers stay generic. */
+function isExecutiveCustomer(c: SeedCustomer): boolean {
+  return c === "dubaiairports" || c === "dda";
+}
 
 function resolveSeedCustomer(): SeedCustomer {
   const raw = (process.env.SCSC_SEED_CUSTOMER ?? "sharjah").toLowerCase().trim();
   if (raw === "desc") return "desc";
   if (raw === "dubaiairports" || raw === "da") return "dubaiairports";
+  if (raw === "dda" || raw === "dubaidigitalauthority") return "dda";
   return "sharjah";
 }
 
 function entitiesForCustomer(c: SeedCustomer): DemoEntity[] {
   if (c === "desc") return DESC_DEMO;
   if (c === "dubaiairports") return DUBAI_AIRPORTS_DEMO;
+  if (c === "dda") return DDA_DEMO;
   return DEMO;
 }
 
@@ -539,6 +548,24 @@ function brandingForCustomer(c: SeedCustomer) {
       updatedAt: new Date().toISOString(),
     };
   }
+  if (c === "dda") {
+    return {
+      nameEn: "Dubai Digital Authority",
+      nameAr: "هيئة دبي الرقمية",
+      shortEn: "DDA",
+      shortAr: "الهيئة",
+      taglineEn: "Cybersecurity posture, board-grade.",
+      taglineAr: "وضع الأمن السيبراني… بمستوى مجلس الإدارة.",
+      // Dubai-government red palette — neighbours DESC's identity
+      // without colliding (slightly desaturated for digital).
+      accentColor: "#1E5AA8",
+      accentColorStrong: "#0E7AC4",
+      logoPath: "logo.png",
+      logoBgRemoved: false,
+      frameworkId: "dubai-isr",
+      updatedAt: new Date().toISOString(),
+    };
+  }
   return {
     nameEn: "Sharjah Cybersecurity Council",
     nameAr: "مجلس الأمن السيبراني - الشارقة",
@@ -566,6 +593,32 @@ const DUBAI_AIRPORTS_DEMO: DemoEntity[] = [
     domain: "dubaiairports.ae",
     ciso: "Hamad Al-Marri",
     ciso_email: "ciso@dubaiairports.ae",
+    index: 74,
+    openIncidents: 4,
+    riskyUsers: 6,
+    deviceCompliancePct: 87,
+    controlsPassingPct: 71,
+    syncMinsAgo: 8,
+    connectionHealth: "green",
+  },
+];
+
+/**
+ * Single-tenant demo for the Executive-mode Dubai Digital Authority
+ * variant. Same numerical posture as Dubai Airports (mid-maturity 74)
+ * so the demo story reads coherently across both deployments —
+ * different brand, same data narrative. v2.7.2.
+ */
+const DDA_DEMO: DemoEntity[] = [
+  {
+    id: "dda",
+    tenant_id: "22222222-3333-4444-5555-666666666666",
+    name_en: "Dubai Digital Authority",
+    name_ar: "هيئة دبي الرقمية",
+    cluster: "government",
+    domain: "dda.gov.ae",
+    ciso: "Yousef Al-Suwaidi",
+    ciso_email: "ciso@dda.gov.ae",
     index: 74,
     openIncidents: 4,
     riskyUsers: 6,
@@ -624,7 +677,7 @@ function seedDeploymentModeIfAbsent(
     .get() as { 1: number } | undefined;
   if (existing) return;
   const mode =
-    customer === "desc" || customer === "dubaiairports"
+    customer === "desc" || isExecutiveCustomer(customer)
       ? "directive"
       : "observation";
   db.prepare(
@@ -645,19 +698,22 @@ function seedDeploymentKindIfAbsent(
     .prepare("SELECT 1 FROM app_config WHERE key = 'deployment.kind'")
     .get() as { 1: number } | undefined;
   if (existing) return;
-  const kind = customer === "dubaiairports" ? "executive" : "council";
+  const kind = isExecutiveCustomer(customer) ? "executive" : "council";
   db.prepare(
     "INSERT INTO app_config (key, value_json) VALUES ('deployment.kind', ?)",
   ).run(JSON.stringify({ kind, setAt: new Date().toISOString() }));
 }
 
 /**
- * For the Dubai Airports demo, copy the bundled logo from
- * `web/public/branding/dubaiairports.png` into the deployment's
- * DATA_DIR/branding/logo.png so the existing /api/config/branding/logo
- * route serves it. Idempotent — skips if a logo is already present.
+ * For Executive-mode demos (Dubai Airports, Dubai Digital Authority,
+ * any future single-org demo), copy the bundled logo from
+ * `web/public/branding/{customer}.png` into the deployment's
+ * DATA_DIR/branding/logo.png so `/api/config/branding/logo` serves
+ * it. Idempotent — skips if a logo is already present.
+ *
+ * v2.7.2 — generalised from the v2.6.0 Dubai-Airports-only helper.
  */
-function seedDubaiAirportsLogoIfAbsent(): void {
+function seedExecutiveLogoIfAbsent(customer: SeedCustomer): void {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const fs = require("node:fs") as typeof import("node:fs");
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -672,11 +728,14 @@ function seedDubaiAirportsLogoIfAbsent(): void {
   } catch {
     /* fall through to attempt write */
   }
+  // Logo file convention: `web/public/branding/{customer}.png`. Falls
+  // back silently if the bundled asset isn't present (operator can
+  // still upload one manually via the Branding tab).
   const source = path.join(
     process.cwd(),
     "public",
     "branding",
-    "dubaiairports.png",
+    `${customer}.png`,
   );
   try {
     if (!fs.existsSync(source)) return;
@@ -703,8 +762,8 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   seedDemoBrandingIfAbsent(db, customer);
   seedDeploymentModeIfAbsent(db, customer);
   seedDeploymentKindIfAbsent(db, customer);
-  if (customer === "dubaiairports") {
-    seedDubaiAirportsLogoIfAbsent();
+  if (isExecutiveCustomer(customer)) {
+    seedExecutiveLogoIfAbsent(customer);
     seedExecutiveModulesIfAbsent(db);
   }
   markSetupCompletedIfAbsent(db);
@@ -723,8 +782,8 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
     // pre-date these features. Without this, da.zaatarlabs.com
     // would render an empty hero indefinitely.
     seedDemoMaturityTrend(db);
-    if (customer === "dubaiairports") {
-      seedExecutiveChangeFeedHistoryIfAbsent(db);
+    if (isExecutiveCustomer(customer)) {
+      seedExecutiveChangeFeedHistoryIfAbsent(db, customer);
     }
     return;
   }
@@ -1365,8 +1424,8 @@ export function seedDemoTenantsIfEmpty(db: Database.Database): void {
   // demo we append four backdated rows (vulnerabilities, pimSprawl,
   // incidents, riskyUsers) so the change feed lights up immediately
   // on first boot with realistic events.
-  if (customer === "dubaiairports") {
-    seedExecutiveChangeFeedHistoryIfAbsent(db);
+  if (isExecutiveCustomer(customer)) {
+    seedExecutiveChangeFeedHistoryIfAbsent(db, customer);
   }
 }
 
@@ -2213,7 +2272,8 @@ export function seedDemoMaturityTrend(db: Database.Database): number {
       const meta =
         DEMO.find((d) => d.id === t.id) ??
         DESC_DEMO.find((d) => d.id === t.id) ??
-        DUBAI_AIRPORTS_DEMO.find((d) => d.id === t.id);
+        DUBAI_AIRPORTS_DEMO.find((d) => d.id === t.id) ??
+        DDA_DEMO.find((d) => d.id === t.id);
       if (!meta) continue;
       const latest = meta.index;
       const earliest = Math.max(0, latest - RAMP);
@@ -2280,60 +2340,69 @@ export function seedDemoMaturityTrend(db: Database.Database): number {
  *
  * v2.6.1.
  */
-function seedExecutiveChangeFeedHistoryIfAbsent(db: Database.Database): void {
+function seedExecutiveChangeFeedHistoryIfAbsent(
+  db: Database.Database,
+  customer: SeedCustomer,
+): void {
+  // v2.7.2 — generalised from the v2.6.1 dubaiairports-only helper.
+  // The single-tenant id matches the SeedCustomer key for every
+  // Executive variant ("dubaiairports", "dda", …); using `customer`
+  // directly keeps the helper SQL parameterised cleanly.
+  const tenantId = customer;
   const tenant = db
     .prepare(
-      "SELECT id FROM tenants WHERE id = 'dubaiairports' AND is_demo = 1 LIMIT 1",
+      "SELECT id FROM tenants WHERE id = ? AND is_demo = 1 LIMIT 1",
     )
-    .get() as { id: string } | undefined;
+    .get(tenantId) as { id: string } | undefined;
   if (!tenant) return;
 
   // Idempotency: skip if any 7d-old vulnerability snapshot already
-  // landed for DA (means this helper or a prior seed already ran).
+  // landed for this tenant (means this helper or a prior seed
+  // already ran).
   const existing = db
     .prepare(
       `SELECT 1 FROM signal_snapshots
-        WHERE tenant_id = 'dubaiairports'
+        WHERE tenant_id = ?
           AND signal_type = 'vulnerabilities'
           AND fetched_at <= datetime('now', '-6 days')
         LIMIT 1`,
     )
-    .get();
+    .get(tenantId);
   if (existing) return;
 
   type Row = { payload: string };
   const latestVuln = db
     .prepare(
       `SELECT payload FROM signal_snapshots
-        WHERE tenant_id = 'dubaiairports' AND signal_type = 'vulnerabilities'
+        WHERE tenant_id = ? AND signal_type = 'vulnerabilities'
         ORDER BY fetched_at DESC LIMIT 1`,
     )
-    .get() as Row | undefined;
+    .get(tenantId) as Row | undefined;
   const latestPim = db
     .prepare(
       `SELECT payload FROM signal_snapshots
-        WHERE tenant_id = 'dubaiairports' AND signal_type = 'pimSprawl'
+        WHERE tenant_id = ? AND signal_type = 'pimSprawl'
         ORDER BY fetched_at DESC LIMIT 1`,
     )
-    .get() as Row | undefined;
+    .get(tenantId) as Row | undefined;
   const latestInc = db
     .prepare(
       `SELECT payload FROM signal_snapshots
-        WHERE tenant_id = 'dubaiairports' AND signal_type = 'incidents'
+        WHERE tenant_id = ? AND signal_type = 'incidents'
         ORDER BY fetched_at DESC LIMIT 1`,
     )
-    .get() as Row | undefined;
+    .get(tenantId) as Row | undefined;
   const latestRisky = db
     .prepare(
       `SELECT payload FROM signal_snapshots
-        WHERE tenant_id = 'dubaiairports' AND signal_type = 'riskyUsers'
+        WHERE tenant_id = ? AND signal_type = 'riskyUsers'
         ORDER BY fetched_at DESC LIMIT 1`,
     )
-    .get() as Row | undefined;
+    .get(tenantId) as Row | undefined;
 
   const insertDated = db.prepare(
     `INSERT INTO signal_snapshots (tenant_id, signal_type, ok, http_status, payload, fetched_at)
-     VALUES ('dubaiairports', @signal_type, 1, 200, @payload, @fetched_at)`,
+     VALUES (@tenant_id, @signal_type, 1, 200, @payload, @fetched_at)`,
   );
   const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000)
     .toISOString()
@@ -2359,6 +2428,7 @@ function seedExecutiveChangeFeedHistoryIfAbsent(db: Database.Database): void {
         zeroDay: cur.zeroDay ?? 0,
       };
       insertDated.run({
+        tenant_id: tenantId,
         signal_type: "vulnerabilities",
         payload: JSON.stringify(prior),
         fetched_at: sevenDaysAgo,
@@ -2388,6 +2458,7 @@ function seedExecutiveChangeFeedHistoryIfAbsent(db: Database.Database): void {
         recentAdminDeactivations: [],
       };
       insertDated.run({
+        tenant_id: tenantId,
         signal_type: "pimSprawl",
         payload: JSON.stringify(prior),
         fetched_at: sevenDaysAgo,
@@ -2413,6 +2484,7 @@ function seedExecutiveChangeFeedHistoryIfAbsent(db: Database.Database): void {
         active: Math.max(0, (cur.active ?? 0) - 1),
       };
       insertDated.run({
+        tenant_id: tenantId,
         signal_type: "incidents",
         payload: JSON.stringify(prior),
         fetched_at: sevenDaysAgo,
@@ -2439,6 +2511,7 @@ function seedExecutiveChangeFeedHistoryIfAbsent(db: Database.Database): void {
         total: Math.max(0, (cur.total ?? 0) - 1),
       };
       insertDated.run({
+        tenant_id: tenantId,
         signal_type: "riskyUsers",
         payload: JSON.stringify(prior),
         fetched_at: sevenDaysAgo,

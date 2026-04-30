@@ -103,8 +103,12 @@ const EXECUTIVE_NAV: NavEntry[] = [
   { kind: "link", href: "/scorecard", labelKey: "nav.scorecard", icon: Target },
 
   // ── Reports ──
+  // v2.7.2: cyber insurance hidden from sidebar per operator
+  // direction (deemed not useful for the Executive demo). Route
+  // and data layer remain intact at `/insurance` so existing
+  // answers aren't lost; can be re-exposed by adding the entry
+  // back here.
   { kind: "separator", labelKey: "nav.section.reports" },
-  { kind: "link", href: "/insurance", labelKey: "nav.insurance", icon: ShieldCheck },
   { kind: "link", href: "/board-report", labelKey: "nav.boardReport", icon: FileText },
 
   // ── Workspace ──

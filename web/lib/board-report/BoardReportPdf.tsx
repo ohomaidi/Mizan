@@ -52,7 +52,11 @@ const styles = StyleSheet.create({
   page: {
     padding: 40,
     fontSize: 10,
-    fontFamily: "Avenir",
+    // v2.7.2 fix — Inter is what `ensureFontsRegistered()` actually
+    // registers; the v2.6.0 typo "Avenir" caused @react-pdf to throw
+    // "Font family not registered: Avenir" → 500 on every Generate
+    // PDF click.
+    fontFamily: "Inter",
     color: PALETTE.ink,
   },
   cover: {
