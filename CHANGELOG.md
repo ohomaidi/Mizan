@@ -26,6 +26,10 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-04-30 — v2.7.4 (e&/Etisalat demo at etisalat.zaatarlabs.com)**. New Executive demo customer, fifth in the demo set. UAE national telco — same numerical posture as the other Executive demos (maturity 74, 4 incidents, 6 risky users, 87% device compliance) for narrative consistency, different brand. Mac Mini port `:8791`, LaunchAgent `com.zaatarlabs.etisalatdemo.plist`, branding e& magenta (`#7B1F44` / `#C81F70`), framework NESA (UAE telco baseline). New `etisalat` SeedCustomer variant; `ETISALAT_DEMO` array; `web/public/branding/etisalat.png` logo bundled. `web/deploy/restart-demos.sh` extended to manage all five demos. Cloudflare tunnel ingress added to `dev-dashboard.yml`; DNS CNAME via `cloudflared tunnel route dns`.
+
+  Drops in cleanly through the v2.7.2 generalisation — `isExecutiveCustomer()` predicate, `seedExecutiveLogoIfAbsent(customer)`, parameterised `seedExecutiveChangeFeedHistoryIfAbsent`. One enum entry + one demo array + one branding block + one logo file = new customer.
+
 - **2026-04-30 — v2.7.3 (Workload Coverage moved to bottom of entity Overview)**. Single-line UX move per operator direction. The Workload Coverage card (per-tool license + onboarding grid: Intune / MDE / MDI / Labels / MDO / MDCA / DLP) used to land at the TOP of the Overview tab on `/entities/[id]` — sized as the "single-glance answer to which Microsoft tools is this entity using." Operators consistently asked for the maturity / sub-scores / radar / vulns context first; the per-tool grid reads better as the closing summary. Now the last card on the tab. Position-only change — same component, same data, just moved below the Top Vulnerabilities table.
 
   Affects both Council and Executive — the entity-detail page is the same component for both; in Executive it lands here via the v2.7.2 `/posture` redirect.

@@ -489,13 +489,14 @@ const DESC_DEMO: DemoEntity[] = [
 
 /** Customer variant for the demo seed. Selected via `SCSC_SEED_CUSTOMER`.
  *  v2.6.0 — added "dubaiairports" for the Executive-mode demo.
- *  v2.7.2 — added "dda" (Dubai Digital Authority) Executive demo. */
-type SeedCustomer = "sharjah" | "desc" | "dubaiairports" | "dda";
+ *  v2.7.2 — added "dda" (Dubai Digital Authority) Executive demo.
+ *  v2.7.4 — added "etisalat" (e& UAE telco) Executive demo. */
+type SeedCustomer = "sharjah" | "desc" | "dubaiairports" | "dda" | "etisalat";
 
 /** Customers that should boot in Executive mode. Centralised so the
  *  deployment-kind / logo / change-feed seed helpers stay generic. */
 function isExecutiveCustomer(c: SeedCustomer): boolean {
-  return c === "dubaiairports" || c === "dda";
+  return c === "dubaiairports" || c === "dda" || c === "etisalat";
 }
 
 function resolveSeedCustomer(): SeedCustomer {
@@ -503,6 +504,7 @@ function resolveSeedCustomer(): SeedCustomer {
   if (raw === "desc") return "desc";
   if (raw === "dubaiairports" || raw === "da") return "dubaiairports";
   if (raw === "dda" || raw === "dubaidigitalauthority") return "dda";
+  if (raw === "etisalat" || raw === "e&" || raw === "eand") return "etisalat";
   return "sharjah";
 }
 
@@ -510,6 +512,7 @@ function entitiesForCustomer(c: SeedCustomer): DemoEntity[] {
   if (c === "desc") return DESC_DEMO;
   if (c === "dubaiairports") return DUBAI_AIRPORTS_DEMO;
   if (c === "dda") return DDA_DEMO;
+  if (c === "etisalat") return ETISALAT_DEMO;
   return DEMO;
 }
 
@@ -566,6 +569,25 @@ function brandingForCustomer(c: SeedCustomer) {
       updatedAt: new Date().toISOString(),
     };
   }
+  if (c === "etisalat") {
+    return {
+      nameEn: "e& UAE",
+      nameAr: "اتصالات",
+      shortEn: "e&",
+      shortAr: "اتصالات",
+      taglineEn: "Cybersecurity posture, board-grade.",
+      taglineAr: "وضع الأمن السيبراني… بمستوى مجلس الإدارة.",
+      // e& brand magenta/red — pulled from the corporate logo.
+      accentColor: "#7B1F44",
+      accentColorStrong: "#C81F70",
+      logoPath: "logo.png",
+      logoBgRemoved: false,
+      // UAE telco; NESA is the right baseline framework (TRA / NESA
+      // alignment expected of UAE ISPs).
+      frameworkId: "nesa",
+      updatedAt: new Date().toISOString(),
+    };
+  }
   return {
     nameEn: "Sharjah Cybersecurity Council",
     nameAr: "مجلس الأمن السيبراني - الشارقة",
@@ -619,6 +641,34 @@ const DDA_DEMO: DemoEntity[] = [
     domain: "dda.gov.ae",
     ciso: "Yousef Al-Suwaidi",
     ciso_email: "ciso@dda.gov.ae",
+    index: 74,
+    openIncidents: 4,
+    riskyUsers: 6,
+    deviceCompliancePct: 87,
+    controlsPassingPct: 71,
+    syncMinsAgo: 8,
+    connectionHealth: "green",
+  },
+];
+
+/**
+ * Single-tenant demo for the Executive-mode e& (Etisalat) variant.
+ * UAE national telco; large estate, broadly the same maturity numbers
+ * as DA / DDA so the seeded narrative reads coherently across all
+ * Executive demos. Cluster "transport" is just the closest of the
+ * existing clusters for telco — the cluster doesn't drive much in
+ * Executive mode anyway. v2.7.4.
+ */
+const ETISALAT_DEMO: DemoEntity[] = [
+  {
+    id: "etisalat",
+    tenant_id: "33333333-4444-5555-6666-777777777777",
+    name_en: "e& UAE",
+    name_ar: "اتصالات",
+    cluster: "transport",
+    domain: "etisalat.ae",
+    ciso: "Khaled Al-Mansoori",
+    ciso_email: "ciso@etisalat.ae",
     index: 74,
     openIncidents: 4,
     riskyUsers: 6,
@@ -2273,7 +2323,8 @@ export function seedDemoMaturityTrend(db: Database.Database): number {
         DEMO.find((d) => d.id === t.id) ??
         DESC_DEMO.find((d) => d.id === t.id) ??
         DUBAI_AIRPORTS_DEMO.find((d) => d.id === t.id) ??
-        DDA_DEMO.find((d) => d.id === t.id);
+        DDA_DEMO.find((d) => d.id === t.id) ??
+        ETISALAT_DEMO.find((d) => d.id === t.id);
       if (!meta) continue;
       const latest = meta.index;
       const earliest = Math.max(0, latest - RAMP);
