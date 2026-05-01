@@ -26,6 +26,17 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-01 — v2.7.6 (Spider/radar charts readable in dark mode)**. The `MaturityRadar` component was using the general `--border` and `--ink-3` tokens for grid lines and tick labels. Both are tuned for surface chrome (sidebar borders, secondary text) and **disappear** against the dark canvas of a chart — grid `#243049` on surface `#131a2a` is essentially invisible, tick text `#6b7892` is barely readable. Combined with brand-accent polygon colours that are already dark (DEWA teal, Etisalat plum, DA navy), the radar was unreadable in dark mode.
+
+  **Fix.** New chart-only CSS tokens scoped specifically for chart contrast:
+    - `--chart-grid` (dark: `#3a4a6e` / light: `#cbd5e1`) — visible grid lines on either canvas
+    - `--chart-tick` (dark: `#cbd5e1` / light: `#475569`) — high-contrast axis labels
+    - `--chart-tick-faint` (dark: `#94a3b8` / light: `#94a3b8`) — secondary radius-axis ticks
+
+  Plus polygon visibility bumped: stroke width `2 → 2.5`, fill opacity `0.20 → 0.28`. Dashed reference series stay fill-less so the primary polygon doesn't get visually overwhelmed.
+
+  Affects every page that renders a radar — `/today` hero mini-radar, `/posture` estate radar (both with the v2.6.2 historical overlay), and the per-entity Overview radar on `/entities/[id]`. Council and Executive both benefit; Council deployments with darker brand accents (DESC red) see the same readability lift.
+
 - **2026-05-01 — v2.7.5 (DEWA demo at dewa.zaatarlabs.com)**. Sixth Executive demo customer. Critical-infrastructure utility (Dubai Electricity & Water Authority); same posture-numerics profile as the other Executive demos for narrative coherence, different brand. Mac Mini port `:8792`, LaunchAgent `com.zaatarlabs.dewademo.plist`, branding DEWA teal (`#005C5C` / `#00A39B`), framework Dubai ISR. New `dewa` SeedCustomer variant; `DEWA_DEMO` array; `web/public/branding/dewa.png` logo bundled. `web/deploy/restart-demos.sh` extended to manage all six demos. Cloudflare tunnel ingress + DNS CNAME wired.
 
 - **2026-04-30 — v2.7.4 (e&/Etisalat demo at etisalat.zaatarlabs.com)**. New Executive demo customer, fifth in the demo set. UAE national telco — same numerical posture as the other Executive demos (maturity 74, 4 incidents, 6 risky users, 87% device compliance) for narrative consistency, different brand. Mac Mini port `:8791`, LaunchAgent `com.zaatarlabs.etisalatdemo.plist`, branding e& magenta (`#7B1F44` / `#C81F70`), framework NESA (UAE telco baseline). New `etisalat` SeedCustomer variant; `ETISALAT_DEMO` array; `web/public/branding/etisalat.png` logo bundled. `web/deploy/restart-demos.sh` extended to manage all five demos. Cloudflare tunnel ingress added to `dev-dashboard.yml`; DNS CNAME via `cloudflared tunnel route dns`.

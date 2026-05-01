@@ -33,6 +33,15 @@ html[data-theme="dark"] {
   --ring: rgba(20, 184, 166, 0.35);
 
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  /* v2.7.6 — chart tokens. The default ink-3 / border tokens are
+     fine for surface chrome but disappear on the dark canvas of
+     spider / radar / mini-bar charts. These dedicated tokens tune
+     contrast specifically for chart strokes + tick labels and
+     keep the rest of the UI palette untouched. */
+  --chart-grid: #3a4a6e;
+  --chart-tick: #cbd5e1;
+  --chart-tick-faint: #94a3b8;
 }
 
 html[data-theme="light"] {
@@ -58,6 +67,11 @@ html[data-theme="light"] {
   --ring: rgba(13, 148, 136, 0.3);
 
   --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+
+  /* v2.7.6 — chart tokens, light-mode side. */
+  --chart-grid: #cbd5e1;
+  --chart-tick: #475569;
+  --chart-tick-faint: #94a3b8;
 }
 
 @theme inline {

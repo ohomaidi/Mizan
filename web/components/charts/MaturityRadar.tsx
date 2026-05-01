@@ -95,21 +95,34 @@ export function MaturityRadar({
     >
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart data={data} outerRadius="70%">
-          <PolarGrid stroke="var(--border, #2a2a2a)" />
+          {/* v2.7.6 — chart-specific tokens. The general --border /
+              --ink-3 tokens are tuned for surface chrome and disappear
+              on the dark canvas of a radar. --chart-grid /
+              --chart-tick / --chart-tick-faint are tuned for stroke
+              + tick contrast in both themes. */}
+          <PolarGrid stroke="var(--chart-grid, #3a4a6e)" strokeWidth={1} />
           <PolarAngleAxis
             dataKey="axis"
-            tick={{ fontSize: 11, fill: "var(--ink-2, #a0a0a0)" }}
+            tick={{
+              fontSize: 11.5,
+              fill: "var(--chart-tick, #cbd5e1)",
+              fontWeight: 500,
+            }}
           />
           <PolarRadiusAxis
             angle={90}
             domain={[0, 100]}
-            tick={{ fontSize: 9, fill: "var(--ink-3, #6a6a6a)" }}
+            tick={{
+              fontSize: 9,
+              fill: "var(--chart-tick-faint, #94a3b8)",
+            }}
             tickCount={5}
+            stroke="var(--chart-grid, #3a4a6e)"
           />
           <Tooltip
             contentStyle={{
               background: "var(--surface-2, #1a1a1a)",
-              border: "1px solid var(--border, #2a2a2a)",
+              border: "1px solid var(--border-strong, #334261)",
               borderRadius: 6,
               fontSize: 12,
               color: "var(--ink-1, #fff)",
@@ -125,9 +138,14 @@ export function MaturityRadar({
                 dataKey={s.name}
                 stroke={color}
                 fill={color}
-                fillOpacity={s.dashed ? 0 : 0.2}
+                // v2.7.6 — bumped fill 0.2 → 0.28 + stroke 2 → 2.5
+                // so dark brand colours (DEWA teal, Etisalat plum,
+                // DA navy) read clearly against the dark canvas.
+                // Dashed reference series stay fill-less so the
+                // primary polygon doesn't get visually overwhelmed.
+                fillOpacity={s.dashed ? 0 : 0.28}
                 strokeDasharray={s.dashed ? "4 4" : undefined}
-                strokeWidth={2}
+                strokeWidth={2.5}
               />
             );
           })}
