@@ -14,7 +14,20 @@ import { Sidebar } from "./Sidebar";
  * Mobile changes live in MobileShell. That separation is the entire
  * point of the parallel-shell architecture introduced in v2.5.0.
  */
-export function DesktopShell({ children }: { children: ReactNode }) {
+export function DesktopShell({
+  children,
+  initialDeploymentKind,
+  initialDeploymentMode,
+}: {
+  children: ReactNode;
+  /** v2.7.8 — server-resolved kind so the sidebar's first paint
+   *  carries the right Council/Executive nav. Without this the
+   *  Sidebar defaulted to Council and swapped after whoami(),
+   *  visible as a 1-second flash on Executive deployments. */
+  initialDeploymentKind: "council" | "executive";
+  /** v2.7.8 — same idea for the directive entry. */
+  initialDeploymentMode: "observation" | "directive";
+}) {
   return (
     <div className="flex flex-col h-screen">
       {/*
@@ -30,7 +43,10 @@ export function DesktopShell({ children }: { children: ReactNode }) {
       </a>
       <TopBar />
       <div className="flex flex-1 min-h-0">
-        <Sidebar />
+        <Sidebar
+          initialDeploymentKind={initialDeploymentKind}
+          initialDeploymentMode={initialDeploymentMode}
+        />
         <main
           id="main"
           tabIndex={-1}

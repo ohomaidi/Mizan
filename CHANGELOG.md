@@ -26,6 +26,18 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-01 — v2.7.8 (Sidebar SSR — kill the Council-flash + fix mobile drawer)**. Two related bugs operator hit while testing v2.7.7:
+    1. **Desktop sidebar flashed Council nav for ~1s before swapping to Executive** on Executive deployments.
+    2. **Mobile drawer always showed Council nav** regardless of deployment kind — even on Executive deployments where the desktop sidebar was correctly Executive.
+
+  Same root cause: both components defaulted to `deploymentKind: "council"` and only swapped after the client-side `whoami()` round-trip resolved. v2.6.1 fixed this for the desktop sidebar in terms of the NAV table but left the initial state Council-defaulted; v2.6.1 missed the mobile drawer entirely (it had its own `NAV` constant hardcoded to Council).
+
+  **Fix.** Same SSR-cookie pattern v2.7.1 used for theme: resolve `deploymentKind` and `deploymentMode` server-side in the dashboard layout and pass them down as `initialDeploymentKind` / `initialDeploymentMode` props through `DesktopShell` / `MobileShell` to `Sidebar` / `MobileDrawer`. Both components now seed their state from the props, so the very first server-rendered HTML carries the correct nav. The `whoami()` call still runs on hydration as a refresh in case anything changed mid-session.
+
+  Also added the missing `COUNCIL_NAV` / `EXECUTIVE_NAV` split to `MobileDrawer` so the mobile drawer mirrors the desktop sidebar's IA on Executive deployments — Today / Posture / Compliance / Risk register / CISO scorecard / Board report / Settings / FAQ. The architectural rule that the two NAV lists are intentionally duplicated stays; the comment was updated to flag the kind split.
+
+  Verified by direct curl on dademo (Executive) and scscdemo (Council), with both desktop and mobile UA — sidebar links match the deployment kind on first render with no JS-triggered swap.
+
 - **2026-05-01 — v2.7.7 (Radar dark-mode fix, attempt 2 — concrete hex)**. v2.7.6 routed grid + tick colours through CSS custom properties (`var(--chart-grid)` etc.). Operator reported "no change" — the CSS tokens were correctly shipped in the bundle but recharts memoises chart paths and the SVG-attribute `var()` resolution was inconsistent across the rendered tree. Pivoted to **theme-driven concrete hex** values: the `MaturityRadar` component now reads `useTheme()` and applies a hardcoded palette (`PALETTE_DARK` / `PALETTE_LIGHT`) directly to recharts props.
 
   Also bumped fill opacity 0.28 → 0.32 and split `FALLBACK_COLORS` into `FALLBACK_COLORS_DARK` (bright gold / blue / purple / cyan / red / green) vs `FALLBACK_COLORS_LIGHT` (deeper palette). When the caller doesn't pass an explicit `color`, the radar picks the right palette for the active theme — guarantees primary polygons read clearly without the operator setting a brand colour.

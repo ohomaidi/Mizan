@@ -17,6 +17,12 @@ import {
   Gavel,
   Menu,
   X,
+  // v2.7.8 — Executive nav icons
+  Sun,
+  Activity,
+  AlertTriangle,
+  Target,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
@@ -40,14 +46,29 @@ import { DataSourcesPanel } from "./DataSourcesPanel";
  * decisions don't accidentally rewrite desktop ones.
  */
 
+type NavGate = {
+  deploymentMode: "observation" | "directive";
+  deploymentKind: "council" | "executive";
+};
+
 type NavItem = {
   href: string;
   labelKey: DictKey;
   icon: typeof LayoutDashboard;
-  showWhen?: (state: { deploymentMode: "observation" | "directive" }) => boolean;
+  showWhen?: (state: NavGate) => boolean;
 };
 
-const NAV: NavItem[] = [
+/**
+ * v2.7.8 — split per deploymentKind, mirrors `components/chrome/Sidebar.tsx`.
+ * v2.6.1 added Executive Mode IA on the desktop sidebar but missed
+ * the mobile drawer (it had its own hardcoded Council-only NAV).
+ * Mobile users on Executive deployments saw the wrong navigation.
+ *
+ * The two NAV lists deliberately mirror Sidebar's COUNCIL_NAV and
+ * EXECUTIVE_NAV. If you change one, change the other — same architectural
+ * rule the file's header comment calls out.
+ */
+const COUNCIL_NAV: NavItem[] = [
   { href: "/maturity", labelKey: "nav.maturity", icon: LayoutDashboard },
   { href: "/entities", labelKey: "nav.entities", icon: Building2 },
   { href: "/identity", labelKey: "nav.identity", icon: UserCog },
@@ -62,6 +83,17 @@ const NAV: NavItem[] = [
     icon: Gavel,
     showWhen: (s) => s.deploymentMode === "directive",
   },
+  { href: "/settings", labelKey: "nav.settings", icon: Settings },
+  { href: "/faq", labelKey: "nav.faq", icon: HelpCircle },
+];
+
+const EXECUTIVE_NAV: NavItem[] = [
+  { href: "/today", labelKey: "nav.today", icon: Sun },
+  { href: "/posture", labelKey: "nav.posture", icon: Activity },
+  { href: "/governance", labelKey: "nav.compliance", icon: Scale },
+  { href: "/risk-register", labelKey: "nav.riskRegister", icon: AlertTriangle },
+  { href: "/scorecard", labelKey: "nav.scorecard", icon: Target },
+  { href: "/board-report", labelKey: "nav.boardReport", icon: FileText },
   { href: "/settings", labelKey: "nav.settings", icon: Settings },
   { href: "/faq", labelKey: "nav.faq", icon: HelpCircle },
 ];
@@ -88,15 +120,24 @@ export function MobileDrawerTrigger({
 export function MobileDrawer({
   open,
   onClose,
+  initialDeploymentKind = "council",
+  initialDeploymentMode = "observation",
 }: {
   open: boolean;
   onClose: () => void;
+  /** v2.7.8 — server-resolved kind + mode so the drawer's first
+   *  render carries the correct nav. Without this, the drawer
+   *  defaulted to Council and never updated to Executive (the
+   *  whoami() effect below only set deploymentMode). */
+  initialDeploymentKind?: "council" | "executive";
+  initialDeploymentMode?: "observation" | "directive";
 }) {
   const pathname = usePathname();
   const { t } = useI18n();
-  const [deploymentMode, setDeploymentMode] = useState<"observation" | "directive">(
-    "observation",
-  );
+  const [gate, setGate] = useState<NavGate>({
+    deploymentMode: initialDeploymentMode,
+    deploymentKind: initialDeploymentKind,
+  });
 
   // Body-scroll lock while open. We toggle a data-attribute on <html>
   // rather than mutating body styles so the rule lives in CSS
@@ -128,7 +169,13 @@ export function MobileDrawer({
     api
       .whoami()
       .then((r) => {
-        if (alive) setDeploymentMode(r.deploymentMode);
+        if (!alive) return;
+        setGate({
+          deploymentMode: r.deploymentMode,
+          deploymentKind:
+            (r as { deploymentKind?: "council" | "executive" })
+              .deploymentKind ?? "council",
+        });
       })
       .catch(() => {});
     return () => {
@@ -136,8 +183,13 @@ export function MobileDrawer({
     };
   }, []);
 
-  const items = NAV.filter((item) =>
-    !item.showWhen ? true : item.showWhen({ deploymentMode }),
+  // v2.7.8 — pick NAV per kind, then apply per-entry showWhen for the
+  // directive entry (Council only — Executive folds Directive into
+  // Compliance via a callout card on /governance).
+  const source =
+    gate.deploymentKind === "executive" ? EXECUTIVE_NAV : COUNCIL_NAV;
+  const items = source.filter((item) =>
+    !item.showWhen ? true : item.showWhen(gate),
   );
 
   return (

@@ -5,6 +5,8 @@ import { DesktopShell } from "@/components/chrome/DesktopShell";
 import { MobileShell } from "@/components/chrome/MobileShell";
 import { requireUser } from "@/lib/auth/rbac";
 import { getSetupState } from "@/lib/config/setup-config";
+import { isExecutiveDeployment } from "@/lib/config/deployment-kind";
+import { getDeploymentMode } from "@/lib/config/deployment-mode";
 
 // Layout auth-gates all dashboard pages. Force dynamic so the requireUser()
 // check runs on every request — otherwise Next.js caches the layout at build
@@ -41,9 +43,32 @@ export default async function DashboardLayout({
   const device = (await cookies()).get("mizan-device")?.value;
   const useMobile = device === "mobile";
 
+  // v2.7.8 — resolve deploymentKind + deploymentMode server-side
+  // and pass them to the shells. Without this, the desktop sidebar
+  // and the mobile drawer initial-render with the Council nav, then
+  // swap to the Executive nav after the client-side whoami() call
+  // resolves — visible 1-second flash on Executive deployments and
+  // the mobile drawer never updated at all (it had its own NAV
+  // hardcoded to Council). Resolving here means the very first
+  // server-rendered HTML carries the correct sidebar already.
+  const initialDeploymentKind = isExecutiveDeployment()
+    ? "executive"
+    : "council";
+  const initialDeploymentMode = getDeploymentMode();
+
   return useMobile ? (
-    <MobileShell>{children}</MobileShell>
+    <MobileShell
+      initialDeploymentKind={initialDeploymentKind}
+      initialDeploymentMode={initialDeploymentMode}
+    >
+      {children}
+    </MobileShell>
   ) : (
-    <DesktopShell>{children}</DesktopShell>
+    <DesktopShell
+      initialDeploymentKind={initialDeploymentKind}
+      initialDeploymentMode={initialDeploymentMode}
+    >
+      {children}
+    </DesktopShell>
   );
 }

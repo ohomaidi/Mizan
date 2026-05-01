@@ -23,7 +23,21 @@ import { MobileDrawer } from "./MobileDrawer";
  * `lg:` breakpoints (so the same DOM works for both desktop and
  * mobile shells without duplication).
  */
-export function MobileShell({ children }: { children: ReactNode }) {
+export function MobileShell({
+  children,
+  initialDeploymentKind,
+  initialDeploymentMode,
+}: {
+  children: ReactNode;
+  /** v2.7.8 — server-resolved kind/mode threaded through to the
+   *  drawer so its first paint carries the right Council/Executive
+   *  nav and the directive entry shows correctly. Without this, the
+   *  mobile drawer defaulted to a Council-only NAV regardless of
+   *  deployment kind, and the directive entry only appeared after
+   *  whoami() resolved on the client. */
+  initialDeploymentKind: "council" | "executive";
+  initialDeploymentMode: "observation" | "directive";
+}) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
@@ -39,6 +53,8 @@ export function MobileShell({ children }: { children: ReactNode }) {
       <MobileDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        initialDeploymentKind={initialDeploymentKind}
+        initialDeploymentMode={initialDeploymentMode}
       />
 
       {/* Mobile main: full-width, narrower padding than desktop. The

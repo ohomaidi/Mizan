@@ -117,14 +117,27 @@ const EXECUTIVE_NAV: NavEntry[] = [
   { kind: "link", href: "/faq", labelKey: "nav.faq", icon: HelpCircle },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  initialDeploymentKind = "council",
+  initialDeploymentMode = "observation",
+}: {
+  /** v2.7.8 — server-resolved kind so the first paint already shows
+   *  the correct nav. Without this, the Sidebar started as Council
+   *  and swapped to Executive after whoami() resolved on the client
+   *  (visible 1-second flash on Executive deployments). */
+  initialDeploymentKind?: "council" | "executive";
+  initialDeploymentMode?: "observation" | "directive";
+} = {}) {
   const pathname = usePathname();
   const { t } = useI18n();
   const [gate, setGate] = useState<NavGate>({
-    deploymentMode: "observation",
-    deploymentKind: "council",
+    deploymentMode: initialDeploymentMode,
+    deploymentKind: initialDeploymentKind,
   });
 
+  // Still re-fetch whoami after hydration in case anything changed
+  // (admin re-keyed the deployment between requests, etc.). Acts as
+  // a refresh, not as the source of truth on first paint.
   useEffect(() => {
     let alive = true;
     api
