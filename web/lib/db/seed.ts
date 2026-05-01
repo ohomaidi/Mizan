@@ -490,13 +490,22 @@ const DESC_DEMO: DemoEntity[] = [
 /** Customer variant for the demo seed. Selected via `SCSC_SEED_CUSTOMER`.
  *  v2.6.0 — added "dubaiairports" for the Executive-mode demo.
  *  v2.7.2 — added "dda" (Dubai Digital Authority) Executive demo.
- *  v2.7.4 — added "etisalat" (e& UAE telco) Executive demo. */
-type SeedCustomer = "sharjah" | "desc" | "dubaiairports" | "dda" | "etisalat";
+ *  v2.7.4 — added "etisalat" (e& UAE telco) Executive demo.
+ *  v2.7.5 — added "dewa" (Dubai Electricity & Water) Executive demo. */
+type SeedCustomer =
+  | "sharjah"
+  | "desc"
+  | "dubaiairports"
+  | "dda"
+  | "etisalat"
+  | "dewa";
 
 /** Customers that should boot in Executive mode. Centralised so the
  *  deployment-kind / logo / change-feed seed helpers stay generic. */
 function isExecutiveCustomer(c: SeedCustomer): boolean {
-  return c === "dubaiairports" || c === "dda" || c === "etisalat";
+  return (
+    c === "dubaiairports" || c === "dda" || c === "etisalat" || c === "dewa"
+  );
 }
 
 function resolveSeedCustomer(): SeedCustomer {
@@ -505,6 +514,7 @@ function resolveSeedCustomer(): SeedCustomer {
   if (raw === "dubaiairports" || raw === "da") return "dubaiairports";
   if (raw === "dda" || raw === "dubaidigitalauthority") return "dda";
   if (raw === "etisalat" || raw === "e&" || raw === "eand") return "etisalat";
+  if (raw === "dewa" || raw === "dubaielectricity") return "dewa";
   return "sharjah";
 }
 
@@ -513,6 +523,7 @@ function entitiesForCustomer(c: SeedCustomer): DemoEntity[] {
   if (c === "dubaiairports") return DUBAI_AIRPORTS_DEMO;
   if (c === "dda") return DDA_DEMO;
   if (c === "etisalat") return ETISALAT_DEMO;
+  if (c === "dewa") return DEWA_DEMO;
   return DEMO;
 }
 
@@ -585,6 +596,24 @@ function brandingForCustomer(c: SeedCustomer) {
       // UAE telco; NESA is the right baseline framework (TRA / NESA
       // alignment expected of UAE ISPs).
       frameworkId: "nesa",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  if (c === "dewa") {
+    return {
+      nameEn: "Dubai Electricity & Water Authority",
+      nameAr: "هيئة كهرباء ومياه دبي",
+      shortEn: "DEWA",
+      shortAr: "ديوا",
+      taglineEn: "Cybersecurity posture, board-grade.",
+      taglineAr: "وضع الأمن السيبراني… بمستوى مجلس الإدارة.",
+      // DEWA brand teal/green — corporate identity.
+      accentColor: "#005C5C",
+      accentColorStrong: "#00A39B",
+      logoPath: "logo.png",
+      logoBgRemoved: false,
+      // Dubai government utility — Dubai ISR is the natural framework.
+      frameworkId: "dubai-isr",
       updatedAt: new Date().toISOString(),
     };
   }
@@ -669,6 +698,33 @@ const ETISALAT_DEMO: DemoEntity[] = [
     domain: "etisalat.ae",
     ciso: "Khaled Al-Mansoori",
     ciso_email: "ciso@etisalat.ae",
+    index: 74,
+    openIncidents: 4,
+    riskyUsers: 6,
+    deviceCompliancePct: 87,
+    controlsPassingPct: 71,
+    syncMinsAgo: 8,
+    connectionHealth: "green",
+  },
+];
+
+/**
+ * Single-tenant demo for the Executive-mode Dubai Electricity & Water
+ * Authority variant. Critical-infrastructure utility; same mid-maturity
+ * 74 / 4 incidents / etc. profile as the other Executive demos so the
+ * seeded narrative reads coherently across all of them. Cluster
+ * "utilities" matches DEWA's actual sector. v2.7.5.
+ */
+const DEWA_DEMO: DemoEntity[] = [
+  {
+    id: "dewa",
+    tenant_id: "44444444-5555-6666-7777-888888888888",
+    name_en: "Dubai Electricity & Water Authority",
+    name_ar: "هيئة كهرباء ومياه دبي",
+    cluster: "utilities",
+    domain: "dewa.gov.ae",
+    ciso: "Saeed Al-Falasi",
+    ciso_email: "ciso@dewa.gov.ae",
     index: 74,
     openIncidents: 4,
     riskyUsers: 6,
@@ -2324,7 +2380,8 @@ export function seedDemoMaturityTrend(db: Database.Database): number {
         DESC_DEMO.find((d) => d.id === t.id) ??
         DUBAI_AIRPORTS_DEMO.find((d) => d.id === t.id) ??
         DDA_DEMO.find((d) => d.id === t.id) ??
-        ETISALAT_DEMO.find((d) => d.id === t.id);
+        ETISALAT_DEMO.find((d) => d.id === t.id) ??
+        DEWA_DEMO.find((d) => d.id === t.id);
       if (!meta) continue;
       const latest = meta.index;
       const earliest = Math.max(0, latest - RAMP);

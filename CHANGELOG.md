@@ -26,6 +26,8 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-01 — v2.7.5 (DEWA demo at dewa.zaatarlabs.com)**. Sixth Executive demo customer. Critical-infrastructure utility (Dubai Electricity & Water Authority); same posture-numerics profile as the other Executive demos for narrative coherence, different brand. Mac Mini port `:8792`, LaunchAgent `com.zaatarlabs.dewademo.plist`, branding DEWA teal (`#005C5C` / `#00A39B`), framework Dubai ISR. New `dewa` SeedCustomer variant; `DEWA_DEMO` array; `web/public/branding/dewa.png` logo bundled. `web/deploy/restart-demos.sh` extended to manage all six demos. Cloudflare tunnel ingress + DNS CNAME wired.
+
 - **2026-04-30 — v2.7.4 (e&/Etisalat demo at etisalat.zaatarlabs.com)**. New Executive demo customer, fifth in the demo set. UAE national telco — same numerical posture as the other Executive demos (maturity 74, 4 incidents, 6 risky users, 87% device compliance) for narrative consistency, different brand. Mac Mini port `:8791`, LaunchAgent `com.zaatarlabs.etisalatdemo.plist`, branding e& magenta (`#7B1F44` / `#C81F70`), framework NESA (UAE telco baseline). New `etisalat` SeedCustomer variant; `ETISALAT_DEMO` array; `web/public/branding/etisalat.png` logo bundled. `web/deploy/restart-demos.sh` extended to manage all five demos. Cloudflare tunnel ingress added to `dev-dashboard.yml`; DNS CNAME via `cloudflared tunnel route dns`.
 
   Drops in cleanly through the v2.7.2 generalisation — `isExecutiveCustomer()` predicate, `seedExecutiveLogoIfAbsent(customer)`, parameterised `seedExecutiveChangeFeedHistoryIfAbsent`. One enum entry + one demo array + one branding block + one logo file = new customer.

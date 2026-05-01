@@ -22,6 +22,7 @@ DESC_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.descdemo.plist
 DA_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.dademo.plist"
 DDA_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.ddademo.plist"
 ETISALAT_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.etisalatdemo.plist"
+DEWA_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.dewademo.plist"
 SCSC_SYNC_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.scscdemo.sync.plist"
 DESC_SYNC_PLIST="/Users/zaatarlabs/Library/LaunchAgents/com.zaatarlabs.descdemo.sync.plist"
 
@@ -52,6 +53,7 @@ launchctl unload "$DESC_PLIST" 2>/dev/null || true
 launchctl unload "$DA_PLIST" 2>/dev/null || true
 launchctl unload "$DDA_PLIST" 2>/dev/null || true
 launchctl unload "$ETISALAT_PLIST" 2>/dev/null || true
+launchctl unload "$DEWA_PLIST" 2>/dev/null || true
 launchctl unload "$SCSC_SYNC_PLIST" 2>/dev/null || true
 launchctl unload "$DESC_SYNC_PLIST" 2>/dev/null || true
 
@@ -75,6 +77,7 @@ launchctl load "$DESC_SYNC_PLIST"
 launchctl load "$DA_PLIST"
 launchctl load "$DDA_PLIST"
 launchctl load "$ETISALAT_PLIST"
+launchctl load "$DEWA_PLIST"
 
 echo "→ wait 10s for first-paint"
 sleep 10
@@ -85,14 +88,16 @@ DESC=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8788/api/auth/m
 DA=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8789/api/auth/me" --connect-timeout 5)
 DDA=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8790/api/auth/me" --connect-timeout 5)
 ETIS=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8791/api/auth/me" --connect-timeout 5)
+DEWA=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8792/api/auth/me" --connect-timeout 5)
 echo "  scscdemo     :8787 → $SCSC"
 echo "  descdemo     :8788 → $DESC"
 echo "  dademo       :8789 → $DA"
 echo "  ddademo      :8790 → $DDA"
 echo "  etisalatdemo :8791 → $ETIS"
+echo "  dewademo     :8792 → $DEWA"
 
-if [[ "$SCSC" == "200" && "$DESC" == "200" && "$DA" == "200" && "$DDA" == "200" && "$ETIS" == "200" ]]; then
-  echo "✓ all five demos healthy"
+if [[ "$SCSC" == "200" && "$DESC" == "200" && "$DA" == "200" && "$DDA" == "200" && "$ETIS" == "200" && "$DEWA" == "200" ]]; then
+  echo "✓ all six demos healthy"
   exit 0
 fi
 
@@ -102,4 +107,5 @@ echo "  ~/Library/Logs/descdemo.{out,err}.log"
 echo "  ~/Library/Logs/dademo.{out,err}.log"
 echo "  ~/Library/Logs/ddademo.{out,err}.log"
 echo "  ~/Library/Logs/etisalatdemo.{out,err}.log"
+echo "  ~/Library/Logs/dewademo.{out,err}.log"
 exit 1
