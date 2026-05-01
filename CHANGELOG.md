@@ -26,6 +26,12 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-01 — v2.7.7 (Radar dark-mode fix, attempt 2 — concrete hex)**. v2.7.6 routed grid + tick colours through CSS custom properties (`var(--chart-grid)` etc.). Operator reported "no change" — the CSS tokens were correctly shipped in the bundle but recharts memoises chart paths and the SVG-attribute `var()` resolution was inconsistent across the rendered tree. Pivoted to **theme-driven concrete hex** values: the `MaturityRadar` component now reads `useTheme()` and applies a hardcoded palette (`PALETTE_DARK` / `PALETTE_LIGHT`) directly to recharts props.
+
+  Also bumped fill opacity 0.28 → 0.32 and split `FALLBACK_COLORS` into `FALLBACK_COLORS_DARK` (bright gold / blue / purple / cyan / red / green) vs `FALLBACK_COLORS_LIGHT` (deeper palette). When the caller doesn't pass an explicit `color`, the radar picks the right palette for the active theme — guarantees primary polygons read clearly without the operator setting a brand colour.
+
+  Affected pages: `/today` hero radar, `/posture` estate radar (with v2.6.2 historical overlay), `/entities/[id]` Overview radar.
+
 - **2026-05-01 — v2.7.6 (Spider/radar charts readable in dark mode)**. The `MaturityRadar` component was using the general `--border` and `--ink-3` tokens for grid lines and tick labels. Both are tuned for surface chrome (sidebar borders, secondary text) and **disappear** against the dark canvas of a chart — grid `#243049` on surface `#131a2a` is essentially invisible, tick text `#6b7892` is barely readable. Combined with brand-accent polygon colours that are already dark (DEWA teal, Etisalat plum, DA navy), the radar was unreadable in dark mode.
 
   **Fix.** New chart-only CSS tokens scoped specifically for chart contrast:

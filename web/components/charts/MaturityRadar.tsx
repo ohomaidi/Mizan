@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
+import { useTheme } from "@/lib/theme/ThemeProvider";
 
 /**
  * Six-axis radar chart for the Maturity sub-score profile. The six axes
@@ -47,14 +48,50 @@ export type MaturityRadarSeries = {
   dashed?: boolean;
 };
 
-const FALLBACK_COLORS = [
-  "var(--council-strong, #b8860b)",
-  "#1f6feb",
-  "#9333ea",
-  "#0891b2",
-  "#dc2626",
-  "#16a34a",
+// v2.7.7 — split fallbacks per theme. Bright palette for dark
+// canvas, deeper palette for white canvas. Used only when the
+// caller doesn't pass an explicit `color` on the series.
+const FALLBACK_COLORS_DARK = [
+  "#f8c022", // gold
+  "#3b82f6", // blue
+  "#a855f7", // purple
+  "#06b6d4", // cyan
+  "#ef4444", // red
+  "#22c55e", // green
 ];
+const FALLBACK_COLORS_LIGHT = [
+  "#0d9488", // teal
+  "#1f6feb", // blue
+  "#7c3aed", // purple
+  "#0891b2", // cyan
+  "#dc2626", // red
+  "#16a34a", // green
+];
+
+// v2.7.7 — concrete hex palettes per theme. Recharts injects stroke /
+// fill into SVG attributes; CSS custom properties via `var()` work in
+// modern browsers, but not consistently when recharts memoises the
+// chart (some paths get the variable, the parent container doesn't,
+// CSS-var inheritance breaks). Using literal hex tied to the active
+// theme is bulletproof — colours always match what the user sees.
+const PALETTE_DARK = {
+  grid: "#3a4a6e",
+  tick: "#cbd5e1",
+  tickFaint: "#94a3b8",
+  surface: "#131a2a",
+  border: "#334261",
+  ink1: "#f5f7fa",
+  fallbackSeries: "#f8c022", // bright gold — readable on any dark background
+};
+const PALETTE_LIGHT = {
+  grid: "#cbd5e1",
+  tick: "#475569",
+  tickFaint: "#94a3b8",
+  surface: "#ffffff",
+  border: "#c4ccd9",
+  ink1: "#0b1220",
+  fallbackSeries: "#0d9488", // teal — readable on white
+};
 
 export function MaturityRadar({
   series,
@@ -66,6 +103,8 @@ export function MaturityRadar({
   ariaLabel?: string;
 }) {
   const { t } = useI18n();
+  const { theme } = useTheme();
+  const palette = theme === "light" ? PALETTE_LIGHT : PALETTE_DARK;
 
   const data = useMemo(() => {
     const axes: Array<{ key: keyof MaturityRadarSeries["scores"]; labelKey: string }> = [
@@ -95,17 +134,16 @@ export function MaturityRadar({
     >
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart data={data} outerRadius="70%">
-          {/* v2.7.6 — chart-specific tokens. The general --border /
-              --ink-3 tokens are tuned for surface chrome and disappear
-              on the dark canvas of a radar. --chart-grid /
-              --chart-tick / --chart-tick-faint are tuned for stroke
-              + tick contrast in both themes. */}
-          <PolarGrid stroke="var(--chart-grid, #3a4a6e)" strokeWidth={1} />
+          {/* v2.7.7 — concrete hex from the active-theme palette.
+              Earlier var(--chart-*) attempts didn't reliably reach
+              recharts-injected SVG attributes; switching to literal
+              hex tied to useTheme() guarantees the lift. */}
+          <PolarGrid stroke={palette.grid} strokeWidth={1} />
           <PolarAngleAxis
             dataKey="axis"
             tick={{
               fontSize: 11.5,
-              fill: "var(--chart-tick, #cbd5e1)",
+              fill: palette.tick,
               fontWeight: 500,
             }}
           />
@@ -114,23 +152,36 @@ export function MaturityRadar({
             domain={[0, 100]}
             tick={{
               fontSize: 9,
-              fill: "var(--chart-tick-faint, #94a3b8)",
+              fill: palette.tickFaint,
             }}
             tickCount={5}
-            stroke="var(--chart-grid, #3a4a6e)"
+            stroke={palette.grid}
           />
           <Tooltip
             contentStyle={{
-              background: "var(--surface-2, #1a1a1a)",
-              border: "1px solid var(--border-strong, #334261)",
+              background: palette.surface,
+              border: `1px solid ${palette.border}`,
               borderRadius: 6,
               fontSize: 12,
-              color: "var(--ink-1, #fff)",
+              color: palette.ink1,
             }}
             formatter={(v) => (typeof v === "number" ? `${v}%` : String(v ?? ""))}
           />
           {series.map((s, i) => {
-            const color = s.color ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+            // Dark brand accents (DEWA teal, Etisalat plum, DA navy)
+            // are too dark on the dark canvas. When the caller supplies
+            // a brand color AND we're in dark mode, lighten it via the
+            // palette fallback below — keeps the polygon visible while
+            // still tinted toward the brand. Light mode uses brand color
+            // verbatim (it's readable on white).
+            const explicit = s.color;
+            const usingFallbackPalette = !explicit;
+            const color =
+              explicit ??
+              (theme === "light"
+                ? FALLBACK_COLORS_LIGHT[i % FALLBACK_COLORS_LIGHT.length]
+                : FALLBACK_COLORS_DARK[i % FALLBACK_COLORS_DARK.length]);
+            void usingFallbackPalette;
             return (
               <Radar
                 key={s.name}
@@ -138,12 +189,7 @@ export function MaturityRadar({
                 dataKey={s.name}
                 stroke={color}
                 fill={color}
-                // v2.7.6 — bumped fill 0.2 → 0.28 + stroke 2 → 2.5
-                // so dark brand colours (DEWA teal, Etisalat plum,
-                // DA navy) read clearly against the dark canvas.
-                // Dashed reference series stay fill-less so the
-                // primary polygon doesn't get visually overwhelmed.
-                fillOpacity={s.dashed ? 0 : 0.28}
+                fillOpacity={s.dashed ? 0 : 0.32}
                 strokeDasharray={s.dashed ? "4 4" : undefined}
                 strokeWidth={2.5}
               />
