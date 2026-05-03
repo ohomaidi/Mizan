@@ -420,7 +420,15 @@ localStorage + cookie on every toggle.
 After the v2.7.2 trim per operator direction (cyber insurance,
 Slack/Teams webhook, multi-org, public scorecard API all dropped):
 
-1. **Auto Graph-PATCH redirect URIs** — System tab currently asks
+1. **Executive-flavoured documentation PDFs** — rewrite the 5 docs
+   in `lib/pdf/docs/` (InstallationGuide, OperatorManual,
+   ArchitectureOverview, HandoffChecklist, SecurityPrivacy) for the
+   single-tenant CISO use case. Currently all Council-framed
+   ("Council tenant," "entity tenant," federation diagrams,
+   Discovery Letter to entity CISO). v2.7.10 hid the Documentation
+   tab from Executive Settings to stop showing misleading guidance;
+   bring it back once Executive variants exist.
+2. **Auto Graph-PATCH redirect URIs** — System tab currently asks
    the operator to paste into Azure portal. v2.8 calls Graph and
    updates each app's `redirectUris` array directly using the
    stored client secret.

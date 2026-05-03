@@ -26,6 +26,15 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-01 — v2.7.10 (Executive Settings — drop Onboarding PDF + Documentation tabs)**. Two more Council-clone leftovers in Settings called out by the operator:
+
+    1. **Onboarding PDF** tab generated the regulator-to-entity onboarding letter — pure Council artifact (no entities to onboard in Executive). Removed from Executive Settings nav.
+    2. **Documentation** tab listed 5 PDF guides (InstallationGuide / OperatorManual / ArchitectureOverview / HandoffChecklist / SecurityPrivacy). All five were written before Executive Mode existed and are heavily Council-framed throughout: "Council tenant," "entity tenant," "Discovery Letter to entity CISO," "Council operators browse," federation diagrams, etc. Showing those to an Executive operator is misleading. Tab hidden from Executive Settings until Executive-specific variants are written.
+
+  The PDF endpoints (`/api/docs/{id}`, `/api/onboarding-letter`) still resolve for anyone with a deep-link — only the Settings nav surfaces are gone. Executive operators get a cleaner 10-tab Settings: Organization · Branding · Authentication · App Registration · Maturity Index · Compliance framework · Risk register · System · Audit log · About.
+
+  **v2.8 backlog item (NEW):** rewrite the 5 documentation PDFs with Executive-flavoured framing — single-tenant CISO workspace, no federation language, no entity onboarding workflow.
+
 - **2026-05-01 — v2.7.9 (Demo pill duplicate + "Sync now" copy in Executive)**. Two small chrome fixes from operator review:
 
     1. **Demo Env pill rendered twice** — once on TopBar / MobileTopBar, once on UserMenu. UserMenu has been the canonical demo-pill location since v2.4.x (it replaces the user avatar when there's nothing to sign in to); the topbar pill predated that and was never removed. v2.7.9 drops the topbar duplicates on both desktop and mobile. Demo deployments now wear exactly one badge.

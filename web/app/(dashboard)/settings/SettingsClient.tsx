@@ -163,10 +163,21 @@ function SettingsPageInner({
     { id: "maturity", labelKey: "settings.tab.maturity" },
     { id: "nesa", labelKey: "settings.tab.compliance" },
     { id: "risk", labelKey: "settings.tab.risk" },
-    { id: "pdf", labelKey: "settings.tab.pdf" },
+    // v2.7.10 — onboarding PDF removed from Executive (no entities
+    // to onboard, no need for the regulator letter generator).
+    // The page (and PdfTemplatePanel) still exist in code, just not
+    // surfaced in the Executive settings nav.
     { id: "system", labelKey: "settings.tab.system" },
     { id: "audit", labelKey: "settings.tab.audit" },
-    { id: "docs", labelKey: "settings.tab.docs" },
+    // v2.7.10 — `docs` tab hidden in Executive. Every shipped PDF
+    // (InstallationGuide, OperatorManual, ArchitectureOverview,
+    // HandoffChecklist, SecurityPrivacy) was written before
+    // Executive Mode existed and is heavily Council-framed:
+    // "Council tenant", "entity tenant", "Discovery Letter to
+    // entity CISO", federation diagrams. Better to surface nothing
+    // than misleading Council guidance. Executive-specific docs
+    // tracked for v2.8. The PDF endpoints still resolve at
+    // /api/docs/{id} for anyone with a deep-link.
     { id: "about", labelKey: "settings.tab.about" },
   ];
   const TABS = isExecutive ? EXECUTIVE_TABS : COUNCIL_TABS;
