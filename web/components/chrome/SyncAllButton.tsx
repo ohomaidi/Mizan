@@ -24,6 +24,29 @@ export function SyncAllButton() {
   const fmt = useFmtNum();
   const [state, setState] = useState<RunState>({ kind: "idle" });
 
+  // v2.7.9 — Executive deployments only ever have one entity, so
+  // "Sync all entities" reads wrong. Detect kind via whoami and pick
+  // an Executive-friendly label. The underlying syncAll() call is a
+  // no-op rename: with N=1 it just syncs that one tenant.
+  const [isExecutive, setIsExecutive] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api
+      .whoami()
+      .then((r) => {
+        if (
+          alive &&
+          (r as { deploymentKind?: string }).deploymentKind === "executive"
+        ) {
+          setIsExecutive(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const onOpen = useCallback(async () => {
     setState({ kind: "confirm", estimate: null });
     try {
@@ -49,15 +72,18 @@ export function SyncAllButton() {
 
   const onClose = useCallback(() => setState({ kind: "idle" }), []);
 
+  // Executive label reads "Sync now" (one tenant, no federation).
+  // Council label reads "Sync all entities" (multi-tenant federation).
+  const labelKey = isExecutive ? "sync.now" : "sync.all";
   return (
     <>
       <button
-        aria-label={t("sync.all")}
+        aria-label={t(labelKey)}
         onClick={onOpen}
         className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border bg-surface-2 text-ink-2 hover:text-ink-1 hover:bg-surface-3 text-[12px]"
       >
         <RefreshCw size={13} />
-        <span className="hidden md:inline">{t("sync.all")}</span>
+        <span className="hidden md:inline">{t(labelKey)}</span>
       </button>
 
       {state.kind === "confirm" ? (
@@ -65,6 +91,7 @@ export function SyncAllButton() {
           estimate={state.estimate}
           onCancel={onClose}
           onConfirm={() => onConfirm(state.estimate?.estimatedSeconds ?? 60)}
+          isExecutive={isExecutive}
           t={t}
           fmt={fmt}
         />
@@ -93,15 +120,21 @@ function ConfirmModal({
   estimate,
   onCancel,
   onConfirm,
+  isExecutive,
   t,
   fmt,
 }: {
   estimate: Estimate | null;
   onCancel: () => void;
   onConfirm: () => void;
+  /** v2.7.9 — switches the modal heading + body to single-tenant
+   *  copy on Executive deployments (no "all entities" language). */
+  isExecutive: boolean;
   t: ReturnType<typeof useI18n>["t"];
   fmt: ReturnType<typeof useFmtNum>;
 }) {
+  const titleKey = isExecutive ? "sync.now.title" : "sync.all.title";
+  const bodyKey = isExecutive ? "sync.now.body" : "sync.all.body";
   return (
     <ModalShell onClose={onCancel}>
       <div className="flex items-start gap-3">
@@ -109,8 +142,8 @@ function ConfirmModal({
           <AlertTriangle size={18} />
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-[15px] font-semibold text-ink-1">{t("sync.all.title")}</h2>
-          <p className="text-[12.5px] text-ink-2 mt-1">{t("sync.all.body")}</p>
+          <h2 className="text-[15px] font-semibold text-ink-1">{t(titleKey)}</h2>
+          <p className="text-[12.5px] text-ink-2 mt-1">{t(bodyKey)}</p>
 
           {estimate ? (
             <div className="mt-4 rounded-md border border-border bg-surface-1 p-3 text-[12.5px] text-ink-2 space-y-1">

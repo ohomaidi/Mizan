@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
-import { api } from "@/lib/api/client";
 import { LanguageToggle } from "./LanguageToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { SyncAllButton } from "./SyncAllButton";
@@ -22,23 +20,10 @@ export function TopBar() {
   const displayHost =
     typeof window !== "undefined" ? window.location.host : "dashboard";
 
-  // The UserMenu already renders a "Demo mode" pill when MIZAN_DEMO_MODE=true.
-  // The old top-bar "DEMO" pill was shown unconditionally — kept it only for
-  // actual demo deployments, otherwise a production tenant would wear a
-  // misleading demo badge.
-  const [demoMode, setDemoMode] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    api
-      .whoami()
-      .then((r) => {
-        if (alive) setDemoMode(r.demoMode);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // v2.7.9 — the TopBar demoMode pill was a duplicate of the one
+  // UserMenu already renders in demo mode (see UserMenu.tsx line ~55).
+  // Removed here so demo deployments don't wear two badges. See also
+  // MobileTopBar.tsx for the same removal.
 
   return (
     <header className="h-14 flex items-center gap-4 px-5 border-b border-border bg-surface-2/90 backdrop-blur">
@@ -62,11 +47,6 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3">
-        {demoMode ? (
-          <span className="text-[10px] uppercase tracking-[0.1em] text-accent border border-accent/40 rounded px-2 py-0.5">
-            {t("topbar.demo")}
-          </span>
-        ) : null}
         <SyncAllButton />
         <ThemeToggle />
         <LanguageToggle />

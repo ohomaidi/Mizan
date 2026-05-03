@@ -26,6 +26,14 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-01 — v2.7.9 (Demo pill duplicate + "Sync now" copy in Executive)**. Two small chrome fixes from operator review:
+
+    1. **Demo Env pill rendered twice** — once on TopBar / MobileTopBar, once on UserMenu. UserMenu has been the canonical demo-pill location since v2.4.x (it replaces the user avatar when there's nothing to sign in to); the topbar pill predated that and was never removed. v2.7.9 drops the topbar duplicates on both desktop and mobile. Demo deployments now wear exactly one badge.
+
+    2. **"Sync all entities" reads wrong on Executive** (one-tenant deployments). Button + confirm-modal now switch to "Sync now" copy when `deploymentKind=executive`. Underlying `api.syncAll()` call is unchanged — with N=1 it just syncs that single tenant — only the labels swap. New `sync.now.title` + `sync.now.body` i18n keys; `sync.now` already existed and is reused.
+
+  EN + AR coverage. Council deployments unchanged (still see "Sync all entities").
+
 - **2026-05-01 — v2.7.8 (Sidebar SSR — kill the Council-flash + fix mobile drawer)**. Two related bugs operator hit while testing v2.7.7:
     1. **Desktop sidebar flashed Council nav for ~1s before swapping to Executive** on Executive deployments.
     2. **Mobile drawer always showed Council nav** regardless of deployment kind — even on Executive deployments where the desktop sidebar was correctly Executive.

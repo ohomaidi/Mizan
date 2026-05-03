@@ -199,6 +199,9 @@ export const DICT = {
     "sync.all.title": "Sync all entities now",
     "sync.all.body":
       "This runs a full posture refresh against every consented entity tenant. Each tenant performs five Microsoft Graph calls (Secure Score, Conditional Access, risky users, devices, incidents) serialized to respect per-tenant throttling.",
+    "sync.now.title": "Sync now",
+    "sync.now.body":
+      "This runs a full posture refresh against your tenant's Microsoft Graph signals. The 18 read-only signals are issued serially to respect per-tenant throttling.",
     "sync.all.warning":
       "This may take several minutes. Please keep this tab open until it completes — closing the tab does not cancel the sync.",
     "sync.all.estimate": "Estimated time: about {duration}.",
@@ -3559,6 +3562,9 @@ export const DICT = {
     "sync.failed": "فشلت المزامنة",
     "sync.all": "مزامنة كل الجهات",
     "sync.all.title": "مزامنة كل الجهات الآن",
+    "sync.now.title": "مزامنة الآن",
+    "sync.now.body":
+      "يقوم هذا بتحديث كامل لإشارات Microsoft Graph الخاصة بمستأجرك. تُنفَّذ الإشارات الـ١٨ للقراءة فقط بالتسلسل لاحترام حدود التحكم لكل مستأجر.",
     "sync.all.body":
       "يُشغّل هذا تحديثاً شاملاً للوضع الأمني عبر جميع مستأجري الجهات الموافقة. تُجري كل جهة خمس استدعاءات لـ Microsoft Graph (Secure Score، الوصول المشروط، المستخدمون ذوو المخاطر، الأجهزة، الحوادث) بالتسلسل احتراماً لحدود الاستدعاء لكل مستأجر.",
     "sync.all.warning":

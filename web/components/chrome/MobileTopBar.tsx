@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/LocaleProvider";
-import { api } from "@/lib/api/client";
 import { LanguageToggle } from "./LanguageToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { BrandingMark } from "./BrandingMark";
@@ -32,21 +30,11 @@ export function MobileTopBar({
 }: {
   onOpenDrawer: () => void;
 }) {
-  const { t, branding } = useI18n();
-  const [demoMode, setDemoMode] = useState(false);
+  const { branding } = useI18n();
 
-  useEffect(() => {
-    let alive = true;
-    api
-      .whoami()
-      .then((r) => {
-        if (alive) setDemoMode(r.demoMode);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // v2.7.9 — the demoMode pill rendered here was a duplicate of the
+  // one UserMenu already shows on demo deployments. Removed; UserMenu
+  // (rendered below) carries the badge.
 
   return (
     <header className="h-14 flex items-center gap-2 px-3 border-b border-border bg-surface-2/95 backdrop-blur safe-area-pt safe-area-pl safe-area-pr">
@@ -61,11 +49,6 @@ export function MobileTopBar({
         <div className="text-[12px] font-semibold tracking-[0.10em] uppercase text-ink-1 truncate">
           {branding.shortEn}
         </div>
-        {demoMode ? (
-          <span className="text-[9px] uppercase tracking-[0.1em] text-accent border border-accent/40 rounded px-1.5 py-0.5 shrink-0">
-            {t("topbar.demo")}
-          </span>
-        ) : null}
       </div>
 
       <div className="flex items-center gap-1">
