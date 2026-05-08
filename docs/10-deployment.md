@@ -6,8 +6,7 @@ Two shipping formats for the Posture & Maturity Dashboard, all from one codebase
 |---|---|---|---|
 | **Azure Container Apps** | Recommended for most customers, UAE-North data residency | Bicep deploy | `az deployment sub create -f deploy/azure-container-apps.bicep …` |
 | **macOS** | On-prem labs, airgapped review stations | `.pkg` installer → LaunchAgent | `bash deploy/mac-build.sh` |
-
-> **Windows native install** was attempted briefly in v2.5.8–v2.5.12 (`.msi` via WiX) and dropped in v2.5.14. Operators on Windows hosts run Mizan inside Docker Desktop or WSL2 — same image, same upgrade path as Linux Docker.
+| **Docker** | Anywhere else — Linux servers, Windows hosts (Docker Desktop / WSL2) | `ghcr.io/ohomaidi/mizan:<tag>` | `docker run …` |
 
 ## Docker image
 
@@ -130,19 +129,19 @@ xcrun notarytool submit --wait posture-dashboard-<ver>-signed.pkg \
     --apple-id … --team-id … --password …
 ```
 
-## Windows (Docker only)
+## Self-hosted Docker (Linux / Windows / anywhere)
 
-Native Windows install is no longer shipped (dropped in v2.5.14). Operators on Windows hosts run the same Docker image as Linux:
+Same image as ACA, run wherever Docker runs:
 
-```powershell
+```sh
 docker run -d -p 8787:8787 -v mizan_data:/data ghcr.io/ohomaidi/mizan:latest
 ```
 
-Upgrade by `docker pull` + recreate. The `mizan_data` volume survives.
+On Windows hosts use Docker Desktop or WSL2 — same image, same `docker pull` + recreate upgrade path. The `mizan_data` volume survives upgrades.
 
 ## Post-install UX
 
-All three installers drop the operator on the first-run `/setup` wizard when they first open the URL. The wizard:
+All three deploy targets drop the operator on the first-run `/setup` wizard when they first open the URL. The wizard:
 
 1. Captures organization name (EN + AR) + short form + framework
 2. Uploads logo (optional — local U-2-Netp bg removal)
@@ -166,6 +165,6 @@ Until consent is granted, user sign-in fails with `AADSTS65001` and entity onboa
 
 - **ACA:** push new image tag, `az containerapp update --image …`. Session cookies survive the restart. SQLite live file lives on the new pod's `EmptyDir` and is restored from `/data/scsc.sqlite` (NFS backup) at boot, so per-tenant data persists across the swap. The previous pod's SIGTERM handler runs one final backup before exit so there's no data loss in the swap window.
 - **macOS:** ship a new `.pkg`; `pkgbuild --upgrade` replaces the existing install. LaunchAgent reload is automatic.
-- **Windows:** new `.msi` with a bumped `MajorUpgrade` version; Windows Service restarts post-upgrade.
+- **Self-hosted Docker:** `docker pull ghcr.io/ohomaidi/mizan:<tag>` + recreate the container. The named data volume survives.
 
 Schema migrations run on first DB access after the upgrade (`applyMigrations()` in `lib/db/client.ts`) — idempotent.

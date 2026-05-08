@@ -319,11 +319,11 @@ Double-clicking the `.pkg` on the target Mac:
 
 ---
 
-### Windows
+### Self-hosted Docker (Linux / Windows / anywhere)
 
-**Native Windows install is not supported (dropped in v2.5.14).** Operators on Windows hosts run Mizan inside Docker Desktop or WSL2 — same image, same upgrade path as Linux Docker. The `.msi` packaging pipeline was repeatedly broken in CI and we made the call to remove it rather than ship a half-working installer.
+Run the reference image anywhere Docker runs. On Windows hosts use Docker Desktop or WSL2 — same image, same upgrade path as Linux:
 
-```powershell
+```sh
 docker run -p 8787:8787 -v mizan_data:/data ghcr.io/ohomaidi/mizan:latest
 ```
 

@@ -6,8 +6,7 @@ Two shipping formats, one codebase, one container image.
 |---|---|---|
 | **Azure Container Apps** (recommended for most customers) | Bicep deploy | `az deployment sub create -f azure-container-apps.bicep …` |
 | **macOS** (on-prem, air-gapped labs) | `.pkg` installer → LaunchAgent | `deploy/mac-build.sh` |
-
-> **Windows** native install was dropped in v2.5.14. The `.msi` packaging pipeline failed in CI five times in a row across three different rewrite attempts (WiX 4 schema gotchas) and `deploy/windows-build.ps1` had bit-rotted years before that. Operators on Windows hosts run Mizan inside Docker Desktop or WSL2 — same image, same upgrade path as Linux Docker.
+| **Self-hosted Docker** (Linux servers, Windows via Docker Desktop / WSL2) | `ghcr.io/ohomaidi/mizan:<tag>` | `docker run …` |
 
 The Docker image is the reference build. The Mac installer bundles the same `.next` output + `node_modules` + `public/` + `assets/fonts/` so the runtime is identical.
 
@@ -62,15 +61,15 @@ The LaunchAgent listens on `127.0.0.1:8787` — you either hit it locally or fro
 
 `DATA_DIR` lives outside the install root so SQLite + uploaded logo + config survive every upgrade untouched.
 
-## Windows (Docker only)
+## Self-hosted Docker
 
-Native Windows install isn't shipped. Run the same image as Linux:
+Run the reference image anywhere Docker runs — Linux servers, Windows hosts via Docker Desktop or WSL2, macOS for dev:
 
-```powershell
+```sh
 docker run -d -p 8787:8787 -v mizan_data:/data ghcr.io/ohomaidi/mizan:latest
 ```
 
-Upgrade by `docker pull` + recreate; the data volume survives.
+Upgrade by `docker pull` + recreate; the named volume survives.
 
 ## Prerequisites per target
 
@@ -78,4 +77,4 @@ Upgrade by `docker pull` + recreate; the data volume survives.
 |---|---|
 | Azure | Azure subscription, Entra admin for creating app registrations |
 | macOS | Node 22 runtime (the installer bundles the app; Node itself must be present — `brew install node@22`) |
-| Windows / Linux Docker | Docker / Docker Desktop |
+| Self-hosted Docker | Docker / Docker Desktop |

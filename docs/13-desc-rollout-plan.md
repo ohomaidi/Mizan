@@ -291,7 +291,7 @@ Deferred by user 2026-04-24. Design sketch preserved in session notes; reopens w
 
 ## 5. Timeline — status as of 2026-04-25 (v2.0.0 shipped)
 
-**v2.0.0 published 2026-04-25.** Tag pushed to GitHub, GHCR built `ghcr.io/ohomaidi/mizan:2.0.0` + `:latest`, Mac `.pkg` built locally. Windows `.msi` requires a Windows machine + WiX v4 to build (cross-build from macOS not supported).
+**v2.0.0 published 2026-04-25.** Tag pushed to GitHub, GHCR built `ghcr.io/ohomaidi/mizan:2.0.0` + `:latest`, Mac `.pkg` built locally. Operators on Windows hosts run the same Docker image via Docker Desktop or WSL2.
 
 What's now in the released image:
 
