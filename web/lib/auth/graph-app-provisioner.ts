@@ -222,12 +222,35 @@ const DEFENDER_APP_READ_PERMISSIONS: Array<{ name: string; id: string }> = [
   { name: "AdvancedQuery.Read.All", id: "93489bf5-0fbc-4f2d-b901-33f2fe08ff05" },
 ];
 
-/** Defender API write-side scopes — directive deployments only. */
-const DEFENDER_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [
-  // POST/PUT/DELETE https://api.security.microsoft.com/api/indicators
-  // 15,000-indicator-per-tenant ceiling, 100 calls/minute, 1500/hour.
-  { name: "Ti.ReadWrite.All", id: "bc2dd901-9ae8-4d0a-a3a6-bbd4ddf25fa6" },
-];
+/**
+ * Defender API write-side scopes — directive deployments only.
+ *
+ * EMPTY as of v2.7.13.
+ *
+ * The previous entry — `Ti.ReadWrite.All` with id
+ * `bc2dd901-9ae8-4d0a-a3a6-bbd4ddf25fa6` — was rejected at admin-consent
+ * time with `Claim is invalid: bc2dd901-… does not exist on resource
+ * application fc780465-…`. Microsoft Graph's POST /applications endpoint
+ * accepts unknown role GUIDs silently (it stores whatever you submit on
+ * `requiredResourceAccess`); validation only happens when an admin clicks
+ * "Grant admin consent" in Entra. So the bad GUID didn't surface until
+ * the first real-tenant operator tried to consent — blocking ALL admin
+ * consent on the data app, not just IOC push.
+ *
+ * Removing the entry lets every other Defender + Graph + MTP scope
+ * consent through cleanly. Phase 14b IOC push (the only feature that
+ * needed `Ti.ReadWrite.All`) is therefore disabled in directive
+ * deployments until the GUID is verified and the entry restored.
+ *
+ * To restore: run, against any tenant with WindowsDefenderATP enabled,
+ *   az ad sp show \
+ *     --id fc780465-2017-40d4-a0c5-307022471b92 \
+ *     --query "appRoles[?value=='Ti.ReadWrite.All'].{id:id, value:value}"
+ * Paste the returned id back into this array. Existing onboarded tenants
+ * will need to re-consent (Settings → App Registration → re-grant) to
+ * pick up the new scope; the scope-stale banner (v2.5.24) flags it.
+ */
+const DEFENDER_APP_WRITE_PERMISSIONS: Array<{ name: string; id: string }> = [];
 
 /**
  * Microsoft Threat Protection (Defender XDR) read-only scopes — needed for

@@ -26,6 +26,20 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-08 — v2.7.13 (admin consent unblock — drop bad-GUID `Ti.ReadWrite.All` entry)**. Operator hit `Grant consent failed with error: Claim is invalid: bc2dd901-9ae8-4d0a-a3a6-bbd4ddf25fa6 does not exist on resource application fc780465-2017-40d4-a0c5-307022471b92` when trying to grant admin consent in the Entra portal on a fresh Executive deployment. Same family of bug as the historical GUID-mismatch fixes in v2.5.25 (`AdvancedQuery.Read.All`) and the v2.5.24 audit (`User.RevokeSessions.All`, `ThreatHunting.Read.All`, `SecurityAlert.ReadWrite.All`).
+
+  **Root cause:** Microsoft Graph's `POST /applications` accepts unknown role GUIDs silently — it stores whatever's posted in `requiredResourceAccess` without validating the IDs against the target service principal's `appRoles`. Validation only fires when an admin clicks "Grant admin consent" in Entra. So the bad GUID for `Ti.ReadWrite.All` on the WindowsDefenderATP service principal sat in code from the original Phase 14b commit, unnoticed in demo mode (where consent doesn't run) and in every prior real onboarding (where the operator either skipped the write set or hadn't enabled IOC push). The first real consent attempt blocked ALL permissions on the data app, not just IOC push — Microsoft fails the entire grant when one role is invalid.
+
+  **Fix:** `DEFENDER_APP_WRITE_PERMISSIONS` is now empty. The data app posts only the verified Defender read scopes (`Machine.Read.All`, `AdvancedQuery.Read.All`) plus the Graph + MTP blocks. Admin consent succeeds. **IOC push (Phase 14b) is therefore disabled in directive deployments** until the corrected GUID is verified and the entry restored. The IOC console UI still renders, but POSTs to `/api/security.microsoft.com/api/indicators` will 403 because the role isn't in the token. Acceptable trade-off — every other directive feature works, and IOC push is restorable in a one-line follow-up commit.
+
+  **To restore IOC push:** run, against any tenant with WindowsDefenderATP enabled,
+  ```
+  az ad sp show \
+    --id fc780465-2017-40d4-a0c5-307022471b92 \
+    --query "appRoles[?value=='Ti.ReadWrite.All'].{id:id, value:value}"
+  ```
+  Paste the returned id back into `DEFENDER_APP_WRITE_PERMISSIONS`. Existing onboarded tenants need to re-consent (Settings → App Registration → re-grant) to pick up the new scope; the scope-stale banner (v2.5.24) flags it automatically.
+
 - **2026-05-08 — v2.7.12 (Executive setup auto-creates the operator's own tenant row)**. Operator hit "no tenant onboarded yet" on the dashboard immediately after a clean Executive deployment via the GitHub Deploy-to-Azure path. The Graph-signals app was created and consented, the wizard sign-in stamped a user row, but no `tenants` row existed for the operator's own org — and Executive mode has no "Add entity" UI (Council does, Executive intentionally doesn't because N=1).
 
   Fix: in `/api/setup/provision/poll/route.ts`, after `provisionGraphSignalsApp()` succeeds AND `getDeploymentKind() === 'executive'`, the route now calls Microsoft Graph `/organization` with the device-code-flow access token (which already carries `Directory.Read.All`), pulls the org's `id` + `displayName` + primary verified domain, and inserts a tenant row pre-marked `consent_status='consented'` (consent is implicit because the Graph-signals app was just created inside the operator's own tenant). Cluster defaults to `'other'` since the cluster taxonomy is a Council-mode UX concept that doesn't apply at N=1. Idempotent — if a row already exists for that `tenant_id`, the bootstrap is skipped.
