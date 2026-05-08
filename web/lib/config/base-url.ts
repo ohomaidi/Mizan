@@ -37,11 +37,22 @@ export async function resolveAppBaseUrl(): Promise<string> {
     if (host) {
       // Trust x-forwarded-proto when the request came through a proxy. Without
       // it (Mac/Windows direct-access installs), guess from the hostname: any
-      // `localhost`/`127.x` is http, everything else gets https.
+      // `localhost`/`127.x`/`0.0.0.0` is http, everything else gets https.
       const proto =
         h.get("x-forwarded-proto") ??
-        (/^(localhost|127\.)/i.test(host) ? "http" : "https");
-      return `${proto}://${host}`;
+        (/^(localhost|127\.|0\.0\.0\.0)/i.test(host) ? "http" : "https");
+      // Normalize loopback hostnames to the literal string `localhost`. The
+      // Graph `Application.web.redirectUris` validator only honours the http
+      // exemption for the literal hostname `localhost` — `127.0.0.1` and
+      // `0.0.0.0` are rejected with "Invalid value specified for property
+      // 'web' of resource 'Application'". Without this rewrite, the /setup
+      // wizard fails at Step 3 / Step 4 for any operator opening the wizard
+      // via the IP address Next prints in its boot banner.
+      const normalizedHost = host.replace(
+        /^(127\.0\.0\.1|0\.0\.0\.0)(?=:|$)/,
+        "localhost",
+      );
+      return `${proto}://${normalizedHost}`;
     }
   } catch {
     /* not in a request context (e.g. during build) — fall through */
