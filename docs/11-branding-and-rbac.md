@@ -4,7 +4,7 @@ White-label customization (organization name, logo, colors, framework) plus the 
 
 ## Branding config
 
-Stored under the `branding` key in `app_config`. Loaded via `lib/config/branding.ts` with generic defaults; the demo seed path writes Sharjah Cybersecurity Council values into the same row so the Mac Mini demo stays visually unchanged after the rebrand refactor.
+Stored under the `branding` key in `app_config`. Loaded via `lib/config/branding.ts` with generic defaults. The demo seed path writes a reference set of values into the same row so dev / demo deployments come up with a populated dashboard out of the box.
 
 ### Fields
 
@@ -20,7 +20,7 @@ Stored under the `branding` key in `app_config`. Loaded via `lib/config/branding
 
 ### i18n integration
 
-The `LocaleProvider` auto-injects `{orgName}`, `{orgShort}`, `{tagline}` into every `t()` interpolation so dict strings can reference the customer identity without each call-site passing it:
+The `LocaleProvider` auto-injects `{orgName}`, `{orgShort}`, `{tagline}` into every `t()` interpolation so dict strings can reference the deployment's brand without each call-site passing it:
 
 ```tsx
 // dict.ts
@@ -28,7 +28,7 @@ The `LocaleProvider` auto-injects `{orgName}`, `{orgShort}`, `{tagline}` into ev
 
 // In component:
 t("maturity.subtitle", { count: 42 });
-// → "Live posture across all 42 connected entities for SCSC."
+// → "Live posture across all 42 connected entities for <orgShort>."
 ```
 
 ### Logo storage + background removal
@@ -93,7 +93,7 @@ The pending-invite exclusion is deliberate: pre-seeding a user invite before the
 
 ### Demo mode (`MIZAN_DEMO_MODE=true`)
 
-Showcase deployments (e.g. `scscdemo.zaatarlabs.com`) set `MIZAN_DEMO_MODE=true` in the container environment. That env var — not a DB toggle, not a UI switch — short-circuits every RBAC gate to "open." Prospects can browse the dashboard without signing in. The top-bar shows a "DEMO" pill and the user menu renders a "Demo mode" chip instead of a sign-out control.
+Showcase deployments set `MIZAN_DEMO_MODE=true` in the container environment. That env var — not a DB toggle, not a UI switch — short-circuits every RBAC gate to "open." Prospects can browse the dashboard without signing in. The top-bar shows a "DEMO" pill and the user menu renders a "Demo mode" chip instead of a sign-out control.
 
 Production customers never set this. It is intentionally an env var rather than a UI flag: the previous design (a `enforce` boolean in DB config) was a footgun — deployments left it off indefinitely and the whole dashboard rendered anonymously.
 
@@ -117,7 +117,7 @@ Fresh installs — any dashboard request hits `getSetupState().completed === fal
 4. **User-auth app** — *Create for me* (device-code auto-provision) or paste manual credentials
 5. Bootstrap sign-in — one click triggers the OIDC round-trip; on return, the first user becomes admin
 
-Marking setup complete (`app_config.setup.completed = true`) is idempotent — the demo seed stamps it so the Mac Mini never sees the wizard.
+Marking setup complete (`app_config.setup.completed = true`) is idempotent — the demo seed stamps it so demo deployments never see the wizard.
 
 ### Admin consent after auto-provisioning
 

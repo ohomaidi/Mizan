@@ -70,7 +70,7 @@ See [`docs/12-operating-manual.md`](docs/12-operating-manual.md) for the step-by
 
 Deploy with `MIZAN_DEPLOYMENT_KIND=executive` (or pick "Single organisation" on the first-run `/setup` wizard) and Mizan reshapes itself for a CISO running **one** organisation rather than a regulator overseeing dozens. Same engine, same Microsoft Graph signals, same Maturity Index — different chrome, different IA, four extra modules built for board-level conversations.
 
-**Same repo, one image.** `deploymentKind` is locked at first-run alongside `deploymentMode`, mirrors-then-diverges from Council. SCSC and DESC stay Council; Dubai Airports is the trigger customer (`da.zaatarlabs.com`).
+**Same repo, one image.** `deploymentKind` is locked at first-run alongside `deploymentMode`, mirrors-then-diverges from Council.
 
 **Information architecture — Executive sidebar drops 14 → 9 entries:**
 
@@ -530,7 +530,6 @@ See [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) for t
 - [docs/01-feature-catalog.md](docs/01-feature-catalog.md) — full feature + Graph endpoint inventory, phase roadmap
 - [docs/04-architecture-and-risks.md](docs/04-architecture-and-risks.md) — multi-tenant auth, sync orchestrator, directive engine, throttling, failure modes, risk register
 - [docs/09-runtime-configuration.md](docs/09-runtime-configuration.md) — every editable config surface in Settings
-- [docs/13-desc-rollout-plan.md](docs/13-desc-rollout-plan.md) — DESC-specific rollout + directive phase log
 - [docs/14-responsive-and-mobile.md](docs/14-responsive-and-mobile.md) — mobile / tablet shell, middleware UA classification, override patterns
 - [docs/15-self-upgrade.md](docs/15-self-upgrade.md) — self-upgrade flow + version checking
 - [docs/16-executive-mode-roadmap.md](docs/16-executive-mode-roadmap.md) — Executive Mode canonical roadmap (v2.6.0 → v2.7.1 shipped, v2.8.0+ deferred)

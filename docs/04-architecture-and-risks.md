@@ -15,8 +15,8 @@
 ### Onboarding sequence (per entity)
 
 1. **Register** one multi-tenant app in the provider tenant (`signInAudience=AzureADMultipleOrgs`). Add the read-only app permission set (see §1.2).
-2. **Admin consent** per entity: each Sharjah entity's admin visits `https://login.microsoftonline.com/{tenantId}/adminconsent?client_id=<app_id>`. This provisions a service principal in the customer tenant.
-3. **Capture `tenantId`** in the Council's tenant registry + admin consent event verified via `/auditLogs/directoryAudits`.
+2. **Admin consent** per entity: each consenting entity's admin visits `https://login.microsoftonline.com/{tenantId}/adminconsent?client_id=<app_id>`. This provisions a service principal in the entity's tenant.
+3. **Capture `tenantId`** in the deployment's tenant registry + admin consent event verified via `/auditLogs/directoryAudits`.
 
 ~~eDiscovery / Records Management role bootstrap~~ — **[deferred]**, only relevant to the removed PS write tier.
 
@@ -92,7 +92,7 @@ Entity-side admin consent is mandatory before any directive route touches Graph 
 
 ### 1.3 Patterns ruled out
 
-- **GDAP (Granular Delegated Admin Privileges):** partner-tenant only — requires CSP status. Sharjah Council isn't a CSP. Not the right model here.
+- **GDAP (Granular Delegated Admin Privileges):** partner-tenant only — requires CSP status. Council deployments aren't CSPs. Not the right model here.
 - **Azure Lighthouse:** Azure ARM only. Useful for Defender for Cloud / Sentinel MSSP-style management, **does not apply to Graph**.
 - **Partner Center / `managedTenants`:** CSP-only; not applicable.
 
@@ -240,7 +240,7 @@ Per-customer + operational decisions. Code-level questions are resolved.
 - **Entity clustering** — default clusters shipped; each customer edits via Settings.
 - **Azure region** for dashboard backend + Sentinel workspace. Default `uaenorth`.
 - **Target maturity threshold** — default 75, customer-tunable via Settings → Maturity Index.
-- ~~Policy deployment authority~~ **Resolved 2026-04-20/24: per-deployment via `MIZAN_DEPLOYMENT_MODE`. Observation = no push. Directive = reactive writes + CA baselines + custom CA wizard shipped; Intune + DLP + labels + retention + Defender for Office + Exchange + SP/Teams + PIM + App consent + Attack sim + Tenant identity defaults are sequenced in phases 5–15 (see `project_sharjah_council_backlog.md` in memory).**
+- ~~Policy deployment authority~~ **Resolved 2026-04-20/24: per-deployment via `MIZAN_DEPLOYMENT_MODE`. Observation = no push. Directive = reactive writes + CA baselines + custom CA wizard shipped; Intune + DLP + labels + retention + Defender for Office + Exchange + SP/Teams + PIM + App consent + Attack sim + Tenant identity defaults are sequenced in phases 5–15.**
 - **Credential bootstrap owner** — regulator central team or per-entity CISO? Affects onboarding comms.
 - **Two-person approval workflow** — deferred 2026-04-24; reopens with the first multi-admin regulator deployment.
 
@@ -324,7 +324,7 @@ Every Graph WRITE that directive mode performs — incident classifications, thr
 1. **RBAC gate.** Minimum `admin` role on write actions (`analyst` on specific reactive actions, `viewer` on read-only directive status queries). Enforced via `gateDirectiveRoute()`.
 2. **Deployment-mode gate.** `/api/directive/*` routes check `isDirectiveDeployment()` at module load; observation builds return 404. This is belt-and-braces on top of RBAC.
 3. **Per-entity consent gate.** The target tenant's `consent_mode` column must equal `directive`. Entities that onboarded as observation (the default) reject every directive action with `tenant_not_directive`. This backs the "observation entities are never written to" promise at the code level, independent of who clicks what in the UI.
-4. **Demo simulation gate.** Tenants flagged `is_demo = 1` (the synthesized Sharjah / DESC demo entities whose Entra GUIDs are fake) short-circuit to a simulated success before any Graph call. Demo tenants are auto-seeded; real tenants onboarded to a demo-mode deployment (`MIZAN_DEMO_MODE=true`) still hit real Graph — `MIZAN_DEMO_MODE` controls the auth bypass only, not the write simulation.
+4. **Demo simulation gate.** Tenants flagged `is_demo = 1` (synthesized demo entities whose Entra GUIDs are fake) short-circuit to a simulated success before any Graph call. Demo tenants are auto-seeded; real tenants onboarded to a demo-mode deployment (`MIZAN_DEMO_MODE=true`) still hit real Graph — `MIZAN_DEMO_MODE` controls the auth bypass only, not the write simulation.
 5. **Audit.** Every attempt — success, failure, or simulation — writes a row to `directive_actions` before the caller sees a result. Never deleted. Powers `/directive → Audit log`.
 
 ### 8.1 Push + rollback idempotency model

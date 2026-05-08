@@ -1,10 +1,10 @@
-# Runtime Configuration — Council-editable at runtime
+# Runtime Configuration — operator-editable at runtime
 
-**Five** pieces of runtime state can be edited by Council admins without touching code or redeploying. All live in the `app_config` SQLite table; the UI is under **Settings**.
+**Five** pieces of runtime state can be edited by an operator with the admin role, without touching code or redeploying. All live in the `app_config` SQLite table; the UI is under **Settings**.
 
 | # | Key | Surface | Shipped |
 |---|---|---|---|
-| 1 | `maturity` | Maturity Index weights + Council target | 2026-04-19 |
+| 1 | `maturity` | Maturity Index weights + target | 2026-04-19 |
 | 2 | `pdf.onboarding` | Onboarding Letter PDF template | 2026-04-19 |
 | 3 | `pdf.discovery` | Discovery Letter PDF template | 2026-04-19 |
 | 4 | `azure.app` | Entra app registration credentials | 2026-04-19 |
@@ -111,7 +111,7 @@ Actions: **Save template**, **Reset to defaults**, **Preview PDF** (opens a fres
 **Stored at:** `app_config.key = 'pdf.discovery'`
 **Type:** [`DiscoveryTemplate`](../web/lib/config/discovery-template.ts)
 
-The **pre-onboarding** letter — generic (not tied to any tenant), sent to every entity at the start of the engagement. Tells each entity what the Council needs (Tenant ID, primary domain, E5 licensing confirmation, Global Administrator, CISO contact) and where in Microsoft 365 to find each item.
+The **pre-onboarding** letter — generic (not tied to any tenant), sent to every entity at the start of the engagement. Tells each entity what the operator needs (Tenant ID, primary domain, E5 licensing confirmation, Global Administrator, CISO contact) and where in Microsoft 365 to find each item.
 
 ```ts
 {

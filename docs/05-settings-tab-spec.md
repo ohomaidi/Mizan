@@ -1,10 +1,10 @@
 # Settings Tab — Specification
 
-**Purpose:** the Council's operational console for onboarding, monitoring, and managing data connections to 100+ Sharjah entity tenants. This is where the posture dashboard's data supply chain is configured and observed.
+**Purpose:** the regulator's operational console for onboarding, monitoring, and managing data connections to consented entity tenants. This is where the posture dashboard's data supply chain is configured and observed.
 
-**Audience:** Council SOC lead, Council IT admin, Microsoft delivery team.
+**Audience:** regulator SOC lead, regulator IT admin, Microsoft delivery team.
 
-> **Scope note (2026-04-19).** Read-only project. §3.3 "PowerShell role memberships", §3.4 "PowerShell Automation", §5.4 "PowerShell Automation", §3.6 "Revoke connection" (write action on entity tenant), and §1 sub-nav items referencing "PowerShell Automation" are **[deferred]**. Revoke means only "stop reading from this tenant" on the Council side. Framework weights (§5.5) narrow to **UAE NESA only**.
+> **Scope note (2026-04-19).** Read-only project. §3.3 "PowerShell role memberships", §3.4 "PowerShell Automation", §5.4 "PowerShell Automation", §3.6 "Revoke connection" (write action on entity tenant), and §1 sub-nav items referencing "PowerShell Automation" are **[deferred]**. Revoke means only "stop reading from this tenant" on the operator side. Framework weights (§5.5) narrow to **UAE NESA only**.
 
 ---
 
@@ -16,13 +16,13 @@ Settings
 │   └── Entity Detail            ← per-entity drill-down
 ├── Onboarding Wizard            ← add a new entity end-to-end (5 steps)
 ├── Global Configuration
-│   ├── App Registration         ← the Council's multi-tenant Entra app
+│   ├── App Registration         ← the operator's multi-tenant Entra app
 │   ├── Regions & Data Residency
 │   ├── Polling Cadences
 │   ├── Framework Weights        ← Maturity Index weights + UAE NESA target
 │   └── Webhook Endpoints        ← change-notification receivers
-├── Audit                         ← all Council access to entity tenants
-└── Access Control               ← Council staff RBAC within the dashboard
+├── Audit                         ← all operator access to entity tenants
+└── Access Control               ← operator staff RBAC within the dashboard
 ```
 Deferred: `PowerShell Automation` sub-nav, `Sentinel Workspaces` sub-nav (Pillar 2 scope), NCA/ISR framework weights.
 
@@ -107,7 +107,7 @@ One page per entity. Five tabs.
 Removed from scope. Retained in history for potential follow-on engagement.
 
 ### 3.5 Audit
-- All Council staff / automation access to this tenant, paginated:
+- All operator staff / automation access to this tenant, paginated:
   - Timestamp · actor (user or app) · action · endpoint · result · correlation ID
 - Exportable (CSV / JSON)
 - Retained per Council policy (default 2 years)
@@ -137,9 +137,9 @@ Five-step flow for adding a new entity. Implementation lives in [`web/components
 - License-confirmation checkbox (E5 on every seat, or exceptions documented)
 
 ### Step 3 — Generate consent artifacts
-- Construct per-tenant consent URL: `https://login.microsoftonline.com/{tenantId}/adminconsent?client_id={councilAppId}&redirect_uri={councilCallback}&state={onboardingId}`
-- Generate entity-specific PDF of the onboarding guide (see `docs/06-entity-onboarding-guide.md`) with tenant ID, domain, and appId pre-filled
-- Send to CISO via tracked email (manual today)
+- Construct per-tenant consent URL: `https://login.microsoftonline.com/{tenantId}/adminconsent?client_id={appId}&redirect_uri={callback}&state={onboardingId}`
+- Generate entity-specific PDF of the onboarding letter (rendered dynamically from `app_config.branding` + the operator-editable PDF template at Settings → Onboarding PDF) with tenant ID, domain, and appId pre-filled
+- Send to the entity's designated technical contact via tracked email (manual today)
 
 ### Step 4 — Await consent
 - Live-poll `/api/tenants/{id}` every 5 s client-side to surface `consent_status` transitions
@@ -231,12 +231,12 @@ Implementation: Settings → Documentation tab ([`DocumentationPanel.tsx`](../we
 
 ## 7. Access Control tab
 
-- Council staff RBAC within the dashboard:
-  - **Council Admin** — everything
+- operator staff RBAC within the dashboard:
+  - **Admin** — everything
   - **SOC Analyst** — read posture + alerts + hunting; no settings
   - **Compliance Auditor** — read posture + audit; no alerts drill-down
   - **Entity Liaison** — read-only per assigned cluster
-- Integrates with Entra ID groups in the Council's own tenant
+- Integrates with Entra ID groups in the operator's own tenant
 - All role changes audited
 
 ---
@@ -248,7 +248,7 @@ Implementation: Settings → Documentation tab ([`DocumentationPanel.tsx`](../we
 | Latency | Entities list < 2s for 150 rows |
 | Freshness | Connection health updated at least every 5 min |
 | Availability | 99.5% target (backend) |
-| Auth | Entra SSO for Council staff; MFA enforced; CA policy scoped to Council tenant |
+| Auth | Entra SSO for operator staff; MFA enforced; CA policy scoped to the operator's tenant |
 | Audit | All actions logged, 2-year retention |
 | Data residency | UAE-North primary, UAE-Central DR |
 | Accessibility | WCAG 2.2 AA, EN/AR bilingual UI, RTL support |
@@ -258,8 +258,8 @@ Implementation: Settings → Documentation tab ([`DocumentationPanel.tsx`](../we
 
 ## 9. Open questions (for design review)
 
-1. **Consent collection model** — does every entity's Global Admin click the consent link themselves, or does the Council run a federated identity (GDAP-like) flow through a partner arrangement?
+1. **Consent collection model** — does every entity's Global Admin click the consent link themselves, or does the operator run a federated identity (GDAP-like) flow through a partner arrangement?
 2. ~~PS cert pool~~ — **[deferred]** with PS tier.
-3. **Revocation workflow** — does a Council-side revoke require entity notification + cooling-off period?
+3. **Revocation workflow** — does an operator-side revoke require entity notification + cooling-off period?
 4. **Delegation to Microsoft delivery team** — during the 90-day build, Microsoft engineers need elevated access. How do we scope that?
 5. **Alert routing** — when an entity's token expires or consent is revoked, who gets paged? (Revocation auto-detection ships 2026-04-19 — flip to `consent_status='revoked'` on 401. Paging not yet wired.)

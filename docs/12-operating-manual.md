@@ -6,10 +6,10 @@
 
 Mizan runs in one of two deployment modes, fixed at install time by the `MIZAN_DEPLOYMENT_MODE` environment variable:
 
-| Mode | What the operator can do | Example customer |
-|---|---|---|
-| **Observation** (`observation`) | Read every entity's posture, score it, report on it. **Never writes to an entity's tenant.** | Sharjah Cybersecurity Center (SCSC) — posture visibility only |
-| **Directive** (`directive`) | Everything observation mode does, **plus** push incident dispositions, Conditional Access policy baselines, and custom CA policies to consented entities. | Dubai Electronic Security Center (DESC) — regulator with authority to harden |
+| Mode | What the operator can do |
+|---|---|
+| **Observation** (`observation`) | Read every entity's posture, score it, report on it. **Never writes to an entity's tenant.** |
+| **Directive** (`directive`) | Everything observation mode does, **plus** push incident dispositions, Conditional Access policy baselines, and custom CA policies to consented entities. |
 
 This manual is therefore **two parallel halves**. Part A covers what every Mizan deployment can do (read). Part B covers what directive deployments add on top (readwrite). If you're running an observation deployment, stop reading at the end of Part A.
 
@@ -111,7 +111,7 @@ Before any Graph WRITE fires, the request passes through `lib/directive/engine.t
 1. **RBAC gate.** Write actions require the `admin` role (reads need `viewer`).
 2. **Deployment-mode gate.** Observation builds return HTTP 404 on every `/api/directive/*` route at the route-loader level — the code doesn't even register.
 3. **Per-entity consent gate.** The entity's `consent_mode` column must equal `directive`. Entities that onboarded as observation (the default) can't be written to, even in a directive-mode deployment.
-4. **Demo simulation gate.** Tenants flagged `is_demo = 1` (the synthesized demo entities on `scscdemo` / `descdemo`) short-circuit to a simulated success response without ever calling Graph.
+4. **Demo simulation gate.** Tenants flagged `is_demo = 1` (synthesized demo entities) short-circuit to a simulated success response without ever calling Graph.
 5. **Audit.** Every attempt — success, failure, or simulation — lands in `directive_actions` before the caller sees a result. Append-only, never deleted. Powers `/directive → Audit log`.
 
 If any of (1)–(3) fails, the route returns 404/409 with a structured error code. (4) returns a success-shaped response marked `simulated: true`. (5) never fails the request but always writes the audit row.
@@ -306,7 +306,7 @@ Mizan ships an accessibility v1 baseline:
 - **Wizard autosave indicator** is a `role="status"` `aria-live="polite"` region — Saving / Saved transitions are announced without interrupting whatever the operator is typing.
 - **Theme + language toggles** carry `aria-label` + `aria-pressed`, decorative icons hidden from AT.
 
-Not yet shipped in v2.0: formal axe-core CI pass, full keyboard-only smoke test of every page, color-contrast audit. Tracked in `project_sharjah_council_backlog.md`.
+Not yet shipped in v2.0: formal axe-core CI pass, full keyboard-only smoke test of every page, color-contrast audit.
 
 ### B.7c Cert-based MSAL (production hardening)
 
@@ -363,26 +363,16 @@ These features appeared on the roadmap but are **not shipped**. Don't promise th
 | Defender for Office presets / Safe Links / anti-phishing pushes | Later phase (Phase 9) | |
 | SharePoint / OneDrive / Teams governance pushes | Later phase (Phase 11) | |
 
-See [`project_sharjah_council_backlog.md`](../../.claude/projects/-Users-zaatarlabs/memory/project_sharjah_council_backlog.md) (Claude memory) for the full phase order.
+The phase order is tracked separately in the development backlog.
 
 ---
 
 ## Appendix — quick reference
 
-### Deployment mode by customer
-
-| Customer | Mode | Public URL |
-|---|---|---|
-| Sharjah Cybersecurity Center (SCSC) | observation | `scscdemo.zaatarlabs.com` (demo); customer prod URL TBD |
-| Dubai Electronic Security Center (DESC) | directive | `desc.zaatarlabs.com` (demo); customer prod URL TBD |
-
-Demo restarts after a code change on the Mac Mini: `bash web/deploy/restart-demos.sh --no-pull`.
-
 ### Release cadence
 
 - Commits to `main` during dev are routine and safe.
-- Tag + GHCR build + Azure redeploy happens **only** when the user signs off a full feature cluster (2–4 items shipped together). Mac Mini demos are the test surface.
-- See `feedback_mizan_release_cadence.md` (Claude memory) for the full rule.
+- Tag + GHCR build + Azure redeploy happens **only** after a full feature cluster has been verified end-to-end (typically 2–4 items shipped together).
 
 ### When something breaks
 

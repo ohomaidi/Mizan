@@ -13,7 +13,7 @@ Audience: someone with Entra ID *Application Administrator* (or higher) in the o
 
 Why two: keeping the secrets separate means the user-auth secret can rotate frequently without touching the long-lived Graph secret that's baked into every entity's consent. It also stops cross-tenant sign-in leaks — an entity admin consented to the Graph app should never be able to sign in to your dashboard.
 
-Outcome when complete: clicking **Generate onboarding letter** in Settings produces a real admin-consent URL, Council staff can sign in at `/login`, and the Users tab in Settings shows everyone who has signed in plus anyone invited by email.
+Outcome when complete: clicking **Generate onboarding letter** in Settings produces a real admin-consent URL, operator staff can sign in at `/login`, and the Users tab in Settings shows everyone who has signed in plus anyone invited by email.
 
 ---
 
@@ -206,12 +206,12 @@ Values persist in the SQLite `app_config` table at `key = 'azure.app'`. See [`li
 If the dashboard can't boot without Azure config yet (very rare — product-unavailable tolerance means it can start even with blank creds):
 
 ```bash
-cd "Sharjah-Council-Dashboard/web"
+cd web
 cp .env.example .env.local
 ```
 
 ```env
-APP_BASE_URL=https://scscdemo.zaatarlabs.com
+APP_BASE_URL=https://<your-host>
 AZURE_CLIENT_ID=<from step 1.6>
 AZURE_CLIENT_SECRET=<from step 1.7>
 ```
@@ -222,9 +222,9 @@ Env values are a **fallback only** — once DB values are set in the Settings pa
 
 ```env
 # Persistent DB location. Default: ./data/scsc.sqlite
-DATA_DIR=/var/lib/scsc
+DATA_DIR=/var/lib/mizan
 
-# Require a bearer token on /api/sync so only the Council's scheduler can trigger syncs
+# Require a bearer token on /api/sync so only an authorized scheduler can trigger syncs
 SCSC_SYNC_SECRET=<random 32-byte hex>
 
 # Parallel tenant workers for the daily sync. Default 5, clamped 1–20.
@@ -233,7 +233,7 @@ SCSC_SYNC_CONCURRENCY=5
 # Signal snapshot retention. Default 90 days.
 SCSC_RETENTION_DAYS=90
 
-# Seed 12 demo Sharjah entities on first boot (development / demo only).
+# Seed demo entities on first boot (development / demo only).
 SCSC_SEED_DEMO=false
 ```
 
@@ -241,22 +241,19 @@ SCSC_SEED_DEMO=false
 
 ## 3. Rebuild + restart
 
-On the demo Mac:
-
 ```bash
-cd "Sharjah-Council-Dashboard/web"
+cd web
 npm run build
-launchctl unload ~/Library/LaunchAgents/com.zaatarlabs.scscdemo.plist
-launchctl load   ~/Library/LaunchAgents/com.zaatarlabs.scscdemo.plist
+npm run start
 ```
 
 Verify:
 ```bash
-curl -sS -o /dev/null -w "%{http_code}\n" https://scscdemo.zaatarlabs.com/maturity
-curl -sS https://scscdemo.zaatarlabs.com/api/signals/kpi | head -c 200
+curl -sS -o /dev/null -w "%{http_code}\n" https://<your-host>/maturity
+curl -sS https://<your-host>/api/signals/kpi | head -c 200
 ```
 
-In production, run `npm run build && npm run start` behind a process manager (Docker, systemd, Azure App Service, etc.). See `docs/09-deployment.md` (upcoming).
+In production, run `npm run build && npm run start` behind a process manager (Docker, systemd, Azure App Service, etc.). See [`docs/10-deployment.md`](10-deployment.md).
 
 ---
 
@@ -304,7 +301,7 @@ Once the entity has replied with the five items:
 Observed in real onboarding flows (including the `mixox` pilot on 2026-04-20):
 
 - **`AADSTS50097` — Device authentication is required.** The entity tenant has a Conditional Access policy requiring a compliant/hybrid-joined device for admin sign-in. The Global Admin tried to consent from an unmanaged browser. Remedy: entity admin signs in from a managed device (often Edge on a Windows machine signed into the tenant satisfies this via the PRT), OR a CA admin in the entity tenant temporarily excludes the admin from the policy for the consent session. **Not a Council-side issue.**
-- **`AADSTS50011` — Redirect URI mismatch.** The URI sent by `/api/auth/consent-callback?state=...` doesn't match any URI registered in the Entra app. Remedy: Entra portal → the Council app registration → **Authentication** → Platform configurations → Web → Redirect URIs → add the exact URL, **character for character** (lowercase, no trailing slash, hyphens between `consent` and `callback`). Save at the top of the blade.
+- **`AADSTS50011` — Redirect URI mismatch.** The URI sent by `/api/auth/consent-callback?state=...` doesn't match any URI registered in the Entra app. Remedy: Entra portal → your Mizan Graph-signals app registration → **Authentication** → Platform configurations → Web → Redirect URIs → add the exact URL, **character for character** (lowercase, no trailing slash, hyphens between `consent` and `callback`). Save at the top of the blade.
 - **`AADSTS65001` — Admin/user has not consented.** Entity admin hasn't clicked Accept yet, or accepted for the wrong app. Have them re-open the consent URL as a Global Administrator.
 - **`AADSTS650051` — Service principal already present for the tenant.** A service principal for the Graph-signals app already exists in the entity's tenant — usually because a prior consent attempt registered the app but failed mid-flight before the consent grant landed. Microsoft's consent endpoint refuses to re-register the same app, so the second click fails. **As of v2.5.15 the `/consent-error` page detects this code automatically and walks the entity admin through the recovery path** — they no longer need to escalate. The fix (60 seconds): the admin opens **Entra → Enterprise applications → All applications**, searches for the Mizan App ID (printed on the recovery page), opens the matching app, and clicks **Permissions → Grant admin consent for &lt;tenant&gt;**. That completes consent on the existing SP. No need to re-issue the consent URL or delete anything. If the entity admin escalates anyway, the `/consent-error` URL bar still contains every detail you need (tenantGuid, appId, original error description) — forward it to them with the recovery instructions and they're done.
 - **`AADSTS700016` — Application not found in the directory.** Council app's service principal was uninstalled from the entity tenant. Regenerate the consent URL from the wizard and re-consent.
@@ -319,7 +316,7 @@ Observed in real onboarding flows (including the `mixox` pilot on 2026-04-20):
 - **Lightweight verify (wizard Step 5 + on-demand):** `POST /api/tenants/{id}/verify` — single Secure Score call, ~2 s. Used by the Onboarding Wizard to confirm the pipeline is live without waiting 30–60 s for the full signal set.
 - **Manual sync per entity:** Settings → row → circular-arrow button, or Entity Detail → **Sync now**. Calls `POST /api/tenants/{id}/sync`, runs all 18 signals serially.
 - **Full sync (all consented entities):** `curl -X POST https://<host>/api/sync` (add `Authorization: Bearer $SCSC_SYNC_SECRET` if set). Fans out across the worker pool (default 5 parallel, `SCSC_SYNC_CONCURRENCY` tunable 1–20).
-- **Scheduled:** add a cron entry (Linux) or Azure Automation schedule hitting `/api/sync` daily at 3 am UAE. For the demo Mac, there's a separate `launchd` agent already loaded (`com.zaatarlabs.scscdemo.sync`):
+- **Scheduled:** add a cron entry (Linux), Azure Automation schedule, or `launchd` agent hitting `/api/sync` once a day at the appropriate local hour:
 
 ```xml
 <key>StartCalendarInterval</key>
@@ -339,11 +336,9 @@ Observed in real onboarding flows (including the `mixox` pilot on 2026-04-20):
 
 ## 6. Going to production
 
-When leaving the demo Mac:
-
-1. **Move off client secret → certificate.** Create a self-signed cert, upload `.cer` to the Entra app (Certificates & secrets → Certificates), ship the `.pfx` privately to the app host. Update MSAL config to use `clientCertificate` instead of `clientSecret`. (Covered in `docs/09-deployment.md` — upcoming.)
-2. **Host in the Council's tenant** (Azure App Service or Container Apps) so data residency stays UAE-North. Mount a persistent disk / Azure Storage for `DATA_DIR`.
-3. **Put Cloudflare Access (or Entra-based authN) in front** of the dashboard. The app itself does not authenticate Council users yet — that's the next phase.
+1. **Move off client secret → certificate.** Create a self-signed cert, upload `.cer` to the Entra app (Certificates & secrets → Certificates), ship the `.pfx` privately to the app host. Update MSAL config to use `clientCertificate` instead of `clientSecret`. (Covered in [`docs/10-deployment.md`](10-deployment.md).)
+2. **Host in the operator's tenant** (Azure Container Apps recommended) so data residency stays in-region. Mount a persistent disk / Azure Files share for `DATA_DIR`.
+3. **Put Cloudflare Access (or Entra-based authN) in front** of the dashboard during pilot if the built-in Mizan sign-in isn't enough.
 4. **Swap SQLite → Azure SQL / PostgreSQL** when scaling past ~20 entities. The DB layer is small and isolated to `lib/db/` — adapter swap is bounded.
 5. **Enable streaming** for high-volume signals (alerts, audit logs) via Sentinel's Defender XDR connector rather than Graph polling.
 
@@ -351,11 +346,11 @@ When leaving the demo Mac:
 
 ## 7. Demo data — seed + purge
 
-The dashboard ships with an optional demo seed of 12 representative Sharjah entities with pre-baked signal snapshots. This lets stakeholders see a populated dashboard before any real tenant is onboarded. Demo tenants are **never synced** against real Graph (their GUIDs are fake) and are flagged with a visible `DEMO` badge.
+The dashboard ships with an optional demo seed of representative entities with pre-baked signal snapshots. This lets stakeholders see a populated dashboard before any real tenant is onboarded. Demo tenants are **never synced** against real Graph (their GUIDs are fake) and are flagged with a visible `DEMO` badge.
 
 ### Defaults
-- **Customer production installs:** seed is **off** by default. Empty DB stays empty until you onboard real tenants.
-- **Dev / demo machines:** set `SCSC_SEED_DEMO=true` in `.env.local` to seed on first run (the ZaatarLabs demo Mac already has this).
+- **Production installs:** seed is **off** by default. Empty DB stays empty until you onboard real tenants.
+- **Dev / demo machines:** set `SCSC_SEED_DEMO=true` in `.env.local` to seed on first run.
 
 ### Remove demo data
 
@@ -399,7 +394,7 @@ Graph API call complexity per tenant:
 - `/identityProtection/riskyUsers` has a 1 req/sec-per-tenant-per-all-apps cap — we stay at ≤ 1 call per 15-min sync.
 - No Graph endpoint scales super-linearly with user count at the rates we poll.
 
-### Recommended customer infrastructure (200 entities)
+### Recommended infrastructure (200 entities)
 - **Compute**: 2 vCPU / 4 GB RAM — Azure App Service S1, Container Apps 0.5 CPU / 1 GB, or equivalent.
 - **Storage**: **20 GB persistent volume** mounted at `DATA_DIR`. Room for 90-day retention + Phase 3 Purview signals + growth headroom.
 - **Network**: any standard tier — outbound < 100 MB/day.
@@ -427,7 +422,7 @@ The "How is this calculated?" link under the page title on `/maturity` deep-link
 
 ## 10. What Phase 2 does NOT yet cover
 
-- **MSAL user auth for Council staff.** Currently trusting Cloudflare Access. Add when named audit is required.
+- **MSAL user auth for operator staff.** Currently trusting Cloudflare Access. Add when named audit is required.
 - **Purview domain signals** (DLP alerts, Insider Risk alerts, retention labels) — see Phase 3 placeholders on `/data`, `/governance`.
 - **Advanced Hunting KQL packs** — stubbed in `/threats`.
 - ~~PowerShell automation tier for policy CRUD~~ — **[deferred]**, see `docs/04-architecture-and-risks.md §4`. Out of scope for this read-only engagement.

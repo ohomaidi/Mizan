@@ -2,7 +2,7 @@
 
 **As-of:** April 2026. Sourced from learn.microsoft.com/graph, learn.microsoft.com/defender-xdr, learn.microsoft.com/azure/sentinel, learn.microsoft.com/partner-center. Base host: `https://graph.microsoft.com`. Primary namespace: `microsoft.graph.security`.
 
-**Purpose:** authoritative endpoint map for dashboard design — every Defender / identity / endpoint / Entra signal the Council can pull via Graph.
+**Purpose:** authoritative endpoint map for dashboard design — every Defender / identity / endpoint / Entra signal Mizan can pull via Graph.
 
 ---
 

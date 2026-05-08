@@ -21,7 +21,7 @@ Environment:
 | `SCSC_DB_PATH` | `${DATA_DIR}/scsc.sqlite` | Live SQLite file path. ACA deployments override this to `/local-data/scsc.sqlite` so the live DB sits on a fast local volume (v2.5.17+) |
 | `MIZAN_DB_BACKUP_DIR` | _(empty)_ | When set, every 5 min (configurable via `MIZAN_DB_BACKUP_INTERVAL_MS`) the SQLite file is backed up to `${MIZAN_DB_BACKUP_DIR}/scsc.sqlite`. ACA sets this to `/data` (the NFS mount) so EmptyDir wipes during revision swap don't lose data. Mac/Docker self-hosted leave it unset — durable local disk doesn't need a separate backup target. |
 | `SCSC_SYNC_SECRET` | _(empty)_ | Shared secret for scheduled sync hits |
-| `SCSC_SEED_DEMO` | `false` | Demo tenants + Sharjah branding if `true` (unset in packaged installs) |
+| `SCSC_SEED_DEMO` | `false` | Demo tenants + reference branding if `true` (unset in packaged installs) |
 
 **Volume strategy (Mac / Docker):** mount anything at `${DATA_DIR}` (default `/data`) to persist the SQLite DB and uploaded logo across restarts. WAL mode is safe on local filesystems — single-replica deployment, no contention.
 

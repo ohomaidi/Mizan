@@ -4,10 +4,10 @@
 
 > **Scope as of 2026-04-24 — two deployment modes.**
 >
-> - **Observation mode** (default, e.g. Sharjah Cybersecurity Center / SCSC) — the 18 read-only signals listed below. Never writes to an entity's tenant. Framework is configurable per customer (UAE NESA, KSA NCA, ISR/ISO, generic).
-> - **Directive mode** (e.g. Dubai Electronic Security Center / DESC) — observation + a write tier: reactive Graph writes (incident dispositions, threat submissions, user session revoke), Conditional Access baseline pushes (12 curated), custom CA policy wizard, idempotent push + rollback + per-entity status view.
+> - **Observation mode** (default) — the 18 read-only signals listed below. Never writes to an entity's tenant. Framework is configurable per deployment (UAE NESA, KSA NCA, ISR/ISO, generic).
+> - **Directive mode** — observation + a write tier: reactive Graph writes (incident dispositions, threat submissions, user session revoke), Conditional Access baseline pushes (12 curated), custom CA policy wizard, idempotent push + rollback + per-entity status view.
 >
-> Earlier versions of this doc marked write paths as "[deferred]". Those have landed for directive-mode deployments; the marker is now kept only against capabilities still genuinely deferred (Intune / DLP / labels / Defender for Office / Exchange / SP-Teams / PIM / app consent / attack simulation / tenant-wide identity defaults). See the canonical phase roadmap in Claude memory `project_sharjah_council_backlog.md`.
+> Earlier versions of this doc marked write paths as "[deferred]". Those have landed for directive-mode deployments; the marker is now kept only against capabilities still genuinely deferred (Intune / DLP / labels / Defender for Office / Exchange / SP-Teams / PIM / app consent / attack simulation / tenant-wide identity defaults).
 
 ---
 
@@ -92,7 +92,7 @@ CVE posture is now a first-class surface. We query `DeviceTvmSoftwareVulnerabili
 
 Three UI surfaces:
 
-- `/vulnerabilities` — fleet rollup with **cross-tenant CVE correlation** (CVEs present in 2+ entities, expandable per-entity device drill-down — the Council-unique view that no individual CISO can produce), top-CVEs, by-entity posture.
+- `/vulnerabilities` — fleet rollup with **cross-tenant CVE correlation** (CVEs present in 2+ entities, expandable per-entity device drill-down — the federated view that no single-org CISO can produce), top-CVEs, by-entity posture.
 - Entity sub-tab — all CVEs + all devices with bidirectional expand; CVE row shows affected hosts, device row shows CVEs on that host.
 - Entity Overview — top-5 CVEs card sorted by severity → exposed-device count → CVSS.
 
@@ -128,7 +128,7 @@ Still-missing Defender-direct surfaces:
 - Audit log retention policy → PowerShell (`New-UnifiedAuditLogRetentionPolicy`)
 - eDiscovery case *creation* → delegated-only (app-only cannot create; read/update OK)
 
-All of the above are **write paths** — creating or modifying policy objects inside entity tenants. The current project is read-only, so the Council platform does not call any of these. Entities continue to author policies in their own tenants using their own tooling.
+All of the above are **write paths** — creating or modifying policy objects inside entity tenants. Observation deployments are read-only and do not call any of these. Entities continue to author policies in their own tenants using their own tooling.
 
 ---
 
@@ -148,7 +148,7 @@ All of the above are **write paths** — creating or modifying policy objects in
 
 ---
 
-## 6. Governance & Standards (the Council's distinctive tier)
+## 6. Governance & Standards
 
 Mizan is a federated **observability** layer for observation-mode customers (entity SOCs retain full policy autonomy). Directive-mode customers get the same observability layer plus a curated write tier — see [`12-operating-manual.md §B`](12-operating-manual.md) for the operator flow.
 
@@ -206,7 +206,7 @@ Quick reference, one line per feature, for design review:
 
 ## Phasing
 
-Phases 1–4.5 are the observation + directive ladder as actually shipped. Phases 5+ are forward-looking; the canonical ordered table lives in Claude memory `project_sharjah_council_backlog.md`.
+Phases 1–4.5 are the observation + directive ladder as actually shipped. Phases 5+ are forward-looking.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -262,6 +262,6 @@ Customer-specific decisions that are *not* resolved at the code level.
 2. **Entity clustering** — current clusters: Police / Health / Edu / Municipality / Utilities / Transport / Other. Customer-editable.
 3. **Data residency** — must the dashboard backend run in-country? Drives Azure region (default `uaenorth`).
 4. **Target maturity threshold** — default 75, configurable per customer via Settings → Maturity Index.
-5. ~~**Entity autonomy** — can the regulator push policies directly?~~ **Resolved 2026-04-20: customer-dependent. SCSC = observation only. DESC = directive mode (reactive writes + CA baselines + custom CA wizard). Future customers decide at install via `MIZAN_DEPLOYMENT_MODE`.**
+5. ~~**Entity autonomy** — can the regulator push policies directly?~~ **Resolved 2026-04-20: per-deployment via `MIZAN_DEPLOYMENT_MODE`. Observation = read-only. Directive = reactive writes + CA baselines + custom CA wizard.**
 6. **Credential bootstrap** — who performs admin consent in each entity? Centralized regulator team, or entity CISO? Affects onboarding sequence. No code impact.
 7. **Approval workflow** — deferred by user 2026-04-24; reopens when the first multi-admin regulator deployment asks for two-person rule.

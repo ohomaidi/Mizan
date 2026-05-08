@@ -1,6 +1,6 @@
 # Dashboard UI Specification
 
-**Source of truth for visual design:** the Maturity Overview mock from the original SCSC executive briefing (slide 6). The spec was authored against that mock; the live product has since been white-labeled and generalized so the chrome, KPIs, and tabs apply to any deployment. This document translates the mock into an implementable UI spec, adds the per-entity drill-down (Entities tab), and defines the shared layout chrome.
+**Source of truth for visual design:** the Maturity Overview mock from the original executive briefing (slide 6). The spec was authored against that mock; the live product has since been white-labeled and generalized so the chrome, KPIs, and tabs apply to any deployment. This document translates the mock into an implementable UI spec, adds the per-entity drill-down (Entities tab), and defines the shared layout chrome.
 
 ---
 
@@ -32,7 +32,7 @@ Three zones, consistent across all tabs (desktop shell).
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│ TopBar: SHARJAH COUNCIL · SECURITY POSTURE               URL · AR/EN · SA │
+│ TopBar: {{branding.nameEn}} · SECURITY POSTURE           URL · AR/EN · SA │
 ├────────────┬──────────────────────────────────────────────────────────────┤
 │ Sidebar    │                                                              │
 │            │                                                              │
@@ -45,8 +45,8 @@ Three zones, consistent across all tabs (desktop shell).
 ```
 
 ### 1.1 TopBar
-- Left: Council identity lockup — small seal/coat-of-arms, Arabic name `مجلس الشارقة للأمن السيبراني` on line 1, English name `SHARJAH COUNCIL · SECURITY POSTURE` on line 2 in eyebrow caps.
-- Center: URL-bar-style breadcrumb showing the current logical URL (`council.posture.shj.gov.ae/maturity`, `/entities`, etc.). This mirrors the mock's browser-window aesthetic and makes the demo feel like the production product.
+- Left: organization identity lockup — small logo + Arabic name on line 1, English name on line 2 in eyebrow caps. All three values resolved from `app_config.branding` at render time (`branding.logoPath`, `branding.nameAr`, `branding.nameEn`).
+- Center: URL-bar-style breadcrumb showing the current logical URL (`/maturity`, `/entities`, etc.). This mirrors the mock's browser-window aesthetic and makes the demo feel like the production product.
 - Right: language toggle (AR/EN), notifications bell, user avatar (initials badge, e.g., `SA`).
 
 ### 1.2 Sidebar
@@ -84,7 +84,7 @@ Per-route. Specified below.
 
 ## 2. Route: Maturity overview (default)
 
-**Directly mirrors slide 6.** This is the "hero" view that the Council president sees on login.
+**Directly mirrors slide 6.** This is the "hero" view that an executive operator sees on login.
 
 ### 2.1 Page header
 - H1: **Maturity overview**
@@ -106,13 +106,13 @@ Four equal tiles, horizontal. Each tile: label (uppercase eyebrow), large numeri
 Replaces the earlier cluster-level chart ([`EntityBarChart.tsx`](../web/components/charts/EntityBarChart.tsx)).
 
 - Title: **Maturity by entity**
-- Subtitle: `One bar per consented entity vs Council target {N}. Click a bar to drill in.`
+- Subtitle: `One bar per consented entity vs target {N}. Click a bar to drill in.`
 - One bar per consented entity, not per cluster. Bar width 110 px, chart height 380 px.
 - **Sort pills** above the chart: Maturity · high first (default) · Maturity · low first · Name (i18n collator).
 - **Horizontal scroll**: chart min-width = max(8 × bar width, entities × bar width + padding). Card wraps in `overflow-x-auto` so tenants beyond ~10 entities scroll into view sideways.
 - **X-axis labels always rotated 35°** with entity-name shortening (≤ 18 chars + `…`).
 - **Clickable bars** → navigate to `/entities/{id}` detail page. Cursor: pointer.
-- Target line at Council target rendered as a horizontal accented reference line; bars below it colored red, within 5 points above gold, further above teal.
+- Target line at the configured maturity target rendered as a horizontal accented reference line; bars below it colored red, within 5 points above gold, further above teal.
 - Tooltip shows full entity name + cluster + Maturity value on hover.
 
 ### 2.4 Secondary panels (shipped 2026-04-19/20)
@@ -209,8 +209,8 @@ Per-entity page, three-pane layout:
 | Surface dark | `--surface-1` | `#0B0F1A` | App background |
 | Surface raised | `--surface-2` | `#131A2A` | Cards, tiles |
 | Surface overlay | `--surface-3` | `#1B2436` | Hover, selected |
-| Council primary | `--council-primary` | `#0F766E` | Maturity Index fill, primary CTAs *(reference Sharjah Cyber Council teal — confirm with Council brand team)* |
-| Accent gold | `--accent` | `#D4A24C` | Target line, highlight states *(Sharjah flag-adjacent)* |
+| Brand primary | `--council-primary` | `#0F766E` | Maturity Index fill, primary CTAs. Default teal; overridden at runtime by `app_config.branding.accentColorStrong`. |
+| Accent gold | `--accent` | `#D4A24C` | Target line, highlight states. Overridden at runtime by `app_config.branding.accentColor`. |
 | Positive | `--pos` | `#22C55E` | Positive deltas, healthy |
 | Negative | `--neg` | `#EF4444` | Negative deltas, critical |
 | Warning | `--warn` | `#F59E0B` | Amber status |
@@ -218,7 +218,7 @@ Per-entity page, three-pane layout:
 | Text secondary | `--ink-2` | `#A3B0C2` | Labels, captions |
 | Border | `--border` | `#243049` | Card borders, gridlines |
 
-Final palette is subject to Council brand team sign-off. Colors above are placeholders compatible with executive/gov aesthetic and legible on the dark chrome implied by the mock.
+Defaults above are placeholders compatible with executive/gov aesthetic and legible on the dark chrome implied by the mock. Per-deployment brand teams override `accentColor` / `accentColorStrong` via Settings → Branding.
 
 ### 4.2 Typography
 
@@ -252,7 +252,7 @@ Full RTL mirroring when AR is selected. All layouts use logical CSS properties (
 | UI library | Tailwind CSS + Radix UI primitives | Fast iteration, accessibility baked in |
 | Charts | Recharts or Visx | Recharts for KPI sparklines + bar; Visx if we need custom compositions |
 | State | React Server Components + server actions for data; TanStack Query for client fetches | Minimal client state |
-| Auth | MSAL Node (Entra ID, Council tenant) for Council staff; Cloudflare Access in front as defense-in-depth | Two-layer identity |
+| Auth | MSAL Node (Entra ID, operator tenant) for operator staff; Cloudflare Access in front as defense-in-depth | Two-layer identity |
 | i18n | next-intl | AR/EN with RTL |
 | Icons | Lucide | Clean, consistent |
 
@@ -260,31 +260,29 @@ Full RTL mirroring when AR is selected. All layouts use logical CSS properties (
 
 ## 6. Demo-vs-production URL handling
 
-- Production URL (aspirational): `council.posture.shj.gov.ae/maturity`
-- Demo URL (today): `scscdemo.zaatarlabs.com`
-- The TopBar shows the **production-style breadcrumb** regardless of the real hostname, so screenshots and demos look like the final product. The actual hostname is visible in a subtle "Demo environment" chip.
+- The TopBar shows a **production-style breadcrumb** regardless of the real hostname, so screenshots and demos look like the final product. The actual hostname is visible in a subtle "Demo environment" chip when `MIZAN_DEMO_MODE=true`.
 
 ---
 
-## 7. Build scope for v0 (today)
+## 7. Build scope for v0
 
-What goes live at `scscdemo.zaatarlabs.com` this session:
+What lands first when standing up a fresh deployment:
 
 - Global layout (TopBar, Sidebar with Data Sources panel)
-- Maturity overview route matching slide 6 with **stub data** (the mock's 6 clusters and values, so the Council sees the design intent immediately)
+- Maturity overview route matching the original mock with **stub data** (6 clusters and values, so the design intent is visible immediately)
 - Entities list route with stub data for ~12 representative entities
 - Entity detail page (Overview tab only; other tabs scaffolded as "coming in Phase 2")
 - All other tabs stubbed with "in development" placeholders + what signals they'll contain
 - AR/EN toggle working on the chrome (content translations come later)
 - Connected to nothing real yet — pure UI shell with stub JSON; the Graph wiring is Phase 2
 
-This gives the Council a clickable, demo-able UI immediately. Real signals slot in behind the same components in Phase 2 without UI changes.
+This gives the operator a clickable, demo-able UI immediately. Real signals slot in behind the same components in Phase 2 without UI changes.
 
 ---
 
 ## 8. Phase 2 scope (after v0 lands)
 
-- MSAL auth for Council staff
+- MSAL auth for operator staff
 - Tenant registry backing store
 - First real Graph integration: Secure Score per tenant → populates Maturity Index tile
 - Live Entities list pulling real tenant data
