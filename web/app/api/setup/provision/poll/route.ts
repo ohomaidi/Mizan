@@ -9,6 +9,7 @@ import {
 import {
   extractTenantFromToken,
   extractUserFromToken,
+  fetchOperatorOrg,
   provisionGraphSignalsApp,
   provisionUserAuthApp,
 } from "@/lib/auth/graph-app-provisioner";
@@ -18,6 +19,11 @@ import { getDeploymentMode } from "@/lib/config/deployment-mode";
 import { getDeploymentKind } from "@/lib/config/deployment-kind";
 import { countAdmins, upsertUser } from "@/lib/db/users";
 import { openSession, writeSessionCookie } from "@/lib/auth/session";
+import {
+  getTenantByTenantId,
+  insertTenant,
+  markConsented,
+} from "@/lib/db/tenants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -124,6 +130,53 @@ export async function POST(req: NextRequest) {
         deploymentKind: kind,
       });
       provisionResult = { clientId: p.clientId, displayName: p.displayName };
+
+      // Executive deployments are shaped around N=1 tenant — the operator's
+      // own org. Council operators onboard tenants one-by-one in Settings →
+      // Entities; Executive operators have no such UI because there's only
+      // ever the one tenant. Without a row in `tenants`, the dashboard's
+      // /today, /posture, /governance, and every signal page render the
+      // "no tenant onboarded yet" empty state even though the Graph-signals
+      // app is fully consented. Auto-create the row here.
+      //
+      // The Graph-signals app was just created INSIDE the operator's tenant,
+      // so admin consent for it has been granted implicitly (creating an app
+      // and consenting to it in the same tenant is one operation in the
+      // device-code flow's underlying token grant). consent_status flips
+      // straight to 'consented'. The first real signal sync still has to
+      // happen — operator hits "Sync now" on Today, or the daily cron
+      // catches it — but the dashboard itself stops showing the empty state
+      // immediately.
+      if (kind === "executive") {
+        try {
+          const existing = getTenantByTenantId(tenantId);
+          if (!existing) {
+            const org = await fetchOperatorOrg(result.accessToken);
+            const row = insertTenant(
+              {
+                tenant_id: org.tenantId,
+                name_en: branding.nameEn || org.displayName,
+                name_ar: branding.nameAr || org.displayName,
+                cluster: "other",
+                domain: org.primaryDomain,
+                consent_mode: getDeploymentMode(),
+              },
+              "auto-executive-bootstrap",
+            );
+            markConsented(row.id);
+          }
+        } catch (orgErr) {
+          // Don't fail the whole wizard if /organization read or insert
+          // hiccups — the Graph-signals app was created successfully and
+          // that's the irreversible part. The operator can fall back to
+          // adding the tenant from Settings → Entities (manual path stays
+          // wired in code even though the Executive nav hides it).
+          console.error(
+            "executive auto-tenant bootstrap failed:",
+            (orgErr as Error).message,
+          );
+        }
+      }
     } else {
       const kind = getDeploymentKind();
       const displayName =

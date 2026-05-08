@@ -560,6 +560,55 @@ export async function provisionUserAuthApp(
 }
 
 /**
+ * Read the operator's home organization from Microsoft Graph.
+ *
+ * Used by the Executive setup wizard to auto-create a tenant row for the
+ * operator's own org right after the Graph-signals app is provisioned. The
+ * device-code-flow access token already has Directory.Read.All (it's part
+ * of Microsoft's well-known device-code client default scope set), so we
+ * can read /organization without any extra consent.
+ *
+ * Returns the org's tenantId, displayName, and primary verified domain.
+ * Falls back to whatever's available — Microsoft always returns at least
+ * one organization for a signed-in user, but in malformed tenants any of
+ * displayName / verifiedDomains may be missing.
+ */
+export async function fetchOperatorOrg(
+  accessToken: string,
+): Promise<{
+  tenantId: string;
+  displayName: string;
+  primaryDomain: string;
+}> {
+  const res = await graphFetch<{
+    value: Array<{
+      id: string;
+      displayName: string | null;
+      verifiedDomains: Array<{
+        name: string;
+        isDefault: boolean;
+        isInitial: boolean;
+      }> | null;
+    }>;
+  }>(accessToken, "/organization");
+  const org = res.value?.[0];
+  if (!org) {
+    throw new Error("Graph /organization returned no orgs");
+  }
+  const verified = org.verifiedDomains ?? [];
+  const primary =
+    verified.find((d) => d.isDefault)?.name ??
+    verified.find((d) => d.isInitial)?.name ??
+    verified[0]?.name ??
+    "";
+  return {
+    tenantId: org.id,
+    displayName: (org.displayName ?? "").trim() || "Organization",
+    primaryDomain: primary,
+  };
+}
+
+/**
  * Extract the signed-in user's home tenant from the ID/access token.
  * The device-code flow populates Authorization: Bearer <jwt>; we decode the
  * `tid` claim to know which tenant the new apps should go into.
