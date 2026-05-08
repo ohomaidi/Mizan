@@ -26,6 +26,13 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-08 — v2.7.11 (setup wizard diagnostic + redirect-URI normalisation + docs scrub)**. Operator hit "Provisioning failed, graph post /applications failed: Invalid value specified for property 'web' of resource 'Application'" on Step 3 of the Executive setup wizard with no actionable detail. Three changes shipped together:
+
+    1. **`graphFetch()` now surfaces every layer Microsoft sends back** — `error.code`, `error.message`, every entry in `error.details` with its `target` (the offending property path) and reason, plus `error.innerError` serialised. In demo / non-production builds it also echoes the JSON body that was posted, truncated to 4 KB, so the operator can see exactly what we sent alongside what Microsoft rejected. Thrown straight to the wizard's "Provisioning failed" banner.
+    2. **`resolveAppBaseUrl()` rewrites loopback hosts** — `127.0.0.1` and `0.0.0.0` are normalised to the literal string `localhost` before building any redirect URI, because Microsoft Graph's `Application.web.redirectUris` validator only honours the http exemption for `localhost` literally. Operators who open the wizard via the IP that Next.js prints in its boot banner (`Local: http://127.0.0.1:<port>`) no longer trip the validator. The proto-guess regex now also recognises `0.0.0.0` for completeness.
+    3. **Docs scrub** — removed every customer-specific reference (Sharjah Cybersecurity Council / SCSC, Dubai Electronic Security Center / DESC, Dubai Airports, DDA, Etisalat, DEWA) from product documentation. Two whole files deleted as customer-rollout artefacts: `docs/06-entity-onboarding-guide.md` (the live PDF is rendered dynamically from `app_config.branding`) and `docs/13-desc-rollout-plan.md`. Remaining docs reworded with generic "the regulator" / "the operator" phrasing. Framework names (UAE NESA, KSA NCA, Dubai ISR, ISO 27001) kept — those are compliance standards, not customers. CHANGELOG.md left intact (historical record).
+    4. **Windows installer references removed from current docs** — historical "v2.5.14 — Windows installer dropped" breadcrumbs cleaned out of `README.md`, `docs/10-deployment.md`, `docs/15-self-upgrade.md`, `web/deploy/README.md`. Docker-on-Windows callouts kept and reframed under "Self-hosted Docker" since that's the current path.
+
 - **2026-05-01 — v2.7.10 (Executive Settings — drop Onboarding PDF + Documentation tabs)**. Two more Council-clone leftovers in Settings called out by the operator:
 
     1. **Onboarding PDF** tab generated the regulator-to-entity onboarding letter — pure Council artifact (no entities to onboard in Executive). Removed from Executive Settings nav.
