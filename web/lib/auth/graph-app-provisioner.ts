@@ -319,7 +319,14 @@ const USER_AUTH_DELEGATED_SCOPES: Array<{ name: string; id: string }> = [
   { name: "email", id: "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0" },
 ];
 
-type GraphApiError = { error?: { code?: string; message?: string } };
+type GraphApiError = {
+  error?: {
+    code?: string;
+    message?: string;
+    details?: Array<{ code?: string; message?: string; target?: string }>;
+    innerError?: Record<string, unknown>;
+  };
+};
 
 async function graphFetch<T>(
   accessToken: string,
@@ -336,15 +343,50 @@ async function graphFetch<T>(
   });
   if (!res.ok) {
     let body: GraphApiError | string;
+    let raw = "";
     try {
-      body = (await res.json()) as GraphApiError;
+      raw = await res.text();
+      body = JSON.parse(raw) as GraphApiError;
     } catch {
-      body = await res.text();
+      body = raw;
     }
-    const msg =
-      typeof body === "string"
-        ? body
-        : (body.error?.message ?? `HTTP ${res.status}`);
+    // Build a verbose message that surfaces every layer Microsoft sends back.
+    // Graph's outer message is often generic ("Invalid value specified for
+    // property 'web' of resource 'Application'") while the actual offending
+    // property + reason live in error.details / error.innerError. Without
+    // them, we'd have to guess — and guessing wastes operator time.
+    let msg: string;
+    if (typeof body === "string") {
+      msg = body || `HTTP ${res.status}`;
+    } else {
+      const e = body.error ?? {};
+      const parts: string[] = [];
+      if (e.code) parts.push(`code=${e.code}`);
+      if (e.message) parts.push(e.message);
+      if (e.details?.length) {
+        for (const d of e.details) {
+          const detailParts = [d.code, d.target ? `target=${d.target}` : null, d.message]
+            .filter(Boolean)
+            .join(" · ");
+          if (detailParts) parts.push(`detail: ${detailParts}`);
+        }
+      }
+      if (e.innerError) {
+        try {
+          parts.push(`innerError: ${JSON.stringify(e.innerError)}`);
+        } catch {
+          /* circular — fall through */
+        }
+      }
+      msg = parts.length > 0 ? parts.join(" | ") : `HTTP ${res.status}`;
+    }
+    // Echo the request body in dev / demo so the operator can see exactly
+    // what we posted alongside what Microsoft rejected. Truncated to 4 KB.
+    if (process.env.MIZAN_DEMO_MODE === "true" || process.env.NODE_ENV !== "production") {
+      const sentBody =
+        typeof init.body === "string" ? init.body.slice(0, 4096) : "";
+      if (sentBody) msg += ` || sent: ${sentBody}`;
+    }
     throw new Error(`Graph ${init.method ?? "GET"} ${path} failed: ${msg}`);
   }
   if (res.status === 204) return undefined as T;
