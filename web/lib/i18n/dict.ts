@@ -2504,6 +2504,21 @@ export const DICT = {
       "Push file-hash / URL / domain / IP indicators to the entity's Defender for Endpoint as block lists. Each IOC has its own expiration; pushes are idempotent (Mizan tag in the description); rollback DELETEs the indicator from each tenant.",
     "ioc.licenseNote":
       "Requires Defender for Endpoint at each target entity. Indicators that already exist in the tenant (matched by Mizan tag) are no-ops.",
+    "ioc.previewBanner.title": "Coming soon",
+    "ioc.previewBanner.body":
+      "IOC push is temporarily disabled. The Ti.ReadWrite.All app role on the WindowsDefenderATP service principal needs its appRole id verified against your tenant before re-enabling — Microsoft Graph accepts unknown role IDs at app-creation time but rejects them at admin-consent time, and the previously registered id was rejected. Every other directive feature works. The catalog below is the surface that returns when the GUID is verified.",
+    "ioc.coming.fileHashSha256.body":
+      "Block known-malicious binaries by SHA-256 hash. Recommended for incident-response IOC sharing where the exact hash is the safest specifier.",
+    "ioc.coming.fileHashSha1.body":
+      "Block known-malicious binaries by SHA-1 hash. Use only when SHA-256 isn't available — SHA-1 is collision-prone for adversarial use.",
+    "ioc.coming.url.body":
+      "Block specific URLs (full path) at the Defender SmartScreen layer. Highest precision but limited reach — adversaries rotate URLs faster than hashes.",
+    "ioc.coming.domainName.body":
+      "Block any URL under a malicious domain. Broader than URL block; covers subdomain rotation. Use for confirmed adversary infrastructure.",
+    "ioc.coming.ipv4.body":
+      "Block outbound and inbound traffic to a specific IPv4 address. Effective for known C2 / sinkhole infrastructure with stable IPs.",
+    "ioc.coming.ipv6.body":
+      "Block outbound and inbound traffic to a specific IPv6 address. Use sparingly — IPv6 deployments often rotate addresses quickly.",
     "ioc.formTitle": "Add a new indicator",
     "ioc.field.type": "Indicator type",
     "ioc.field.value": "Indicator value",
@@ -5882,6 +5897,21 @@ export const DICT = {
       "ادفع مؤشّرات (تجزئة ملف / URL / نطاق / IP) إلى Defender for Endpoint للجهة كقوائم حظر. كل IOC له صلاحية انتهاء؛ الدفعات idempotent (وسم Mizan في الوصف)؛ التراجع يحذف المؤشّر من كل مستأجر.",
     "ioc.licenseNote":
       "يتطلّب Defender for Endpoint في كل جهة مستهدَفة. المؤشّرات الموجودة (مطابقة بوسم Mizan) لا تُكرَّر.",
+    "ioc.previewBanner.title": "قريبًا",
+    "ioc.previewBanner.body":
+      "دفع IOC معطّل مؤقتًا. صلاحية Ti.ReadWrite.All على الـService Principal الخاص بـ WindowsDefenderATP تحتاج التحقّق من معرّف الدور (appRole id) قبل إعادة التفعيل — Microsoft Graph يقبل المعرّفات غير الصحيحة عند إنشاء التطبيق ويرفضها فقط عند منح موافقة المسؤول، والمعرّف المسجَّل سابقًا رُفض. كل ميزات directive الأخرى تعمل. الكتالوج أدناه هو الواجهة التي ستعود فور التحقّق من المعرّف.",
+    "ioc.coming.fileHashSha256.body":
+      "احظر البرمجيات الخبيثة المعروفة بتجزئة SHA-256. مفضّل لمشاركة المؤشّرات في الاستجابة للحوادث حيث التجزئة الدقيقة هي المحدّد الأكثر أمانًا.",
+    "ioc.coming.fileHashSha1.body":
+      "احظر البرمجيات الخبيثة المعروفة بتجزئة SHA-1. استخدمه فقط عند عدم توفّر SHA-256 — SHA-1 معرّض لتصادمات يستفيد منها الخصم.",
+    "ioc.coming.url.body":
+      "احظر روابط URL محدّدة (المسار الكامل) في طبقة Defender SmartScreen. أعلى دقّة لكن مدى أقصر — الخصوم يدوّرون الروابط أسرع من التجزئات.",
+    "ioc.coming.domainName.body":
+      "احظر أيّ URL تحت نطاق خبيث. أوسع من حظر الروابط؛ يغطّي تدوير النطاقات الفرعية. يُستخدم لبنية تحتية مؤكّدة للخصم.",
+    "ioc.coming.ipv4.body":
+      "احظر حركة المرور الصادرة والواردة إلى عنوان IPv4 محدّد. فعّال لبنية تحتية C2 المعروفة ذات العناوين الثابتة.",
+    "ioc.coming.ipv6.body":
+      "احظر حركة المرور الصادرة والواردة إلى عنوان IPv6 محدّد. استخدم بحذر — توزيعات IPv6 غالبًا ما تدوّر العناوين بسرعة.",
     "ioc.formTitle": "إضافة مؤشّر جديد",
     "ioc.field.type": "نوع المؤشّر",
     "ioc.field.value": "قيمة المؤشّر",

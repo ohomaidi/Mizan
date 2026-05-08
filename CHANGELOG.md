@@ -26,6 +26,12 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-05-08 — v2.7.14 (IOC push surfaces as Coming-soon in the directive portal)**. v2.7.13 disabled the IOC push registration to unblock admin consent but left the live IOC console UI in place — operators clicking the IOC tab in `/directive` saw a working form that would 403 on push because the role isn't granted. Confusing.
+
+  v2.7.14 mirrors the existing Coming-soon pattern used by DLP / Sensitivity Labels / Attack Sim / PIM / App Consent / Tenant Identity Defaults: the IOC tab now renders a card with a "Coming soon" accent banner and a six-row catalog (SHA-256 hash, SHA-1 hash, URL, domain, IPv4, IPv6) with disabled push buttons. The directive landing page's capability list moves IOC push from `available` to `planned`. The live `IocConsole` component stays in the file as dead code so reviving is a one-line swap of the IocTab body — no UI rebuild needed when the corrected `Ti.ReadWrite.All` GUID lands.
+
+  EN + AR coverage on every new key (`ioc.previewBanner.title`, `ioc.previewBanner.body`, `ioc.coming.<type>.body`). Type-check clean. No DB migrations.
+
 - **2026-05-08 — v2.7.13 (admin consent unblock — drop bad-GUID `Ti.ReadWrite.All` entry)**. Operator hit `Grant consent failed with error: Claim is invalid: bc2dd901-9ae8-4d0a-a3a6-bbd4ddf25fa6 does not exist on resource application fc780465-2017-40d4-a0c5-307022471b92` when trying to grant admin consent in the Entra portal on a fresh Executive deployment. Same family of bug as the historical GUID-mismatch fixes in v2.5.25 (`AdvancedQuery.Read.All`) and the v2.5.24 audit (`User.RevokeSessions.All`, `ThreatHunting.Read.All`, `SecurityAlert.ReadWrite.All`).
 
   **Root cause:** Microsoft Graph's `POST /applications` accepts unknown role GUIDs silently — it stores whatever's posted in `requiredResourceAccess` without validating the IDs against the target service principal's `appRoles`. Validation only fires when an admin clicks "Grant admin consent" in Entra. So the bad GUID for `Ti.ReadWrite.All` on the WindowsDefenderATP service principal sat in code from the original Phase 14b commit, unnoticed in demo mode (where consent doesn't run) and in every prior real onboarding (where the operator either skipped the write set or hadn't enabled IOC push). The first real consent attempt blocked ALL permissions on the data app, not just IOC push — Microsoft fails the entire grant when one role is invalid.

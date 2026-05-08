@@ -100,7 +100,10 @@ const CAPABILITIES: Capability[] = [
     icon: ShieldCheck,
     titleKey: "directive.cap.iocPush.title",
     bodyKey: "directive.cap.iocPush.body",
-    status: "available",
+    // v2.7.13 — Ti.ReadWrite.All appRole id on WindowsDefenderATP needs
+    // re-verification before push can be re-enabled. Catalog UI still
+    // renders; push is gated behind a "Coming soon" banner.
+    status: "planned",
   },
   {
     icon: ShieldAlert,
@@ -771,11 +774,90 @@ function SharepointTab({ locale }: { locale: "en" | "ar" }) {
   );
 }
 
-function IocTab({ locale }: { locale: "en" | "ar" }) {
+function IocTab({ locale: _locale }: { locale: "en" | "ar" }) {
+  // v2.7.13 — IOC push is gated behind a Coming-soon banner until the
+  // Ti.ReadWrite.All appRole id on WindowsDefenderATP is verified.
+  // Microsoft Graph's POST /applications accepted the previously
+  // registered GUID silently but rejected it at admin-consent time,
+  // blocking the entire data-app consent grant. v2.7.13 removed the
+  // bad GUID; restoring push is a one-line change once the corrected
+  // id is verified via `az ad sp show` (see graph-app-provisioner.ts
+  // DEFENDER_APP_WRITE_PERMISSIONS comment block).
+  //
+  // The IocConsole component is kept in code so reviving is just a
+  // matter of restoring this body to <IocConsole locale={locale} />.
   return (
     <div className="flex flex-col gap-6">
-      <IocConsole locale={locale} />
+      <IocComingSoonSection />
     </div>
+  );
+}
+
+function IocComingSoonSection() {
+  const { t } = useI18n();
+  const types: Array<{
+    id:
+      | "fileHashSha256"
+      | "fileHashSha1"
+      | "url"
+      | "domainName"
+      | "ipv4"
+      | "ipv6";
+    riskTier: "low" | "medium" | "high";
+  }> = [
+    { id: "fileHashSha256", riskTier: "high" },
+    { id: "fileHashSha1", riskTier: "medium" },
+    { id: "url", riskTier: "medium" },
+    { id: "domainName", riskTier: "high" },
+    { id: "ipv4", riskTier: "medium" },
+    { id: "ipv6", riskTier: "low" },
+  ];
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="inline-flex items-center gap-2">
+            <ShieldCheck size={14} className="text-council-strong" />
+            {t("ioc.title")}
+          </span>
+        }
+        subtitle={t("ioc.subtitle")}
+      />
+      <div className="rounded-md border border-accent/40 bg-accent/10 p-3 mb-3">
+        <div className="text-[12px] font-semibold text-accent inline-flex items-center gap-1.5 mb-1">
+          <Sparkles size={12} />
+          {t("ioc.previewBanner.title")}
+        </div>
+        <div className="text-[11.5px] text-ink-1 leading-relaxed">
+          {t("ioc.previewBanner.body")}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {types.map((b) => (
+          <div
+            key={b.id}
+            className="rounded-md border border-border bg-surface-1 p-3 opacity-75"
+          >
+            <div className="flex items-start justify-between gap-2 mb-1.5">
+              <div className="text-[13.5px] font-semibold text-ink-1 min-w-0 break-words">
+                {t(`ioc.type.${b.id}` as DictKey)}
+              </div>
+              <RiskChip tier={b.riskTier} />
+            </div>
+            <div className="text-[12px] text-ink-2 leading-relaxed mb-2">
+              {t(`ioc.coming.${b.id}.body` as DictKey)}
+            </div>
+            <button
+              disabled
+              className="mt-3 inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-surface-3 text-ink-3 text-[11.5px] font-semibold cursor-not-allowed"
+            >
+              <Play size={11} />
+              {t("intune.pushCta")}
+            </button>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
