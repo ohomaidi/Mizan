@@ -26,18 +26,24 @@ az deployment group create \
 What it provisions (UAE-North by default):
 
 - Log Analytics workspace (ACA requirement)
-- Storage account + NFS 4.1 Azure Files share → mounted at `/data` (uploaded logos + branding assets + SQLite backup target)
+- VNet with two subnets (`aca` /23 delegated to `Microsoft.App/environments`, `pe` /28 for private endpoints)
+- Storage account + NFS 4.1 Azure Files share → mounted at `/data` (uploaded logos + branding assets + SQLite backup target). `publicNetworkAccess: Disabled`, `allowSharedKeyAccess: false`, private endpoint in the `pe` subnet
 - **`EmptyDir` volume** mounted at `/local-data` (live SQLite file — fast local disk, microsecond locks, WAL-safe)
+- **Azure Key Vault** (RBAC, `publicNetworkAccess: Disabled`, `enablePurgeProtection: true`) with a private endpoint in the same `pe` subnet, plus the `privatelink.vaultcore.azure.net` private DNS zone
+- **9 pre-seeded secrets** in the vault: `mizan-graph-client-secret`, `mizan-graph-cert-pem`, `mizan-graph-cert-thumbprint`, `mizan-graph-cert-chain`, `mizan-auth-client-secret`, `mizan-auth-cert-pem`, `mizan-auth-cert-thumbprint`, `mizan-auth-cert-chain`, `mizan-sync-secret`. The setup wizard overwrites them with real values
 - Managed Environment + Container App, **single-replica** (`minReplicas: 1, maxReplicas: 1`, `activeRevisionsMode: Single`), HTTPS ingress, **system-assigned managed identity**
-- **Container Apps Contributor** role on the resource group, granted to the managed identity
-- Env vars: `SCSC_DB_PATH=/local-data/scsc.sqlite` (live), `MIZAN_DB_BACKUP_DIR=/data` (snapshot target), `MIZAN_AZURE_RESOURCE_ID` (so `/api/updates/apply` can swap its own image)
+- **Container App `configuration.secrets`** sources every secret from `keyVaultUrl` + `identity: 'system'`; the env block exposes them via `secretRef` under the standard names (`AZURE_CLIENT_SECRET`, `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM`, `AZURE_CLIENT_CERT_THUMBPRINT`, `AZURE_CLIENT_CERT_CHAIN_PEM`, `MIZAN_AUTH_CLIENT_SECRET`, `MIZAN_AUTH_CERT_PRIVATE_KEY_PEM`, `MIZAN_AUTH_CERT_THUMBPRINT`, `MIZAN_AUTH_CERT_CHAIN_PEM`, `SCSC_SYNC_SECRET`)
+- Two role assignments to the managed identity: **Container Apps Contributor** on the resource group (self-upgrade) and **Key Vault Secrets Officer** on the vault (in-app secret rotations)
+- Env vars: `SCSC_DB_PATH=/local-data/scsc.sqlite` (live), `MIZAN_DB_BACKUP_DIR=/data` (snapshot target), `MIZAN_AZURE_RESOURCE_ID` (so `/api/updates/apply` can swap its own image), `MIZAN_KEY_VAULT_URL` and `MIZAN_KEY_VAULT_NAME` (flip the runtime onto the Key Vault path), `CONTAINER_APP_NAME` (needed for revision restart after secret rotation)
 - Liveness probe on `/api/auth/me`
 
 **Storage architecture (v2.5.17+):** SQLite lives on the container's local `EmptyDir` for speed; a backup loop snapshots it to `/data/scsc.sqlite` (NFS) every 5 minutes plus on graceful shutdown. New revisions restore from the latest snapshot at boot. Soft restarts lose zero data; SIGKILL hard-crashes can lose up to N minutes (default 5).
 
+**Secret architecture (v2.7.15+):** Every credential (Graph + user-auth `client_secret`, cert PEMs, thumbprints, chains, sync trigger secret) lives in Key Vault. The runtime reads them as plain env vars that the Container App populates from the vault via `secretRef`. Writes from the setup wizard or Settings → App Registration go through `@azure/keyvault-secrets` with the system identity, then fire-and-forget a revision restart so the next pod's env vars are dereferenced fresh. A pod-local override map lets the writer pod use the new value immediately during the restart window. The DB row keeps only non-secret config.
+
 Output: the `dashboardUrl` of the provisioned Container App. Visit it — the first-run wizard launches automatically. From there, every future release can be applied via the **Settings → About → Upgrade now** button (no CLI needed).
 
-The Bicep template is idempotent — re-running it on the same resource group adds missing pieces (e.g. enabling managed identity on a pre-v2.5.6 deployment, or attaching the EmptyDir volume on a pre-v2.5.17 deployment) without recreating the container app or losing data.
+The Bicep template is idempotent — re-running it on the same resource group adds missing pieces (e.g. enabling managed identity on a pre-v2.5.6 deployment, attaching the EmptyDir volume on a pre-v2.5.17 deployment, or provisioning the Key Vault + role assignment on a pre-v2.7.15 deployment) without recreating the container app or losing data.
 
 ## macOS installer
 

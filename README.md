@@ -60,7 +60,8 @@ DLP (4 baselines), Sensitivity Labels (3), Attack Simulation Training (3), PIM +
 
 **Production hardening:**
 
-- **Cert-based MSAL** — swap `client_secret` for a PEM private key + SHA-1 thumbprint via Settings → App Registration → Certificate. No more shared-secret rotation; cert lifetime is whatever you sign with. Env-var fallback (`AZURE_CLIENT_CERT_THUMBPRINT` + `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM`) for Azure Key Vault deployments. Same option on the user-auth Entra app.
+- **Azure Key Vault is the system of record for every secret (v2.7.15+, ACA deployments).** The Bicep template provisions a vault with public network access disabled, a private endpoint in the existing `pe` subnet, RBAC authorization, and purge protection. Nine pre-seeded secrets (Graph + user-auth `client_secret`, cert PEM, cert thumbprint, cert chain, plus the sync trigger secret) are wired to the Container App via `keyVaultUrl` + `identity: 'system'` and surfaced to the runtime as plain env vars through `secretRef`. The Container App's system-assigned managed identity gets **Key Vault Secrets Officer** on the vault so the setup wizard and Settings → App Registration save path can write rotated secrets directly. The DB row holds only non-secret config (clientId, tenantId, authorityHost). Self-hosted Docker deployments leave `MIZAN_KEY_VAULT_URL` unset and continue with the DB-backed path end-to-end.
+- **Cert-based MSAL** — swap `client_secret` for a PEM private key + SHA-1 thumbprint via Settings → App Registration → Certificate. No more shared-secret rotation; cert lifetime is whatever you sign with. On ACA the cert PEM lives in Key Vault under `mizan-graph-cert-pem` / `mizan-auth-cert-pem` automatically. Same option on the user-auth Entra app.
 - **`/api/health` endpoint** — DB ping for Azure liveness + monitoring probes. No auth required (probes have no creds; response carries no secrets — just `{ status, deploymentMode, tenantCount, latencyMs }`).
 - **Accessibility v1** — skip-to-content link, modal focus trap + restore + `aria-labelledby`, sidebar `aria-current="page"`, autosave `aria-live="polite"` regions. Formal WCAG 2.2 audit deferred but the worst gaps are closed.
 
@@ -171,11 +172,16 @@ Alternate path to the same URL: Resource group → Container App (`mizan-app-<ra
 - Virtual network with two subnets (ACA-delegated + private-endpoint)
 - Premium FileStorage account (NFS-enabled, public network access disabled, shared-key disabled)
 - Private DNS zone `privatelink.file.core.windows.net` + private endpoint for SMB-free mounts
+- **Azure Key Vault** (RBAC, public network access disabled, purge protection on) with a private endpoint in the same subnet
+- Private DNS zone `privatelink.vaultcore.azure.net` + VNet link
+- Nine pre-seeded secrets (Graph + user-auth `client_secret`, cert PEM, cert thumbprint, cert chain, plus the sync trigger secret) — overwritten by the setup wizard with real values
 - Log Analytics workspace for app logs
 - VNet-integrated Container Apps managed environment (Consumption profile) + Container App — pulls the public image from ghcr.io, no registry setup on your side
+- Container App `configuration.secrets` reference each KV secret via `keyVaultUrl` + system identity; env block exposes them through `secretRef`
+- Two role assignments to the Container App's system-assigned managed identity: **Container Apps Contributor** on the RG (self-upgrade) and **Key Vault Secrets Officer** on the vault (in-app secret rotation)
 - HTTPS ingress with auto-managed TLS
 
-Cost: ~$35–55/month for a single-customer install (Premium FileStorage minimum ~100GB is the main uplift).
+Cost: ~$35–55/month for a single-customer install (Premium FileStorage minimum ~100GB is the main uplift; the Standard tier Key Vault is < $1/mo).
 
 ### Changing the dashboard URL after the first deploy
 
@@ -480,22 +486,26 @@ Azure Container Apps (the one-click deploy):
                          │  VNet  10.60.0.0/16                             │
                          │  ┌───────────────────┐  ┌───────────────────┐   │
                          │  │ subnet "aca" /23  │  │ subnet "pe" /28   │   │
-    public HTTPS ──────► │  │ VNet-integrated   │  │ Private endpoint  │   │
-    (managed TLS)        │  │ ACA environment   │  │ → Azure Files     │   │
+    public HTTPS ──────► │  │ VNet-integrated   │  │ Private endpoints │   │
+    (managed TLS)        │  │ ACA environment   │  │ → Files + KV      │   │
                          │  │ ┌───────────────┐ │  └─────────┬─────────┘   │
                          │  │ │ Container App │ │            │             │
-                         │  │ │  Next.js      │ │            │  NFS 4.1    │
-                         │  │ │  app router   │ │            │  (no keys)  │
-                         │  │ │      +        │◄┼────────────┘             │
-                         │  │ │  sync         │ │                          │
-                         │  │ │  orchestrator │ │      ┌──────────────────┐│
-                         │  │ │  + 5 workers  │ │      │ Premium          ││
-                         │  │ │      +        │ │      │ FileStorage      ││
-                         │  │ │  SQLite on    │─┼──►  │ allowSharedKey=F ││
-                         │  │ │  /data        │ │      │ publicNet=Off    ││
-                         │  │ └───────┬───────┘ │      │ share "mizan-    ││
-                         │  └─────────┼─────────┘      │   data" (100GB)  ││
-                         │            │                └──────────────────┘│
+                         │  │ │  Next.js      │ │  NFS 4.1   │  HTTPS      │
+                         │  │ │  app router   │ │   files    │  vault.az   │
+                         │  │ │      +        │◄┼────────────┤             │
+                         │  │ │  sync         │ │            │             │
+                         │  │ │  orchestrator │ │   ┌────────┴───────┐     │
+                         │  │ │  + 5 workers  │ │   │ Premium        │     │
+                         │  │ │      +        │ │   │ FileStorage    │     │
+                         │  │ │  SQLite on    │─┼──►│ NFS share      │     │
+                         │  │ │  /data        │ │   │ "mizan-data"   │     │
+                         │  │ └───────┬───────┘ │   └────────────────┘     │
+                         │  │         │         │   ┌────────────────┐     │
+                         │  │ secretRefs        │   │ Azure Key Vault│     │
+                         │  │ → vault           │──►│ RBAC + private │     │
+                         │  │   via system MI   │   │ purge protect  │     │
+                         │  │                   │   │ 9 secrets      │     │
+                         │  └───────────────────┘   └────────────────┘     │
                          └────────────┼──────────────────────────────────┬─┘
                                       │ Microsoft Graph
                                       │   - daily reads (always)
@@ -512,6 +522,7 @@ Azure Container Apps (the one-click deploy):
 - **Live SQLite on local `EmptyDir`, NFS as backup target (v2.5.17+)** — the live database lives on the container's local volume at `/local-data/scsc.sqlite` (microsecond locks, WAL mode, full POSIX semantics — the latency-sensitive happy path). The NFS Azure Files share is mounted at `/data` as a backup target; a 5-minute backup loop + a SIGTERM final-backup hook keep it within 5 minutes of the live DB at all times. New revisions restore from the latest snapshot at boot. Soft restarts lose zero data; hard SIGKILL crashes lose at most the configured backup interval.
 - **NFS still hosts logos + branding assets** — write-once data lives on `/data` directly (no perf concern). Single-replica deployment (`maxReplicas: 1, activeRevisionsMode: Single`) means no concurrent-writer issues.
 - **Why NFS and not SMB for the backup share** — many Azure tenants enforce `StorageAccount_DisableLocalAuth_Modify` policy that silently disables shared-key auth. SMB needs shared-key; NFS uses network-level auth via the private endpoint, so the deploy works under any governance posture.
+- **Azure Key Vault for every secret (v2.7.15+)** — Graph + user-auth `client_secret`, cert PEMs, cert thumbprints, cert chains, and the sync trigger secret all live in a vault provisioned in the same Bicep run. The vault has `enableRbacAuthorization: true`, `publicNetworkAccess: Disabled`, `enablePurgeProtection: true`, and a private endpoint in the `pe` subnet alongside FileStorage. The Container App reads secrets through `configuration.secrets` with `keyVaultUrl` + `identity: 'system'`; the runtime sees them as plain env vars via `secretRef`. The system-assigned managed identity is granted **Key Vault Secrets Officer** on the vault so the setup wizard and Settings → App Registration can write rotated secrets without an out-of-band step. After a write, a fire-and-forget revision restart re-dereferences the env vars to the new values on the next pod. Self-hosted Docker deployments leave `MIZAN_KEY_VAULT_URL` unset and the DB-backed path serves both reads and writes.
 - **Daily sync** — one `POST /api/sync` per day pulls all 18 Graph signals from every consented entity with a 5-worker pool.
 - **Two deployment modes** — `observation` uses only `.Read` Graph scopes. `directive` provisions a second Entra app with write scopes for the shipped directive surfaces (reactive actions + Conditional Access policy push + rollback). Mode is fixed at install time via `MIZAN_DEPLOYMENT_MODE` and cannot be toggled at runtime — switching modes is a redeploy.
 

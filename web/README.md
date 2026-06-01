@@ -53,16 +53,29 @@ AZURE_CLIENT_SECRET=<client secret>
 Optional:
 ```env
 AZURE_AUTHORITY_HOST=https://login.microsoftonline.com
+AZURE_CLIENT_CERT_THUMBPRINT=        # cert-based MSAL (replaces client_secret)
+AZURE_CLIENT_CERT_PRIVATE_KEY_PEM=   # PEM private key
+AZURE_CLIENT_CERT_CHAIN_PEM=         # optional x5c chain
+MIZAN_AUTH_CLIENT_SECRET=            # user-auth Entra app secret (Container App secretRef on ACA)
+MIZAN_AUTH_CERT_PRIVATE_KEY_PEM=
+MIZAN_AUTH_CERT_THUMBPRINT=
+MIZAN_AUTH_CERT_CHAIN_PEM=
 DATA_DIR=./data                # SQLite lives here; mount as volume in prod
 SCSC_SYNC_SECRET=              # bearer token required on POST /api/sync
 SCSC_SEED_DEMO=false           # opt-in demo seed (12 sample entities + signals)
 SCSC_SYNC_CONCURRENCY=5        # parallel tenant workers (clamped 1–20)
 SCSC_RETENTION_DAYS=90         # snapshot retention window
 MIZAN_DEPLOYMENT_MODE=observation  # or "directive" — locked at first install
+MIZAN_DEPLOYMENT_KIND=council      # or "executive" — locked at first install
 MIZAN_DEMO_MODE=false          # auth bypass for showcase deployments
+MIZAN_KEY_VAULT_URL=           # set by Bicep on ACA deployments → routes secret writes to Key Vault
+MIZAN_KEY_VAULT_NAME=          # used by Settings UI to display the vault name
+MIZAN_AZURE_RESOURCE_ID=       # ARM resource ID of the Container App — needed for self-upgrade + revision restart after KV writes
 ```
 
 > The `SCSC_*` prefix is historical — kept for backward compatibility with existing deployments. New env vars use `MIZAN_*`.
+
+**Secret storage (v2.7.15+).** When `MIZAN_KEY_VAULT_URL` is set (the Bicep template sets it automatically on ACA), Mizan reads all six secret-shaped env vars above from the Container App's `secretRef` → Key Vault chain, and writes back to Key Vault on every save in Settings → App Registration or the setup wizard's device-code flow. The DB row keeps only non-secret config (clientId, tenantId, authorityHost). When the var is unset (self-hosted Docker, dev), the DB-backed path serves both reads and writes. See [`lib/secrets/keyvault.ts`](lib/secrets/keyvault.ts) and the v2.7.15 entry in [`../CHANGELOG.md`](../CHANGELOG.md).
 
 ## Scripts
 
