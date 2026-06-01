@@ -1,5 +1,13 @@
 import "server-only";
 import { readConfig, writeConfig } from "@/lib/db/config-store";
+import {
+  isEnabled as kvEnabled,
+  writeSecret as kvWriteSecret,
+  restartContainerApp as kvRestartContainerApp,
+  setOverride as kvSetOverride,
+  getOverride as kvGetOverride,
+  SECRET_NAMES,
+} from "@/lib/secrets/keyvault";
 
 const KEY = "auth.user";
 
@@ -66,16 +74,57 @@ export const DEFAULT_AUTH_CONFIG: UserAuthConfig = {
   defaultRole: "viewer",
 };
 
+/**
+ * Read a secret-shaped value with the v2.7.15 preference order:
+ *
+ *   1. Pod-local override (set just after a KV write so the active pod
+ *      sees the new value before the revision restart catches up).
+ *   2. Environment variable (Container App secretRef populates this
+ *      from Key Vault; self-hosted Docker can set it in .env.local).
+ *   3. DB-stored value (legacy / fallback path).
+ */
+function readSecretField(envVar: string, storedValue: string | undefined): string {
+  const override = kvGetOverride(envVar);
+  if (override !== undefined && override.length > 0) return override;
+  const env = process.env[envVar];
+  if (env && env.length > 0 && env !== "unset") return env;
+  if (storedValue && storedValue.length > 0) return storedValue;
+  return "";
+}
+
 export function getAuthConfig(): UserAuthConfig {
   const stored = readConfig<Partial<UserAuthConfig>>(KEY);
-  if (!stored) return DEFAULT_AUTH_CONFIG;
   // Drop any legacy `enforce` key that may still be on disk from v1.0 —
   // ignored rather than migrated. Callers treat auth as always-on now.
-  const { enforce: _legacy, ...rest } = stored as Partial<UserAuthConfig> & {
-    enforce?: boolean;
+  const safe: Partial<UserAuthConfig> = stored
+    ? (() => {
+        const { enforce: _legacy, ...rest } = stored as Partial<UserAuthConfig> & {
+          enforce?: boolean;
+        };
+        void _legacy;
+        return rest;
+      })()
+    : {};
+
+  // Layer env-var / KV-override secrets over the stored row. Non-secret
+  // fields come straight from the DB.
+  return {
+    ...DEFAULT_AUTH_CONFIG,
+    ...safe,
+    clientSecret: readSecretField("MIZAN_AUTH_CLIENT_SECRET", safe.clientSecret),
+    clientCertPrivateKeyPem: readSecretField(
+      "MIZAN_AUTH_CERT_PRIVATE_KEY_PEM",
+      safe.clientCertPrivateKeyPem,
+    ),
+    clientCertThumbprint: readSecretField(
+      "MIZAN_AUTH_CERT_THUMBPRINT",
+      safe.clientCertThumbprint,
+    ),
+    clientCertChainPem: readSecretField(
+      "MIZAN_AUTH_CERT_CHAIN_PEM",
+      safe.clientCertChainPem,
+    ),
   };
-  void _legacy;
-  return { ...DEFAULT_AUTH_CONFIG, ...rest };
 }
 
 /**
@@ -117,17 +166,97 @@ export function isDemoMode(): boolean {
   return process.env.MIZAN_DEMO_MODE === "true";
 }
 
-export function setAuthConfig(patch: Partial<UserAuthConfig>): UserAuthConfig {
+/**
+ * Persist a partial UserAuthConfig.
+ *
+ * v2.7.15: when Key Vault is enabled, secret-shaped fields are written
+ * to KV (mizan-auth-client-secret, mizan-auth-cert-pem,
+ * mizan-auth-cert-thumbprint, mizan-auth-cert-chain) and the DB row
+ * keeps only non-secret config (clientId, tenantId, session, role).
+ * The pod-local override map mirrors the new value so the active pod
+ * uses it immediately, before the Container App revision restarts.
+ *
+ * Caller should invoke `restartAuthAfterSecretWrite()` after this
+ * function returns when a secret-shaped field was touched.
+ */
+export async function setAuthConfig(
+  patch: Partial<UserAuthConfig>,
+): Promise<UserAuthConfig> {
   const existing = getAuthConfig();
   const next: UserAuthConfig = {
     ...existing,
     ...patch,
     updatedAt: new Date().toISOString(),
   };
-  writeConfig(KEY, next);
+
+  if (kvEnabled()) {
+    if (patch.clientSecret !== undefined) {
+      await kvWriteSecret(SECRET_NAMES.authClientSecret, next.clientSecret);
+      kvSetOverride("MIZAN_AUTH_CLIENT_SECRET", next.clientSecret);
+    }
+    if (patch.clientCertPrivateKeyPem !== undefined) {
+      await kvWriteSecret(
+        SECRET_NAMES.authCertPem,
+        next.clientCertPrivateKeyPem,
+      );
+      kvSetOverride(
+        "MIZAN_AUTH_CERT_PRIVATE_KEY_PEM",
+        next.clientCertPrivateKeyPem,
+      );
+    }
+    if (patch.clientCertThumbprint !== undefined) {
+      await kvWriteSecret(
+        SECRET_NAMES.authCertThumbprint,
+        next.clientCertThumbprint,
+      );
+      kvSetOverride("MIZAN_AUTH_CERT_THUMBPRINT", next.clientCertThumbprint);
+    }
+    if (patch.clientCertChainPem !== undefined) {
+      await kvWriteSecret(SECRET_NAMES.authCertChain, next.clientCertChainPem);
+      kvSetOverride("MIZAN_AUTH_CERT_CHAIN_PEM", next.clientCertChainPem);
+    }
+    // Strip secrets from the DB row so the only at-rest copy lives in
+    // Key Vault.
+    writeConfig(KEY, {
+      ...next,
+      clientSecret: "",
+      clientCertPrivateKeyPem: "",
+      clientCertThumbprint: "",
+      clientCertChainPem: "",
+    });
+  } else {
+    writeConfig(KEY, next);
+  }
+
   return next;
 }
 
-export function clearAuthConfig(): void {
-  writeConfig(KEY, { ...DEFAULT_AUTH_CONFIG, updatedAt: new Date().toISOString() });
+export async function clearAuthConfig(): Promise<void> {
+  if (kvEnabled()) {
+    await Promise.all([
+      kvWriteSecret(SECRET_NAMES.authClientSecret, ""),
+      kvWriteSecret(SECRET_NAMES.authCertPem, ""),
+      kvWriteSecret(SECRET_NAMES.authCertThumbprint, ""),
+      kvWriteSecret(SECRET_NAMES.authCertChain, ""),
+    ]);
+    kvSetOverride("MIZAN_AUTH_CLIENT_SECRET", "");
+    kvSetOverride("MIZAN_AUTH_CERT_PRIVATE_KEY_PEM", "");
+    kvSetOverride("MIZAN_AUTH_CERT_THUMBPRINT", "");
+    kvSetOverride("MIZAN_AUTH_CERT_CHAIN_PEM", "");
+  }
+  writeConfig(KEY, {
+    ...DEFAULT_AUTH_CONFIG,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Fire-and-forget restart so the next pod's env vars are dereferenced
+ * fresh from Key Vault. No-op outside KV-backed deployments.
+ */
+export function restartAuthAfterSecretWrite(): void {
+  if (!kvEnabled()) return;
+  kvRestartContainerApp().catch((err) => {
+    console.error("[auth-config] Container App restart failed:", err);
+  });
 }

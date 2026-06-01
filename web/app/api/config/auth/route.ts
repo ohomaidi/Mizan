@@ -4,6 +4,7 @@ import {
   clearAuthConfig,
   getAuthConfig,
   getUserAuthMethod,
+  restartAuthAfterSecretWrite,
   setAuthConfig,
   ROLES,
   MAX_SESSION_MINUTES,
@@ -88,25 +89,37 @@ export async function PUT(req: NextRequest) {
       { status: 400 },
     );
   }
+  let touchedSecret = false;
+
   if (parsed.data.clear) {
-    clearAuthConfig();
+    await clearAuthConfig();
+    touchedSecret = true;
   } else {
     const patch: Parameters<typeof setAuthConfig>[0] = {};
     if (parsed.data.clientId !== undefined) patch.clientId = parsed.data.clientId;
-    if (parsed.data.clientSecret !== undefined && parsed.data.clientSecret.length > 0)
+    if (parsed.data.clientSecret !== undefined && parsed.data.clientSecret.length > 0) {
       patch.clientSecret = parsed.data.clientSecret;
-    if (parsed.data.clientCertThumbprint !== undefined)
+      touchedSecret = true;
+    }
+    if (parsed.data.clientCertThumbprint !== undefined) {
       patch.clientCertThumbprint = parsed.data.clientCertThumbprint.toUpperCase();
-    if (parsed.data.clientCertPrivateKeyPem !== undefined)
+      touchedSecret = true;
+    }
+    if (parsed.data.clientCertPrivateKeyPem !== undefined) {
       patch.clientCertPrivateKeyPem = parsed.data.clientCertPrivateKeyPem;
-    if (parsed.data.clientCertChainPem !== undefined)
+      touchedSecret = true;
+    }
+    if (parsed.data.clientCertChainPem !== undefined) {
       patch.clientCertChainPem = parsed.data.clientCertChainPem;
+      touchedSecret = true;
+    }
     if (parsed.data.tenantId !== undefined) patch.tenantId = parsed.data.tenantId;
     if (parsed.data.sessionTimeoutMinutes !== undefined)
       patch.sessionTimeoutMinutes = parsed.data.sessionTimeoutMinutes;
     if (parsed.data.defaultRole !== undefined) patch.defaultRole = parsed.data.defaultRole;
-    setAuthConfig(patch);
+    await setAuthConfig(patch);
   }
   invalidateAuthClient();
+  if (touchedSecret) restartAuthAfterSecretWrite();
   return NextResponse.json({ config: await maskForClient() });
 }

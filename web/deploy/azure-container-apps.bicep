@@ -12,9 +12,15 @@
 //   - NFS file share (100GB, Premium minimum)
 //   - Private DNS zone privatelink.file.core.windows.net + VNet link
 //   - Private endpoint to the storage account's file subresource
+//   - Azure Key Vault (RBAC, public network disabled, purge protection on)
+//   - Private DNS zone privatelink.vaultcore.azure.net + VNet link
+//   - Private endpoint to the Key Vault
+//   - 9 pre-seeded placeholder secrets (overwritten by the setup wizard)
 //   - VNet-integrated ACA managed environment
 //   - Managed environment NFS storage mount
 //   - Container App pulling the public Mizan image and mounting /data
+//     plus 9 secretRefs sourced from Key Vault via the system identity
+//   - Role assignment: Container App system identity → Key Vault Secrets Officer
 
 @description('Region for all resources. Defaults to the RG region.')
 param location string = resourceGroup().location
@@ -43,6 +49,36 @@ var namePrefix = 'mizan'
 var uniq = uniqueString(resourceGroup().id)
 var storageName = '${namePrefix}${uniq}'
 var shareName = 'mizan-data'
+
+// Key Vault names are globally unique, alphanumeric + hyphens, 3-24 chars.
+// Slice the deterministic hash so the name stays inside the limit even
+// when the prefix changes.
+var kvName = take('${namePrefix}-kv-${uniq}', 24)
+
+// All Mizan secrets live under one vault. Names use the `mizan-` prefix
+// so multi-tenant deployments can share a vault later (not the current
+// pattern, but cheap to preserve).
+var secretGraphClientSecret = 'mizan-graph-client-secret'
+var secretGraphCertPem = 'mizan-graph-cert-pem'
+var secretGraphCertThumbprint = 'mizan-graph-cert-thumbprint'
+var secretGraphCertChain = 'mizan-graph-cert-chain'
+var secretAuthClientSecret = 'mizan-auth-client-secret'
+var secretAuthCertPem = 'mizan-auth-cert-pem'
+var secretAuthCertThumbprint = 'mizan-auth-cert-thumbprint'
+var secretAuthCertChain = 'mizan-auth-cert-chain'
+var secretSyncSecret = 'mizan-sync-secret'
+
+// Pre-seeded sentinel value. Key Vault rejects empty secret bodies, so
+// every placeholder starts as 'unset'. The runtime read path treats
+// 'unset' as "not configured" and the setup wizard overwrites with real
+// values during /setup Step 3 / Step 4.
+var placeholderSecret = 'unset'
+
+// Built-in role definition: Key Vault Secrets Officer. Can list, get,
+// set, and delete secrets. Required because the runtime needs to write
+// new client_secrets / cert PEMs during rotation, not only read them at
+// startup.
+var kvSecretsOfficerRoleId = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 
 // -------------------- Log Analytics --------------------
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -197,6 +233,161 @@ resource peFileDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024
   }
 }
 
+// -------------------- Key Vault --------------------
+// Houses every Mizan secret: Graph + user-auth client_secrets, cert PEMs,
+// cert thumbprints, cert chains, and the sync trigger shared secret.
+// Public network access disabled — only reachable from inside the VNet
+// via the private endpoint below. RBAC authorization (not access
+// policies) so the Container App system identity can be granted Secrets
+// Officer in a single role assignment.
+resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  name: kvName
+  location: location
+  properties: {
+    tenantId: subscription().tenantId
+    sku: {
+      family: 'A'
+      name: 'standard'
+    }
+    enableRbacAuthorization: true
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 7
+    enablePurgeProtection: true
+    publicNetworkAccess: 'Disabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Deny'
+    }
+  }
+}
+
+resource pdnsKv 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: 'privatelink.vaultcore.azure.net'
+  location: 'global'
+  properties: {}
+}
+
+resource pdnsKvLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: pdnsKv
+  name: 'vnet-link'
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: vnet.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource peKv 'Microsoft.Network/privateEndpoints@2024-01-01' = {
+  name: '${namePrefix}-pe-kv-${uniq}'
+  location: location
+  properties: {
+    subnet: {
+      id: '${vnet.id}/subnets/pe'
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'kv-connection'
+        properties: {
+          privateLinkServiceId: kv.id
+          groupIds: ['vault']
+        }
+      }
+    ]
+  }
+}
+
+resource peKvDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-01-01' = {
+  parent: peKv
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'privatelink-vaultcore-azure-net'
+        properties: {
+          privateDnsZoneId: pdnsKv.id
+        }
+      }
+    ]
+  }
+}
+
+// Pre-seed every secret with a placeholder so the Container App
+// secretRefs below can resolve immediately at deploy time. The setup
+// wizard overwrites with real values once provisioning runs.
+resource kvSecretGraphClientSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretGraphClientSecret
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretGraphCertPem 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretGraphCertPem
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretGraphCertThumbprint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretGraphCertThumbprint
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretGraphCertChain 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretGraphCertChain
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretAuthClientSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretAuthClientSecret
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretAuthCertPem 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretAuthCertPem
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretAuthCertThumbprint 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretAuthCertThumbprint
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretAuthCertChain 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretAuthCertChain
+  properties: {
+    value: placeholderSecret
+  }
+}
+
+resource kvSecretSync 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: secretSyncSecret
+  properties: {
+    value: empty(syncSecret) ? placeholderSecret : syncSecret
+  }
+}
+
 // -------------------- ACA Managed Environment (VNet-integrated) --------------------
 // Preview API version required: `nfsAzureFile` storage type + `NfsAzureFile`
 // volume type landed in 2024-08-02-preview and aren't in the 2024-03-01 GA API.
@@ -279,14 +470,58 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
           }
         ]
       }
-      secrets: empty(syncSecret)
-        ? []
-        : [
-            {
-              name: 'sync-secret'
-              value: syncSecret
-            }
-          ]
+      // Every secret resolves from Key Vault via the system identity.
+      // The placeholder pre-seeds in Bicep mean these URIs already exist
+      // at deploy time, so the Container App can boot. Real values land
+      // when the /setup wizard provisions credentials and writes them
+      // into the vault.
+      secrets: [
+        {
+          name: 'azure-client-secret'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphClientSecret}'
+          identity: 'system'
+        }
+        {
+          name: 'azure-client-cert-pem'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphCertPem}'
+          identity: 'system'
+        }
+        {
+          name: 'azure-client-cert-thumbprint'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphCertThumbprint}'
+          identity: 'system'
+        }
+        {
+          name: 'azure-client-cert-chain'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphCertChain}'
+          identity: 'system'
+        }
+        {
+          name: 'auth-client-secret'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthClientSecret}'
+          identity: 'system'
+        }
+        {
+          name: 'auth-client-cert-pem'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthCertPem}'
+          identity: 'system'
+        }
+        {
+          name: 'auth-client-cert-thumbprint'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthCertThumbprint}'
+          identity: 'system'
+        }
+        {
+          name: 'auth-client-cert-chain'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthCertChain}'
+          identity: 'system'
+        }
+        {
+          name: 'sync-secret'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretSyncSecret}'
+          identity: 'system'
+        }
+      ]
     }
     template: {
       containers: [
@@ -297,57 +532,110 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
             cpu: json(cpuCores)
             memory: memoryGi
           }
-          env: concat(
-            [
-              {
-                name: 'APP_BASE_URL'
-                value: appBaseUrl
-              }
-              // v2.5.17 split: DATA_DIR keeps the persistent NFS mount for
-              // long-lived files (uploaded logos, branding assets). The
-              // SQLite database moves to /local-data (EmptyDir, fast local
-              // disk) via SCSC_DB_PATH. MIZAN_DB_BACKUP_DIR points the
-              // backup loop at /data so the DB is snapshotted to NFS every
-              // 5 minutes + on graceful shutdown. Boot-time restore copies
-              // the latest snapshot back to local disk if the EmptyDir
-              // volume was wiped (which happens on every revision swap).
-              {
-                name: 'DATA_DIR'
-                value: '/data'
-              }
-              {
-                name: 'SCSC_DB_PATH'
-                value: '/local-data/scsc.sqlite'
-              }
-              {
-                name: 'MIZAN_DB_BACKUP_DIR'
-                value: '/data'
-              }
-              {
-                name: 'NODE_ENV'
-                value: 'production'
-              }
-              // v2.5.6+: full ARM resource ID of this container app, so
-              // the dashboard's /api/updates/apply endpoint knows which
-              // resource to PATCH for self-upgrade. Resolved at deploy
-              // time from this Bicep template's resourceId() function.
-              {
-                name: 'MIZAN_AZURE_RESOURCE_ID'
-                value: resourceId(
-                  'Microsoft.App/containerApps',
-                  '${namePrefix}-app-${uniq}'
-                )
-              }
-            ],
-            empty(syncSecret)
-              ? []
-              : [
-                  {
-                    name: 'SCSC_SYNC_SECRET'
-                    secretRef: 'sync-secret'
-                  }
-                ]
-          )
+          env: [
+            {
+              name: 'APP_BASE_URL'
+              value: appBaseUrl
+            }
+            // v2.5.17 split: DATA_DIR keeps the persistent NFS mount for
+            // long-lived files (uploaded logos, branding assets). The
+            // SQLite database moves to /local-data (EmptyDir, fast local
+            // disk) via SCSC_DB_PATH. MIZAN_DB_BACKUP_DIR points the
+            // backup loop at /data so the DB is snapshotted to NFS every
+            // 5 minutes + on graceful shutdown. Boot-time restore copies
+            // the latest snapshot back to local disk if the EmptyDir
+            // volume was wiped (which happens on every revision swap).
+            {
+              name: 'DATA_DIR'
+              value: '/data'
+            }
+            {
+              name: 'SCSC_DB_PATH'
+              value: '/local-data/scsc.sqlite'
+            }
+            {
+              name: 'MIZAN_DB_BACKUP_DIR'
+              value: '/data'
+            }
+            {
+              name: 'NODE_ENV'
+              value: 'production'
+            }
+            // v2.5.6+: full ARM resource ID of this container app, so
+            // the dashboard's /api/updates/apply endpoint knows which
+            // resource to PATCH for self-upgrade. Resolved at deploy
+            // time from this Bicep template's resourceId() function.
+            {
+              name: 'MIZAN_AZURE_RESOURCE_ID'
+              value: resourceId(
+                'Microsoft.App/containerApps',
+                '${namePrefix}-app-${uniq}'
+              )
+            }
+            // v2.7.15: Key Vault is now the system of record for every
+            // secret. MIZAN_KEY_VAULT_URL flips the runtime's secret
+            // reader+writer onto the SDK path; lib/secrets/keyvault.ts
+            // checks this var to decide whether writes go to KV+restart
+            // or fall back to the DB-backed path used by self-hosted
+            // Docker deployments.
+            {
+              name: 'MIZAN_KEY_VAULT_URL'
+              value: kv.properties.vaultUri
+            }
+            {
+              name: 'MIZAN_KEY_VAULT_NAME'
+              value: kv.name
+            }
+            // The container app name + resource ID together let the
+            // runtime issue revision restarts after rotating a secret so
+            // the new value is dereferenced into the next pod.
+            {
+              name: 'CONTAINER_APP_NAME'
+              value: '${namePrefix}-app-${uniq}'
+            }
+            // Graph signals app credentials, sourced from Key Vault via
+            // the system identity. lib/config/azure-config.ts reads
+            // these env vars as the cert-or-secret fallback chain.
+            {
+              name: 'AZURE_CLIENT_SECRET'
+              secretRef: 'azure-client-secret'
+            }
+            {
+              name: 'AZURE_CLIENT_CERT_PRIVATE_KEY_PEM'
+              secretRef: 'azure-client-cert-pem'
+            }
+            {
+              name: 'AZURE_CLIENT_CERT_THUMBPRINT'
+              secretRef: 'azure-client-cert-thumbprint'
+            }
+            {
+              name: 'AZURE_CLIENT_CERT_CHAIN_PEM'
+              secretRef: 'azure-client-cert-chain'
+            }
+            // User-auth Entra app credentials. v2.7.15 adds env-var
+            // fallbacks in lib/config/auth-config.ts so these can come
+            // from Key Vault on ACA without a DB write.
+            {
+              name: 'MIZAN_AUTH_CLIENT_SECRET'
+              secretRef: 'auth-client-secret'
+            }
+            {
+              name: 'MIZAN_AUTH_CERT_PRIVATE_KEY_PEM'
+              secretRef: 'auth-client-cert-pem'
+            }
+            {
+              name: 'MIZAN_AUTH_CERT_THUMBPRINT'
+              secretRef: 'auth-client-cert-thumbprint'
+            }
+            {
+              name: 'MIZAN_AUTH_CERT_CHAIN_PEM'
+              secretRef: 'auth-client-cert-chain'
+            }
+            {
+              name: 'SCSC_SYNC_SECRET'
+              secretRef: 'sync-secret'
+            }
+          ]
           volumeMounts: [
             {
               // Persistent NFS mount — uploaded logos, branding assets,
@@ -438,6 +726,29 @@ resource selfUpgradeRoleAssignment 'Microsoft.Authorization/roleAssignments@2022
   }
 }
 
+// -------------------- Key Vault role assignment --------------------
+// Grant the container app's system identity Key Vault Secrets Officer
+// on the vault. Officer (not Secrets User) so the runtime can WRITE
+// new secrets during the /setup wizard auto-provision and during
+// in-app credential rotations, not only read them at startup.
+//
+// Scope = the vault itself, so the identity cannot reach any other
+// vaults that might exist in the resource group later.
+resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: kv
+  name: guid(kv.id, app.id, 'kv-secrets-officer')
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      kvSecretsOfficerRoleId
+    )
+    principalId: app.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output dashboardUrl string = 'https://${app.properties.configuration.ingress.fqdn}'
 output resourceGroup string = resourceGroup().name
 output containerAppPrincipalId string = app.identity.principalId
+output keyVaultName string = kv.name
+output keyVaultUri string = kv.properties.vaultUri

@@ -303,6 +303,14 @@ Switching credential mode in the UI (Secret → Certificate or vice versa) clear
 
 For Azure Container Apps + Key Vault: store the PEM block as a Container App secret referencing a Key Vault secret URI, expose it as `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM` in env, set `AZURE_CLIENT_CERT_THUMBPRINT` alongside, and leave the DB-side cert fields empty — the env-fallback path picks both up. `assertAzureConfigured()` accepts either secret OR cert as evidence the app is wired.
 
+### 7.4a Key Vault is the default secret store on ACA (v2.7.15+)
+
+Every Mizan secret — Graph + user-auth `clientSecret`, cert PEMs, cert thumbprints, cert chains, the sync trigger shared secret — now lives in Azure Key Vault on ACA deployments. The Bicep template provisions one vault per Container App with public network access disabled, a private endpoint in the existing `pe` subnet, RBAC authorization, and purge protection. The Container App's system-assigned managed identity gets `Key Vault Secrets Officer` (Officer rather than Secrets User because the wizard + Settings panels write rotated secrets at runtime, not only read at startup). `configuration.secrets` resolves each value via `keyVaultUrl` + `identity: 'system'`; the env block exposes them as plain env vars through `secretRef` under the same names the runtime already reads.
+
+The runtime read path is unchanged — it reads env vars and falls back to the DB. The runtime write path checks `MIZAN_KEY_VAULT_URL`: when set, secrets are written to the vault via `@azure/keyvault-secrets`, mirrored into a pod-local override map so the in-flight pod can use the new value immediately, then the Container App revision is restarted in the background so the next pod's env vars are dereferenced fresh from KV. Non-secret config (clientId, tenantId, authorityHost) stays in the DB.
+
+Self-hosted Docker deployments leave `MIZAN_KEY_VAULT_URL` unset and continue with the DB-backed path end-to-end — no migration is required.
+
 ### 7.5 Accessibility v1 (shipped v2.0+)
 
 Concrete improvements landed against WCAG 2.2 baseline:

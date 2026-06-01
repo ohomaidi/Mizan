@@ -5,6 +5,7 @@ import {
   getAzureAuthMethod,
   getAzureConfig,
   getAzureConfigSource,
+  restartAfterSecretWrite,
   setAzureConfig,
 } from "@/lib/config/azure-config";
 import { invalidateAllTokens } from "@/lib/graph/msal";
@@ -94,25 +95,43 @@ export async function PUT(req: NextRequest) {
       { status: 400 },
     );
   }
+  // Track whether the operator touched a secret-shaped field. When KV
+  // is the backing store, we need to restart the Container App revision
+  // afterwards so the next pod's env vars are dereferenced fresh.
+  let touchedSecret = false;
+
   if (parsed.data.clear) {
-    clearAzureConfig();
+    await clearAzureConfig();
+    touchedSecret = true;
   } else {
     const patch: Parameters<typeof setAzureConfig>[0] = {};
     if (parsed.data.clientId !== undefined) patch.clientId = parsed.data.clientId;
-    if (parsed.data.clientSecret !== undefined)
+    if (parsed.data.clientSecret !== undefined) {
       patch.clientSecret = parsed.data.clientSecret;
-    if (parsed.data.clientCertThumbprint !== undefined)
+      touchedSecret = true;
+    }
+    if (parsed.data.clientCertThumbprint !== undefined) {
       patch.clientCertThumbprint = parsed.data.clientCertThumbprint.toUpperCase();
-    if (parsed.data.clientCertPrivateKeyPem !== undefined)
+      touchedSecret = true;
+    }
+    if (parsed.data.clientCertPrivateKeyPem !== undefined) {
       patch.clientCertPrivateKeyPem = parsed.data.clientCertPrivateKeyPem;
-    if (parsed.data.clientCertChainPem !== undefined)
+      touchedSecret = true;
+    }
+    if (parsed.data.clientCertChainPem !== undefined) {
       patch.clientCertChainPem = parsed.data.clientCertChainPem;
+      touchedSecret = true;
+    }
     if (parsed.data.authorityHost !== undefined) patch.authorityHost = parsed.data.authorityHost;
     if (parsed.data.consentRedirectUri !== undefined)
       patch.consentRedirectUri = parsed.data.consentRedirectUri;
-    setAzureConfig(patch);
+    await setAzureConfig(patch);
   }
   // Credentials changed — every cached MSAL client/token is now stale.
   invalidateAllTokens();
+  // If we wrote to Key Vault, kick the revision so future pods pick up
+  // the new env values. Fire-and-forget: this request is being served
+  // by the revision we're about to restart.
+  if (touchedSecret) restartAfterSecretWrite();
   return NextResponse.json({ config: maskForClient() });
 }

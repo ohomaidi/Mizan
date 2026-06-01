@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "5859977255577794"
+      "templateHash": "10769945836596078595"
     }
   },
   "parameters": {
@@ -69,7 +69,19 @@
     "namePrefix": "mizan",
     "uniq": "[uniqueString(resourceGroup().id)]",
     "storageName": "[format('{0}{1}', variables('namePrefix'), variables('uniq'))]",
-    "shareName": "mizan-data"
+    "shareName": "mizan-data",
+    "kvName": "[take(format('{0}-kv-{1}', variables('namePrefix'), variables('uniq')), 24)]",
+    "secretGraphClientSecret": "mizan-graph-client-secret",
+    "secretGraphCertPem": "mizan-graph-cert-pem",
+    "secretGraphCertThumbprint": "mizan-graph-cert-thumbprint",
+    "secretGraphCertChain": "mizan-graph-cert-chain",
+    "secretAuthClientSecret": "mizan-auth-client-secret",
+    "secretAuthCertPem": "mizan-auth-cert-pem",
+    "secretAuthCertThumbprint": "mizan-auth-cert-thumbprint",
+    "secretAuthCertChain": "mizan-auth-cert-chain",
+    "secretSyncSecret": "mizan-sync-secret",
+    "placeholderSecret": "unset",
+    "kvSecretsOfficerRoleId": "b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
   },
   "resources": [
     {
@@ -245,6 +257,195 @@
       ]
     },
     {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('kvName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "tenantId": "[subscription().tenantId]",
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 7,
+        "enablePurgeProtection": true,
+        "publicNetworkAccess": "Disabled",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "privatelink.vaultcore.azure.net",
+      "location": "global",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', 'privatelink.vaultcore.azure.net', 'vnet-link')]",
+      "location": "global",
+      "properties": {
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq')))]"
+        },
+        "registrationEnabled": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}-pe-kv-{1}', variables('namePrefix'), variables('uniq'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[format('{0}/subnets/pe', resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq'))))]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "kv-connection",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]",
+              "groupIds": [
+                "vault"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-vnet-{1}', variables('namePrefix'), variables('uniq')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', format('{0}-pe-kv-{1}', variables('namePrefix'), variables('uniq')), 'default')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "privatelink-vaultcore-azure-net",
+            "properties": {
+              "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]",
+        "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-kv-{1}', variables('namePrefix'), variables('uniq')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretGraphClientSecret'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretGraphCertPem'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretGraphCertThumbprint'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretGraphCertChain'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretAuthClientSecret'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretAuthCertPem'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretAuthCertThumbprint'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretAuthCertChain'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('kvName'), variables('secretSyncSecret'))]",
+      "properties": {
+        "value": "[if(empty(parameters('syncSecret')), variables('placeholderSecret'), parameters('syncSecret'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+      ]
+    },
+    {
       "type": "Microsoft.App/managedEnvironments",
       "apiVersion": "2024-10-02-preview",
       "name": "[format('{0}-env-{1}', variables('namePrefix'), variables('uniq'))]",
@@ -316,7 +517,53 @@
               }
             ]
           },
-          "secrets": "[if(empty(parameters('syncSecret')), createArray(), createArray(createObject('name', 'sync-secret', 'value', parameters('syncSecret'))))]"
+          "secrets": [
+            {
+              "name": "azure-client-secret",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphClientSecret'))]",
+              "identity": "system"
+            },
+            {
+              "name": "azure-client-cert-pem",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphCertPem'))]",
+              "identity": "system"
+            },
+            {
+              "name": "azure-client-cert-thumbprint",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphCertThumbprint'))]",
+              "identity": "system"
+            },
+            {
+              "name": "azure-client-cert-chain",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphCertChain'))]",
+              "identity": "system"
+            },
+            {
+              "name": "auth-client-secret",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthClientSecret'))]",
+              "identity": "system"
+            },
+            {
+              "name": "auth-client-cert-pem",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthCertPem'))]",
+              "identity": "system"
+            },
+            {
+              "name": "auth-client-cert-thumbprint",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthCertThumbprint'))]",
+              "identity": "system"
+            },
+            {
+              "name": "auth-client-cert-chain",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthCertChain'))]",
+              "identity": "system"
+            },
+            {
+              "name": "sync-secret",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretSyncSecret'))]",
+              "identity": "system"
+            }
+          ]
         },
         "template": {
           "containers": [
@@ -327,7 +574,80 @@
                 "cpu": "[json(parameters('cpuCores'))]",
                 "memory": "[parameters('memoryGi')]"
               },
-              "env": "[concat(createArray(createObject('name', 'APP_BASE_URL', 'value', parameters('appBaseUrl')), createObject('name', 'DATA_DIR', 'value', '/data'), createObject('name', 'SCSC_DB_PATH', 'value', '/local-data/scsc.sqlite'), createObject('name', 'MIZAN_DB_BACKUP_DIR', 'value', '/data'), createObject('name', 'NODE_ENV', 'value', 'production'), createObject('name', 'MIZAN_AZURE_RESOURCE_ID', 'value', resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))))), if(empty(parameters('syncSecret')), createArray(), createArray(createObject('name', 'SCSC_SYNC_SECRET', 'secretRef', 'sync-secret'))))]",
+              "env": [
+                {
+                  "name": "APP_BASE_URL",
+                  "value": "[parameters('appBaseUrl')]"
+                },
+                {
+                  "name": "DATA_DIR",
+                  "value": "/data"
+                },
+                {
+                  "name": "SCSC_DB_PATH",
+                  "value": "/local-data/scsc.sqlite"
+                },
+                {
+                  "name": "MIZAN_DB_BACKUP_DIR",
+                  "value": "/data"
+                },
+                {
+                  "name": "NODE_ENV",
+                  "value": "production"
+                },
+                {
+                  "name": "MIZAN_AZURE_RESOURCE_ID",
+                  "value": "[resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq')))]"
+                },
+                {
+                  "name": "MIZAN_KEY_VAULT_URL",
+                  "value": "[reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri]"
+                },
+                {
+                  "name": "MIZAN_KEY_VAULT_NAME",
+                  "value": "[variables('kvName')]"
+                },
+                {
+                  "name": "CONTAINER_APP_NAME",
+                  "value": "[format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))]"
+                },
+                {
+                  "name": "AZURE_CLIENT_SECRET",
+                  "secretRef": "azure-client-secret"
+                },
+                {
+                  "name": "AZURE_CLIENT_CERT_PRIVATE_KEY_PEM",
+                  "secretRef": "azure-client-cert-pem"
+                },
+                {
+                  "name": "AZURE_CLIENT_CERT_THUMBPRINT",
+                  "secretRef": "azure-client-cert-thumbprint"
+                },
+                {
+                  "name": "AZURE_CLIENT_CERT_CHAIN_PEM",
+                  "secretRef": "azure-client-cert-chain"
+                },
+                {
+                  "name": "MIZAN_AUTH_CLIENT_SECRET",
+                  "secretRef": "auth-client-secret"
+                },
+                {
+                  "name": "MIZAN_AUTH_CERT_PRIVATE_KEY_PEM",
+                  "secretRef": "auth-client-cert-pem"
+                },
+                {
+                  "name": "MIZAN_AUTH_CERT_THUMBPRINT",
+                  "secretRef": "auth-client-cert-thumbprint"
+                },
+                {
+                  "name": "MIZAN_AUTH_CERT_CHAIN_PEM",
+                  "secretRef": "auth-client-cert-chain"
+                },
+                {
+                  "name": "SCSC_SYNC_SECRET",
+                  "secretRef": "sync-secret"
+                }
+              ],
               "volumeMounts": [
                 {
                   "volumeName": "data",
@@ -372,7 +692,8 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
-        "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')), 'mizandata')]"
+        "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')), 'mizandata')]",
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
       ]
     },
     {
@@ -386,6 +707,21 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), 'kv-secrets-officer')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('kvSecretsOfficerRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview', 'full').identity.principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq')))]",
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
       ]
     }
   ],
@@ -401,6 +737,14 @@
     "containerAppPrincipalId": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview', 'full').identity.principalId]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('kvName')]"
+    },
+    "keyVaultUri": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri]"
     }
   }
 }

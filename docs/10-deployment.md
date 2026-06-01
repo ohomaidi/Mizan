@@ -48,8 +48,13 @@ The dashboard is **single-replica by design** (`minReplicas: 1, maxReplicas: 1`,
 - **`EmptyDir` volume** mounted at `/local-data` — hosts the live SQLite file (`SCSC_DB_PATH=/local-data/scsc.sqlite`)
 - Private DNS zone `privatelink.file.core.windows.net` + VNet link
 - Private endpoint to the storage account's `file` subresource
+- **Azure Key Vault** (`enableRbacAuthorization: true`, `publicNetworkAccess: Disabled`, `enablePurgeProtection: true`) — system of record for every Mizan secret (Graph + user-auth client_secret, cert PEMs, cert thumbprints, cert chains, sync trigger shared secret)
+- Private DNS zone `privatelink.vaultcore.azure.net` + VNet link
+- Private endpoint to the Key Vault's `vault` subresource
+- Nine pre-seeded placeholder secrets (`mizan-graph-client-secret`, `mizan-graph-cert-pem`, `mizan-graph-cert-thumbprint`, `mizan-graph-cert-chain`, `mizan-auth-client-secret`, `mizan-auth-cert-pem`, `mizan-auth-cert-thumbprint`, `mizan-auth-cert-chain`, `mizan-sync-secret`) — overwritten by the setup wizard with real values
 - VNet-integrated ACA managed environment (Consumption profile)
-- Container App pulling `ghcr.io/ohomaidi/mizan:latest`, system-assigned managed identity + Container Apps Contributor on the RG (for self-upgrade)
+- Container App pulling `ghcr.io/ohomaidi/mizan:latest`, system-assigned managed identity + Container Apps Contributor on the RG (for self-upgrade) + Key Vault Secrets Officer on the vault (for in-app secret rotations)
+- Container App `configuration.secrets` references every KV secret via `keyVaultUrl` + `identity: 'system'`; env block exposes them through `secretRef`
 - HTTPS ingress with auto-managed TLS
 - Liveness probe: `/api/auth/me`, initialDelay 30s, timeout 5s, threshold 5
 

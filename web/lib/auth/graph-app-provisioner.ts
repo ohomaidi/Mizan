@@ -20,8 +20,8 @@ import { createHash } from "node:crypto";
  * no manual copy-paste by the operator.
  */
 
-import { setAzureConfig } from "@/lib/config/azure-config";
-import { setAuthConfig } from "@/lib/config/auth-config";
+import { restartAfterSecretWrite, setAzureConfig } from "@/lib/config/azure-config";
+import { restartAuthAfterSecretWrite, setAuthConfig } from "@/lib/config/auth-config";
 import { invalidateAllTokens } from "@/lib/graph/msal";
 import { invalidateAuthClient } from "@/lib/auth/msal-user";
 
@@ -516,14 +516,19 @@ export async function provisionGraphSignalsApp(
 
   const secret = await addSecret(accessToken, app.id, "mizan-auto-provisioned");
 
-  // Store in Mizan's config. `setAzureConfig` only accepts the fields it knows
-  // about; the `clientSecret` empty-string means "keep existing" so we always
-  // pass the new one explicitly.
-  setAzureConfig({
+  // Store in Mizan's config. v2.7.15: when Key Vault is enabled the
+  // freshly minted secret lands in KV (mizan-graph-client-secret) and
+  // the DB row holds only the clientId. The pod-local override map is
+  // also set so the in-flight wizard request can immediately use the
+  // new secret without waiting for the Container App revision restart.
+  await setAzureConfig({
     clientId: app.appId,
     clientSecret: secret,
   });
   invalidateAllTokens();
+  // Background revision restart so the next pod's env vars come from
+  // Key Vault. No-op on self-hosted Docker deployments.
+  restartAfterSecretWrite();
 
   return {
     appId: app.id,
@@ -567,12 +572,17 @@ export async function provisionUserAuthApp(
 
   const secret = await addSecret(accessToken, app.id, "mizan-auto-provisioned");
 
-  setAuthConfig({
+  // v2.7.15: secret routes through Key Vault when MIZAN_KEY_VAULT_URL
+  // is set. The DB row holds the clientId + tenantId; the in-flight
+  // wizard pod sees the new secret via the override map until the
+  // Container App revision restart catches up.
+  await setAuthConfig({
     clientId: app.appId,
     clientSecret: secret,
     tenantId: opts.tenantId,
   });
   invalidateAuthClient();
+  restartAuthAfterSecretWrite();
 
   return {
     appId: app.id,
