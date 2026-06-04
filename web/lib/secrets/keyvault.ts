@@ -34,6 +34,28 @@ import { SecretClient } from "@azure/keyvault-secrets";
 /** Pre-seed placeholder written by Bicep. Treated as "not configured". */
 export const KV_PLACEHOLDER = "unset";
 
+/**
+ * Read any env var that the Bicep template sources from a Key Vault
+ * secretRef. Returns `""` when the variable is unset, empty, or still
+ * holds the `KV_PLACEHOLDER` value (which the Bicep template writes
+ * to every pre-seeded KV secret because Azure Key Vault rejects empty
+ * secret bodies).
+ *
+ * Use this anywhere a secret-shaped env var is read. The contract is:
+ * the placeholder MUST be treated identically to "not configured" so
+ * downstream auth / sync / gate-checking code doesn't accidentally
+ * trust the sentinel value as a real credential.
+ *
+ * v2.7.18: introduced after `SCSC_SYNC_SECRET` was read directly via
+ * `process.env`, accepting `"unset"` as a real bearer requirement and
+ * locking the "Sync now" UI behind a 401.
+ */
+export function readKvBackedEnv(name: string): string {
+  const raw = (process.env[name] ?? "").trim();
+  if (raw.length === 0 || raw === KV_PLACEHOLDER) return "";
+  return raw;
+}
+
 const KV_URL = (process.env.MIZAN_KEY_VAULT_URL ?? "").trim();
 
 let _client: SecretClient | null = null;

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { readKvBackedEnv } from "./secrets/keyvault";
 
 function opt(key: string, fallback: string): string {
   const v = process.env[key];
@@ -60,8 +61,18 @@ export const config = {
     return opt("SCSC_DB_PATH", path.join(this.dataDir, "scsc.sqlite"));
   },
 
-  /** Optional shared secret for triggering sync via API (prevents drive-by calls). */
-  syncSecret: process.env.SCSC_SYNC_SECRET ?? "",
+  /**
+   * Optional shared secret for triggering sync via API (prevents drive-by calls).
+   *
+   * Read through `readKvBackedEnv()` so the `KV_PLACEHOLDER` sentinel
+   * the Bicep template writes into `mizan-sync-secret` at first deploy
+   * is coerced to `""`. Without this filter the `/api/sync` POST gate
+   * (`if (config.syncSecret) { require bearer }`) would lock the
+   * "Sync now" UI behind a 401 on every fresh deploy because the
+   * runtime would treat `"unset"` as a real bearer requirement.
+   * v2.7.18.
+   */
+  syncSecret: readKvBackedEnv("SCSC_SYNC_SECRET"),
 
   /** Snapshot retention window in days. Default 90. Pruning runs after each sync. */
   retentionDays: (() => {
