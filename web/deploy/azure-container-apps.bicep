@@ -18,9 +18,13 @@
 //   - 9 pre-seeded placeholder secrets (overwritten by the setup wizard)
 //   - VNet-integrated ACA managed environment
 //   - Managed environment NFS storage mount
+//   - User-assigned managed identity (UAMI) — stable principalId
+//     across Container App rebuilds, used for KV reads + writes,
+//     self-upgrade ARM calls, and post-rotation revision restarts
 //   - Container App pulling the public Mizan image and mounting /data
-//     plus 9 secretRefs sourced from Key Vault via the system identity
-//   - Role assignment: Container App system identity → Key Vault Secrets Officer
+//     plus 9 secretRefs sourced from Key Vault via the UAMI
+//   - Role assignments on the UAMI: Key Vault Secrets Officer on the
+//     vault and Container Apps Contributor on the resource group
 
 @description('Region for all resources. Defaults to the RG region.')
 param location string = resourceGroup().location
@@ -477,12 +481,16 @@ resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-10-02-previ
 }
 
 // -------------------- Container App --------------------
-// System-assigned managed identity is enabled so the dashboard can
-// upgrade itself in-place via the ARM API. The identity is granted the
-// "Container Apps Contributor" role on this resource group below; that
-// role is the minimum scope required to PATCH a container app's image
-// tag (see /api/updates/apply). MIZAN_AZURE_RESOURCE_ID is injected as
-// an env var so the running app knows which resource to PATCH.
+// v2.7.16: identity flips from system-assigned to user-assigned. The
+// UAMI declared at the top of the template carries every privilege
+// the runtime needs — Key Vault Secrets Officer on the vault (for
+// secret reads at revision activation, writes during wizard
+// auto-provision, writes during in-app rotation) and Container Apps
+// Contributor on the resource group (for self-upgrade and for the
+// post-rotation revision restart). MIZAN_AZURE_RESOURCE_ID is
+// injected as an env var so the running app knows which resource to
+// PATCH; MIZAN_MANAGED_IDENTITY_CLIENT_ID is injected so the runtime
+// can specify the right identity in IMDS token requests.
 resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
   name: '${namePrefix}-app-${uniq}'
   location: location
