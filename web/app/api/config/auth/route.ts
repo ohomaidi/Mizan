@@ -4,7 +4,6 @@ import {
   clearAuthConfig,
   getAuthConfig,
   getUserAuthMethod,
-  restartAuthAfterSecretWrite,
   setAuthConfig,
   ROLES,
   MAX_SESSION_MINUTES,
@@ -89,30 +88,19 @@ export async function PUT(req: NextRequest) {
       { status: 400 },
     );
   }
-  let touchedSecret = false;
-
   if (parsed.data.clear) {
     await clearAuthConfig();
-    touchedSecret = true;
   } else {
     const patch: Parameters<typeof setAuthConfig>[0] = {};
     if (parsed.data.clientId !== undefined) patch.clientId = parsed.data.clientId;
-    if (parsed.data.clientSecret !== undefined && parsed.data.clientSecret.length > 0) {
+    if (parsed.data.clientSecret !== undefined && parsed.data.clientSecret.length > 0)
       patch.clientSecret = parsed.data.clientSecret;
-      touchedSecret = true;
-    }
-    if (parsed.data.clientCertThumbprint !== undefined) {
+    if (parsed.data.clientCertThumbprint !== undefined)
       patch.clientCertThumbprint = parsed.data.clientCertThumbprint.toUpperCase();
-      touchedSecret = true;
-    }
-    if (parsed.data.clientCertPrivateKeyPem !== undefined) {
+    if (parsed.data.clientCertPrivateKeyPem !== undefined)
       patch.clientCertPrivateKeyPem = parsed.data.clientCertPrivateKeyPem;
-      touchedSecret = true;
-    }
-    if (parsed.data.clientCertChainPem !== undefined) {
+    if (parsed.data.clientCertChainPem !== undefined)
       patch.clientCertChainPem = parsed.data.clientCertChainPem;
-      touchedSecret = true;
-    }
     if (parsed.data.tenantId !== undefined) patch.tenantId = parsed.data.tenantId;
     if (parsed.data.sessionTimeoutMinutes !== undefined)
       patch.sessionTimeoutMinutes = parsed.data.sessionTimeoutMinutes;
@@ -120,6 +108,12 @@ export async function PUT(req: NextRequest) {
     await setAuthConfig(patch);
   }
   invalidateAuthClient();
-  if (touchedSecret) restartAuthAfterSecretWrite();
+  // v2.7.17: no Container App revision restart after secret rotation.
+  // The pod-local override in setAuthConfig makes the current pod see
+  // the new value immediately; ACA's 30-minute Key Vault refresh TTL
+  // updates env vars for future pods without us forcing a restart.
+  // The earlier explicit restart was racing the 5-minute SQLite
+  // backup loop on fresh deploys, losing wizard state when the new
+  // pod restored from an empty NFS snapshot.
   return NextResponse.json({ config: await maskForClient() });
 }

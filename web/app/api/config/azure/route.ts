@@ -5,7 +5,6 @@ import {
   getAzureAuthMethod,
   getAzureConfig,
   getAzureConfigSource,
-  restartAfterSecretWrite,
   setAzureConfig,
 } from "@/lib/config/azure-config";
 import { invalidateAllTokens } from "@/lib/graph/msal";
@@ -95,33 +94,19 @@ export async function PUT(req: NextRequest) {
       { status: 400 },
     );
   }
-  // Track whether the operator touched a secret-shaped field. When KV
-  // is the backing store, we need to restart the Container App revision
-  // afterwards so the next pod's env vars are dereferenced fresh.
-  let touchedSecret = false;
-
   if (parsed.data.clear) {
     await clearAzureConfig();
-    touchedSecret = true;
   } else {
     const patch: Parameters<typeof setAzureConfig>[0] = {};
     if (parsed.data.clientId !== undefined) patch.clientId = parsed.data.clientId;
-    if (parsed.data.clientSecret !== undefined) {
+    if (parsed.data.clientSecret !== undefined)
       patch.clientSecret = parsed.data.clientSecret;
-      touchedSecret = true;
-    }
-    if (parsed.data.clientCertThumbprint !== undefined) {
+    if (parsed.data.clientCertThumbprint !== undefined)
       patch.clientCertThumbprint = parsed.data.clientCertThumbprint.toUpperCase();
-      touchedSecret = true;
-    }
-    if (parsed.data.clientCertPrivateKeyPem !== undefined) {
+    if (parsed.data.clientCertPrivateKeyPem !== undefined)
       patch.clientCertPrivateKeyPem = parsed.data.clientCertPrivateKeyPem;
-      touchedSecret = true;
-    }
-    if (parsed.data.clientCertChainPem !== undefined) {
+    if (parsed.data.clientCertChainPem !== undefined)
       patch.clientCertChainPem = parsed.data.clientCertChainPem;
-      touchedSecret = true;
-    }
     if (parsed.data.authorityHost !== undefined) patch.authorityHost = parsed.data.authorityHost;
     if (parsed.data.consentRedirectUri !== undefined)
       patch.consentRedirectUri = parsed.data.consentRedirectUri;
@@ -129,9 +114,13 @@ export async function PUT(req: NextRequest) {
   }
   // Credentials changed — every cached MSAL client/token is now stale.
   invalidateAllTokens();
-  // If we wrote to Key Vault, kick the revision so future pods pick up
-  // the new env values. Fire-and-forget: this request is being served
-  // by the revision we're about to restart.
-  if (touchedSecret) restartAfterSecretWrite();
+  // v2.7.17: we no longer force a Container App revision restart after
+  // a secret rotation. The pod-local override map gives the current
+  // pod immediate visibility of the new value (set inside setAzureConfig),
+  // and ACA refreshes Key Vault secret references on its own 30-minute
+  // TTL — future pods get the fresh env vars without us issuing an ARM
+  // restart. Forcing a restart was racing the 5-minute SQLite backup
+  // loop on fresh deploys, dropping the wizard's wizard-completed state
+  // when the new pod booted with an empty NFS snapshot.
   return NextResponse.json({ config: maskForClient() });
 }

@@ -20,8 +20,8 @@ import { createHash } from "node:crypto";
  * no manual copy-paste by the operator.
  */
 
-import { restartAfterSecretWrite, setAzureConfig } from "@/lib/config/azure-config";
-import { restartAuthAfterSecretWrite, setAuthConfig } from "@/lib/config/auth-config";
+import { setAzureConfig } from "@/lib/config/azure-config";
+import { setAuthConfig } from "@/lib/config/auth-config";
 import { invalidateAllTokens } from "@/lib/graph/msal";
 import { invalidateAuthClient } from "@/lib/auth/msal-user";
 
@@ -520,15 +520,15 @@ export async function provisionGraphSignalsApp(
   // freshly minted secret lands in KV (mizan-graph-client-secret) and
   // the DB row holds only the clientId. The pod-local override map is
   // also set so the in-flight wizard request can immediately use the
-  // new secret without waiting for the Container App revision restart.
+  // new secret. v2.7.17: no forced Container App revision restart —
+  // ACA refreshes Key Vault references on a 30-min TTL and future pods
+  // get the fresh env vars at boot from KV. The restart was racing
+  // the 5-minute SQLite backup loop and dropping the wizard's state.
   await setAzureConfig({
     clientId: app.appId,
     clientSecret: secret,
   });
   invalidateAllTokens();
-  // Background revision restart so the next pod's env vars come from
-  // Key Vault. No-op on self-hosted Docker deployments.
-  restartAfterSecretWrite();
 
   return {
     appId: app.id,
@@ -574,15 +574,14 @@ export async function provisionUserAuthApp(
 
   // v2.7.15: secret routes through Key Vault when MIZAN_KEY_VAULT_URL
   // is set. The DB row holds the clientId + tenantId; the in-flight
-  // wizard pod sees the new secret via the override map until the
-  // Container App revision restart catches up.
+  // wizard pod sees the new secret via the override map. v2.7.17:
+  // no forced revision restart (see provisionGraphSignalsApp).
   await setAuthConfig({
     clientId: app.appId,
     clientSecret: secret,
     tenantId: opts.tenantId,
   });
   invalidateAuthClient();
-  restartAuthAfterSecretWrite();
 
   return {
     appId: app.id,
