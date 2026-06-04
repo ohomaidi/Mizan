@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "14297434580249564178"
+      "templateHash": "12562739052718252957"
     }
   },
   "parameters": {
@@ -81,7 +81,8 @@
     "secretAuthCertChain": "mizan-auth-cert-chain",
     "secretSyncSecret": "mizan-sync-secret",
     "placeholderSecret": "unset",
-    "kvSecretsOfficerRoleId": "b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
+    "kvSecretsOfficerRoleId": "b86a8fe4-44ce-4948-aee5-eccb2c155cd7",
+    "containerAppsContributorRoleId": "358470bc-b998-42bd-ab17-a7e34c199c0f"
   },
   "resources": [
     {
@@ -255,6 +256,12 @@
         "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.file.core.windows.net')]",
         "[resourceId('Microsoft.Network/privateEndpoints', format('{0}-pe-file-{1}', variables('namePrefix'), variables('uniq')))]"
       ]
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))]",
+      "location": "[parameters('location')]"
     },
     {
       "type": "Microsoft.KeyVault/vaults",
@@ -499,7 +506,10 @@
       "name": "[format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))]",
       "location": "[parameters('location')]",
       "identity": {
-        "type": "SystemAssigned"
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))))]": {}
+        }
       },
       "properties": {
         "environmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
@@ -521,47 +531,47 @@
             {
               "name": "azure-client-secret",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphClientSecret'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "azure-client-cert-pem",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphCertPem'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "azure-client-cert-thumbprint",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphCertThumbprint'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "azure-client-cert-chain",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretGraphCertChain'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "auth-client-secret",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthClientSecret'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "auth-client-cert-pem",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthCertPem'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "auth-client-cert-thumbprint",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthCertThumbprint'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "auth-client-cert-chain",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretAuthCertChain'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             },
             {
               "name": "sync-secret",
               "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), '2023-07-01').vaultUri, variables('secretSyncSecret'))]",
-              "identity": "system"
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
             }
           ]
         },
@@ -606,6 +616,14 @@
                 {
                   "name": "MIZAN_KEY_VAULT_NAME",
                   "value": "[variables('kvName')]"
+                },
+                {
+                  "name": "MIZAN_MANAGED_IDENTITY_CLIENT_ID",
+                  "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), '2023-01-31').clientId]"
+                },
+                {
+                  "name": "MIZAN_MANAGED_IDENTITY_RESOURCE_ID",
+                  "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
                 },
                 {
                   "name": "CONTAINER_APP_NAME",
@@ -693,35 +711,47 @@
       "dependsOn": [
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')))]",
         "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env-{1}', variables('namePrefix'), variables('uniq')), 'mizandata')]",
-        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]",
+        "[extensionResourceId(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), 'kv-secrets-officer'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretAuthCertChain'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretAuthCertPem'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretAuthCertThumbprint'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretAuthClientSecret'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretGraphCertChain'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretGraphCertPem'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretGraphCertThumbprint'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretGraphClientSecret'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('kvName'), variables('secretSyncSecret'))]",
+        "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), 'container-apps-contributor'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
       ]
     },
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "name": "[guid(resourceGroup().id, resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), 'container-apps-contributor')]",
+      "name": "[guid(resourceGroup().id, resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), 'container-apps-contributor')]",
       "properties": {
-        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '358470bc-b998-42bd-ab17-a7e34c199c0f')]",
-        "principalId": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview', 'full').identity.principalId]",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('containerAppsContributorRoleId'))]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), '2023-01-31').principalId]",
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq')))]"
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
       ]
     },
     {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]",
-      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), 'kv-secrets-officer')]",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('kvName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), 'kv-secrets-officer')]",
       "properties": {
         "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('kvSecretsOfficerRoleId'))]",
-        "principalId": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview', 'full').identity.principalId]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), '2023-01-31').principalId]",
         "principalType": "ServicePrincipal"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq')))]",
-        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]"
+        "[resourceId('Microsoft.KeyVault/vaults', variables('kvName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq')))]"
       ]
     }
   ],
@@ -734,9 +764,13 @@
       "type": "string",
       "value": "[resourceGroup().name]"
     },
-    "containerAppPrincipalId": {
+    "managedIdentityPrincipalId": {
       "type": "string",
-      "value": "[reference(resourceId('Microsoft.App/containerApps', format('{0}-app-{1}', variables('namePrefix'), variables('uniq'))), '2024-10-02-preview', 'full').identity.principalId]"
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), '2023-01-31').principalId]"
+    },
+    "managedIdentityClientId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-uami-{1}', variables('namePrefix'), variables('uniq'))), '2023-01-31').clientId]"
     },
     "keyVaultName": {
       "type": "string",

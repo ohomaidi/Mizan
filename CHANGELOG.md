@@ -26,6 +26,47 @@ See the executive briefing: [`~/Desktop/Sharjah-Council-Executive-Briefing-final
 
 ## Status
 
+- **2026-06-04 — v2.7.16 (Key Vault deploy fix: switch to user-assigned managed identity)**. v2.7.15 shipped Key Vault as the system of record for every secret. The Bicep template granted Key Vault Secrets Officer to the Container App's system-assigned managed identity via a role assignment named `guid(kv.id, app.id, 'kv-secrets-officer')`. That worked on a clean first deploy and broke on the first redeploy where the system identity rolled: Azure refuses to mutate `principalId` on an existing role assignment, so the assignment stayed pointed at the OLD identity, the NEW identity was unauthorized, the Container App's KV secret references failed to dereference (`KEDAScalerFailed: error resolving secret name`), and no replica started. The FQDN hung with TLS terminating but no backend response.
+
+  **Switch to a user-assigned managed identity (UAMI).** The UAMI is its own Azure resource with a lifetime independent of the Container App. Its `principalId` is stable across Container App rebuilds and is deploy-time computable, so Bicep can use it both in the role assignment name (`guid(kv.id, uami.id, ...)`) and the principalId payload without the BCP120 diagnostic that blocked the system-identity attempt. One UAMI carries both privileges — Key Vault Secrets Officer on the vault, Container Apps Contributor on the resource group — so the same identity backs KV secret resolution, in-app secret rotation, self-upgrade, and the post-rotation revision restart.
+
+  **Bicep:**
+
+  - New `Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31` resource (`mizan-uami-<uniq>`).
+  - `kvRoleAssignment.name = guid(kv.id, uami.id, 'kv-secrets-officer')`, `principalId = uami.properties.principalId`.
+  - `selfUpgradeRoleAssignment.name = guid(rg.id, uami.id, 'container-apps-contributor')`, `principalId = uami.properties.principalId`.
+  - Container App `identity.type` flips from `SystemAssigned` to `UserAssigned`; the UAMI is attached via `userAssignedIdentities`.
+  - All nine `configuration.secrets` entries change `identity: 'system'` → `identity: uami.id`.
+  - Two new env vars: `MIZAN_MANAGED_IDENTITY_CLIENT_ID` (the UAMI's clientId, used by ManagedIdentityCredential + IMDS `client_id`) and `MIZAN_MANAGED_IDENTITY_RESOURCE_ID` (for diagnostics).
+  - Explicit `dependsOn` on the Container App for all 9 pre-seeded secrets and both role assignments. ACA dereferences KV secret URIs at revision activation; without the explicit dependency, a parallel deploy can race and the first revision fails before the secrets or role assignments are committed.
+  - Outputs `managedIdentityPrincipalId` + `managedIdentityClientId` replace the former `containerAppPrincipalId`.
+
+  **Runtime:**
+
+  - `lib/secrets/keyvault.ts` uses `ManagedIdentityCredential({ clientId })` when `MIZAN_MANAGED_IDENTITY_CLIENT_ID` is present; falls back to `DefaultAzureCredential` for local dev (az CLI session).
+  - `restartContainerApp()` adds `client_id` to the IMDS token request so ARM tokens are minted for the UAMI, not for a non-existent system identity.
+  - `app/api/updates/apply/route.ts` (self-upgrade) does the same — adds `client_id` to its IMDS call.
+  - `writeSecret()` adds retry-with-backoff (5 attempts over 37 s) on 403 responses to absorb the RBAC propagation lag on a brand-new deployment. Other status codes fail fast.
+
+  **Manual recovery for an existing v2.7.15 deployment that's stuck** (the failure mode described above):
+
+  ```sh
+  PRINCIPAL=$(az containerapp show --name <app> --resource-group <rg> --query identity.principalId -o tsv)
+  SUB=$(az account show --query id -o tsv)
+  az role assignment create --role "Key Vault Secrets Officer" \
+    --assignee-object-id "$PRINCIPAL" --assignee-principal-type ServicePrincipal \
+    --scope "/subscriptions/$SUB/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<vault-name>"
+  az role assignment create --role "Container Apps Contributor" \
+    --assignee-object-id "$PRINCIPAL" --assignee-principal-type ServicePrincipal \
+    --scope "/subscriptions/$SUB/resourceGroups/<rg>"
+  az containerapp revision restart --name <app> --resource-group <rg> \
+    --revision $(az containerapp revision list --name <app> --resource-group <rg> --query "[?properties.active].name | [0]" -o tsv)
+  ```
+
+  Or redeploy with v2.7.16 to a clean RG — the new UAMI-based pattern works first time.
+
+  Type-check clean. `npm run build` passes (26 routes). `az bicep build` regenerates without errors; two pre-existing `no-hardcoded-env-urls` linter warnings unchanged.
+
 - **2026-05-08 — v2.7.15 (Azure Key Vault is the system of record for every secret)**. SCSC's architecture review called out that the multi-tenant Graph app's client_secret cannot be sourced from a managed identity, so Key Vault must hold it — including at the PoC phase. Mizan's prior story was "DB stores secrets, cert-in-KV is a manual production hardening step." v2.7.15 closes that gap by making Key Vault the default secret store on every ACA deployment, with the setup wizard wiring it in automatically.
 
   **Bicep template (`web/deploy/azure-container-apps.bicep`).** Adds a `Microsoft.KeyVault/vaults` resource with RBAC authorization, public network access disabled, purge protection on, and a private endpoint in the existing `pe` subnet. Adds the `privatelink.vaultcore.azure.net` private DNS zone with a VNet link. Pre-seeds nine placeholder secrets (`mizan-graph-client-secret`, `mizan-graph-cert-pem`, `mizan-graph-cert-thumbprint`, `mizan-graph-cert-chain`, `mizan-auth-client-secret`, `mizan-auth-cert-pem`, `mizan-auth-cert-thumbprint`, `mizan-auth-cert-chain`, `mizan-sync-secret`) with the sentinel value `unset` so the Container App's `secretRef` references can resolve at deploy time. Grants the Container App's system-assigned managed identity the `Key Vault Secrets Officer` role on the vault — Officer rather than Secrets User because the runtime needs to write new secrets during the setup wizard auto-provision flow and during in-app rotations. The Container App's `configuration.secrets` block now sources every secret from `keyVaultUrl` with `identity: 'system'`; the env block exposes them via `secretRef` under their standard names (`AZURE_CLIENT_SECRET`, `AZURE_CLIENT_CERT_PRIVATE_KEY_PEM`, `AZURE_CLIENT_CERT_THUMBPRINT`, `AZURE_CLIENT_CERT_CHAIN_PEM`, `MIZAN_AUTH_CLIENT_SECRET`, `MIZAN_AUTH_CERT_PRIVATE_KEY_PEM`, `MIZAN_AUTH_CERT_THUMBPRINT`, `MIZAN_AUTH_CERT_CHAIN_PEM`, `SCSC_SYNC_SECRET`). Two new env vars (`MIZAN_KEY_VAULT_URL`, `MIZAN_KEY_VAULT_NAME`) flip the runtime onto the KV path and let it issue revision restarts after rotations.

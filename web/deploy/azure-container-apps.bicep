@@ -80,6 +80,10 @@ var placeholderSecret = 'unset'
 // startup.
 var kvSecretsOfficerRoleId = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 
+// Built-in role: Container Apps Contributor. Granted on the RG so the
+// runtime self-upgrade flow can PATCH the Container App's image tag.
+var containerAppsContributorRoleId = '358470bc-b998-42bd-ab17-a7e34c199c0f'
+
 // -------------------- Log Analytics --------------------
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${namePrefix}-law-${uniq}'
@@ -231,6 +235,44 @@ resource peFileDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024
       }
     ]
   }
+}
+
+// -------------------- User-assigned managed identity --------------------
+// v2.7.16: every privileged action — reading + writing Key Vault
+// secrets, PATCHing the Container App image tag for self-upgrade,
+// restarting revisions after a secret rotation — flows through this
+// single user-assigned managed identity. Three reasons UAMI beats the
+// historical system-assigned pattern:
+//
+//   1. **Stable principalId across redeploys.** System-assigned
+//      identities are tied to the Container App resource's lifetime;
+//      if Azure decides the Container App needs replacement (immutable
+//      property changed, region migration, manual delete + recreate),
+//      the principalId rolls. Role assignments keyed on
+//      `app.identity.principalId` were already created with the OLD
+//      principalId — Azure refuses to mutate that field — so the new
+//      identity is unauthorized and every KV deref / ARM call returns
+//      403. UAMI is a separate resource with a lifetime independent of
+//      the Container App; its principalId is stable.
+//
+//   2. **principalId is deploy-time computable.** Bicep's BCP120
+//      diagnostic rejects `app.identity.principalId` in any expression
+//      that contributes to a role assignment's `name` (which has to be
+//      a deterministic guid). UAMI's `properties.principalId` is
+//      computable at deploy time because the UAMI resource is provisioned
+//      before the role assignments and the Container App, so Bicep can
+//      validate ordering at template-parse time.
+//
+//   3. **Belt-and-suspenders for KV deref.** ACA's secret resolver
+//      reads KV using whichever identity the `configuration.secrets`
+//      block names. Pinning that to the UAMI (rather than 'system')
+//      means the secret resolution and the runtime read both go through
+//      the same identity, simplifying the failure model: if the role
+//      assignment is correct on the UAMI, both work; if not, both fail
+//      identically.
+resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: '${namePrefix}-uami-${uniq}'
+  location: location
 }
 
 // -------------------- Key Vault --------------------
@@ -444,9 +486,36 @@ resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-10-02-previ
 resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
   name: '${namePrefix}-app-${uniq}'
   location: location
+  // v2.7.16: user-assigned managed identity, not system-assigned, so
+  // the principalId is stable across Container App lifecycle events
+  // (delete + recreate, region migrations, ARM revision rolls). All
+  // role assignments target this UAMI.
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${uami.id}': {}
+    }
   }
+  // v2.7.16: hard-pin ordering. ACA dereferences every Key Vault
+  // secret URI when the first revision activates. If the role
+  // assignment or the pre-seeded secrets haven't been committed yet,
+  // the deref fails with 403 / 404 and the revision enters a failed
+  // state (KEDAScalerFailed → no replica → FQDN hangs). Explicit
+  // dependsOn forces Bicep to finish every secret and both role
+  // assignments before the Container App is created.
+  dependsOn: [
+    kvSecretGraphClientSecret
+    kvSecretGraphCertPem
+    kvSecretGraphCertThumbprint
+    kvSecretGraphCertChain
+    kvSecretAuthClientSecret
+    kvSecretAuthCertPem
+    kvSecretAuthCertThumbprint
+    kvSecretAuthCertChain
+    kvSecretSync
+    kvRoleAssignment
+    selfUpgradeRoleAssignment
+  ]
   properties: {
     environmentId: acaEnv.id
     workloadProfileName: 'Consumption'
@@ -479,47 +548,47 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
         {
           name: 'azure-client-secret'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphClientSecret}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'azure-client-cert-pem'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphCertPem}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'azure-client-cert-thumbprint'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphCertThumbprint}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'azure-client-cert-chain'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretGraphCertChain}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'auth-client-secret'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthClientSecret}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'auth-client-cert-pem'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthCertPem}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'auth-client-cert-thumbprint'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthCertThumbprint}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'auth-client-cert-chain'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretAuthCertChain}'
-          identity: 'system'
+          identity: uami.id
         }
         {
           name: 'sync-secret'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${secretSyncSecret}'
-          identity: 'system'
+          identity: uami.id
         }
       ]
     }
@@ -585,6 +654,22 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
             {
               name: 'MIZAN_KEY_VAULT_NAME'
               value: kv.name
+            }
+            // v2.7.16: clientId of the user-assigned managed identity
+            // that holds Key Vault Secrets Officer + Container Apps
+            // Contributor. The runtime passes it to
+            // ManagedIdentityCredential (KV) and to the IMDS token
+            // request (self-upgrade + revision restart) so a token is
+            // minted for the correct identity. Without this, IMDS picks
+            // a default identity which fails when the system identity
+            // is absent.
+            {
+              name: 'MIZAN_MANAGED_IDENTITY_CLIENT_ID'
+              value: uami.properties.clientId
+            }
+            {
+              name: 'MIZAN_MANAGED_IDENTITY_RESOURCE_ID'
+              value: uami.id
             }
             // The container app name + resource ID together let the
             // runtime issue revision restarts after rotating a secret so
@@ -713,42 +798,51 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
 // Role definition ID is built-in: 358470bc-b998-42bd-ab17-a7e34c199c0f
 // (Container Apps Contributor). Scope = the RG this template targets,
 // so the identity cannot reach other RGs in the subscription.
+// v2.7.16: role assignments target the user-assigned managed identity
+// declared above. Both `uami.id` (for the role assignment name guid)
+// and `uami.properties.principalId` (for the role assignment payload)
+// are deploy-time computable, so Bicep validates the template without
+// the BCP120 diagnostic that blocked the system-identity attempt. The
+// UAMI's principalId never rolls, so the role assignments stay
+// permanently bound to the right identity across Container App
+// rebuilds.
 resource selfUpgradeRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, app.id, 'container-apps-contributor')
+  name: guid(resourceGroup().id, uami.id, 'container-apps-contributor')
   scope: resourceGroup()
   properties: {
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      '358470bc-b998-42bd-ab17-a7e34c199c0f'
+      containerAppsContributorRoleId
     )
-    principalId: app.identity.principalId
+    principalId: uami.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
 // -------------------- Key Vault role assignment --------------------
-// Grant the container app's system identity Key Vault Secrets Officer
-// on the vault. Officer (not Secrets User) so the runtime can WRITE
-// new secrets during the /setup wizard auto-provision and during
-// in-app credential rotations, not only read them at startup.
+// Grant the UAMI Key Vault Secrets Officer on the vault. Officer (not
+// Secrets User) so the runtime can WRITE new secrets during the
+// /setup wizard auto-provision and during in-app credential rotations,
+// not only read them at startup.
 //
 // Scope = the vault itself, so the identity cannot reach any other
 // vaults that might exist in the resource group later.
 resource kvRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: kv
-  name: guid(kv.id, app.id, 'kv-secrets-officer')
+  name: guid(kv.id, uami.id, 'kv-secrets-officer')
   properties: {
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       kvSecretsOfficerRoleId
     )
-    principalId: app.identity.principalId
+    principalId: uami.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
 
 output dashboardUrl string = 'https://${app.properties.configuration.ingress.fqdn}'
 output resourceGroup string = resourceGroup().name
-output containerAppPrincipalId string = app.identity.principalId
+output managedIdentityPrincipalId string = uami.properties.principalId
+output managedIdentityClientId string = uami.properties.clientId
 output keyVaultName string = kv.name
 output keyVaultUri string = kv.properties.vaultUri

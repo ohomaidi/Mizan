@@ -128,6 +128,17 @@ async function getArmToken(): Promise<{ token: string } | { error: string }> {
     const url = new URL(endpoint);
     url.searchParams.set("resource", ARM_RESOURCE);
     url.searchParams.set("api-version", "2019-08-01");
+    // v2.7.16: when the deployment uses a user-assigned managed
+    // identity (the new default since the system-identity drift issue),
+    // tell IMDS which identity to mint a token for. Without this, IMDS
+    // returns 400 "Identity not found" because there's no system
+    // identity to fall back to.
+    const uamiClientId = (
+      process.env.MIZAN_MANAGED_IDENTITY_CLIENT_ID ?? ""
+    ).trim();
+    if (uamiClientId.length > 0) {
+      url.searchParams.set("client_id", uamiClientId);
+    }
     const res = await fetch(url.toString(), {
       headers: { "X-IDENTITY-HEADER": header },
       cache: "no-store",

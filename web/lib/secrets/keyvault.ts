@@ -1,6 +1,10 @@
 import "server-only";
 
-import { DefaultAzureCredential } from "@azure/identity";
+import {
+  DefaultAzureCredential,
+  ManagedIdentityCredential,
+  type TokenCredential,
+} from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
 
 /**
@@ -51,10 +55,23 @@ function client(): SecretClient {
       "Key Vault not enabled. Set MIZAN_KEY_VAULT_URL or use the DB-backed secret path.",
     );
   }
-  // DefaultAzureCredential resolves the Container App's system-assigned
-  // managed identity automatically via IDENTITY_ENDPOINT / IDENTITY_HEADER
-  // (set by ACA). Local development falls back to az CLI sign-in.
-  _client = new SecretClient(KV_URL, new DefaultAzureCredential());
+  // v2.7.16: use ManagedIdentityCredential with an explicit clientId
+  // when the Bicep template tells us which user-assigned identity to
+  // pick (MIZAN_MANAGED_IDENTITY_CLIENT_ID). The Container App attaches
+  // only the UAMI, so technically IMDS would pick it without a clientId
+  // hint, but being explicit avoids ambiguity if a second identity is
+  // ever added.
+  //
+  // Local development (no clientId env var) falls back to
+  // DefaultAzureCredential which uses the az CLI session.
+  const uamiClientId = (
+    process.env.MIZAN_MANAGED_IDENTITY_CLIENT_ID ?? ""
+  ).trim();
+  const credential: TokenCredential =
+    uamiClientId.length > 0
+      ? new ManagedIdentityCredential({ clientId: uamiClientId })
+      : new DefaultAzureCredential();
+  _client = new SecretClient(KV_URL, credential);
   return _client;
 }
 
@@ -88,10 +105,33 @@ export async function readSecret(name: string): Promise<string> {
  * separately after a successful write so the new value reaches the
  * next pod. The split lets callers batch multiple writes and restart
  * once at the end.
+ *
+ * v2.7.16: retries on 403 (Forbidden) with exponential backoff up to
+ * 60 s total. The very first deploy can race RBAC propagation — the
+ * Container App's system identity is granted Key Vault Secrets Officer
+ * by the Bicep template, but Azure's RBAC plane can take 30-60 seconds
+ * to actually let the identity write. Without this retry, a user who
+ * runs the setup wizard within a minute of `az deployment group create`
+ * hits a 403 and the wizard fails. Other status codes (400 validation,
+ * 404 not found, 500 server) fail fast.
  */
 export async function writeSecret(name: string, value: string): Promise<void> {
   const payload = value.length > 0 ? value : KV_PLACEHOLDER;
-  await client().setSecret(name, payload);
+  const delaysMs = [0, 2_000, 5_000, 10_000, 20_000];
+  let lastErr: unknown = null;
+  for (const wait of delaysMs) {
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    try {
+      await client().setSecret(name, payload);
+      return;
+    } catch (err) {
+      const status = (err as { statusCode?: number }).statusCode;
+      lastErr = err;
+      if (status !== 403) throw err;
+      // 403 → RBAC propagation race. Retry.
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -122,10 +162,20 @@ export async function restartContainerApp(): Promise<void> {
     );
   }
 
-  // 1. Acquire an ARM bearer token.
+  // 1. Acquire an ARM bearer token. v2.7.16: pass the UAMI's clientId
+  // (the same identity that the Container App attaches and that holds
+  // Container Apps Contributor on the resource group). Without this,
+  // IMDS could pick a different default identity or fail because no
+  // system identity is present.
   const tokenUrl = new URL(identityEndpoint);
   tokenUrl.searchParams.set("resource", "https://management.azure.com");
   tokenUrl.searchParams.set("api-version", "2019-08-01");
+  const uamiClientId = (
+    process.env.MIZAN_MANAGED_IDENTITY_CLIENT_ID ?? ""
+  ).trim();
+  if (uamiClientId.length > 0) {
+    tokenUrl.searchParams.set("client_id", uamiClientId);
+  }
   const tokenRes = await fetch(tokenUrl.toString(), {
     headers: { "X-IDENTITY-HEADER": identityHeader },
     cache: "no-store",
