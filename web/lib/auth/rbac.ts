@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { currentUser, type AuthenticatedUser } from "./session";
 import { isDemoMode, type Role } from "@/lib/config/auth-config";
 import { countRealAdmins } from "@/lib/db/users";
+import { getSetupState } from "@/lib/config/setup-config";
 
 const ROLE_RANK: Record<Role, number> = { viewer: 0, analyst: 1, admin: 2 };
 
@@ -11,16 +12,44 @@ export function satisfiesRole(have: Role, need: Role): boolean {
 }
 
 /**
- * Bootstrap escape hatch. Before the first real admin has signed in, leave
- * the dashboard open so the operator can reach /setup + finish the wizard.
- * "Real" here excludes pending-invite rows (entra_oid starts with "pending:")
- * so an admin pre-seeding invites doesn't accidentally slam the door before
- * anyone has actually authenticated.
+ * Bootstrap escape hatch. Leave the dashboard open while the operator is
+ * still inside the first-run wizard so every config-write endpoint accepts
+ * the wizard's PUT calls without requiring a signed-in admin.
  *
- * Closes permanently the moment the first real admin lands in the users table.
+ * v2.7.19: the close condition flipped from "any real admin exists" to
+ * "setup is marked complete". The old condition closed prematurely when
+ * an in-progress device-code attempt during Step 3 created a bootstrap
+ * admin row before the auto-provisioner finished — common when a
+ * customer tenant blocks device-code via Conditional Access. The
+ * operator would then fall back to manual Entra app registration, hit
+ * Step 4's apiRequireRole("admin") gate with no session, get 401
+ * "unauthenticated", and the only documented recovery was `az
+ * containerapp exec` + `sqlite3 DELETE FROM users` — not viable for
+ * customers whose corporate proxy blocks WebSocket exec.
+ *
+ * The new condition keeps the window open through every wizard step
+ * regardless of any user row that might exist, and closes it
+ * atomically with `markSetupCompleted()` on Step 5 Finish. After
+ * close, the user-auth app's first-sign-in path creates the canonical
+ * admin row (or reuses an existing one matching the entra_oid).
+ *
+ * Safety: between deploy and Step 5 Finish the dashboard is reachable
+ * without auth. Acceptable because no real customer data exists during
+ * that window — the only useful surface is `/setup` itself, and the
+ * dashboard URL is private during initial provisioning.
  */
 function inBootstrapWindow(): boolean {
-  return countRealAdmins() === 0;
+  return !getSetupState().completed;
+}
+
+/**
+ * v2.7.19: kept exported for migration paths that may still want to
+ * see if any admin row predates setup-complete (e.g. partial
+ * device-code attempts). Currently used only for diagnostics in
+ * Settings → About.
+ */
+export function hasAnyRealAdmin(): boolean {
+  return countRealAdmins() > 0;
 }
 
 /**
