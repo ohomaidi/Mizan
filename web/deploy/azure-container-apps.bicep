@@ -49,15 +49,62 @@ param vnetAddressPrefix string = '10.60.0.0/16'
 param acaSubnetPrefix string = '10.60.0.0/23'
 param peSubnetPrefix string = '10.60.2.0/28'
 
-var namePrefix = 'mizan'
-var uniq = uniqueString(resourceGroup().id)
-var storageName = '${namePrefix}${uniq}'
-var shareName = 'mizan-data'
+@description('When true, the Container App ingress is internal-only (no public IP, reachable only from the VNet via a peered network, VPN, or ExpressRoute). When false (default), the Container App has a public HTTPS FQDN accessible from the open internet — gate it with Cloudflare Access, Front Door, or an identity-aware proxy.')
+param internalOnly bool = false
 
-// Key Vault names are globally unique, alphanumeric + hyphens, 3-24 chars.
-// Slice the deterministic hash so the name stays inside the limit even
-// when the prefix changes.
-var kvName = take('${namePrefix}-kv-${uniq}', 24)
+@description('Prefix used to derive resource names. Customers with a landing-zone naming convention typically override this (e.g. "dm-mizan", "contoso-prod-mizan"). Per-resource overrides below take precedence over this prefix.')
+param namePrefix string = 'mizan'
+
+@description('Suffix used to derive resource names. Empty → `uniqueString(resourceGroup().id)` (deterministic per RG ID). Override when the landing zone requires a specific suffix; per-resource overrides below take precedence.')
+param nameSuffix string = ''
+
+// ---- Per-resource name overrides ----
+// Each parameter defaults to '' and falls back to the auto-generated name
+// pattern. Set the ones your governance requires explicitly named.
+
+@description('Override the Container App name. Default: <namePrefix>-app-<suffix>.')
+param containerAppName string = ''
+
+@description('Override the Key Vault name (3-24 chars, alphanumeric + hyphens, globally unique). Default: <namePrefix>-kv-<suffix> truncated to 24.')
+param keyVaultName string = ''
+
+@description('Override the ACA managed environment name. Default: <namePrefix>-env-<suffix>.')
+param managedEnvironmentName string = ''
+
+@description('Override the user-assigned managed identity name. Default: <namePrefix>-uami-<suffix>.')
+param userAssignedIdentityName string = ''
+
+@description('Override the storage account name (3-24 chars, lowercase alphanumeric only — no hyphens, no uppercase). Default: <namePrefix><suffix> with hyphens stripped, truncated to 24.')
+param storageAccountName string = ''
+
+@description('Override the Log Analytics workspace name. Default: <namePrefix>-law-<suffix>.')
+param logAnalyticsName string = ''
+
+@description('Override the VNet name. Default: <namePrefix>-vnet-<suffix>.')
+param vnetName string = ''
+
+@description('Override the FileStorage private endpoint name. Default: <namePrefix>-pe-file-<suffix>.')
+param storagePrivateEndpointName string = ''
+
+@description('Override the Key Vault private endpoint name. Default: <namePrefix>-pe-kv-<suffix>.')
+param keyVaultPrivateEndpointName string = ''
+
+var uniq = empty(nameSuffix) ? uniqueString(resourceGroup().id) : nameSuffix
+
+// Resolve the actual resource names — explicit override wins, otherwise
+// the namePrefix + uniq pattern. Storage accounts are special: only
+// lowercase alphanumeric, 3-24 chars, no hyphens. Key Vault has a
+// 24-char limit too.
+var actualLawName = empty(logAnalyticsName) ? '${namePrefix}-law-${uniq}' : logAnalyticsName
+var actualVnetName = empty(vnetName) ? '${namePrefix}-vnet-${uniq}' : vnetName
+var actualStorageName = empty(storageAccountName) ? take(toLower(replace('${namePrefix}${uniq}', '-', '')), 24) : storageAccountName
+var actualKvName = empty(keyVaultName) ? take('${namePrefix}-kv-${uniq}', 24) : keyVaultName
+var actualUamiName = empty(userAssignedIdentityName) ? '${namePrefix}-uami-${uniq}' : userAssignedIdentityName
+var actualEnvName = empty(managedEnvironmentName) ? '${namePrefix}-env-${uniq}' : managedEnvironmentName
+var actualAppName = empty(containerAppName) ? '${namePrefix}-app-${uniq}' : containerAppName
+var actualStoragePeName = empty(storagePrivateEndpointName) ? '${namePrefix}-pe-file-${uniq}' : storagePrivateEndpointName
+var actualKvPeName = empty(keyVaultPrivateEndpointName) ? '${namePrefix}-pe-kv-${uniq}' : keyVaultPrivateEndpointName
+var shareName = 'mizan-data'
 
 // All Mizan secrets live under one vault. Names use the `mizan-` prefix
 // so multi-tenant deployments can share a vault later (not the current
@@ -90,7 +137,7 @@ var containerAppsContributorRoleId = '358470bc-b998-42bd-ab17-a7e34c199c0f'
 
 // -------------------- Log Analytics --------------------
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: '${namePrefix}-law-${uniq}'
+  name: actualLawName
   location: location
   properties: {
     sku: {
@@ -102,7 +149,7 @@ resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 
 // -------------------- VNet + subnets --------------------
 resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
-  name: '${namePrefix}-vnet-${uniq}'
+  name: actualVnetName
   location: location
   properties: {
     addressSpace: {
@@ -142,7 +189,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
 
 // -------------------- Storage: Premium FileStorage with NFS --------------------
 resource storage 'Microsoft.Storage/storageAccounts@2024-01-01' = {
-  name: storageName
+  name: actualStorageName
   location: location
   kind: 'FileStorage'
   sku: {
@@ -208,7 +255,7 @@ resource pdnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06
 }
 
 resource peFile 'Microsoft.Network/privateEndpoints@2024-01-01' = {
-  name: '${namePrefix}-pe-file-${uniq}'
+  name: actualStoragePeName
   location: location
   properties: {
     subnet: {
@@ -275,7 +322,7 @@ resource peFileDns 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024
 //      assignment is correct on the UAMI, both work; if not, both fail
 //      identically.
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${namePrefix}-uami-${uniq}'
+  name: actualUamiName
   location: location
 }
 
@@ -287,7 +334,7 @@ resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
 // policies) so the Container App system identity can be granted Secrets
 // Officer in a single role assignment.
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
-  name: kvName
+  name: actualKvName
   location: location
   properties: {
     tenantId: subscription().tenantId
@@ -326,7 +373,7 @@ resource pdnsKvLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-
 }
 
 resource peKv 'Microsoft.Network/privateEndpoints@2024-01-01' = {
-  name: '${namePrefix}-pe-kv-${uniq}'
+  name: actualKvPeName
   location: location
   properties: {
     subnet: {
@@ -439,7 +486,7 @@ resource kvSecretSync 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 // volume type landed in 2024-08-02-preview and aren't in the 2024-03-01 GA API.
 // Using the same version for env + storages + app so they stay in sync.
 resource acaEnv 'Microsoft.App/managedEnvironments@2024-10-02-preview' = {
-  name: '${namePrefix}-env-${uniq}'
+  name: actualEnvName
   location: location
   properties: {
     appLogsConfiguration: {
@@ -451,7 +498,16 @@ resource acaEnv 'Microsoft.App/managedEnvironments@2024-10-02-preview' = {
     }
     vnetConfiguration: {
       infrastructureSubnetId: '${vnet.id}/subnets/aca'
-      internal: false
+      // v2.7.20: internal-only mode uses an internal load balancer
+      // with a private IP from the ACA subnet. The Container App's
+      // FQDN becomes `<app>.internal.<envid>.<region>.azurecontainerapps.io`
+      // and is only resolvable from inside the VNet (via VPN /
+      // ExpressRoute / peering). When false, ACA provisions an
+      // external load balancer with a public IP and a public FQDN.
+      // This setting is IMMUTABLE on an existing environment — to
+      // flip it, the managed environment must be torn down and
+      // recreated.
+      internal: internalOnly
     }
     workloadProfiles: [
       {
@@ -492,7 +548,7 @@ resource envStorage 'Microsoft.App/managedEnvironments/storages@2024-10-02-previ
 // PATCH; MIZAN_MANAGED_IDENTITY_CLIENT_ID is injected so the runtime
 // can specify the right identity in IMDS token requests.
 resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
-  name: '${namePrefix}-app-${uniq}'
+  name: actualAppName
   location: location
   // v2.7.16: user-assigned managed identity, not system-assigned, so
   // the principalId is stable across Container App lifecycle events
@@ -537,7 +593,11 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
       // (~5s), no overlap, no concurrent writers.
       activeRevisionsMode: 'Single'
       ingress: {
-        external: true
+        // v2.7.20: must agree with the managed environment's
+        // `vnetConfiguration.internal` — Azure rejects mixed states.
+        // Tied via the same `internalOnly` parameter so the two
+        // stay in lockstep.
+        external: !internalOnly
         targetPort: 8787
         transport: 'auto'
         traffic: [
@@ -646,7 +706,7 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
               name: 'MIZAN_AZURE_RESOURCE_ID'
               value: resourceId(
                 'Microsoft.App/containerApps',
-                '${namePrefix}-app-${uniq}'
+                actualAppName
               )
             }
             // v2.7.15: Key Vault is now the system of record for every
@@ -684,7 +744,7 @@ resource app 'Microsoft.App/containerApps@2024-10-02-preview' = {
             // the new value is dereferenced into the next pod.
             {
               name: 'CONTAINER_APP_NAME'
-              value: '${namePrefix}-app-${uniq}'
+              value: actualAppName
             }
             // Graph signals app credentials, sourced from Key Vault via
             // the system identity. lib/config/azure-config.ts reads
