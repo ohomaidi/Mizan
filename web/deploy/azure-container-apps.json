@@ -1,0 +1,940 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.45.15.27210",
+      "templateHash": "6262414800973961678"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Region for all resources. Defaults to the RG region."
+      }
+    },
+    "containerImage": {
+      "type": "string",
+      "defaultValue": "ghcr.io/ohomaidi/mizan",
+      "metadata": {
+        "description": "Container image (registry/repo), no tag."
+      }
+    },
+    "imageTag": {
+      "type": "string",
+      "defaultValue": "latest",
+      "metadata": {
+        "description": "Image tag. Use a semver (e.g. 1.0.2) for production, latest for pilots."
+      }
+    },
+    "appBaseUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Public base URL for the dashboard. Leave empty and the app self-discovers its URL from the incoming request."
+      }
+    },
+    "syncSecret": {
+      "type": "securestring",
+      "defaultValue": ""
+    },
+    "cpuCores": {
+      "type": "string",
+      "defaultValue": "1.0"
+    },
+    "memoryGi": {
+      "type": "string",
+      "defaultValue": "2Gi"
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.0.0/16",
+      "metadata": {
+        "description": "VNet CIDR. /23 minimum for the ACA subnet; /24 here leaves /24 for the PE subnet."
+      }
+    },
+    "acaSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.0.0/23"
+    },
+    "peSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.2.0/28"
+    },
+    "internalOnly": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "When true, the Container App ingress is internal-only (no public IP, reachable only from the VNet via a peered network, VPN, or ExpressRoute). When false (default), the Container App has a public HTTPS FQDN accessible from the open internet — gate it with Cloudflare Access, Front Door, or an identity-aware proxy."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "mizan",
+      "metadata": {
+        "description": "Prefix used to derive resource names. Customers with a landing-zone naming convention typically override this (e.g. \"dm-mizan\", \"contoso-prod-mizan\"). Per-resource overrides below take precedence over this prefix."
+      }
+    },
+    "nameSuffix": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Suffix used to derive resource names. Empty → `uniqueString(resourceGroup().id)` (deterministic per RG ID). Override when the landing zone requires a specific suffix; per-resource overrides below take precedence."
+      }
+    },
+    "containerAppName": {
+      "type": "string",
+      "defaultValue": "",
+      "maxLength": 32,
+      "metadata": {
+        "description": "Override the Container App name (2-32 chars, lowercase alphanumerics + single hyphens, must start with a letter and end alphanumeric — the value is lowercased automatically, and prefixed with \"ca\" if it starts with a non-letter). Default: <namePrefix>-app-<suffix>."
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "",
+      "maxLength": 24,
+      "metadata": {
+        "description": "Override the Key Vault name (3-24 chars, alphanumeric + hyphens, must start with a letter, globally unique — prefixed with \"kv\" automatically if it starts with a non-letter). Default: <namePrefix>-kv-<suffix> truncated to 24."
+      }
+    },
+    "managedEnvironmentName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Override the ACA managed environment name. Default: <namePrefix>-env-<suffix>."
+      }
+    },
+    "userAssignedIdentityName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Override the user-assigned managed identity name. Default: <namePrefix>-uami-<suffix>."
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "",
+      "maxLength": 24,
+      "metadata": {
+        "description": "Override the storage account name (3-24 chars, lowercase alphanumeric only — hyphens are stripped and the value is lowercased automatically). Default: <namePrefix><suffix> with hyphens stripped, truncated to 24."
+      }
+    },
+    "logAnalyticsName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Override the Log Analytics workspace name. Default: <namePrefix>-law-<suffix>."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Override the VNet name. Default: <namePrefix>-vnet-<suffix>."
+      }
+    },
+    "storagePrivateEndpointName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Override the FileStorage private endpoint name. Default: <namePrefix>-pe-file-<suffix>."
+      }
+    },
+    "keyVaultPrivateEndpointName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Override the Key Vault private endpoint name. Default: <namePrefix>-pe-kv-<suffix>."
+      }
+    }
+  },
+  "variables": {
+    "uniq": "[if(empty(parameters('nameSuffix')), uniqueString(resourceGroup().id), parameters('nameSuffix'))]",
+    "actualLawName": "[if(empty(parameters('logAnalyticsName')), format('{0}-law-{1}', parameters('namePrefix'), variables('uniq')), parameters('logAnalyticsName'))]",
+    "actualVnetName": "[if(empty(parameters('vnetName')), format('{0}-vnet-{1}', parameters('namePrefix'), variables('uniq')), parameters('vnetName'))]",
+    "actualStorageName": "[take(toLower(replace(if(empty(parameters('storageAccountName')), format('{0}{1}', parameters('namePrefix'), variables('uniq')), parameters('storageAccountName')), '-', '')), 24)]",
+    "letters": "abcdefghijklmnopqrstuvwxyz",
+    "kvNameCandidate": "[if(empty(parameters('keyVaultName')), take(format('{0}-kv-{1}', parameters('namePrefix'), variables('uniq')), 24), parameters('keyVaultName'))]",
+    "actualKvName": "[if(contains(variables('letters'), toLower(first(variables('kvNameCandidate')))), variables('kvNameCandidate'), take(format('kv{0}', variables('kvNameCandidate')), 24))]",
+    "actualUamiName": "[if(empty(parameters('userAssignedIdentityName')), format('{0}-uami-{1}', parameters('namePrefix'), variables('uniq')), parameters('userAssignedIdentityName'))]",
+    "actualEnvName": "[if(empty(parameters('managedEnvironmentName')), format('{0}-env-{1}', parameters('namePrefix'), variables('uniq')), parameters('managedEnvironmentName'))]",
+    "appNameCandidate": "[toLower(if(empty(parameters('containerAppName')), format('{0}-app-{1}', parameters('namePrefix'), variables('uniq')), parameters('containerAppName')))]",
+    "actualAppName": "[if(contains(variables('letters'), first(variables('appNameCandidate'))), variables('appNameCandidate'), take(format('ca{0}', variables('appNameCandidate')), 32))]",
+    "actualStoragePeName": "[if(empty(parameters('storagePrivateEndpointName')), format('{0}-pe-file-{1}', parameters('namePrefix'), variables('uniq')), parameters('storagePrivateEndpointName'))]",
+    "actualKvPeName": "[if(empty(parameters('keyVaultPrivateEndpointName')), format('{0}-pe-kv-{1}', parameters('namePrefix'), variables('uniq')), parameters('keyVaultPrivateEndpointName'))]",
+    "shareName": "mizan-data",
+    "secretGraphClientSecret": "mizan-graph-client-secret",
+    "secretGraphCertPem": "mizan-graph-cert-pem",
+    "secretGraphCertThumbprint": "mizan-graph-cert-thumbprint",
+    "secretGraphCertChain": "mizan-graph-cert-chain",
+    "secretAuthClientSecret": "mizan-auth-client-secret",
+    "secretAuthCertPem": "mizan-auth-cert-pem",
+    "secretAuthCertThumbprint": "mizan-auth-cert-thumbprint",
+    "secretAuthCertChain": "mizan-auth-cert-chain",
+    "secretSyncSecret": "mizan-sync-secret",
+    "placeholderSecret": "unset",
+    "kvSecretsOfficerRoleId": "b86a8fe4-44ce-4948-aee5-eccb2c155cd7",
+    "containerAppsContributorRoleId": "358470bc-b998-42bd-ab17-a7e34c199c0f"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('actualLawName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-01-01",
+      "name": "[variables('actualVnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "aca",
+            "properties": {
+              "addressPrefix": "[parameters('acaSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "aca-delegation",
+                  "properties": {
+                    "serviceName": "Microsoft.App/environments"
+                  }
+                }
+              ],
+              "serviceEndpoints": [
+                {
+                  "service": "Microsoft.Storage",
+                  "locations": [
+                    "[parameters('location')]"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "pe",
+            "properties": {
+              "addressPrefix": "[parameters('peSubnetPrefix')]",
+              "privateEndpointNetworkPolicies": "Disabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2024-01-01",
+      "name": "[variables('actualStorageName')]",
+      "location": "[parameters('location')]",
+      "kind": "FileStorage",
+      "sku": {
+        "name": "Premium_LRS"
+      },
+      "properties": {
+        "allowSharedKeyAccess": false,
+        "allowBlobPublicAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": false,
+        "publicNetworkAccess": "Disabled",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny"
+        },
+        "largeFileSharesState": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', variables('actualStorageName'), 'default')]",
+      "properties": {
+        "protocolSettings": {
+          "smb": {}
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('actualStorageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}/{2}', variables('actualStorageName'), 'default', variables('shareName'))]",
+      "properties": {
+        "shareQuota": 100,
+        "enabledProtocols": "NFS",
+        "rootSquash": "NoRootSquash"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices', variables('actualStorageName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "privatelink.file.core.windows.net",
+      "location": "global",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', 'privatelink.file.core.windows.net', 'vnet-link')]",
+      "location": "global",
+      "properties": {
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName'))]"
+        },
+        "registrationEnabled": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.file.core.windows.net')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2024-01-01",
+      "name": "[variables('actualStoragePeName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[format('{0}/subnets/pe', resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName')))]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "file-connection",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.Storage/storageAccounts', variables('actualStorageName'))]",
+              "groupIds": [
+                "file"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('actualStorageName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', variables('actualStoragePeName'), 'default')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "privatelink-file-core-windows-net",
+            "properties": {
+              "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.file.core.windows.net')]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.file.core.windows.net')]",
+        "[resourceId('Microsoft.Network/privateEndpoints', variables('actualStoragePeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[variables('actualUamiName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[variables('actualKvName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "tenantId": "[subscription().tenantId]",
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 7,
+        "enablePurgeProtection": true,
+        "publicNetworkAccess": "Disabled",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Deny"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "privatelink.vaultcore.azure.net",
+      "location": "global",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', 'privatelink.vaultcore.azure.net', 'vnet-link')]",
+      "location": "global",
+      "properties": {
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName'))]"
+        },
+        "registrationEnabled": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2024-01-01",
+      "name": "[variables('actualKvPeName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[format('{0}/subnets/pe', resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName')))]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "kv-connection",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]",
+              "groupIds": [
+                "vault"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', variables('actualKvPeName'), 'default')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "privatelink-vaultcore-azure-net",
+            "properties": {
+              "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]",
+        "[resourceId('Microsoft.Network/privateEndpoints', variables('actualKvPeName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretGraphClientSecret'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretGraphCertPem'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretGraphCertThumbprint'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretGraphCertChain'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretAuthClientSecret'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretAuthCertPem'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretAuthCertThumbprint'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretAuthCertChain'))]",
+      "properties": {
+        "value": "[variables('placeholderSecret')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', variables('actualKvName'), variables('secretSyncSecret'))]",
+      "properties": {
+        "value": "[if(empty(parameters('syncSecret')), variables('placeholderSecret'), parameters('syncSecret'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2024-10-02-preview",
+      "name": "[variables('actualEnvName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('actualLawName')), '2023-09-01').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('actualLawName')), '2023-09-01').primarySharedKey]"
+          }
+        },
+        "vnetConfiguration": {
+          "infrastructureSubnetId": "[format('{0}/subnets/aca', resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName')))]",
+          "internal": "[parameters('internalOnly')]"
+        },
+        "workloadProfiles": [
+          {
+            "name": "Consumption",
+            "workloadProfileType": "Consumption"
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('actualLawName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('actualVnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments/storages",
+      "apiVersion": "2024-10-02-preview",
+      "name": "[format('{0}/{1}', variables('actualEnvName'), 'mizandata')]",
+      "properties": {
+        "nfsAzureFile": {
+          "server": "[format('{0}.file.core.windows.net', variables('actualStorageName'))]",
+          "accessMode": "ReadWrite",
+          "shareName": "[format('/{0}/{1}', variables('actualStorageName'), variables('shareName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', variables('actualEnvName'))]",
+        "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', 'privatelink.file.core.windows.net', 'vnet-link')]",
+        "[resourceId('Microsoft.Network/privateEndpoints/privateDnsZoneGroups', variables('actualStoragePeName'), 'default')]",
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('actualStorageName'), 'default', variables('shareName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('actualStorageName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-10-02-preview",
+      "name": "[variables('actualAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName')))]": {}
+        }
+      },
+      "properties": {
+        "environmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('actualEnvName'))]",
+        "workloadProfileName": "Consumption",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "ingress": {
+            "external": "[not(parameters('internalOnly'))]",
+            "targetPort": 8787,
+            "transport": "auto",
+            "traffic": [
+              {
+                "weight": 100,
+                "latestRevision": true
+              }
+            ]
+          },
+          "secrets": [
+            {
+              "name": "azure-client-secret",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretGraphClientSecret'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "azure-client-cert-pem",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretGraphCertPem'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "azure-client-cert-thumbprint",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretGraphCertThumbprint'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "azure-client-cert-chain",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretGraphCertChain'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "auth-client-secret",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretAuthClientSecret'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "auth-client-cert-pem",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretAuthCertPem'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "auth-client-cert-thumbprint",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretAuthCertThumbprint'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "auth-client-cert-chain",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretAuthCertChain'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            },
+            {
+              "name": "sync-secret",
+              "keyVaultUrl": "[format('{0}secrets/{1}', reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri, variables('secretSyncSecret'))]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "dashboard",
+              "image": "[format('{0}:{1}', parameters('containerImage'), parameters('imageTag'))]",
+              "resources": {
+                "cpu": "[json(parameters('cpuCores'))]",
+                "memory": "[parameters('memoryGi')]"
+              },
+              "env": [
+                {
+                  "name": "APP_BASE_URL",
+                  "value": "[parameters('appBaseUrl')]"
+                },
+                {
+                  "name": "DATA_DIR",
+                  "value": "/data"
+                },
+                {
+                  "name": "SCSC_DB_PATH",
+                  "value": "/local-data/scsc.sqlite"
+                },
+                {
+                  "name": "MIZAN_DB_BACKUP_DIR",
+                  "value": "/data"
+                },
+                {
+                  "name": "NODE_ENV",
+                  "value": "production"
+                },
+                {
+                  "name": "MIZAN_AZURE_RESOURCE_ID",
+                  "value": "[resourceId('Microsoft.App/containerApps', variables('actualAppName'))]"
+                },
+                {
+                  "name": "MIZAN_KEY_VAULT_URL",
+                  "value": "[reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri]"
+                },
+                {
+                  "name": "MIZAN_KEY_VAULT_NAME",
+                  "value": "[variables('actualKvName')]"
+                },
+                {
+                  "name": "MIZAN_MANAGED_IDENTITY_CLIENT_ID",
+                  "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName')), '2023-01-31').clientId]"
+                },
+                {
+                  "name": "MIZAN_MANAGED_IDENTITY_RESOURCE_ID",
+                  "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+                },
+                {
+                  "name": "CONTAINER_APP_NAME",
+                  "value": "[variables('actualAppName')]"
+                },
+                {
+                  "name": "AZURE_CLIENT_SECRET",
+                  "secretRef": "azure-client-secret"
+                },
+                {
+                  "name": "AZURE_CLIENT_CERT_PRIVATE_KEY_PEM",
+                  "secretRef": "azure-client-cert-pem"
+                },
+                {
+                  "name": "AZURE_CLIENT_CERT_THUMBPRINT",
+                  "secretRef": "azure-client-cert-thumbprint"
+                },
+                {
+                  "name": "AZURE_CLIENT_CERT_CHAIN_PEM",
+                  "secretRef": "azure-client-cert-chain"
+                },
+                {
+                  "name": "MIZAN_AUTH_CLIENT_SECRET",
+                  "secretRef": "auth-client-secret"
+                },
+                {
+                  "name": "MIZAN_AUTH_CERT_PRIVATE_KEY_PEM",
+                  "secretRef": "auth-client-cert-pem"
+                },
+                {
+                  "name": "MIZAN_AUTH_CERT_THUMBPRINT",
+                  "secretRef": "auth-client-cert-thumbprint"
+                },
+                {
+                  "name": "MIZAN_AUTH_CERT_CHAIN_PEM",
+                  "secretRef": "auth-client-cert-chain"
+                },
+                {
+                  "name": "SCSC_SYNC_SECRET",
+                  "secretRef": "sync-secret"
+                }
+              ],
+              "volumeMounts": [
+                {
+                  "volumeName": "data",
+                  "mountPath": "/data"
+                },
+                {
+                  "volumeName": "local-data",
+                  "mountPath": "/local-data"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/api/auth/me",
+                    "port": 8787
+                  },
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 30,
+                  "timeoutSeconds": 5,
+                  "failureThreshold": 5
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 1
+          },
+          "volumes": [
+            {
+              "name": "data",
+              "storageType": "NfsAzureFile",
+              "storageName": "mizandata"
+            },
+            {
+              "name": "local-data",
+              "storageType": "EmptyDir"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', variables('actualEnvName'))]",
+        "[resourceId('Microsoft.App/managedEnvironments/storages', variables('actualEnvName'), 'mizandata')]",
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretAuthCertChain'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretAuthCertPem'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretAuthCertThumbprint'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretAuthClientSecret'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretGraphCertChain'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretGraphCertPem'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretGraphCertThumbprint'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretGraphClientSecret'))]",
+        "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('actualKvName'), variables('secretSyncSecret'))]",
+        "[resourceId('Microsoft.Resources/deployments', 'mizan-role-assignments')]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "mizan-role-assignments",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName')), '2023-01-31').principalId]"
+          },
+          "keyVaultName": {
+            "value": "[variables('actualKvName')]"
+          },
+          "containerAppsContributorRoleId": {
+            "value": "[variables('containerAppsContributorRoleId')]"
+          },
+          "kvSecretsOfficerRoleId": {
+            "value": "[variables('kvSecretsOfficerRoleId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.45.15.27210",
+              "templateHash": "6432407223971507091"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "principalId of the Mizan user-assigned managed identity."
+              }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Key Vault that scopes the Secrets Officer assignment."
+              }
+            },
+            "containerAppsContributorRoleId": {
+              "type": "string",
+              "metadata": {
+                "description": "Built-in role definition GUID for Container Apps Contributor."
+              }
+            },
+            "kvSecretsOfficerRoleId": {
+              "type": "string",
+              "metadata": {
+                "description": "Built-in role definition GUID for Key Vault Secrets Officer."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, parameters('principalId'), 'container-apps-contributor')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('containerAppsContributorRoleId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('principalId'), 'kv-secrets-officer')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('kvSecretsOfficerRoleId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('actualKvName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "dashboardUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', variables('actualAppName')), '2024-10-02-preview').configuration.ingress.fqdn)]"
+    },
+    "resourceGroup": {
+      "type": "string",
+      "value": "[resourceGroup().name]"
+    },
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName')), '2023-01-31').principalId]"
+    },
+    "managedIdentityClientId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('actualUamiName')), '2023-01-31').clientId]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('actualKvName')]"
+    },
+    "keyVaultUri": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.KeyVault/vaults', variables('actualKvName')), '2023-07-01').vaultUri]"
+    }
+  }
+}
